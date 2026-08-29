@@ -106,9 +106,9 @@ class OSS_Message
     /**
      * The constructor
      *
-     * @param string $request The message
-     * @param string $response The HTML div class
-     * @param bool $invokeArgs Is the message HTML? (default: true)
+     * @param string $message The message
+     * @param string $class The HTML div class
+     * @param bool $isHTML Is the message HTML? (default: true)
      * @return void
      */
     public function __construct( $message = '', $class = '', $isHTML = true )
@@ -187,5 +187,4 @@ class OSS_Message
         $this->class = $class;
     }
 }
-
 

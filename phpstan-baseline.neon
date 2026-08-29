@@ -7,12 +7,6 @@ parameters:
 			path: application/Entities/DirectoryEntry.php
 
 		-
-			message: '#^PHPDoc tag @var for property Entities\\LastLogin\:\:\$username with type string is incompatible with native type int\|null\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: application/Entities/LastLogin.php
-
-		-
 			message: '#^Method Entities\\Quota\:\:getUsername\(\) should return string but returns int\|null\.$#'
 			identifier: return.type
 			count: 1
@@ -55,12 +49,6 @@ parameters:
 			path: application/Repositories/Mailbox.php
 
 		-
-			message: '#^PHPDoc tag @param has invalid value \(/Entities/Alias \$alias Alias to remove\.\)\: Unexpected token "/Entities/Alias", expected type at offset 192 on line 7$#'
-			identifier: phpDoc.parseError
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
 			message: '#^Parameter \$user of method Repositories\\RememberMe\:\:deleteForUser\(\) has invalid type Entities\\User\.$#'
 			identifier: class.notFound
 			count: 1
@@ -69,12 +57,6 @@ parameters:
 		-
 			message: '#^Call to an undefined method Doctrine\\ORM\\EntityRepository\<Entities\\Alias\>\:\:filterForAliasList\(\)\.$#'
 			identifier: method.notFound
-			count: 1
-			path: application/plugins/MailboxAutomaticAliases.php
-
-		-
-			message: '#^PHPDoc tag @var for property ViMbAdminPlugin_MailboxAutomaticAliases\:\:\$defaultAliases contains unresolvable type\.$#'
-			identifier: property.unresolvableType
 			count: 1
 			path: application/plugins/MailboxAutomaticAliases.php
 
@@ -95,24 +77,6 @@ parameters:
 			identifier: return.type
 			count: 1
 			path: library/OSS/Filter/FileSize.php
-
-		-
-			message: '#^PHPDoc tag @param references unknown parameter\: \$invokeArgs$#'
-			identifier: parameter.notFound
-			count: 1
-			path: library/OSS/Message.php
-
-		-
-			message: '#^PHPDoc tag @param references unknown parameter\: \$request$#'
-			identifier: parameter.notFound
-			count: 1
-			path: library/OSS/Message.php
-
-		-
-			message: '#^PHPDoc tag @param references unknown parameter\: \$response$#'
-			identifier: parameter.notFound
-			count: 1
-			path: library/OSS/Message.php
 
 		-
 			message: '#^Call to method getTemplateVars\(\) on an unknown class Smarty\.$#'
@@ -143,78 +107,6 @@ parameters:
 			identifier: class.notFound
 			count: 1
 			path: library/OSS/Smarty/functions/function.genUrl.php
-
-		-
-			message: '#^PHPDoc tag @param references unknown parameter\: \$timestamp$#'
-			identifier: parameter.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/function.tmplinclude.php
-
-		-
-			message: '#^Default value of the parameter \#2 \$esc_type \(string\) of function smarty_modifier_escape\(\) is incompatible with type hex\|hexentity\|html\|htmlall\|javascript\|quotes\|url\.$#'
-			identifier: parameter.defaultValue
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type hex\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type hexentity\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type html\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type htmlall\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type javascript\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type quotes\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type url\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^PHPDoc tag @param has invalid value \(string\)\: Unexpected token "\\n \* ", expected variable at offset 402 on line 15$#'
-			identifier: phpDoc.parseError
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.string_format.php
-
-		-
-			message: '#^PHPDoc tag @param has invalid value \(string\)\: Unexpected token "\\n \* ", expected variable at offset 419 on line 16$#'
-			identifier: phpDoc.parseError
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.string_format.php
-
-		-
-			message: '#^Function smarty_modifier_strpos\(\) should return string but returns int\<0, max\>\|false\.$#'
-			identifier: return.type
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.strpos.php
 
 		-
 			message: '#^Method OSS_Utils\:\:getResource\(\) should return object but returns null\.$#'

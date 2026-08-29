@@ -53,10 +53,9 @@
  * @subpackage Modifier
  *
  * @param string $string Strint to modify
- * @return string
+ * @return int|false
  */
 function smarty_modifier_strpos($string,$haystack,$offset=0)
 {
     return strpos( $string, $haystack,$offset );
 }
-

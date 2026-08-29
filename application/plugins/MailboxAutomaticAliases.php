@@ -66,7 +66,7 @@
 class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implements OSS_Plugin_Observer
 {
 
-    /** @var string<int, string> */
+    /** @var array<int, string> */
     private $defaultAliases;
 
     /** @var array<string, string> */

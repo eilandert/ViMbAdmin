@@ -306,7 +306,7 @@ class Mailbox extends EntityRepository
      * Removes alias and its preferences also decrease domains alias count
      * if alias goto field is not equal to alias address field.
      *
-     * @param /Entities/Alias $alias Alias to remove.
+     * @param \Entities\Alias $alias Alias to remove.
      * @return bool
      */
     private function _removeAlias( $alias )

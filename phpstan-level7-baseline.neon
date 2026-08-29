@@ -415,12 +415,6 @@ parameters:
 			path: application/Entities/LastLogin.php
 
 		-
-			message: '#^PHPDoc tag @var for property Entities\\LastLogin\:\:\$username with type string is incompatible with native type int\|null\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: application/Entities/LastLogin.php
-
-		-
 			message: '#^Property Entities\\Log\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
 			identifier: property.unusedType
 			count: 1
@@ -1303,12 +1297,6 @@ parameters:
 			path: application/Repositories/Mailbox.php
 
 		-
-			message: '#^Method Repositories\\Mailbox\:\:_removeAlias\(\) has parameter \$alias with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
 			message: '#^Method Repositories\\Mailbox\:\:loadForAdmin\(\) has invalid return type Entities\\Mailboxes\.$#'
 			identifier: class.notFound
 			count: 1
@@ -1329,12 +1317,6 @@ parameters:
 		-
 			message: '#^Method Repositories\\Mailbox\:\:pagedForMailboxList\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^PHPDoc tag @param has invalid value \(/Entities/Alias \$alias Alias to remove\.\)\: Unexpected token "/Entities/Alias", expected type at offset 192 on line 7$#'
-			identifier: phpDoc.parseError
 			count: 1
 			path: application/Repositories/Mailbox.php
 
@@ -1975,20 +1957,8 @@ parameters:
 			path: application/plugins/MailboxAutomaticAliases.php
 
 		-
-			message: '#^PHPDoc tag @var for property ViMbAdminPlugin_MailboxAutomaticAliases\:\:\$defaultAliases contains unresolvable type\.$#'
-			identifier: property.unresolvableType
-			count: 1
-			path: application/plugins/MailboxAutomaticAliases.php
-
-		-
 			message: '#^Parameter \#1 \$active of method Entities\\Alias\:\:setActive\(\) expects bool, int given\.$#'
 			identifier: argument.type
-			count: 1
-			path: application/plugins/MailboxAutomaticAliases.php
-
-		-
-			message: '#^Property ViMbAdminPlugin_MailboxAutomaticAliases\:\:\$defaultAliases has no type specified\.$#'
-			identifier: missingType.property
 			count: 1
 			path: application/plugins/MailboxAutomaticAliases.php
 
@@ -2233,44 +2203,8 @@ parameters:
 			path: library/OSS/Filter/FileSize.php
 
 		-
-			message: '#^Method OSS_Message\:\:__construct\(\) has parameter \$class with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Message.php
-
-		-
-			message: '#^Method OSS_Message\:\:__construct\(\) has parameter \$isHTML with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Message.php
-
-		-
-			message: '#^Method OSS_Message\:\:__construct\(\) has parameter \$message with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Message.php
-
-		-
 			message: '#^Method OSS_Message\:\:setClass\(\) has no return type specified\.$#'
 			identifier: missingType.return
-			count: 1
-			path: library/OSS/Message.php
-
-		-
-			message: '#^PHPDoc tag @param references unknown parameter\: \$invokeArgs$#'
-			identifier: parameter.notFound
-			count: 1
-			path: library/OSS/Message.php
-
-		-
-			message: '#^PHPDoc tag @param references unknown parameter\: \$request$#'
-			identifier: parameter.notFound
-			count: 1
-			path: library/OSS/Message.php
-
-		-
-			message: '#^PHPDoc tag @param references unknown parameter\: \$response$#'
-			identifier: parameter.notFound
 			count: 1
 			path: library/OSS/Message.php
 
@@ -2461,64 +2395,10 @@ parameters:
 			path: library/OSS/Smarty/functions/function.tmplinclude.php
 
 		-
-			message: '#^PHPDoc tag @param references unknown parameter\: \$timestamp$#'
-			identifier: parameter.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/function.tmplinclude.php
-
-		-
 			message: '#^Parameter \#3 \$length of function substr expects int\|null, int\<0, max\>\|false given\.$#'
 			identifier: argument.type
 			count: 3
 			path: library/OSS/Smarty/functions/function.tmplinclude.php
-
-		-
-			message: '#^Default value of the parameter \#2 \$esc_type \(string\) of function smarty_modifier_escape\(\) is incompatible with type hex\|hexentity\|html\|htmlall\|javascript\|quotes\|url\.$#'
-			identifier: parameter.defaultValue
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type hex\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type hexentity\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type html\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type htmlall\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type javascript\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type quotes\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
-
-		-
-			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type url\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.escape.php
 
 		-
 			message: '#^Parameter \#1 \$code of static method OSS_Date\:\:getPhpFormat\(\) expects int, int\<min, \-1\>\|int\<1, max\>\|string given\.$#'
@@ -2557,30 +2437,6 @@ parameters:
 			path: library/OSS/Smarty/functions/modifier.regex_replace.php
 
 		-
-			message: '#^Function smarty_modifier_string_format\(\) has parameter \$format with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.string_format.php
-
-		-
-			message: '#^Function smarty_modifier_string_format\(\) has parameter \$string with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.string_format.php
-
-		-
-			message: '#^PHPDoc tag @param has invalid value \(string\)\: Unexpected token "\\n \* ", expected variable at offset 402 on line 15$#'
-			identifier: phpDoc.parseError
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.string_format.php
-
-		-
-			message: '#^PHPDoc tag @param has invalid value \(string\)\: Unexpected token "\\n \* ", expected variable at offset 419 on line 16$#'
-			identifier: phpDoc.parseError
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.string_format.php
-
-		-
 			message: '#^Function smarty_modifier_strpos\(\) has parameter \$haystack with no type specified\.$#'
 			identifier: missingType.parameter
 			count: 1
@@ -2589,12 +2445,6 @@ parameters:
 		-
 			message: '#^Function smarty_modifier_strpos\(\) has parameter \$offset with no type specified\.$#'
 			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.strpos.php
-
-		-
-			message: '#^Function smarty_modifier_strpos\(\) should return string but returns int\<0, max\>\|false\.$#'
-			identifier: return.type
 			count: 1
 			path: library/OSS/Smarty/functions/modifier.strpos.php
 

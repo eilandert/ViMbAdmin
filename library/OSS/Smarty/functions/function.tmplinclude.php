@@ -53,7 +53,6 @@
  * @package    OSS_Smarty
  * @subpackage Functions
  *
- * @param int $timestamp
  * @return string
  */
 function smarty_function_tmplinclude( $params, $smarty )
