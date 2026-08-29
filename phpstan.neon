@@ -1,18 +1,8 @@
+includes:
+    - phpstan-common.neon
+    - phpstan-baseline.neon
+
 parameters:
-    level: 1
-    paths:
-        - application
-        - library
-        - public
-        - src
-    excludePaths:
-        # Generated Doctrine proxies (built at image time, gitignored). They
-        # mirror the entities; analysing them only re-reports entity findings.
-        - application/Proxies/__CG__*.php
-    bootstrapFiles:
-        - vendor/autoload.php
-    # Level 1 is clean and enforced (CI fails on regressions). ZF1 is gone, so
-    # the old "ignore Zend autoloader noise" rationale no longer applies; raise
-    # the level incrementally (level 2 currently surfaces ~178 findings).
-    reportUnmatchedIgnoredErrors: false
-    treatPhpDocTypesAsCertain: false
+    # Repository-wide floor. Existing debt is recorded in the baseline; new
+    # level-3 errors are blocking.
+    level: 3

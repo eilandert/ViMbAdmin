@@ -1,6 +1,7 @@
+---
 name: Static analysis
 
-on:
+on:  # yamllint disable-line rule:truthy
   push:
     branches: [master]
   pull_request:
@@ -18,19 +19,25 @@ jobs:
   phpstan:
     name: PHPStan
     runs-on: [self-hosted, builder02, lxc]
-    # PHPStan level 1 is clean and now BLOCKING — a regression fails the build.
-    # (ZF1 is gone, so the old "advisory until a baseline lands" exemption no
-    # longer applies. Raise the level incrementally in follow-up PRs.)
+    # Level 3 is the repository floor, level 7 blocks new errors throughout the
+    # project, and newly added PHP files must pass level 10 without a baseline.
     steps:
-      - uses: actions/checkout@v7
+      # actions/checkout v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        # shivammathur/setup-php v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
         with:
           php-version: '8.4'
           coverage: none
-          extensions: ctype, dom, gd, gettext, iconv, intl, json, mbstring, pdo, pdo_mysql, sodium
-          tools: composer:v2, phpstan
+          extensions: >-
+            ctype, dom, gd, gettext, iconv, intl, json, mbstring, pdo,
+            pdo_mysql, sodium
+          tools: composer:v2, phpstan:2.2.5
 
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
@@ -40,5 +47,10 @@ jobs:
       - name: Generate Doctrine proxies
         run: php bin/generate-proxies.php
 
+      - name: Test PHPStan ratchet
+        run: bash tests/test-phpstan-ratchet.sh
+
       - name: Run PHPStan
-        run: phpstan analyse --no-progress --error-format=github
+        env:
+          PHPSTAN_EVENT_BEFORE: ${{ github.event.before }}
+        run: bash tests/lint-phpstan-ratchet.sh

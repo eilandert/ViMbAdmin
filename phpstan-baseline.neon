@@ -1,0 +1,1351 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Call to method removeElement\(\) on an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 3
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Call to method setExpire\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Call to method setIx\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Call to method setOp\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Call to method setValue\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Iterating over an object of an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 3
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:addIndexedPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:addIndexedPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Admin\)\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getAdmin\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getAdmin\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getDomains\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getDomains\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getLogs\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getLogs\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getPreferences\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getPreferences\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:loadPreference\(\) has invalid return type WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:loadPreference\(\) should return WithPreference but returns false\.$#'
+			identifier: return.type
+			count: 2
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:setPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:setPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Admin\)\.$#'
+			identifier: return.type
+			count: 2
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$admin with type Entities\\Entities\\AdminPreference is not subtype of native type Entities\\AdminPreference\.$#'
+			identifier: parameter.phpDocType
+			count: 2
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$domains with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\.$#'
+			identifier: parameter.phpDocType
+			count: 2
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$logs with type Entities\\Entities\\Log is not subtype of native type Entities\\Log\.$#'
+			identifier: parameter.phpDocType
+			count: 2
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$preferences with type Entities\\Entities\\AdminPreference is not subtype of native type Entities\\AdminPreference\.$#'
+			identifier: parameter.phpDocType
+			count: 3
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$op$#'
+			identifier: parameter.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Parameter \$admin of method Entities\\Admin\:\:addAdmin\(\) has invalid type Entities\\Entities\\AdminPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Parameter \$admin of method Entities\\Admin\:\:removeAdmin\(\) has invalid type Entities\\Entities\\AdminPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Parameter \$domains of method Entities\\Admin\:\:addDomain\(\) has invalid type Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Parameter \$domains of method Entities\\Admin\:\:removeDomain\(\) has invalid type Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Parameter \$logs of method Entities\\Admin\:\:addLog\(\) has invalid type Entities\\Entities\\Log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Parameter \$logs of method Entities\\Admin\:\:removeLog\(\) has invalid type Entities\\Entities\\Log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Parameter \$preferences of method Entities\\Admin\:\:addAdminPreference\(\) has invalid type Entities\\Entities\\AdminPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Parameter \$preferences of method Entities\\Admin\:\:addPreference\(\) has invalid type Entities\\Entities\\AdminPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Parameter \$preferences of method Entities\\Admin\:\:removePreference\(\) has invalid type Entities\\Entities\\AdminPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\AdminPreference\:\:getAdmin\(\) has invalid return type Entities\\Entities\\Admin\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Method Entities\\AdminPreference\:\:getAdmin\(\) should return Entities\\Entities\\Admin but returns Entities\\Admin\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Method Entities\\AdminPreference\:\:getPreferences\(\) has invalid return type Entities\\Entities\\Admin\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$admin with type Entities\\Entities\\Admin is not subtype of native type Entities\\Admin\|null\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$preferences with type Entities\\Entities\\Admin is not subtype of native type Entities\\Admin\|null\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^PHPDoc tag @var for property Entities\\AdminPreference\:\:\$Admin with type Entities\\Entities\\Admin is not subtype of native type Entities\\Admin\|null\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Parameter \$admin of method Entities\\AdminPreference\:\:setAdmin\(\) has invalid type Entities\\Entities\\Admin\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Parameter \$preferences of method Entities\\AdminPreference\:\:setPreferences\(\) has invalid type Entities\\Entities\\Admin\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Property Entities\\AdminPreference\:\:\$Admin has unknown class Entities\\Entities\\Admin as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Property Entities\\AdminPreference\:\:\$Preferences \(Entities\\Entities\\Admin\) does not accept Entities\\Admin\|null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Property Entities\\AdminPreference\:\:\$Preferences has unknown class Entities\\Entities\\Admin as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Call to method setExpire\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Call to method setIx\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Call to method setOp\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Call to method setValue\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:addIndexedPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:addIndexedPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Alias\)\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:getDomain\(\) has invalid return type Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:getDomain\(\) should return Entities\\Entities\\Domain but returns Entities\\Domain\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:loadPreference\(\) has invalid return type WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:loadPreference\(\) should return WithPreference but returns false\.$#'
+			identifier: return.type
+			count: 2
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:setPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:setPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Alias\)\.$#'
+			identifier: return.type
+			count: 2
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$domain with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\|null\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$op$#'
+			identifier: parameter.notFound
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^PHPDoc tag @var for property Entities\\Alias\:\:\$Domain with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\|null\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Parameter \$domain of method Entities\\Alias\:\:setDomain\(\) has invalid type Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Property Entities\\Alias\:\:\$Domain has unknown class Entities\\Entities\\Domain as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Property Entities\\DirectoryEntry\:\:\$jpegPhoto \(stdClass\) does not accept default value of type null\.$#'
+			identifier: property.defaultValue
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Call to method setExpire\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Call to method setIx\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Call to method setOp\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Call to method setValue\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:addIndexedPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:addIndexedPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Domain\)\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getAdmins\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getAdmins\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getAliasCount\(\) has invalid return type Entities\\bigint\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getAliasCount\(\) should return Entities\\bigint but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getAliases\(\) should return int but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getLogs\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getLogs\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getMailboxCount\(\) has invalid return type Entities\\bigint\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getMailboxCount\(\) should return Entities\\bigint but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getMailboxes\(\) should return int but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:loadPreference\(\) has invalid return type WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:loadPreference\(\) should return WithPreference but returns false\.$#'
+			identifier: return.type
+			count: 2
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:setPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:setPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Domain\)\.$#'
+			identifier: return.type
+			count: 2
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$admins with type Entities\\Entities\\Admin is not subtype of native type Entities\\Admin\.$#'
+			identifier: parameter.phpDocType
+			count: 2
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$aliases with type Entities\\Entities\\Alias is not subtype of native type Entities\\Alias\.$#'
+			identifier: parameter.phpDocType
+			count: 2
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$logs with type Entities\\Entities\\Log is not subtype of native type Entities\\Log\.$#'
+			identifier: parameter.phpDocType
+			count: 2
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$mailboxes with type Entities\\Entities\\Mailbox is not subtype of native type Entities\\Mailbox\.$#'
+			identifier: parameter.phpDocType
+			count: 2
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$op$#'
+			identifier: parameter.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^PHPDoc tag @var for property Entities\\Domain\:\:\$alias_count with type Entities\\bigint is incompatible with native type int\|null\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^PHPDoc tag @var for property Entities\\Domain\:\:\$mailbox_count with type Entities\\bigint is incompatible with native type int\|null\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Parameter \$admins of method Entities\\Domain\:\:addAdmin\(\) has invalid type Entities\\Entities\\Admin\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Parameter \$admins of method Entities\\Domain\:\:removeAdmin\(\) has invalid type Entities\\Entities\\Admin\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Parameter \$aliasCount of method Entities\\Domain\:\:setAliasCount\(\) has invalid type Entities\\bigint\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Parameter \$aliases of method Entities\\Domain\:\:addAlias\(\) has invalid type Entities\\Entities\\Alias\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Parameter \$aliases of method Entities\\Domain\:\:removeAlias\(\) has invalid type Entities\\Entities\\Alias\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Parameter \$logs of method Entities\\Domain\:\:addLog\(\) has invalid type Entities\\Entities\\Log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Parameter \$logs of method Entities\\Domain\:\:removeLog\(\) has invalid type Entities\\Entities\\Log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Parameter \$mailboxCount of method Entities\\Domain\:\:setMailboxCount\(\) has invalid type Entities\\bigint\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Parameter \$mailboxes of method Entities\\Domain\:\:addMailbox\(\) has invalid type Entities\\Entities\\Mailbox\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Parameter \$mailboxes of method Entities\\Domain\:\:removeMailbox\(\) has invalid type Entities\\Entities\\Mailbox\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Property Entities\\Domain\:\:\$alias_count \(int\|null\) does not accept Entities\\bigint\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Property Entities\\Domain\:\:\$alias_count has unknown class Entities\\bigint as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Property Entities\\Domain\:\:\$mailbox_count \(int\|null\) does not accept Entities\\bigint\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Property Entities\\Domain\:\:\$mailbox_count has unknown class Entities\\bigint as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^PHPDoc tag @var for property Entities\\LastLogin\:\:\$username with type string is incompatible with native type int\|null\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: application/Entities/LastLogin.php
+
+		-
+			message: '#^Method Entities\\Log\:\:getAdmin\(\) has invalid return type Entities\\Entities\\Admin\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^Method Entities\\Log\:\:getAdmin\(\) should return Entities\\Entities\\Admin but returns Entities\\Admin\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^Method Entities\\Log\:\:getDomain\(\) has invalid return type Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^Method Entities\\Log\:\:getDomain\(\) should return Entities\\Entities\\Domain but returns Entities\\Domain\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$admin with type Entities\\Entities\\Admin is not subtype of native type Entities\\Admin\|null\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$domain with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\|null\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^PHPDoc tag @var for property Entities\\Log\:\:\$Admin with type Entities\\Entities\\Admin is not subtype of native type Entities\\Admin\|null\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^PHPDoc tag @var for property Entities\\Log\:\:\$Domain with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\|null\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^Parameter \$admin of method Entities\\Log\:\:setAdmin\(\) has invalid type Entities\\Entities\\Admin\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^Parameter \$domain of method Entities\\Log\:\:setDomain\(\) has invalid type Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^Property Entities\\Log\:\:\$Admin has unknown class Entities\\Entities\\Admin as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^Property Entities\\Log\:\:\$Domain has unknown class Entities\\Entities\\Domain as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^Call to method removeElement\(\) on an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 3
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Call to method setExpire\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Call to method setIx\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Call to method setOp\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Call to method setValue\(\) on an unknown class WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Iterating over an object of an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 2
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:addIndexedPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:addIndexedPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Mailbox\)\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getDomain\(\) has invalid return type Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getDomain\(\) should return Entities\\Entities\\Domain but returns Entities\\Domain\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getPreferences\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getPreferences\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:loadPreference\(\) has invalid return type WithPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:loadPreference\(\) should return WithPreference but returns false\.$#'
+			identifier: return.type
+			count: 2
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:setPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:setPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Mailbox\)\.$#'
+			identifier: return.type
+			count: 2
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$domain with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\|null\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$preferences with type Entities\\Entities\\MailboxPreference is not subtype of native type Entities\\MailboxPreference\.$#'
+			identifier: parameter.phpDocType
+			count: 3
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$op$#'
+			identifier: parameter.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^PHPDoc tag @var for property Entities\\Mailbox\:\:\$Domain with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\|null\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Parameter \$domain of method Entities\\Mailbox\:\:setDomain\(\) has invalid type Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Parameter \$preferences of method Entities\\Mailbox\:\:addMailboxPreference\(\) has invalid type Entities\\Entities\\MailboxPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Parameter \$preferences of method Entities\\Mailbox\:\:addPreference\(\) has invalid type Entities\\Entities\\MailboxPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Parameter \$preferences of method Entities\\Mailbox\:\:removePreference\(\) has invalid type Entities\\Entities\\MailboxPreference\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Property Entities\\Mailbox\:\:\$Domain has unknown class Entities\\Entities\\Domain as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\MailboxPreference\:\:getMailbox\(\) has invalid return type Entities\\Entities\\Mailbox\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/MailboxPreference.php
+
+		-
+			message: '#^Method Entities\\MailboxPreference\:\:getMailbox\(\) should return Entities\\Entities\\Mailbox but returns Entities\\Mailbox\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/MailboxPreference.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$mailbox with type Entities\\Entities\\Mailbox is not subtype of native type Entities\\Mailbox\|null\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: application/Entities/MailboxPreference.php
+
+		-
+			message: '#^PHPDoc tag @var for property Entities\\MailboxPreference\:\:\$Mailbox with type Entities\\Entities\\Mailbox is not subtype of native type Entities\\Mailbox\|null\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: application/Entities/MailboxPreference.php
+
+		-
+			message: '#^Parameter \$mailbox of method Entities\\MailboxPreference\:\:setMailbox\(\) has invalid type Entities\\Entities\\Mailbox\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/MailboxPreference.php
+
+		-
+			message: '#^Property Entities\\MailboxPreference\:\:\$Mailbox has unknown class Entities\\Entities\\Mailbox as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Entities/MailboxPreference.php
+
+		-
+			message: '#^Method Entities\\Quota\:\:getUsername\(\) should return string but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Quota.php
+
+		-
+			message: '#^PHPDoc tag @var for property Entities\\Quota\:\:\$username with type string is incompatible with native type int\|null\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: application/Entities/Quota.php
+
+		-
+			message: '#^Property Entities\\Quota\:\:\$username \(int\|null\) does not accept string\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: application/Entities/Quota.php
+
+		-
+			message: '#^Iterating over an object of an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Repositories/Admin.php
+
+		-
+			message: '#^Call to an undefined method Entities\\Domain\:\:getAliasesCount\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Iterating over an object of an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\ORM\\EntityRepository\<Entities\\Alias\>\:\:loadForMailbox\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\ORM\\EntityRepository\<Entities\\Alias\>\:\:loadWithMailbox\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Call to method decreaseMailboxCount\(\) on an unknown class Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Call to method getAdmins\(\) on an unknown class Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Iterating over an object of an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Method Repositories\\Mailbox\:\:loadForAdmin\(\) has invalid return type Entities\\Mailboxes\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^PHPDoc tag @param has invalid value \(/Entities/Alias \$alias Alias to remove\.\)\: Unexpected token "/Entities/Alias", expected type at offset 192 on line 7$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Parameter \$user of method Repositories\\RememberMe\:\:deleteForUser\(\) has invalid type Entities\\User\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/Repositories/RememberMe.php
+
+		-
+			message: '#^Call to method getMailboxCount\(\) on an unknown class Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Call to method setMailboxCount\(\) on an unknown class Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\ORM\\EntityRepository\<Entities\\Alias\>\:\:filterForAliasList\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: application/plugins/MailboxAutomaticAliases.php
+
+		-
+			message: '#^PHPDoc tag @var for property ViMbAdminPlugin_MailboxAutomaticAliases\:\:\$defaultAliases contains unresolvable type\.$#'
+			identifier: property.unresolvableType
+			count: 1
+			path: application/plugins/MailboxAutomaticAliases.php
+
+		-
+			message: '#^Constant SCRIPTDIR not found\.$#'
+			identifier: constant.notFound
+			count: 2
+			path: bin/minify-options.php
+
+		-
+			message: '#^Method OSS_Filter_FileSize\:\:filter\(\) should return bool\|int but returns string\.$#'
+			identifier: return.type
+			count: 2
+			path: library/OSS/Filter/FileSize.php
+
+		-
+			message: '#^Method OSS_Filter_FileSize\:\:unfilter\(\) should return string but returns int\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Filter/FileSize.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$invokeArgs$#'
+			identifier: parameter.notFound
+			count: 1
+			path: library/OSS/Message.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$request$#'
+			identifier: parameter.notFound
+			count: 1
+			path: library/OSS/Message.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$response$#'
+			identifier: parameter.notFound
+			count: 1
+			path: library/OSS/Message.php
+
+		-
+			message: '#^Call to method getTemplateVars\(\) on an unknown class Smarty\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Parameter \$smarty of function smarty_function_OSS_Message\(\) has invalid type Smarty\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Parameter \$smarty of function smarty_function_currency\(\) has invalid type Smarty\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/function.currency.php
+
+		-
+			message: '#^Parameter \$smarty of function smarty_function_customdate\(\) has invalid type Smarty\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/function.customdate.php
+
+		-
+			message: '#^Parameter \$smarty of function smarty_function_genUrl\(\) has invalid type Smarty\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/function.genUrl.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$timestamp$#'
+			identifier: parameter.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/function.tmplinclude.php
+
+		-
+			message: '#^Default value of the parameter \#2 \$esc_type \(string\) of function smarty_modifier_escape\(\) is incompatible with type hex\|hexentity\|html\|htmlall\|javascript\|quotes\|url\.$#'
+			identifier: parameter.defaultValue
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.escape.php
+
+		-
+			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type hex\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.escape.php
+
+		-
+			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type hexentity\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.escape.php
+
+		-
+			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type html\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.escape.php
+
+		-
+			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type htmlall\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.escape.php
+
+		-
+			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type javascript\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.escape.php
+
+		-
+			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type quotes\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.escape.php
+
+		-
+			message: '#^Parameter \$esc_type of function smarty_modifier_escape\(\) has invalid type url\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.escape.php
+
+		-
+			message: '#^PHPDoc tag @param has invalid value \(string\)\: Unexpected token "\\n \* ", expected variable at offset 402 on line 15$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.string_format.php
+
+		-
+			message: '#^PHPDoc tag @param has invalid value \(string\)\: Unexpected token "\\n \* ", expected variable at offset 419 on line 16$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.string_format.php
+
+		-
+			message: '#^Function smarty_modifier_strpos\(\) should return string but returns int\<0, max\>\|false\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.strpos.php
+
+		-
+			message: '#^Method OSS_Utils\:\:getResource\(\) should return object but returns null\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Utils.php
+
+		-
+			message: '#^Method OSS_Utils\:\:parseXML\(\) should return array\|bool but returns SimpleXMLElement\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Utils.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\ORM\\EntityRepository\<Entities\\McpToken\>\:\:findByHash\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: library/ViMbAdmin/Mcp/Auth.php
+
+		-
+			message: '#^Call to method contains\(\) on an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/ViMbAdmin/Service/Admin.php
+
+		-
+			message: '#^Iterating over an object of an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 3
+			path: library/ViMbAdmin/Service/Admin.php
+
+		-
+			message: '#^Call to method getAliasCount\(\) on an unknown class Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/ViMbAdmin/Service/Alias.php
+
+		-
+			message: '#^Call to method setAliasCount\(\) on an unknown class Entities\\Entities\\Domain\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/ViMbAdmin/Service/Alias.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\Persistence\\ObjectRepository\<Entities\\Domain\>\:\:purge\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: library/ViMbAdmin/Service/Domain.php
+
+		-
+			message: '#^Call to method contains\(\) on an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 1
+			path: library/ViMbAdmin/Service/Domain.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\Persistence\\ObjectRepository\<Entities\\Mailbox\>\:\:purgeMailbox\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: library/ViMbAdmin/Service/Mailbox.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\Persistence\\ObjectManager\:\:createQuery\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\Persistence\\ObjectManager\:\:getConnection\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\Persistence\\ObjectRepository\<Entities\\Archive\>\:\:findAutoprune\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\Persistence\\ObjectRepository\<Entities\\Mailbox\>\:\:purgeMailbox\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\Persistence\\ObjectRepository\<Entities\\MailboxTask\>\:\:claim\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Call to an undefined method Doctrine\\Persistence\\ObjectRepository\<Entities\\MailboxTask\>\:\:pending\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Cannot call method getFailedLogins\(\) on class\-string\|object\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Offset non\-falsy\-string on array\{\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: tests/test-captcha.php
+
+		-
+			message: '#^Access to an undefined property MagicNamespaceFake\:\:\$csrfToken\.$#'
+			identifier: property.notFound
+			count: 2
+			path: tests/test-kernel-session-adapter.php
+
+		-
+			message: '#^Access to an undefined property MagicNamespaceFake\:\:\$x\.$#'
+			identifier: property.notFound
+			count: 1
+			path: tests/test-kernel-session-adapter.php
+
+		-
+			message: '#^Access to an undefined property MagicNamespaceFake\:\:\$y\.$#'
+			identifier: property.notFound
+			count: 1
+			path: tests/test-kernel-session-adapter.php
+
+		-
+			message: '#^Access to an undefined property ViMbAdmin\\Kernel\\Session\\SessionNamespace\:\:\$domain\.$#'
+			identifier: property.notFound
+			count: 3
+			path: tests/test-kernel-session-namespace.php
+
+		-
+			message: '#^Access to an undefined property ViMbAdmin\\Kernel\\Session\\SessionNamespace\:\:\$flashMessages\.$#'
+			identifier: property.notFound
+			count: 1
+			path: tests/test-kernel-session-namespace.php
+
+		-
+			message: '#^Access to an undefined property ViMbAdmin\\Kernel\\Session\\SessionNamespace\:\:\$storage\.$#'
+			identifier: property.notFound
+			count: 1
+			path: tests/test-kernel-session-namespace.php
+
+		-
+			message: '#^Access to an undefined property ViMbAdmin\\Kernel\\Session\\SessionNamespace\:\:\$x\.$#'
+			identifier: property.notFound
+			count: 1
+			path: tests/test-kernel-session-namespace.php
+
+		-
+			message: '#^Offset ''Application'' on array\{\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 3
+			path: tests/test-kernel-session-namespace.php
+
+		-
+			message: '#^Offset ''Zend_Auth'' on array\{\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: tests/test-kernel-session-namespace.php
+
+		-
+			message: '#^Access to an undefined property ViMbAdmin\\Kernel\\View\\SmartyView\:\:\$html\.$#'
+			identifier: property.notFound
+			count: 1
+			path: tests/test-kernel-smarty-view.php
+
+		-
+			message: '#^Access to an undefined property ViMbAdmin\\Kernel\\View\\SmartyView\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 4
+			path: tests/test-kernel-smarty-view.php
+
+		-
+			message: '#^Call to an undefined method FakeObjectManager\:\:removedContains\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/test-service-admin.php
+
+		-
+			message: '#^Call to method contains\(\) on an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 3
+			path: tests/test-service-admin.php
+
+		-
+			message: '#^Function makeAdmin invoked with 2 parameters, 1 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: tests/test-service-admin.php
+
+		-
+			message: '#^Function makeDomain invoked with 1 parameter, 2 required\.$#'
+			identifier: arguments.count
+			count: 4
+			path: tests/test-service-admin.php
+
+		-
+			message: '#^Call to method contains\(\) on an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
+			identifier: class.notFound
+			count: 2
+			path: tests/test-service-domain.php
+
+		-
+			message: '#^Method FakeAliasRepo\:\:getClassName\(\) should return class\-string\<object\> but returns string\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/test-service-mailbox.php
+
+		-
+			message: '#^Method FakeMailboxRepo\:\:getClassName\(\) should return class\-string\<object\> but returns string\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/test-service-mailbox.php

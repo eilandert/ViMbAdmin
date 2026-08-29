@@ -1,0 +1,8 @@
+includes:
+    - phpstan-common.neon
+    - phpstan-level7-baseline.neon
+
+parameters:
+    # Ratchet: legacy findings are baselined, but their per-file diagnostic
+    # counts cannot grow and new diagnostic signatures fail CI.
+    level: 7
