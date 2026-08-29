@@ -13,7 +13,14 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'IX_Domain_1', columns: ['domain'])]
 class Domain
 {
+    /** @use \OSS_Doctrine2_WithPreferences<\Entities\DomainPreference> */
     use \OSS_Doctrine2_WithPreferences;
+
+    /** @return class-string<\Entities\DomainPreference> */
+    protected function _getPreferenceEntityClassname()
+    {
+        return \Entities\DomainPreference::class;
+    }
 
     /**
      * @var string $domain
@@ -114,13 +121,13 @@ class Domain
     private ?int $max_mailboxes = null;
 
     /**
-     * @var bigint $alias_count
+     * @var int|null $alias_count
      */
     #[ORM\Column(type: 'bigint', options: ['default' => 0])]
     private ?int $alias_count = null;
 
     /**
-     * @var bigint $mailbox_count
+     * @var int|null $mailbox_count
      */
     #[ORM\Column(type: 'bigint', options: ['default' => 0])]
     private ?int $mailbox_count = null;
@@ -211,7 +218,7 @@ class Domain
     /**
      * Get aliases
      *
-     * @return integer 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Alias>
      */
     public function getAliases()
     {
@@ -221,7 +228,7 @@ class Domain
     /**
      * Get mailboxes
      *
-     * @return integer 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Mailbox>
      */
     public function getMailboxes()
     {
@@ -471,7 +478,7 @@ class Domain
     /**
      * Add Mailboxes
      *
-     * @param Entities\Mailbox $mailboxes
+     * @param \Entities\Mailbox $mailboxes
      * @return Domain
      */
     public function addMailbox(\Entities\Mailbox $mailboxes)
@@ -484,7 +491,7 @@ class Domain
     /**
      * Remove Mailboxes
      *
-     * @param Entities\Mailbox $mailboxes
+     * @param \Entities\Mailbox $mailboxes
      */
     public function removeMailbox(\Entities\Mailbox $mailboxes)
     {
@@ -494,7 +501,7 @@ class Domain
     /**
      * Add Aliases
      *
-     * @param Entities\Alias $aliases
+     * @param \Entities\Alias $aliases
      * @return Domain
      */
     public function addAlias(\Entities\Alias $aliases)
@@ -507,7 +514,7 @@ class Domain
     /**
      * Remove Aliases
      *
-     * @param Entities\Alias $aliases
+     * @param \Entities\Alias $aliases
      */
     public function removeAlias(\Entities\Alias $aliases)
     {
@@ -517,7 +524,7 @@ class Domain
     /**
      * Add Logs
      *
-     * @param Entities\Log $logs
+     * @param \Entities\Log $logs
      * @return Domain
      */
     public function addLog(\Entities\Log $logs)
@@ -530,7 +537,7 @@ class Domain
     /**
      * Remove Logs
      *
-     * @param Entities\Log $logs
+     * @param \Entities\Log $logs
      */
     public function removeLog(\Entities\Log $logs)
     {
@@ -540,7 +547,7 @@ class Domain
     /**
      * Get Logs
      *
-     * @return Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Log>
      */
     public function getLogs()
     {
@@ -550,7 +557,7 @@ class Domain
     /**
      * Add Admins
      *
-     * @param Entities\Admin $admins
+     * @param \Entities\Admin $admins
      * @return Domain
      */
     public function addAdmin(\Entities\Admin $admins)
@@ -563,7 +570,7 @@ class Domain
     /**
      * Remove Admins
      *
-     * @param Entities\Admin $admins
+     * @param \Entities\Admin $admins
      */
     public function removeAdmin(\Entities\Admin $admins)
     {
@@ -573,7 +580,7 @@ class Domain
     /**
      * Get Admins
      *
-     * @return Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Admin>
      */
     public function getAdmins()
     {
@@ -658,7 +665,7 @@ class Domain
     /**
      * Set alias_count
      *
-     * @param bigint $aliasCount
+     * @param int|null $aliasCount
      * @return Domain
      */
     public function setAliasCount($aliasCount)
@@ -670,7 +677,7 @@ class Domain
     /**
      * Get alias_count
      *
-     * @return bigint
+     * @return int|null
      */
     public function getAliasCount()
     {
@@ -703,7 +710,7 @@ class Domain
     /**
      * Set mailbox_count
      *
-     * @param bigint $mailboxCount
+     * @param int|null $mailboxCount
      * @return Domain
      */
     public function setMailboxCount($mailboxCount)
@@ -715,7 +722,7 @@ class Domain
     /**
      * Get mailbox_count
      *
-     * @return bigint 
+     * @return int|null
      */
     public function getMailboxCount()
     {

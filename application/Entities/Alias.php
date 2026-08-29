@@ -13,7 +13,14 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'IX_Address_1', columns: ['address'])]
 class Alias
 {
+    /** @use \OSS_Doctrine2_WithPreferences<\Entities\AliasPreference> */
     use \OSS_Doctrine2_WithPreferences;
+
+    /** @return class-string<\Entities\AliasPreference> */
+    protected function _getPreferenceEntityClassname()
+    {
+        return \Entities\AliasPreference::class;
+    }
 
     /**
      * @var string $address
@@ -54,7 +61,7 @@ class Alias
     private ?int $id = null;
 
     /**
-     * @var Entities\Domain
+     * @var \Entities\Domain|null
      */
     #[ORM\ManyToOne(targetEntity: \Entities\Domain::class, inversedBy: 'Aliases')]
     #[ORM\JoinColumn(name: 'Domain_id', referencedColumnName: 'id')]
@@ -189,7 +196,7 @@ class Alias
     /**
      * Set Domain
      *
-     * @param Entities\Domain $domain
+     * @param \Entities\Domain|null $domain
      * @return Alias
      */
     public function setDomain(?\Entities\Domain $domain = null)
@@ -202,7 +209,7 @@ class Alias
     /**
      * Get Domain
      *
-     * @return Entities\Domain 
+     * @return \Entities\Domain|null
      */
     public function getDomain()
     {

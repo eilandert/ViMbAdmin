@@ -19,84 +19,6 @@ parameters:
 			path: application/Entities/Admin.php
 
 		-
-			message: '#^Call to an undefined method object\:\:setAttribute\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setExpire\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setIx\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setOp\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setValue\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Call to method removeElement\(\) on an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 3
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Call to method setExpire\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Call to method setIx\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Call to method setOp\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Call to method setValue\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Iterating over an object of an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 3
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:_createPreferenceEntity\(\) has parameter \$owner with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:_getPreferences\(\) return type with generic class Doctrine\\Common\\Collections\\ArrayCollection does not specify its types\: TKey, T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
 			message: '#^Method Entities\\Admin\:\:_processKey\(\) has parameter \$config with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -105,30 +27,6 @@ parameters:
 		-
 			message: '#^Method Entities\\Admin\:\:_processKey\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:addIndexedPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:addIndexedPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Admin\)\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getAdmin\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getAdmin\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
-			identifier: return.type
 			count: 1
 			path: application/Entities/Admin.php
 
@@ -145,44 +43,8 @@ parameters:
 			path: application/Entities/Admin.php
 
 		-
-			message: '#^Method Entities\\Admin\:\:getDomains\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getDomains\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
 			message: '#^Method Entities\\Admin\:\:getIndexedPreference\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getLogs\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getLogs\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getPreferences\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getPreferences\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
-			identifier: return.type
 			count: 1
 			path: application/Entities/Admin.php
 
@@ -190,18 +52,6 @@ parameters:
 			message: '#^Method Entities\\Admin\:\:getRememberMes\(\) return type with generic interface Doctrine\\Common\\Collections\\Collection does not specify its types\: TKey, T$#'
 			identifier: missingType.generics
 			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:loadPreference\(\) has invalid return type WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:loadPreference\(\) should return WithPreference but returns false\.$#'
-			identifier: return.type
-			count: 2
 			path: application/Entities/Admin.php
 
 		-
@@ -237,108 +87,6 @@ parameters:
 		-
 			message: '#^Method Entities\\Admin\:\:removeRememberMe\(\) has no return type specified\.$#'
 			identifier: missingType.return
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:setPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:setPreference\(\) has parameter \$operator with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:setPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Admin\)\.$#'
-			identifier: return.type
-			count: 2
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$admin with type Entities\\Entities\\AdminPreference is not subtype of native type Entities\\AdminPreference\.$#'
-			identifier: parameter.phpDocType
-			count: 2
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$domains with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\.$#'
-			identifier: parameter.phpDocType
-			count: 2
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$logs with type Entities\\Entities\\Log is not subtype of native type Entities\\Log\.$#'
-			identifier: parameter.phpDocType
-			count: 2
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$preferences with type Entities\\Entities\\AdminPreference is not subtype of native type Entities\\AdminPreference\.$#'
-			identifier: parameter.phpDocType
-			count: 3
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^PHPDoc tag @param references unknown parameter\: \$op$#'
-			identifier: parameter.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Parameter \$admin of method Entities\\Admin\:\:addAdmin\(\) has invalid type Entities\\Entities\\AdminPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Parameter \$admin of method Entities\\Admin\:\:removeAdmin\(\) has invalid type Entities\\Entities\\AdminPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Parameter \$domains of method Entities\\Admin\:\:addDomain\(\) has invalid type Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Parameter \$domains of method Entities\\Admin\:\:removeDomain\(\) has invalid type Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Parameter \$logs of method Entities\\Admin\:\:addLog\(\) has invalid type Entities\\Entities\\Log\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Parameter \$logs of method Entities\\Admin\:\:removeLog\(\) has invalid type Entities\\Entities\\Log\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Parameter \$preferences of method Entities\\Admin\:\:addAdminPreference\(\) has invalid type Entities\\Entities\\AdminPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Parameter \$preferences of method Entities\\Admin\:\:addPreference\(\) has invalid type Entities\\Entities\\AdminPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Parameter \$preferences of method Entities\\Admin\:\:removePreference\(\) has invalid type Entities\\Entities\\AdminPreference\.$#'
-			identifier: class.notFound
 			count: 1
 			path: application/Entities/Admin.php
 
@@ -385,72 +133,6 @@ parameters:
 			path: application/Entities/Admin.php
 
 		-
-			message: '#^Method Entities\\AdminPreference\:\:getAdmin\(\) has invalid return type Entities\\Entities\\Admin\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^Method Entities\\AdminPreference\:\:getAdmin\(\) should return Entities\\Entities\\Admin but returns Entities\\Admin\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^Method Entities\\AdminPreference\:\:getPreferences\(\) has invalid return type Entities\\Entities\\Admin\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$admin with type Entities\\Entities\\Admin is not subtype of native type Entities\\Admin\|null\.$#'
-			identifier: parameter.phpDocType
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$preferences with type Entities\\Entities\\Admin is not subtype of native type Entities\\Admin\|null\.$#'
-			identifier: parameter.phpDocType
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^PHPDoc tag @var for property Entities\\AdminPreference\:\:\$Admin with type Entities\\Entities\\Admin is not subtype of native type Entities\\Admin\|null\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^Parameter \$admin of method Entities\\AdminPreference\:\:setAdmin\(\) has invalid type Entities\\Entities\\Admin\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^Parameter \$preferences of method Entities\\AdminPreference\:\:setPreferences\(\) has invalid type Entities\\Entities\\Admin\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^Property Entities\\AdminPreference\:\:\$Admin has unknown class Entities\\Entities\\Admin as its type\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^Property Entities\\AdminPreference\:\:\$Preferences \(Entities\\Entities\\Admin\) does not accept Entities\\Admin\|null\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^Property Entities\\AdminPreference\:\:\$Preferences has unknown class Entities\\Entities\\Admin as its type\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
 			message: '#^Property Entities\\AdminPreference\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
 			identifier: property.unusedType
 			count: 1
@@ -475,72 +157,6 @@ parameters:
 			path: application/Entities/Alias.php
 
 		-
-			message: '#^Call to an undefined method object\:\:setAttribute\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setExpire\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setIx\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setOp\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setValue\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Call to method setExpire\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Call to method setIx\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Call to method setOp\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Call to method setValue\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\Alias\:\:_createPreferenceEntity\(\) has parameter \$owner with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\Alias\:\:_getPreferences\(\) return type with generic class Doctrine\\Common\\Collections\\ArrayCollection does not specify its types\: TKey, T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
 			message: '#^Method Entities\\Alias\:\:_processKey\(\) has parameter \$config with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -553,32 +169,8 @@ parameters:
 			path: application/Entities/Alias.php
 
 		-
-			message: '#^Method Entities\\Alias\:\:addIndexedPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\Alias\:\:addIndexedPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Alias\)\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
 			message: '#^Method Entities\\Alias\:\:getAssocPreference\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\Alias\:\:getDomain\(\) has invalid return type Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\Alias\:\:getDomain\(\) should return Entities\\Entities\\Domain but returns Entities\\Domain\|null\.$#'
-			identifier: return.type
 			count: 1
 			path: application/Entities/Alias.php
 
@@ -595,68 +187,8 @@ parameters:
 			path: application/Entities/Alias.php
 
 		-
-			message: '#^Method Entities\\Alias\:\:loadPreference\(\) has invalid return type WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\Alias\:\:loadPreference\(\) should return WithPreference but returns false\.$#'
-			identifier: return.type
-			count: 2
-			path: application/Entities/Alias.php
-
-		-
 			message: '#^Method Entities\\Alias\:\:removePreference\(\) has no return type specified\.$#'
 			identifier: missingType.return
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\Alias\:\:setPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\Alias\:\:setPreference\(\) has parameter \$operator with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\Alias\:\:setPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Alias\)\.$#'
-			identifier: return.type
-			count: 2
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$domain with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\|null\.$#'
-			identifier: parameter.phpDocType
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^PHPDoc tag @param references unknown parameter\: \$op$#'
-			identifier: parameter.notFound
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^PHPDoc tag @var for property Entities\\Alias\:\:\$Domain with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\|null\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Parameter \$domain of method Entities\\Alias\:\:setDomain\(\) has invalid type Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Property Entities\\Alias\:\:\$Domain has unknown class Entities\\Entities\\Domain as its type\.$#'
-			identifier: class.notFound
 			count: 1
 			path: application/Entities/Alias.php
 
@@ -727,72 +259,6 @@ parameters:
 			path: application/Entities/Domain.php
 
 		-
-			message: '#^Call to an undefined method object\:\:setAttribute\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setExpire\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setIx\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setOp\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setValue\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Call to method setExpire\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Call to method setIx\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Call to method setOp\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Call to method setValue\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:_createPreferenceEntity\(\) has parameter \$owner with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:_getPreferences\(\) return type with generic class Doctrine\\Common\\Collections\\ArrayCollection does not specify its types\: TKey, T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
 			message: '#^Method Entities\\Domain\:\:_processKey\(\) has parameter \$config with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -801,48 +267,6 @@ parameters:
 		-
 			message: '#^Method Entities\\Domain\:\:_processKey\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:addIndexedPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:addIndexedPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Domain\)\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getAdmins\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getAdmins\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getAliasCount\(\) has invalid return type Entities\\bigint\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getAliasCount\(\) should return Entities\\bigint but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getAliases\(\) should return int but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
-			identifier: return.type
 			count: 1
 			path: application/Entities/Domain.php
 
@@ -865,51 +289,9 @@ parameters:
 			path: application/Entities/Domain.php
 
 		-
-			message: '#^Method Entities\\Domain\:\:getLogs\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getLogs\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getMailboxCount\(\) has invalid return type Entities\\bigint\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getMailboxCount\(\) should return Entities\\bigint but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getMailboxes\(\) should return int but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
 			message: '#^Method Entities\\Domain\:\:getPreferences\(\) return type with generic interface Doctrine\\Common\\Collections\\Collection does not specify its types\: TKey, T$#'
 			identifier: missingType.generics
 			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:loadPreference\(\) has invalid return type WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:loadPreference\(\) should return WithPreference but returns false\.$#'
-			identifier: return.type
-			count: 2
 			path: application/Entities/Domain.php
 
 		-
@@ -961,126 +343,6 @@ parameters:
 			path: application/Entities/Domain.php
 
 		-
-			message: '#^Method Entities\\Domain\:\:setPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:setPreference\(\) has parameter \$operator with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:setPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Domain\)\.$#'
-			identifier: return.type
-			count: 2
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$admins with type Entities\\Entities\\Admin is not subtype of native type Entities\\Admin\.$#'
-			identifier: parameter.phpDocType
-			count: 2
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$aliases with type Entities\\Entities\\Alias is not subtype of native type Entities\\Alias\.$#'
-			identifier: parameter.phpDocType
-			count: 2
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$logs with type Entities\\Entities\\Log is not subtype of native type Entities\\Log\.$#'
-			identifier: parameter.phpDocType
-			count: 2
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$mailboxes with type Entities\\Entities\\Mailbox is not subtype of native type Entities\\Mailbox\.$#'
-			identifier: parameter.phpDocType
-			count: 2
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^PHPDoc tag @param references unknown parameter\: \$op$#'
-			identifier: parameter.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^PHPDoc tag @var for property Entities\\Domain\:\:\$alias_count with type Entities\\bigint is incompatible with native type int\|null\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^PHPDoc tag @var for property Entities\\Domain\:\:\$mailbox_count with type Entities\\bigint is incompatible with native type int\|null\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Parameter \$admins of method Entities\\Domain\:\:addAdmin\(\) has invalid type Entities\\Entities\\Admin\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Parameter \$admins of method Entities\\Domain\:\:removeAdmin\(\) has invalid type Entities\\Entities\\Admin\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Parameter \$aliasCount of method Entities\\Domain\:\:setAliasCount\(\) has invalid type Entities\\bigint\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Parameter \$aliases of method Entities\\Domain\:\:addAlias\(\) has invalid type Entities\\Entities\\Alias\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Parameter \$aliases of method Entities\\Domain\:\:removeAlias\(\) has invalid type Entities\\Entities\\Alias\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Parameter \$logs of method Entities\\Domain\:\:addLog\(\) has invalid type Entities\\Entities\\Log\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Parameter \$logs of method Entities\\Domain\:\:removeLog\(\) has invalid type Entities\\Entities\\Log\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Parameter \$mailboxCount of method Entities\\Domain\:\:setMailboxCount\(\) has invalid type Entities\\bigint\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Parameter \$mailboxes of method Entities\\Domain\:\:addMailbox\(\) has invalid type Entities\\Entities\\Mailbox\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Parameter \$mailboxes of method Entities\\Domain\:\:removeMailbox\(\) has invalid type Entities\\Entities\\Mailbox\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
 			message: '#^Property Entities\\Domain\:\:\$Admins with generic class Doctrine\\Common\\Collections\\ArrayCollection does not specify its types\: TKey, T$#'
 			identifier: missingType.generics
 			count: 1
@@ -1117,32 +379,8 @@ parameters:
 			path: application/Entities/Domain.php
 
 		-
-			message: '#^Property Entities\\Domain\:\:\$alias_count \(int\|null\) does not accept Entities\\bigint\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Property Entities\\Domain\:\:\$alias_count has unknown class Entities\\bigint as its type\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
 			message: '#^Property Entities\\Domain\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
 			identifier: property.unusedType
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Property Entities\\Domain\:\:\$mailbox_count \(int\|null\) does not accept Entities\\bigint\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Property Entities\\Domain\:\:\$mailbox_count has unknown class Entities\\bigint as its type\.$#'
-			identifier: class.notFound
 			count: 1
 			path: application/Entities/Domain.php
 
@@ -1183,78 +421,6 @@ parameters:
 			path: application/Entities/LastLogin.php
 
 		-
-			message: '#^Method Entities\\Log\:\:getAdmin\(\) has invalid return type Entities\\Entities\\Admin\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^Method Entities\\Log\:\:getAdmin\(\) should return Entities\\Entities\\Admin but returns Entities\\Admin\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^Method Entities\\Log\:\:getDomain\(\) has invalid return type Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^Method Entities\\Log\:\:getDomain\(\) should return Entities\\Entities\\Domain but returns Entities\\Domain\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$admin with type Entities\\Entities\\Admin is not subtype of native type Entities\\Admin\|null\.$#'
-			identifier: parameter.phpDocType
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$domain with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\|null\.$#'
-			identifier: parameter.phpDocType
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^PHPDoc tag @var for property Entities\\Log\:\:\$Admin with type Entities\\Entities\\Admin is not subtype of native type Entities\\Admin\|null\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^PHPDoc tag @var for property Entities\\Log\:\:\$Domain with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\|null\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^Parameter \$admin of method Entities\\Log\:\:setAdmin\(\) has invalid type Entities\\Entities\\Admin\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^Parameter \$domain of method Entities\\Log\:\:setDomain\(\) has invalid type Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^Property Entities\\Log\:\:\$Admin has unknown class Entities\\Entities\\Admin as its type\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^Property Entities\\Log\:\:\$Domain has unknown class Entities\\Entities\\Domain as its type\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Log.php
-
-		-
 			message: '#^Property Entities\\Log\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
 			identifier: property.unusedType
 			count: 1
@@ -1279,84 +445,6 @@ parameters:
 			path: application/Entities/Mailbox.php
 
 		-
-			message: '#^Call to an undefined method object\:\:setAttribute\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setExpire\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setIx\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setOp\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Call to an undefined method object\:\:setValue\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Call to method removeElement\(\) on an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 3
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Call to method setExpire\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Call to method setIx\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Call to method setOp\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Call to method setValue\(\) on an unknown class WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Iterating over an object of an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 2
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:_createPreferenceEntity\(\) has parameter \$owner with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:_getPreferences\(\) return type with generic class Doctrine\\Common\\Collections\\ArrayCollection does not specify its types\: TKey, T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
 			message: '#^Method Entities\\Mailbox\:\:_processKey\(\) has parameter \$config with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -1369,32 +457,8 @@ parameters:
 			path: application/Entities/Mailbox.php
 
 		-
-			message: '#^Method Entities\\Mailbox\:\:addIndexedPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:addIndexedPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Mailbox\)\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
 			message: '#^Method Entities\\Mailbox\:\:getAssocPreference\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:getDomain\(\) has invalid return type Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:getDomain\(\) should return Entities\\Entities\\Domain but returns Entities\\Domain\|null\.$#'
-			identifier: return.type
 			count: 1
 			path: application/Entities/Mailbox.php
 
@@ -1405,104 +469,8 @@ parameters:
 			path: application/Entities/Mailbox.php
 
 		-
-			message: '#^Method Entities\\Mailbox\:\:getPreferences\(\) has invalid return type Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:getPreferences\(\) should return Entities\\Doctrine\\Common\\Collections\\Collection but returns Doctrine\\Common\\Collections\\ArrayCollection\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:loadPreference\(\) has invalid return type WithPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:loadPreference\(\) should return WithPreference but returns false\.$#'
-			identifier: return.type
-			count: 2
-			path: application/Entities/Mailbox.php
-
-		-
 			message: '#^Method Entities\\Mailbox\:\:removePreference\(\) has no return type specified\.$#'
 			identifier: missingType.return
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:setPreference\(\) has invalid return type OSS_Doctrine_Record_WithPreferences\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:setPreference\(\) has parameter \$operator with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:setPreference\(\) should return OSS_Doctrine_Record_WithPreferences but returns \$this\(Entities\\Mailbox\)\.$#'
-			identifier: return.type
-			count: 2
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$domain with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\|null\.$#'
-			identifier: parameter.phpDocType
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$preferences with type Entities\\Entities\\MailboxPreference is not subtype of native type Entities\\MailboxPreference\.$#'
-			identifier: parameter.phpDocType
-			count: 3
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^PHPDoc tag @param references unknown parameter\: \$op$#'
-			identifier: parameter.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^PHPDoc tag @var for property Entities\\Mailbox\:\:\$Domain with type Entities\\Entities\\Domain is not subtype of native type Entities\\Domain\|null\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Parameter \$domain of method Entities\\Mailbox\:\:setDomain\(\) has invalid type Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Parameter \$preferences of method Entities\\Mailbox\:\:addMailboxPreference\(\) has invalid type Entities\\Entities\\MailboxPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Parameter \$preferences of method Entities\\Mailbox\:\:addPreference\(\) has invalid type Entities\\Entities\\MailboxPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Parameter \$preferences of method Entities\\Mailbox\:\:removePreference\(\) has invalid type Entities\\Entities\\MailboxPreference\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Property Entities\\Mailbox\:\:\$Domain has unknown class Entities\\Entities\\Domain as its type\.$#'
-			identifier: class.notFound
 			count: 1
 			path: application/Entities/Mailbox.php
 
@@ -1517,42 +485,6 @@ parameters:
 			identifier: property.unusedType
 			count: 1
 			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\MailboxPreference\:\:getMailbox\(\) has invalid return type Entities\\Entities\\Mailbox\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/MailboxPreference.php
-
-		-
-			message: '#^Method Entities\\MailboxPreference\:\:getMailbox\(\) should return Entities\\Entities\\Mailbox but returns Entities\\Mailbox\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/MailboxPreference.php
-
-		-
-			message: '#^PHPDoc tag @param for parameter \$mailbox with type Entities\\Entities\\Mailbox is not subtype of native type Entities\\Mailbox\|null\.$#'
-			identifier: parameter.phpDocType
-			count: 1
-			path: application/Entities/MailboxPreference.php
-
-		-
-			message: '#^PHPDoc tag @var for property Entities\\MailboxPreference\:\:\$Mailbox with type Entities\\Entities\\Mailbox is not subtype of native type Entities\\Mailbox\|null\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: application/Entities/MailboxPreference.php
-
-		-
-			message: '#^Parameter \$mailbox of method Entities\\MailboxPreference\:\:setMailbox\(\) has invalid type Entities\\Entities\\Mailbox\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/MailboxPreference.php
-
-		-
-			message: '#^Property Entities\\MailboxPreference\:\:\$Mailbox has unknown class Entities\\Entities\\Mailbox as its type\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Entities/MailboxPreference.php
 
 		-
 			message: '#^Property Entities\\MailboxPreference\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
@@ -2131,12 +1063,6 @@ parameters:
 			path: application/Repositories/Admin.php
 
 		-
-			message: '#^Iterating over an object of an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Repositories/Admin.php
-
-		-
 			message: '#^Method Repositories\\Admin\:\:getCount\(\) should return int but returns bool\|float\|int\|string\|null\.$#'
 			identifier: return.type
 			count: 1
@@ -2251,12 +1177,6 @@ parameters:
 			path: application/Repositories/Domain.php
 
 		-
-			message: '#^Iterating over an object of an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
 			message: '#^Method Repositories\\Domain\:\:_mergeDomainUsage\(\) has parameter \$rows with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -2365,26 +1285,8 @@ parameters:
 			path: application/Repositories/Mailbox.php
 
 		-
-			message: '#^Call to method decreaseMailboxCount\(\) on an unknown class Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Call to method getAdmins\(\) on an unknown class Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
 			message: '#^Class Repositories\\Mailbox extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
 			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Iterating over an object of an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
 			count: 1
 			path: application/Repositories/Mailbox.php
 
@@ -2512,18 +1414,6 @@ parameters:
 			message: '#^Call to an undefined method object\:\:remove\(\)\.$#'
 			identifier: method.notFound
 			count: 3
-			path: application/controllers/McpController.php
-
-		-
-			message: '#^Call to method getMailboxCount\(\) on an unknown class Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: application/controllers/McpController.php
-
-		-
-			message: '#^Call to method setMailboxCount\(\) on an unknown class Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
 			path: application/controllers/McpController.php
 
 		-
@@ -2875,12 +1765,6 @@ parameters:
 			path: application/controllers/McpController.php
 
 		-
-			message: '#^Parameter \#1 \$aliasCount of method Entities\\Domain\:\:setAliasCount\(\) expects Entities\\bigint, int given\.$#'
-			identifier: argument.type
-			count: 1
-			path: application/controllers/McpController.php
-
-		-
 			message: '#^Parameter \#1 \$em of static method ViMbAdmin_MailboxQueue\:\:enqueue\(\) expects Doctrine\\ORM\\EntityManager, object given\.$#'
 			identifier: argument.type
 			count: 1
@@ -2888,12 +1772,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$json of function json_decode expects string, string\|false given\.$#'
-			identifier: argument.type
-			count: 1
-			path: application/controllers/McpController.php
-
-		-
-			message: '#^Parameter \#1 \$mailboxCount of method Entities\\Domain\:\:setMailboxCount\(\) expects Entities\\bigint, int given\.$#'
 			identifier: argument.type
 			count: 1
 			path: application/controllers/McpController.php
@@ -4393,18 +3271,6 @@ parameters:
 			path: library/ViMbAdmin/Schema.php
 
 		-
-			message: '#^Call to method contains\(\) on an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/ViMbAdmin/Service/Admin.php
-
-		-
-			message: '#^Iterating over an object of an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 3
-			path: library/ViMbAdmin/Service/Admin.php
-
-		-
 			message: '#^Method ViMbAdmin_Service_Admin\:\:changePassword\(\) has parameter \$authOptions with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -4429,18 +3295,6 @@ parameters:
 			path: library/ViMbAdmin/Service/Admin.php
 
 		-
-			message: '#^Call to method getAliasCount\(\) on an unknown class Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/ViMbAdmin/Service/Alias.php
-
-		-
-			message: '#^Call to method setAliasCount\(\) on an unknown class Entities\\Entities\\Domain\.$#'
-			identifier: class.notFound
-			count: 1
-			path: library/ViMbAdmin/Service/Alias.php
-
-		-
 			message: '#^Parameter \#1 \$active of method Entities\\Alias\:\:setActive\(\) expects bool, int given\.$#'
 			identifier: argument.type
 			count: 1
@@ -4449,12 +3303,6 @@ parameters:
 		-
 			message: '#^Call to an undefined method Doctrine\\Persistence\\ObjectRepository\<Entities\\Domain\>\:\:purge\(\)\.$#'
 			identifier: method.notFound
-			count: 1
-			path: library/ViMbAdmin/Service/Domain.php
-
-		-
-			message: '#^Call to method contains\(\) on an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
 			count: 1
 			path: library/ViMbAdmin/Service/Domain.php
 
@@ -5551,12 +4399,6 @@ parameters:
 			path: src/Kernel/Controller/DomainController.php
 
 		-
-			message: '#^Parameter \#1 \$aliasCount of method Entities\\Domain\:\:setAliasCount\(\) expects Entities\\bigint, int given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/DomainController.php
-
-		-
 			message: '#^Parameter \#1 \$backupmx of method Entities\\Domain\:\:setBackupmx\(\) expects bool, int given\.$#'
 			identifier: argument.type
 			count: 1
@@ -5566,12 +4408,6 @@ parameters:
 			message: '#^Parameter \#1 \$em of class ViMbAdmin_Service_Domain constructor expects Doctrine\\Persistence\\ObjectManager, object given\.$#'
 			identifier: argument.type
 			count: 6
-			path: src/Kernel/Controller/DomainController.php
-
-		-
-			message: '#^Parameter \#1 \$mailboxCount of method Entities\\Domain\:\:setMailboxCount\(\) expects Entities\\bigint, int given\.$#'
-			identifier: argument.type
-			count: 1
 			path: src/Kernel/Controller/DomainController.php
 
 		-
@@ -6661,12 +5497,6 @@ parameters:
 			path: tests/test-service-admin.php
 
 		-
-			message: '#^Call to method contains\(\) on an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 3
-			path: tests/test-service-admin.php
-
-		-
 			message: '#^Function makeAdmin invoked with 2 parameters, 1 required\.$#'
 			identifier: arguments.count
 			count: 1
@@ -6692,12 +5522,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$active of method Entities\\Alias\:\:setActive\(\) expects bool, int given\.$#'
-			identifier: argument.type
-			count: 1
-			path: tests/test-service-alias.php
-
-		-
-			message: '#^Parameter \#1 \$aliasCount of method Entities\\Domain\:\:setAliasCount\(\) expects Entities\\bigint, int given\.$#'
 			identifier: argument.type
 			count: 1
 			path: tests/test-service-alias.php
@@ -6737,12 +5561,6 @@ parameters:
 			identifier: deadCode.unreachable
 			count: 1
 			path: tests/test-service-archive.php
-
-		-
-			message: '#^Call to method contains\(\) on an unknown class Entities\\Doctrine\\Common\\Collections\\Collection\.$#'
-			identifier: class.notFound
-			count: 2
-			path: tests/test-service-domain.php
 
 		-
 			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
@@ -6818,12 +5636,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$active of method Entities\\Mailbox\:\:setActive\(\) expects bool, int given\.$#'
-			identifier: argument.type
-			count: 1
-			path: tests/test-service-mailbox.php
-
-		-
-			message: '#^Parameter \#1 \$mailboxCount of method Entities\\Domain\:\:setMailboxCount\(\) expects Entities\\bigint, int given\.$#'
 			identifier: argument.type
 			count: 1
 			path: tests/test-service-mailbox.php

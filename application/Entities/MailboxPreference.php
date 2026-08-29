@@ -51,7 +51,7 @@ class MailboxPreference
     private ?int $id = null;
 
     /**
-     * @var Entities\Mailbox
+     * @var \Entities\Mailbox|null
      */
     #[ORM\ManyToOne(targetEntity: \Entities\Mailbox::class, inversedBy: 'Preferences')]
     #[ORM\JoinColumn(name: 'Mailbox_id', referencedColumnName: 'id')]
@@ -186,7 +186,7 @@ class MailboxPreference
     /**
      * Set Mailbox
      *
-     * @param Entities\Mailbox $mailbox
+     * @param \Entities\Mailbox|null $mailbox
      * @return MailboxPreference
      */
     public function setMailbox(?\Entities\Mailbox $mailbox = null)
@@ -199,7 +199,7 @@ class MailboxPreference
     /**
      * Get Mailbox
      *
-     * @return Entities\Mailbox 
+     * @return \Entities\Mailbox|null
      */
     public function getMailbox()
     {

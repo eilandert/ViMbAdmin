@@ -69,14 +69,14 @@ class Log
     private ?int $id = null;
 
     /**
-     * @var Entities\Admin
+     * @var \Entities\Admin|null
      */
     #[ORM\ManyToOne(targetEntity: \Entities\Admin::class, inversedBy: 'Logs')]
     #[ORM\JoinColumn(name: 'Admin_id', referencedColumnName: 'id')]
     private ?\Entities\Admin $Admin = null;
 
     /**
-     * @var Entities\Domain
+     * @var \Entities\Domain|null
      */
     #[ORM\ManyToOne(targetEntity: \Entities\Domain::class, inversedBy: 'Logs')]
     #[ORM\JoinColumn(name: 'Domain_id', referencedColumnName: 'id')]
@@ -165,7 +165,7 @@ class Log
     /**
      * Set Admin
      *
-     * @param Entities\Admin $admin
+     * @param \Entities\Admin|null $admin
      * @return Log
      */
     public function setAdmin(?\Entities\Admin $admin = null)
@@ -178,7 +178,7 @@ class Log
     /**
      * Get Admin
      *
-     * @return Entities\Admin
+     * @return \Entities\Admin|null
      */
     public function getAdmin()
     {
@@ -188,7 +188,7 @@ class Log
     /**
      * Set Domain
      *
-     * @param Entities\Domain $domain
+     * @param \Entities\Domain|null $domain
      * @return Log
      */
     public function setDomain(?\Entities\Domain $domain = null)
@@ -201,7 +201,7 @@ class Log
     /**
      * Get Domain
      *
-     * @return Entities\Domain
+     * @return \Entities\Domain|null
      */
     public function getDomain()
     {

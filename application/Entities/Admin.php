@@ -12,7 +12,14 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'IX_Username_admin', columns: ['username'])]
 class Admin
 {
+    /** @use \OSS_Doctrine2_WithPreferences<\Entities\AdminPreference> */
     use \OSS_Doctrine2_WithPreferences;
+
+    /** @return class-string<\Entities\AdminPreference> */
+    protected function _getPreferenceEntityClassname()
+    {
+        return \Entities\AdminPreference::class;
+    }
 
     /**
      * @var string $username
@@ -303,7 +310,7 @@ class Admin
     /**
      * Add Admin
      *
-     * @param Entities\AdminPreference $admin
+     * @param \Entities\AdminPreference $admin
      * @return Admin
      */
     public function addAdmin(\Entities\AdminPreference $admin)
@@ -316,7 +323,7 @@ class Admin
     /**
      * Remove Admin
      *
-     * @param Entities\AdminPreference $admin
+     * @param \Entities\AdminPreference $admin
      */
     public function removeAdmin(\Entities\AdminPreference $admin)
     {
@@ -326,7 +333,7 @@ class Admin
     /**
      * Get Admin
      *
-     * @return Doctrine\Common\Collections\Collection
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\AdminPreference>
      */
     public function getAdmin()
     {
@@ -336,7 +343,7 @@ class Admin
     /**
      * Add Logs
      *
-     * @param Entities\Log $logs
+     * @param \Entities\Log $logs
      * @return Admin
      */
     public function addLog(\Entities\Log $logs)
@@ -349,7 +356,7 @@ class Admin
     /**
      * Remove Logs
      *
-     * @param Entities\Log $logs
+     * @param \Entities\Log $logs
      */
     public function removeLog(\Entities\Log $logs)
     {
@@ -359,7 +366,7 @@ class Admin
     /**
      * Get Logs
      *
-     * @return Doctrine\Common\Collections\Collection
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Log>
      */
     public function getLogs()
     {
@@ -369,7 +376,7 @@ class Admin
     /**
      * Add Domains
      *
-     * @param Entities\Domain $domains
+     * @param \Entities\Domain $domains
      * @return Admin
      */
     public function addDomain(\Entities\Domain $domains)
@@ -382,7 +389,7 @@ class Admin
     /**
      * Remove Domains
      *
-     * @param Entities\Domain $domains
+     * @param \Entities\Domain $domains
      */
     public function removeDomain(\Entities\Domain $domains)
     {
@@ -392,7 +399,7 @@ class Admin
     /**
      * Get Domains
      *
-     * @return Doctrine\Common\Collections\Collection
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Domain>
      */
     public function getDomains()
     {
@@ -408,7 +415,7 @@ class Admin
     /**
      * Add Preferences
      *
-     * @param Entities\AdminPreference $preferences
+     * @param \Entities\AdminPreference $preferences
      * @return Admin
      */
     public function addPreference(\Entities\AdminPreference $preferences)
@@ -421,7 +428,7 @@ class Admin
     /**
      * Remove Preferences
      *
-     * @param Entities\AdminPreference $preferences
+     * @param \Entities\AdminPreference $preferences
      */
     public function removePreference(\Entities\AdminPreference $preferences)
     {
@@ -431,7 +438,7 @@ class Admin
     /**
      * Get Preferences
      *
-     * @return Doctrine\Common\Collections\Collection
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\AdminPreference>
      */
     public function getPreferences()
     {
@@ -464,7 +471,7 @@ class Admin
     /**
      * Add Preferences
      *
-     * @param Entities\AdminPreference $preferences
+     * @param \Entities\AdminPreference $preferences
      * @return Admin
      */
     public function addAdminPreference(\Entities\AdminPreference $preferences)

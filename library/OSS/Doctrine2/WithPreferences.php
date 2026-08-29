@@ -46,10 +46,15 @@ use Doctrine\ORM\Mapping as ORM;
  * @package    OSS_Doctrine2
  * @copyright  Copyright (c) 2007 - 2012, Open Source Solutions Limited, Dublin, Ireland
  * @license    http://www.opensolutions.ie/licenses/new-bsd New BSD License
+ * @template TPreference of object
  */
 trait OSS_Doctrine2_WithPreferences
 {
-
+    /** @return class-string<object> */
+    protected function _getPreferenceEntityClassname()
+    {
+        return $this->_getFullClassname() . 'Preference';
+    }
     /**
      * The name of the class. Set with get_class( $this )
      * @var string
@@ -82,7 +87,7 @@ trait OSS_Doctrine2_WithPreferences
      * @param string $attribute The named attribute / preference to check for
      * @param int $index default 0 If an indexed preference, get a specific index (default: 0)
      * @param boolean $includeExpired default false If true, include preferences even if they have expired. Default: false
-     * @return WithPreference If the named preference is not defined, returns FALSE; otherwise it returns the Doctrine_Record
+     * @return TPreference|false If the named preference is not defined, returns FALSE; otherwise it returns the preference entity
      */
     public function loadPreference( $attribute, $index = 0, $includeExpired = false )
     {
@@ -156,10 +161,10 @@ trait OSS_Doctrine2_WithPreferences
      *
      * @param string $attribute The preference name
      * @param string $value The value to assign to the preference
-     * @param string $op default '=' The operand (e.g. = (default), <, <=, :=, =, += etc)
+     * @param string $operator default '=' The operand (e.g. = (default), <, <=, :=, =, += etc)
      * @param int $expires default 0 The expiry as a UNIX timestamp. Default 0 which means never.
      * @param int $index default 0 If an indexed preference, set a specific index number. Default 0.
-     * @return OSS_Doctrine_Record_WithPreferences An instance of this object for fluid interfaces.
+     * @return $this An instance of this object for fluid interfaces.
      */
     public function setPreference( $attribute, $value, $operator = '=', $expires = 0, $index = 0 )
     {
@@ -264,7 +269,7 @@ trait OSS_Doctrine2_WithPreferences
      * @param string $operator default '=' The operand (e.g. = (default), <, <=, :=, =, += etc)
      * @param int $expires default 0 The expiry as a UNIX timestamp. Default 0 which means never.
      * @param int $max The maximum index allowed. Defaults to 0 meaning no limit.
-     * @return OSS_Doctrine_Record_WithPreferences An instance of this object for fluid interfaces.
+     * @return $this An instance of this object for fluid interfaces.
      * @throws OSS_Doctrine2_WithPreferences_IndexLimitException If $max is set and limit exceeded
      */
     public function addIndexedPreference( $attribute, $value, $operator = '=', $expires = 0, $max = 0 )
@@ -580,11 +585,13 @@ trait OSS_Doctrine2_WithPreferences
      * \Entities\Customer functionality then our preference object will be
      * \Entities\CustomerPreference.
      *
-     * @return object
+     * @param $this|null $owner
+     * @return TPreference
      */
     private function _createPreferenceEntity( $owner = null )
     {
-        $prefClass = $this->_getFullClassname() . 'Preference';
+        $this->_getFullClassname();
+        $prefClass = $this->_getPreferenceEntityClassname();
         $pref = new $prefClass();
 
         if( $owner != null )
@@ -604,7 +611,7 @@ trait OSS_Doctrine2_WithPreferences
      * NOTICE: Function required due to `$this->getPreferences()` iteration failure.
      * FIXME This should not be necessary
      *
-     * @return \Doctrine\Common\Collections\ArrayCollection
+     * @return list<TPreference>
      */
     public function _getPreferences()
     {

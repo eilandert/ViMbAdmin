@@ -13,7 +13,14 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'IX_Username_mailbox', columns: ['username'])]
 class Mailbox
 {
+    /** @use \OSS_Doctrine2_WithPreferences<\Entities\MailboxPreference> */
     use \OSS_Doctrine2_WithPreferences;
+
+    /** @return class-string<\Entities\MailboxPreference> */
+    protected function _getPreferenceEntityClassname()
+    {
+        return \Entities\MailboxPreference::class;
+    }
 
     /**
      * @var string $username
@@ -340,7 +347,7 @@ class Mailbox
     /**
      * Add Preferences
      *
-     * @param Entities\MailboxPreference $preferences
+     * @param \Entities\MailboxPreference $preferences
      * @return Mailbox
      */
     public function addPreference(\Entities\MailboxPreference $preferences)
@@ -353,7 +360,7 @@ class Mailbox
     /**
      * Remove Preferences
      *
-     * @param Entities\MailboxPreference $preferences
+     * @param \Entities\MailboxPreference $preferences
      */
     public function removePreference(\Entities\MailboxPreference $preferences)
     {
@@ -363,7 +370,7 @@ class Mailbox
     /**
      * Get Preferences
      *
-     * @return Doctrine\Common\Collections\Collection
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\MailboxPreference>
      */
     public function getPreferences()
     {
@@ -371,7 +378,7 @@ class Mailbox
     }
 
     /**
-     * @var Entities\Domain
+     * @var \Entities\Domain|null
      */
     #[ORM\ManyToOne(targetEntity: \Entities\Domain::class, inversedBy: 'Mailboxes')]
     #[ORM\JoinColumn(name: 'Domain_id', referencedColumnName: 'id')]
@@ -381,7 +388,7 @@ class Mailbox
     /**
      * Set Domain
      *
-     * @param Entities\Domain $domain
+     * @param \Entities\Domain|null $domain
      * @return Mailbox
      */
     public function setDomain(?\Entities\Domain $domain = null)
@@ -394,7 +401,7 @@ class Mailbox
     /**
      * Get Domain
      *
-     * @return Entities\Domain
+     * @return \Entities\Domain|null
      */
     public function getDomain()
     {
@@ -404,7 +411,7 @@ class Mailbox
     /**
      * Add Preferences
      *
-     * @param Entities\MailboxPreference $preferences
+     * @param \Entities\MailboxPreference $preferences
      * @return Mailbox
      */
     public function addMailboxPreference(\Entities\MailboxPreference $preferences)

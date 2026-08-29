@@ -51,7 +51,7 @@ class AdminPreference
     private ?int $id = null;
 
     /**
-     * @var Entities\Admin
+     * @var \Entities\Admin|null
      */
     private $Preferences;
 
@@ -184,7 +184,7 @@ class AdminPreference
     /**
      * Set Preferences
      *
-     * @param Entities\Admin $preferences
+     * @param \Entities\Admin|null $preferences
      * @return AdminPreference
      */
     public function setPreferences(?\Entities\Admin $preferences = null)
@@ -197,14 +197,14 @@ class AdminPreference
     /**
      * Get Preferences
      *
-     * @return Entities\Admin 
+     * @return \Entities\Admin|null
      */
     public function getPreferences()
     {
         return $this->Preferences;
     }
     /**
-     * @var Entities\Admin
+     * @var \Entities\Admin|null
      */
     #[ORM\ManyToOne(targetEntity: \Entities\Admin::class, inversedBy: 'Preferences')]
     #[ORM\JoinColumn(name: 'Admin_id', referencedColumnName: 'id')]
@@ -214,7 +214,7 @@ class AdminPreference
     /**
      * Set Admin
      *
-     * @param Entities\Admin $admin
+     * @param \Entities\Admin|null $admin
      * @return AdminPreference
      */
     public function setAdmin(?\Entities\Admin $admin = null)
@@ -227,7 +227,7 @@ class AdminPreference
     /**
      * Get Admin
      *
-     * @return Entities\Admin 
+     * @return \Entities\Admin|null
      */
     public function getAdmin()
     {
