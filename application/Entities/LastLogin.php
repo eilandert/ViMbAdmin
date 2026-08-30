@@ -43,18 +43,18 @@ class LastLogin
     #[ORM\Column(type: 'bigint', options: ['default' => 0])]
     private int $last_login = 0;
 
-    public function setUsername( $username )
+    public function setUsername(?string $username): self
     {
         $this->username = $username;
         return $this;
     }
 
-    public function getUsername()
+    public function getUsername(): ?string
     {
         return $this->username;
     }
 
-    public function getLastLogin()
+    public function getLastLogin(): int
     {
         return $this->last_login;
     }
