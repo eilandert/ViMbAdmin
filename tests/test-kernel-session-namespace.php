@@ -34,6 +34,10 @@ function sessionHasKey(string $namespace, string $key): bool {
     return is_array($values) && array_key_exists($key, $values);
 }
 
+function sessionIdentical(mixed $actual, mixed $expected): bool {
+    return $actual === $expected;
+}
+
 echo "== native session namespace ==\n";
 
 $_SESSION = ['Application' => [], 'Zend_Auth' => []];
@@ -86,5 +90,5 @@ $default->__set('x', 1);
 check("default namespace is 'Application'",
     sessionValue('Application', 'x') === 1);
 
-echo $failures === 0 ? "\nALL PASSED\n" : "\n{$failures} FAILED\n";
-exit($failures === 0 ? 0 : 1);
+echo sessionIdentical($failures, 0) ? "\nALL PASSED\n" : "\n{$failures} FAILED\n";
+exit(sessionIdentical($failures, 0) ? 0 : 1);

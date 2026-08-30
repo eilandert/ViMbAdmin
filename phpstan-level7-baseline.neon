@@ -1987,48 +1987,6 @@ parameters:
 			path: tests/test-kernel-em-factory.php
 
 		-
-			message: '#^Result of && is always true\.$#'
-			identifier: booleanAnd.alwaysTrue
-			count: 2
-			path: tests/test-kernel-flash.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''error'' and ''error'' will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 1
-			path: tests/test-kernel-flash.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''info'' and ''info'' will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 1
-			path: tests/test-kernel-flash.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''success'' and ''success'' will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 1
-			path: tests/test-kernel-flash.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''warning'' and ''warning'' will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 1
-			path: tests/test-kernel-flash.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 1
-			path: tests/test-kernel-flash.php
-
-		-
-			message: '#^Unreachable statement \- code above always terminates\.$#'
-			identifier: deadCode.unreachable
-			count: 1
-			path: tests/test-kernel-flash.php
-
-		-
 			message: '#^Property class@anonymous/tests/test\-kernel\-form\-plugin\-host\.php\:198\:\:\$persisted type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1

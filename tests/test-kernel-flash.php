@@ -27,8 +27,13 @@ final class ArraySession implements SessionStorage
 
 $failures = 0;
 function check(string $label, bool $ok): void {
+    global $failures;
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { $failures++; }
+}
+
+function identical(mixed $actual, mixed $expected): bool {
+    return $actual === $expected;
 }
 
 echo "== ViMbAdmin\\Kernel\\Flash\\FlashMessages ==\n";
@@ -64,9 +69,9 @@ check('second drain -> []',           $f->drain() === []);
 $s2 = new ArraySession();
 $f2 = new FlashMessages($s2);
 $f2->add('x', FlashMessages::WARNING);
-check('WARNING == "warning" (OSS alert)', FlashMessages::WARNING === 'warning' && $f2->peek()[0]->level === 'warning');
+check('WARNING == "warning" (OSS alert)', identical(FlashMessages::WARNING, 'warning') && identical($f2->peek()[0]->level, 'warning'));
 check('SUCCESS/ERROR/INFO constants',
-    FlashMessages::SUCCESS === 'success' && FlashMessages::ERROR === 'error' && FlashMessages::INFO === 'info');
+    identical(FlashMessages::SUCCESS, 'success') && identical(FlashMessages::ERROR, 'error') && identical(FlashMessages::INFO, 'info'));
 
 // custom key isolation + round-trip through the raw session array
 $s3 = new ArraySession();
@@ -76,7 +81,7 @@ check('custom key used',              is_array($s3->get('altFlash')) && $s3->get
 check('round-trips via session array',$f3->peek()[0]->text === 'hi' && $f3->peek()[0]->level === 'success');
 
 echo "\n";
-if ($failures === 0) {
+if (identical($failures, 0)) {
     echo "OK: all FlashMessages assertions passed (PHP " . PHP_VERSION . ")\n";
     exit(0);
 }

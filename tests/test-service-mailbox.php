@@ -64,7 +64,7 @@ final class FakeMailboxRepo implements \Doctrine\Persistence\ObjectRepository
 /** @implements \Doctrine\Persistence\ObjectRepository<\Entities\Alias> */
 final class FakeAliasRepo implements \Doctrine\Persistence\ObjectRepository
 {
-    public ?object $existing = null;
+    public ?\Entities\Alias $existing = null;
 
     public function findOneBy(array $criteria): ?object
     {
@@ -95,7 +95,9 @@ final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager
     /**
      * @template T of object
      * @param class-string<T> $className
-     * @return \Doctrine\Persistence\ObjectRepository<T>
+     * @return ($className is class-string<\Entities\Alias> ? FakeAliasRepo :
+     *     ($className is class-string<\Entities\Mailbox> ? FakeMailboxRepo :
+     *     \Doctrine\Persistence\ObjectRepository<T>))
      */
     public function getRepository(string $className): \Doctrine\Persistence\ObjectRepository {
         if ($this->aliasRepo !== null && $className === '\\Entities\\Alias') {
@@ -143,6 +145,10 @@ function check(string $label, bool $ok): void {
     global $failures;
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
     if (!$ok) { $failures++; }
+}
+
+function mailboxIdentical(mixed $actual, mixed $expected): bool {
+    return $actual === $expected;
 }
 
 echo "== ViMbAdmin_Service_Mailbox ==\n";
@@ -336,7 +342,7 @@ check('update flushed once',                  $emU->flushes === 1);
 check('update hook order around flush',       $orderU === ['preFlush:0', 'postFlush:1']);
 
 echo "\n";
-if ($failures === 0) {
+if (mailboxIdentical($failures, 0)) {
     echo "OK: all Service_Mailbox assertions passed (PHP " . PHP_VERSION . ")\n";
     exit(0);
 }
