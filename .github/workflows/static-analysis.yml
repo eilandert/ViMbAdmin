@@ -18,26 +18,24 @@ concurrency:
 jobs:
   phpstan:
     name: PHPStan
-    runs-on: [self-hosted, builder02, lxc]
+    runs-on: [self-hosted, builder02, docker]
+    container:
+      image: >-
+        php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
     # Level 3 is the repository floor, level 7 blocks new errors throughout the
     # project, and newly added PHP files must pass level 10 without a baseline.
     steps:
+      - name: Prepare PHP container for checkout
+        run: apt-get update && apt-get install --yes git
+
       # actions/checkout v7
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup PHP
-        # shivammathur/setup-php v2
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
-        with:
-          php-version: '8.4'
-          coverage: none
-          extensions: >-
-            ctype, dom, gd, gettext, iconv, intl, json, mbstring, pdo,
-            pdo_mysql, sodium
-          tools: composer:v2, phpstan:2.2.5
+      - name: Setup PHP container
+        run: bash .github/scripts/setup-php-container.sh static
 
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist

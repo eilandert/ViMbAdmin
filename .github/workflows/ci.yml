@@ -1,6 +1,7 @@
+---
 name: CI
 
-on:
+on:  # yamllint disable-line rule:truthy
   push:
     branches: [master]
   pull_request:
@@ -17,20 +18,32 @@ concurrency:
 jobs:
   lint:
     name: PHP syntax lint (PHP ${{ matrix.php }})
-    runs-on: [self-hosted, builder02, lxc]
+    runs-on: [self-hosted, builder02, docker]
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5']   # 8.4 = composer floor, 8.5 = deployed container runtime
+        include:
+          - php: '8.4'
+            image: >-
+              php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
+          - php: '8.5'
+            image: >-
+              php@sha256:19667d836740e24a3ba340532c7349ab59bb961b86f20e3c85a58150644e5e55
+    container:
+      image: ${{ matrix.image }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Prepare PHP container for checkout
+        run: apt-get update && apt-get install --yes git
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          php-version: ${{ matrix.php }}
-          coverage: none
-          tools: composer:v2
+          persist-credentials: false
+
+      - name: Setup container tools
+        run: bash .github/scripts/setup-php-container.sh tools
+
+      - name: Assert workflow runtime contract
+        run: bash .github/scripts/assert-workflow-runtime.sh
 
       - name: Validate composer.json / composer.lock
         run: composer validate --strict
@@ -42,16 +55,20 @@ jobs:
 
   audit:
     name: Dependency security audit
-    runs-on: [self-hosted, builder02, lxc]
+    runs-on: [self-hosted, builder02, docker]
+    container:
+      image: >-
+        php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
     steps:
-      - uses: actions/checkout@v7
+      - name: Prepare PHP container for checkout
+        run: apt-get update && apt-get install --yes git
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          php-version: '8.4'
-          coverage: none
-          tools: composer:v2
+          persist-credentials: false
+
+      - name: Setup container tools
+        run: bash .github/scripts/setup-php-container.sh tools
 
       # --locked reads composer.lock directly (no composer install needed in
       # this job); abandoned packages are ignored via the composer.json

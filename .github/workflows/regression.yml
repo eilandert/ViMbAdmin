@@ -1,6 +1,7 @@
+---
 name: Regression tests
 
-on:
+on:  # yamllint disable-line rule:truthy
   push:
     branches: [master]
   pull_request:
@@ -20,9 +21,11 @@ jobs:
   # ------------------------------------------------------------------ #
   static:
     name: Static regression lints
-    runs-on: [self-hosted, builder02, lxc]
+    runs-on: [self-hosted, builder02, docker]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
 
       - name: Smarty 5 JS-template escaping (alias [+] button regression)
         run: bash tests/lint-template-escaping.sh
@@ -40,24 +43,33 @@ jobs:
   # ------------------------------------------------------------------ #
   unit:
     name: Service unit tests (PHP ${{ matrix.php }})
-    runs-on: [self-hosted, builder02, lxc]
+    runs-on: [self-hosted, builder02, docker]
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5']
+        include:
+          - php: '8.4'
+            image: >-
+              php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
+          - php: '8.5'
+            image: >-
+              php@sha256:19667d836740e24a3ba340532c7349ab59bb961b86f20e3c85a58150644e5e55
+    container:
+      image: ${{ matrix.image }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Prepare PHP container for checkout
+        run: apt-get update && apt-get install --yes git
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          php-version: ${{ matrix.php }}
-          coverage: none
-          extensions: ctype, dom, gd, intl, json, mbstring
-          tools: composer:v2
+          persist-credentials: false
+
+      - name: Setup PHP container
+        run: bash .github/scripts/setup-php-container.sh runtime
 
       - name: Install dependencies
-        run: composer install --no-interaction --no-progress --prefer-dist --no-dev
+        run: >-
+          composer install --no-interaction --no-progress --prefer-dist --no-dev
 
       - name: ViMbAdmin_Service_Domain
         run: php tests/test-service-domain.php
@@ -141,25 +153,33 @@ jobs:
   # ------------------------------------------------------------------ #
   cache-wiring:
     name: Cache wiring (PHP ${{ matrix.php }})
-    runs-on: [self-hosted, builder02, lxc]
+    runs-on: [self-hosted, builder02, docker]
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5']
+        include:
+          - php: '8.4'
+            image: >-
+              php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
+          - php: '8.5'
+            image: >-
+              php@sha256:19667d836740e24a3ba340532c7349ab59bb961b86f20e3c85a58150644e5e55
+    container:
+      image: ${{ matrix.image }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Prepare PHP container for checkout
+        run: apt-get update && apt-get install --yes git
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          php-version: ${{ matrix.php }}
-          coverage: none
-          extensions: apcu, ctype, dom, gd, intl, json, mbstring, pdo, pdo_mysql, simplexml, sodium
-          ini-values: apc.enable_cli=1
-          tools: composer:v2
+          persist-credentials: false
+
+      - name: Setup PHP container
+        run: bash .github/scripts/setup-php-container.sh cache
 
       - name: Install dependencies
-        run: composer install --no-interaction --no-progress --prefer-dist --no-dev
+        run: >-
+          composer install --no-interaction --no-progress --prefer-dist --no-dev
 
       - name: Assert doctrine/orm is on 3.x (migrated; ORM 2 APIs are gone)
         run: |
@@ -168,17 +188,23 @@ jobs:
           echo "doctrine/orm = $ver"
           case "$ver" in
             3.*|v3.*) echo "OK: ORM 3.x" ;;
-            2.*|v2.*) echo "::error::doctrine/orm is $ver — codebase migrated to ORM 3 (native lazy objects, PSR-6 cache, LegacyObjectType); a 2.x downgrade is unsupported"; exit 1 ;;
-            *) echo "::error::doctrine/orm is $ver — unexpected major; this codebase targets ORM 3.x"; exit 1 ;;
+            2.*|v2.*)
+              echo "::error::doctrine/orm $ver is unsupported; expected 3.x"
+              exit 1
+              ;;
+            *)
+              echo "::error::doctrine/orm $ver has an unexpected major"
+              exit 1
+              ;;
           esac
 
       - name: Cache + ORM bootstrap smoke
         run: php -d apc.enable_cli=1 tests/test-cache-bootstrap.php
 
-      - name: Native Doctrine EM factory (WALL #2)
+      - name: 'Native Doctrine EM factory (WALL #2)'
         run: php tests/test-kernel-em-factory.php
 
-      - name: Native Smarty view (WALL #2)
+      - name: 'Native Smarty view (WALL #2)'
         run: php tests/test-kernel-smarty-view.php
 
   # ------------------------------------------------------------------ #
@@ -188,9 +214,13 @@ jobs:
   schema-drift:
     name: Schema has no phantom pending changes
     runs-on: [self-hosted, builder02, docker]
+    container:
+      image: >-
+        php@sha256:19667d836740e24a3ba340532c7349ab59bb961b86f20e3c85a58150644e5e55
     services:
       mariadb:
-        image: mariadb:11
+        image: >-
+          mariadb@sha256:2439dcd7d14010ecd1ff7a4e1c5abe8e208c34fe35290744deeeaac3569043c3
         env:
           MARIADB_ROOT_PASSWORD: ci
           MARIADB_DATABASE: vimbadmin
@@ -200,31 +230,33 @@ jobs:
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@v7
+      - name: Prepare PHP container for checkout
+        run: apt-get update && apt-get install --yes git
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          php-version: '8.5'
-          coverage: none
-          extensions: ctype, dom, gd, intl, json, mbstring, pdo, pdo_mysql, sodium
-          tools: composer:v2
+          persist-credentials: false
+
+      - name: Setup PHP container
+        run: bash .github/scripts/setup-php-container.sh runtime
 
       - name: Install dependencies
-        run: composer install --no-interaction --no-progress --prefer-dist --no-dev
+        run: >-
+          composer install --no-interaction --no-progress --prefer-dist --no-dev
 
       # The self-hosted docker runner image ships no mysql client.
       - name: ensure mysql client
         run: |
           command -v mysql >/dev/null || {
-            sudo apt-get update
-            sudo apt-get install -y mariadb-client
+            apt-get update
+            apt-get install --yes --no-install-recommends mariadb-client
           }
 
       - name: Wait for MariaDB
         run: |
-          for i in $(seq 1 30); do
-            if mysql -h127.0.0.1 -P3306 -uroot -pci -e 'SELECT 1' >/dev/null 2>&1; then
+          for _ in $(seq 1 30); do
+            if mysql -hmariadb -P3306 -uroot -pci \
+              -e 'SELECT 1' >/dev/null 2>&1; then
               echo "MariaDB up"; break
             fi
             sleep 2
@@ -233,17 +265,30 @@ jobs:
       # Step 1: build schema from the XML mappings and assert the mappings are
       # self-consistent (schema-tool --force leaves nothing pending).
       - name: Build schema from mappings — assert no pending diff
-        env: { DB_HOST: 127.0.0.1, DB_PORT: '3306', DB_NAME: vimbadmin, DB_USER: root, DB_PASS: ci }
+        env:
+          DB_HOST: mariadb
+          DB_PORT: '3306'
+          DB_NAME: vimbadmin
+          DB_USER: root
+          DB_PASS: ci
         run: php tests/test-schema-no-pending.php
 
       # Step 2: layer the shipped fork SQL (FKs / collations / unique index /
       # non-mappable bits) via the mysql client, which handles the file's
       # PREPARE/EXECUTE guard blocks.
       - name: Apply shipped fork migration SQL
-        run: mysql -h127.0.0.1 -P3306 -uroot -pci vimbadmin < contrib/migrations/2026-06-fork-schema.sql
+        run: >-
+          mysql -hmariadb -P3306 -uroot -pci vimbadmin
+          < contrib/migrations/2026-06-fork-schema.sql
 
-      # Step 3: re-diff WITHOUT recreating — proves the fork SQL did not push the
-      # DB out of sync with the mappings (the phantom-ALTER regression).
+      # Step 3: re-diff WITHOUT recreating. This proves the fork SQL did not
+      # push the DB out of sync with the mappings (phantom-ALTER regression).
       - name: After fork SQL — assert still no pending diff
-        env: { DB_HOST: 127.0.0.1, DB_PORT: '3306', DB_NAME: vimbadmin, DB_USER: root, DB_PASS: ci, SKIP_CREATE: '1' }
+        env:
+          DB_HOST: mariadb
+          DB_PORT: '3306'
+          DB_NAME: vimbadmin
+          DB_USER: root
+          DB_PASS: ci
+          SKIP_CREATE: '1'
         run: php tests/test-schema-no-pending.php
