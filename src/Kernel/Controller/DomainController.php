@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
+use Doctrine\ORM\EntityManager;
+use Entities\Admin;
+use LogicException;
+use Repositories\Admin as AdminRepository;
+use Repositories\Domain as DomainRepository;
 use ViMbAdmin\Kernel\DataTable\DataTableQuery;
 use ViMbAdmin\Kernel\DataTable\DataTableResult;
 use ViMbAdmin\Kernel\Flash\FlashMessages;
@@ -74,7 +79,7 @@ final class DomainController extends AbstractController
         $vars = [
             'domains' => $paginate
                 ? []
-                : $this->em()->getRepository('\\Entities\\Domain')->loadForDomainList($admin),
+                : $this->domainRepository()->loadForDomainList($admin),
         ];
 
         // The size column is shown unless explicitly disabled; the template
@@ -110,7 +115,7 @@ final class DomainController extends AbstractController
         // "used" + controls fall back to domain).
         $sortField = [0 => 'domain', 1 => 'mailboxes', 2 => 'aliases', 4 => 'quota', 5 => 'active', 6 => 'transport', 8 => 'created'][$q->sortColumn] ?? 'domain';
 
-        $r = $this->em()->getRepository('\\Entities\\Domain')
+        $r = $this->domainRepository()
             ->pagedForDomainList($admin, $q->search, $sortField, $q->sortDir, $q->start, $q->length);
 
         foreach ($r['rows'] as &$row) {
@@ -121,7 +126,7 @@ final class DomainController extends AbstractController
         unset($row);
 
         return new Response(
-            DataTableResult::json($q, $r['total'], $r['filtered'], $r['rows']),
+            DataTableResult::json($q, $r['total'], $r['filtered'], array_values($r['rows'])),
             200,
             'application/json; charset=utf-8'
         );
@@ -137,7 +142,7 @@ final class DomainController extends AbstractController
      * nothing is lost by serving it natively. Quota fields are converted to bytes
      * with the SAME OSS_Filter_FileSize the ZF1 form used.
      */
-    public function addAction(): ?Response
+    public function addAction(): Response
     {
         if ($did = $this->param('did')) {
             // The edit form is served natively by editAction; redirect the
@@ -190,7 +195,7 @@ final class DomainController extends AbstractController
      * and re-parsed to bytes on submit by the identical forward filter. domain/add
      * and domain/edit fire no plugin hooks, so nothing is lost serving natively.
      */
-    public function editAction(): ?Response
+    public function editAction(): Response
     {
         $admin = $this->admin();
         if ($admin === null || !$admin->isSuper()) {
@@ -198,7 +203,7 @@ final class DomainController extends AbstractController
         }
 
         $domain = ($did = $this->param('did'))
-            ? $this->em()->getRepository('\\Entities\\Domain')->find((int) $did)
+            ? $this->domainRepository()->find((int) $did)
             : null;
 
         if ($domain === null) {
@@ -257,7 +262,7 @@ final class DomainController extends AbstractController
         }
 
         $domain = ($did = $this->param('did'))
-            ? $this->em()->getRepository('\\Entities\\Domain')->find((int) $did)
+            ? $this->domainRepository()->find((int) $did)
             : null;
 
         if ($domain === null) {
@@ -284,7 +289,7 @@ final class DomainController extends AbstractController
         }
 
         $domain = ($did = $this->param('did'))
-            ? $this->em()->getRepository('\\Entities\\Domain')->find((int) $did)
+            ? $this->domainRepository()->find((int) $did)
             : null;
 
         if ($domain === null) {
@@ -293,7 +298,7 @@ final class DomainController extends AbstractController
         }
 
         $target = ($aid = $this->param('aid'))
-            ? $this->em()->getRepository('\\Entities\\Admin')->find((int) $aid)
+            ? $this->adminRepository()->find((int) $aid)
             : null;
 
         if ($target === null) {
@@ -326,7 +331,7 @@ final class DomainController extends AbstractController
         }
 
         $domain = ($did = $this->param('did'))
-            ? $this->em()->getRepository('\\Entities\\Domain')->find((int) $did)
+            ? $this->domainRepository()->find((int) $did)
             : null;
 
         if ($domain === null) {
@@ -334,11 +339,11 @@ final class DomainController extends AbstractController
             return $this->redirect('domain/list');
         }
 
-        $remaining = $this->em()->getRepository('\\Entities\\Admin')->getNotAssignedForDomain($domain);
+        $remaining = $this->adminRepository()->getNotAssignedForDomain($domain);
         $form      = $this->buildAssignAdminForm($remaining);
 
         if ($this->isPost() && $form->isValid($this->postData())) {
-            $target = $this->em()->getRepository('\\Entities\\Admin')->find((int) $form->values()['admin']);
+            $target = $this->adminRepository()->find((int) $form->values()['admin']);
 
             if ($target !== null) {
                 try {
@@ -396,7 +401,7 @@ final class DomainController extends AbstractController
         }
 
         $domain = ($did = $this->param('did'))
-            ? $this->em()->getRepository('\\Entities\\Domain')->find((int) $did)
+            ? $this->domainRepository()->find((int) $did)
             : null;
 
         if ($domain === null) {
@@ -429,12 +434,15 @@ final class DomainController extends AbstractController
      * Map the validated form values onto a domain entity (the fields common to
      * add and edit; the domain name and add-only counters are set by the caller).
      */
+    /**
+     * @param array<string,mixed> $v
+     */
     private function applyFormFields(\Entities\Domain $domain, array $v, \OSS_Filter_FileSize $filter): void
     {
         $domain->setDescription((string) $v['description']);
         $domain->setTransport((string) $v['transport']);
-        $domain->setBackupmx($v['backupmx'] ? 1 : 0);
-        $domain->setActive($v['active'] ? 1 : 0);
+        $domain->setBackupmx((bool) $v['backupmx']);
+        $domain->setActive((bool) $v['active']);
         $domain->setMaxAliases((int) $v['max_aliases']);
         $domain->setMaxMailboxes((int) $v['max_mailboxes']);
         $domain->setQuota((int) $filter->filter((string) $v['quota']));
@@ -485,14 +493,16 @@ final class DomainController extends AbstractController
      * `defaults.domain.*`; the domain name is required, format-checked and
      * uniqueness-checked against the database (the rule closes over the EM).
      */
+    /**
+     * @param array<string,mixed> $options
+     */
     private function buildDomainAddForm(array $options): Form
     {
-        $em        = $this->em();
-        $unique    = static function (mixed $value) use ($em): ?string {
+        $unique = function (mixed $value): ?string {
             if ($value === null || $value === '') {
                 return null;
             }
-            $existing = $em->getRepository('\\Entities\\Domain')->findOneBy(['domain' => (string) $value]);
+            $existing = $this->domainRepository()->findOneBy(['domain' => (string) $value]);
             return $existing !== null ? 'A domain with that name already exists.' : null;
         };
 
@@ -539,7 +549,7 @@ final class DomainController extends AbstractController
         }
 
         $domain = ($did = $this->param('did'))
-            ? $this->em()->getRepository('\\Entities\\Domain')->find((int) $did)
+            ? $this->domainRepository()->find((int) $did)
             : null;
 
         // loadDomain() authorises a non-super admin against the domain.
@@ -550,5 +560,45 @@ final class DomainController extends AbstractController
         (new \ViMbAdmin_Service_Domain($this->em()))->toggleActive($domain, $admin);
 
         return new Response('ok');
+    }
+
+    protected function em(): EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof EntityManager) {
+            throw new LogicException('Doctrine entity manager resource has an invalid type');
+        }
+
+        return $em;
+    }
+
+    protected function admin(): ?Admin
+    {
+        $admin = parent::admin();
+        if ($admin !== null && !$admin instanceof Admin) {
+            throw new LogicException('Authenticated admin has an invalid type');
+        }
+
+        return $admin;
+    }
+
+    private function adminRepository(): AdminRepository
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Admin');
+        if (!$repo instanceof AdminRepository) {
+            throw new LogicException('Admin repository has an invalid type');
+        }
+
+        return $repo;
+    }
+
+    private function domainRepository(): DomainRepository
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Domain');
+        if (!$repo instanceof DomainRepository) {
+            throw new LogicException('Domain repository has an invalid type');
+        }
+
+        return $repo;
     }
 }
