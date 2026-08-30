@@ -7,7 +7,7 @@
  * 
  * 1. The OSS/Message.php class (this file)
  * 2. The OSS/Smarty/functions/function.OSS_Message.php (to display the message on the view)
- * 3. The relevent CSS classes in public/css/oss.css
+ * 3. The relevant CSS classes in public/css/oss.css
  * 
  * To use this, add a message to the view as follows:
  * 
@@ -74,7 +74,7 @@ class OSS_Message_Block extends OSS_Message
     /**
      * Elements for the action area
      * 
-     * @var null|array
+     * @var null|list<mixed>
      */
     private $actions = null;
     
@@ -87,6 +87,7 @@ class OSS_Message_Block extends OSS_Message
      * @param bool $isHTML Htmk flag
      * @return void
      */
+    /** @SuppressWarnings("PHPMD.BooleanArgumentFlag") */
     public function __construct( $message = '', $class = '', $isHTML = true )
     {
         parent::__construct( $message, $class, $isHTML );
@@ -103,19 +104,17 @@ class OSS_Message_Block extends OSS_Message
     {
         if( $this->actions === null )
             $this->actions = [];
-            
+
         $this->actions[] = $str;
     }
     
     /**
      * Getting messages
      *
-     * @return array
+     * @return null|list<mixed>
      */
     public function getActions()
     {
         return $this->actions;
     }
 }
-
-

@@ -50,7 +50,7 @@ class OSS_Message_Pop_Up extends OSS_Message
     /**
      * Elements for the action area
      * 
-     * @var null|array
+     * @var null|list<mixed>
      */
     private $actions = null;
     
@@ -63,6 +63,7 @@ class OSS_Message_Pop_Up extends OSS_Message
      * @param bool $isHTML Htmk flag
      * @return void
      */
+    /** @SuppressWarnings("PHPMD.BooleanArgumentFlag") */
     public function __construct( $message = '', $class = '', $isHTML = true )
     {
         parent::__construct( $message, $class, $isHTML );
@@ -79,19 +80,17 @@ class OSS_Message_Pop_Up extends OSS_Message
     {
         if( $this->actions === null )
             $this->actions = [];
-            
+
         $this->actions[] = $str;
     }
     
     /**
      * Getting messages
      *
-     * @return array
+     * @return null|list<mixed>
      */
     public function getActions()
     {
         return $this->actions;
     }
 }
-
-

@@ -331,36 +331,6 @@ parameters:
 			path: library/OSS/Filter/FileSize.php
 
 		-
-			message: '#^Method OSS_Message\:\:setClass\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: library/OSS/Message.php
-
-		-
-			message: '#^Method OSS_Message_Block\:\:getActions\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Message/Block.php
-
-		-
-			message: '#^Property OSS_Message_Block\:\:\$actions type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Message/Block.php
-
-		-
-			message: '#^Method OSS_Message_Pop_Up\:\:getActions\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Message/Pop/Up.php
-
-		-
-			message: '#^Property OSS_Message_Pop_Up\:\:\$actions type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Message/Pop/Up.php
-
-		-
 			message: '#^Function smarty_function_OSS_Message\(\) has parameter \$params with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1

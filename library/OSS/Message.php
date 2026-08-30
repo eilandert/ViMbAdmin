@@ -33,7 +33,7 @@
  * 
  * 1. The OSS/Message.php class (this file)
  * 2. The OSS/Smarty/functions/function.OSS_Message.php (to display the message on the view)
- * 3. The relevent CSS classes in public/css/oss.css
+ * 3. The relevant CSS classes in public/css/oss.css
  * 
  * To use this, add a message to the view as follows:
  * 
@@ -111,6 +111,7 @@ class OSS_Message
      * @param bool $isHTML Is the message HTML? (default: true)
      * @return void
      */
+    /** @SuppressWarnings("PHPMD.BooleanArgumentFlag") */
     public function __construct( $message = '', $class = '', $isHTML = true )
     {
         $this->message = $message;
@@ -179,7 +180,7 @@ class OSS_Message
      *
      * @param string $class the class
      */
-    public function setClass( $class )
+    public function setClass( $class ): void
     {
         if( $class == self::ALERT )
             $class = self::WARNING;
@@ -187,4 +188,3 @@ class OSS_Message
         $this->class = $class;
     }
 }
-
