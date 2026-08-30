@@ -14,16 +14,16 @@
  */
 class ViMbAdmin_Mcp_Auth
 {
-    /** @var \Doctrine\ORM\EntityManager */
+    /** @var \Doctrine\ORM\EntityManagerInterface */
     private $_em;
     /** @var string */
     private $_proxyMode = 'auto';
-    /** @var array */
+    /** @var list<string> */
     private $_proxies = [];
 
     /**
-     * @param object $em
-     * @param array  $trustedProxy  ['mode'=>'auto|off|on','proxies'=>[...]]
+     * @param \Doctrine\ORM\EntityManagerInterface $em
+     * @param array{mode?: scalar|null, proxies?: string|list<string>} $trustedProxy
      */
     public function __construct( $em, array $trustedProxy = [] )
     {
@@ -39,12 +39,12 @@ class ViMbAdmin_Mcp_Auth
      * Authenticate a request. Returns the McpToken on success, or throws
      * ViMbAdmin_Mcp_Exception (with an HTTP-ish code) on any failure.
      *
-     * @param array  $server  typically $_SERVER
+     * @param array<string,mixed> $server  typically $_SERVER
      * @param string $scope   required scope for the call (e.g. "read")
      * @return \Entities\McpToken
      * @throws ViMbAdmin_Mcp_Exception
      */
-    public function authenticate( array $server, $scope = 'read' )
+    public function authenticate( array $server, $scope = 'read' ): \Entities\McpToken
     {
         $raw = $this->_bearer( $server );
         if( $raw === null )
@@ -90,14 +90,16 @@ class ViMbAdmin_Mcp_Auth
     /**
      * Resolve the client IP per the trusted-proxy policy (default 'auto').
      */
-    public function clientIp( array $server )
+    /** @param array<string,mixed> $server */
+    public function clientIp( array $server ): string
     {
         return ViMbAdmin_Net::clientIp( $server, $this->_proxyMode, $this->_proxies );
     }
 
     // ---- internals -----------------------------------------------------
 
-    private function _bearer( array $server )
+    /** @param array<string,mixed> $server */
+    private function _bearer( array $server ): ?string
     {
         $h = null;
         if( isset( $server['HTTP_AUTHORIZATION'] ) )
@@ -115,7 +117,7 @@ class ViMbAdmin_Mcp_Auth
      * Empty/null allowlist => any IP (the edge is the gate). Otherwise the IP
      * must match one of the space/comma-separated IP or CIDR entries.
      */
-    private function _ipAllowed( \Entities\McpToken $token, $ip )
+    private function _ipAllowed( \Entities\McpToken $token, string $ip ): bool
     {
         $list = trim( (string) $token->getAllowedIps() );
         if( $list === '' )
