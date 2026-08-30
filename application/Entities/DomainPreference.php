@@ -50,6 +50,11 @@ class DomainPreference
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    protected function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
+
     /**
      * @var \Entities\Domain
      */
