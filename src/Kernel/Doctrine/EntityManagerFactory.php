@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Doctrine;
 
+use InvalidArgumentException;
+
 /**
  * Framework-free factory for the Doctrine entity manager (WALL #2,
  * docs/ZF1-REMOVAL.md).
@@ -75,6 +77,9 @@ final class EntityManagerFactory
         ];
     }
 
+    /**
+     * @param array<string,mixed> $options the full options array
+     */
     public static function create(array $options): object
     {
         $dconfig = self::withLayoutDefaults($options['resources']['doctrine2'] ?? []);
@@ -100,7 +105,9 @@ final class EntityManagerFactory
         $config->setResultCache($cache);
         $config->setProxyDir((string) $dconfig['proxies_path']);
         $config->setProxyNamespace((string) $dconfig['proxies_namespace']);
-        $config->setAutoGenerateProxyClasses((int) ($dconfig['autogen_proxies'] ?? 0));
+        $config->setAutoGenerateProxyClasses(
+            self::autoGenerateProxyMode($dconfig['autogen_proxies'] ?? 0)
+        );
 
         // ORM 3.x dropped EntityManager::create(): build the DBAL connection
         // explicitly, then hand it to the constructor. Connection stays lazy —
@@ -170,7 +177,7 @@ final class EntityManagerFactory
      *
      * @param array<string,mixed> $cfg the `doctrine2cache` options
      */
-    private static function buildCache(array $cfg): object
+    private static function buildCache(array $cfg): \Psr\Cache\CacheItemPoolInterface
     {
         $namespace = isset($cfg['namespace']) ? (string) $cfg['namespace'] : '';
 
@@ -239,5 +246,25 @@ final class EntityManagerFactory
         // ORM 3.x consumes PSR-6 pools directly; the old doctrine/cache
         // DoctrineProvider wrapper was removed with that package.
         return $pool;
+    }
+
+    /**
+     * Normalize the scalar values produced by the INI loader to one of
+     * Doctrine's documented proxy-generation modes.
+     *
+     * @return 0|1|2|3|4
+     */
+    private static function autoGenerateProxyMode(mixed $value): int
+    {
+        return match ((int) $value) {
+            0 => 0,
+            1 => 1,
+            2 => 2,
+            3 => 3,
+            4 => 4,
+            default => throw new InvalidArgumentException(
+                'resources.doctrine2.autogen_proxies must be a Doctrine proxy-generation mode from 0 through 4'
+            ),
+        };
     }
 }

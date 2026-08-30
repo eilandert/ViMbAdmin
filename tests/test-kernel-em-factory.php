@@ -26,6 +26,7 @@ require __DIR__ . '/../src/Kernel/Doctrine/EntityManagerFactory.php';
 use ViMbAdmin\Kernel\Doctrine\EntityManagerFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\Driver\AttributeDriver;
+use Psr\Cache\CacheItemPoolInterface;
 
 $appPath = realpath(__DIR__ . '/../application');
 
@@ -34,7 +35,11 @@ $options = [
         'doctrine2' => [
             'connection' => [
                 // pdo_sqlite :memory: — never connected (lazy), just a valid driver.
-                'options' => ['driver' => 'pdo_sqlite', 'memory' => true],
+                'options' => [
+                    'driver'        => 'pdo_sqlite',
+                    'memory'        => true,
+                    'driverOptions' => [PDO::ATTR_TIMEOUT => 1],
+                ],
             ],
             'proxies_path'           => $appPath . '/Proxies',
             'proxies_namespace'      => 'Proxies',
@@ -86,7 +91,7 @@ check('metadata driver is the attribute driver over the Entities dir', function 
     }
 });
 
-check('proxy namespace + autogen flag applied', function () use (&$em) {
+check('proxy namespace + autogen flag applied', function () use (&$em, $options) {
     $cfg = $em->getConfiguration();
     if ($cfg->getProxyNamespace() !== 'Proxies') {
         throw new RuntimeException('proxy namespace = ' . var_export($cfg->getProxyNamespace(), true));
@@ -95,13 +100,36 @@ check('proxy namespace + autogen flag applied', function () use (&$em) {
     if ((int) $cfg->getAutoGenerateProxyClasses() !== 0) {
         throw new RuntimeException('autogen = ' . var_export($cfg->getAutoGenerateProxyClasses(), true));
     }
+
+    foreach (range(0, 4) as $mode) {
+        $modeOptions = $options;
+        $modeOptions['resources']['doctrine2']['autogen_proxies'] = (string) $mode;
+        $modeEm = EntityManagerFactory::create($modeOptions);
+        if (!$modeEm instanceof EntityManagerInterface) {
+            throw new RuntimeException('proxy-mode factory did not return an EntityManagerInterface');
+        }
+        if ($modeEm->getConfiguration()->getAutoGenerateProxyClasses() !== $mode) {
+            throw new RuntimeException("proxy mode $mode was not preserved");
+        }
+    }
+
+    $invalidOptions = $options;
+    $invalidOptions['resources']['doctrine2']['autogen_proxies'] = '5';
+    try {
+        EntityManagerFactory::create($invalidOptions);
+    } catch (InvalidArgumentException) {
+        return;
+    }
+
+    throw new RuntimeException('invalid proxy mode was accepted');
 });
 
 check('metadata cache is wired (no exception fetching it)', function () use (&$em) {
-    // ORM 2.x: getMetadataCache() returns the PSR-6 pool DoctrineProvider wraps.
-    $cache = $em->getConfiguration()->getMetadataCache();
-    if ($cache === null) {
-        throw new RuntimeException('metadata cache is null');
+    $cfg = $em->getConfiguration();
+    foreach (['metadata' => $cfg->getMetadataCache(), 'query' => $cfg->getQueryCache(), 'result' => $cfg->getResultCache()] as $name => $cache) {
+        if (!$cache instanceof CacheItemPoolInterface) {
+            throw new RuntimeException("$name cache is " . get_debug_type($cache));
+        }
     }
 });
 

@@ -955,36 +955,6 @@ parameters:
 			path: src/Kernel/Controller/LogController.php
 
 		-
-			message: '#^Method ViMbAdmin\\Kernel\\Doctrine\\EntityManagerFactory\:\:create\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: src/Kernel/Doctrine/EntityManagerFactory.php
-
-		-
-			message: '#^Parameter \#1 \$autoGenerate of method Doctrine\\ORM\\Configuration\:\:setAutoGenerateProxyClasses\(\) expects 0\|1\|2\|3\|4\|bool, int given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Doctrine/EntityManagerFactory.php
-
-		-
-			message: '#^Parameter \#1 \$cache of method Doctrine\\DBAL\\Configuration\:\:setResultCache\(\) expects Psr\\Cache\\CacheItemPoolInterface, object given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Doctrine/EntityManagerFactory.php
-
-		-
-			message: '#^Parameter \#1 \$cache of method Doctrine\\ORM\\Configuration\:\:setMetadataCache\(\) expects Psr\\Cache\\CacheItemPoolInterface, object given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Doctrine/EntityManagerFactory.php
-
-		-
-			message: '#^Parameter \#1 \$cache of method Doctrine\\ORM\\Configuration\:\:setQueryCache\(\) expects Psr\\Cache\\CacheItemPoolInterface, object given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Doctrine/EntityManagerFactory.php
-
-		-
 			message: '#^Access to an undefined property object\:\:\$timeOfLastAction\.$#'
 			identifier: property.notFound
 			count: 1
