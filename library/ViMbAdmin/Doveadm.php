@@ -76,7 +76,7 @@ class ViMbAdmin_Doveadm
     /**
      * Build an instance from the application options.
      *
-     * @param array|null $options
+     * @param array<string, mixed>|null $options
      * @return ViMbAdmin_Doveadm
      * @throws ViMbAdmin_Exception when not configured
      */
@@ -102,14 +102,17 @@ class ViMbAdmin_Doveadm
      * Run a single doveadm command and return its decoded response rows.
      *
      * @param string $cmd    doveadm command name (e.g. "force-resync", "mailbox delete")
-     * @param array  $params Named parameters as the HTTP API expects them
-     * @return array         The decoded doveadmResponse payload (rows / scalar)
+     * @param array<string, mixed> $params Named parameters as the HTTP API expects them
+     * @return array<mixed>         The decoded doveadmResponse payload
      * @throws ViMbAdmin_Exception on transport, auth, or command error
      */
     public function run( $cmd, array $params = [] )
     {
         $tag     = 'vimb' . substr( md5( uniqid( '', true ) ), 0, 8 );
         $payload = json_encode( [ [ $cmd, (object) $params, $tag ] ] );
+
+        if( $payload === false )
+            throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to encode request' ) );
 
         list( $status, $body ) = $this->_post( $payload );
 
@@ -143,7 +146,7 @@ class ViMbAdmin_Doveadm
      * POST the JSON body to the doveadm endpoint.
      *
      * @param string $payload JSON request body
-     * @return array{0:int,1:string} [ httpStatus, responseBody ]
+     * @return array{0:int,1:string|true} [ httpStatus, responseBody ]
      * @throws ViMbAdmin_Exception on transport failure
      */
     private function _post( $payload )
@@ -184,7 +187,7 @@ class ViMbAdmin_Doveadm
      *
      * @param string $user  Full mailbox username (user@domain)
      * @param string $mbox  Mailbox mask (default all)
-     * @return array
+     * @return array<mixed>
      */
     public function forceResync( $user, $mbox = '*' )
     {
@@ -196,7 +199,7 @@ class ViMbAdmin_Doveadm
      *
      * @param string $user
      * @param string $mbox  Mailbox mask (default all)
-     * @return array
+     * @return array<mixed>
      */
     public function index( $user, $mbox = '*' )
     {
@@ -208,7 +211,7 @@ class ViMbAdmin_Doveadm
      * Non-destructive to live mail.
      *
      * @param string $user
-     * @return array
+     * @return array<mixed>
      */
     public function purge( $user )
     {
@@ -219,7 +222,7 @@ class ViMbAdmin_Doveadm
      * Recalculate quota usage for a user.
      *
      * @param string $user
-     * @return array
+     * @return array<mixed>
      */
     public function quotaRecalc( $user )
     {
@@ -233,7 +236,7 @@ class ViMbAdmin_Doveadm
      *
      * @param string $user
      * @param string $dest  dsync destination URI / path
-     * @return array
+     * @return array<mixed>
      */
     public function backup( $user, $dest )
     {
@@ -251,7 +254,7 @@ class ViMbAdmin_Doveadm
      *
      * @param string $path  filesystem path or `<driver>:<path>` dest URI
      * @param string $filter  the fs filter name (default "posix")
-     * @return array
+     * @return array<mixed>
      */
     public function fsDelete( $path, $filter = 'posix' )
     {
@@ -433,7 +436,7 @@ class ViMbAdmin_Doveadm
      *
      * @param string $user  the live user to restore INTO (must exist in userdb)
      * @param string $src   the backup source location (maildir:/backups/...)
-     * @return array
+     * @return array<mixed>
      */
     public function restoreFrom( $user, $src )
     {
@@ -449,8 +452,8 @@ class ViMbAdmin_Doveadm
      * the next auth to re-read from the userdb/passdb (e.g. after a password or
      * active-flag change in the panel).
      *
-     * @param array $users  Optional list of usernames to flush (default: all)
-     * @return array
+     * @param list<string> $users  Optional list of usernames to flush (default: all)
+     * @return array<mixed>
      */
     public function authCacheFlush( array $users = [] )
     {
@@ -579,7 +582,7 @@ class ViMbAdmin_Doveadm
      *
      * @param string $user
      * @param string $mailbox
-     * @return array
+     * @return array<mixed>
      */
     private function _mailboxDeleteOne( $user, $mailbox )
     {
