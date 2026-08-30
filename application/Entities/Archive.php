@@ -21,6 +21,7 @@ class Archive
     const STATUS_DELETING        = "DELETING";
     const STATUS_DELETED         = "DELETED";
 
+    /** @var array<string, string> */
     public static $ARCHIVE_STATUS = [
         self::STATUS_PENDING_ARCHIVE  => "Pending Archive",
         self::STATUS_ARCHIVING        => "Archiving",
