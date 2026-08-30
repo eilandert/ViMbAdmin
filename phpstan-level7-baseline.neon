@@ -361,24 +361,6 @@ parameters:
 			path: library/OSS/Message/Pop/Up.php
 
 		-
-			message: '#^Method OSS_Runtime\:\:configure\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Runtime.php
-
-		-
-			message: '#^Method OSS_Runtime\:\:options\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Runtime.php
-
-		-
-			message: '#^Property OSS_Runtime\:\:\$options type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Runtime.php
-
-		-
 			message: '#^Function smarty_function_OSS_Message\(\) has parameter \$params with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1

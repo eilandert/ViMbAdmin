@@ -2,10 +2,12 @@
 
 final class OSS_Runtime
 {
+    /** @var array<string,mixed> */
     private static array $options = [];
     private static string $baseUrl = '';
     private static ?object $entityManager = null;
 
+    /** @param array<string,mixed> $options */
     public static function configure(array $options, string $baseUrl, object $entityManager): void
     {
         self::$options = $options;
@@ -13,6 +15,7 @@ final class OSS_Runtime
         self::$entityManager = $entityManager;
     }
 
+    /** @return array<string,mixed> */
     public static function options(): array
     {
         return self::$options;
@@ -28,10 +31,11 @@ final class OSS_Runtime
         return self::$baseUrl;
     }
 
+    /** @SuppressWarnings("PHPMD.MissingImport") */
     public static function entityManager(): object
     {
         if (self::$entityManager === null) {
-            throw new RuntimeException('OSS runtime entity manager is not configured');
+            throw new \RuntimeException('OSS runtime entity manager is not configured');
         }
 
         return self::$entityManager;
