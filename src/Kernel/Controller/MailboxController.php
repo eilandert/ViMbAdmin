@@ -544,7 +544,7 @@ final class MailboxController extends AbstractController
             return $this->redirect('mailbox/list');
         }
 
-        $ima       = (bool) $this->param('ima', 0);
+        $ima       = (bool) (int) $this->param('ima', 0);
         $aliasRepo = $this->aliasRepository();
 
         return $this->view('mailbox/aliases.phtml', [
