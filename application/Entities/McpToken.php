@@ -2,6 +2,7 @@
 
 namespace Entities;
 
+use DateTime;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -21,6 +22,11 @@ class McpToken
     #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
+
+    protected function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
 
     /** @var string  Human label for the token (e.g. "agent1"). */
     #[ORM\Column(type: 'string', length: 255)]
@@ -58,26 +64,56 @@ class McpToken
     #[ORM\Column(type: 'boolean')]
     private bool $revoked = false;
 
+    /** @return int|null */
     public function getId()                 { return $this->id; }
 
+    /** @return string|null */
     public function getName()               { return $this->name; }
+    /**
+     * @param string $v
+     * @return $this
+     */
     public function setName( $v )           { $this->name = $v; return $this; }
 
+    /** @return string|null */
     public function getTokenHash()          { return $this->token_hash; }
+    /**
+     * @param string $v
+     * @return $this
+     */
     public function setTokenHash( $v )      { $this->token_hash = $v; return $this; }
 
+    /** @return string */
     public function getScope()              { return $this->scope; }
+    /**
+     * @param string $v
+     * @return $this
+     */
     public function setScope( $v )          { $this->scope = $v; return $this; }
 
+    /** @return string|null */
     public function getAllowedIps()         { return $this->allowed_ips; }
+    /**
+     * @param string|null $v
+     * @return $this
+     */
     public function setAllowedIps( $v )     { $this->allowed_ips = ( $v === '' ? null : $v ); return $this; }
 
+    /** @return string|null */
     public function getAllowedDomains()     { return $this->allowed_domains; }
+    /**
+     * @param string|null $v
+     * @return $this
+     */
     public function setAllowedDomains( $v ) { $this->allowed_domains = ( $v === '' ? null : $v ); return $this; }
 
     /**
      * May this token operate on $domain? Empty/null allowlist => all domains.
      * Matching is case-insensitive exact (no wildcards).
+     */
+    /**
+     * @param string $domain
+     * @return bool
      */
     public function allowsDomain( $domain )
     {
@@ -85,43 +121,68 @@ class McpToken
         if( $list === '' )
             return true;
         $domain = strtolower( (string) $domain );
-        foreach( preg_split( '/[\s,]+/', $list, -1, PREG_SPLIT_NO_EMPTY ) as $d )
+        foreach( preg_split( '/[\s,]+/', $list, -1, PREG_SPLIT_NO_EMPTY ) ?: [] as $d )
             if( strtolower( $d ) === $domain )
                 return true;
         return false;
     }
 
+    /** @return \DateTime|null */
     public function getCreated()            { return $this->created; }
+    /**
+     * @param \DateTime $v
+     * @return $this
+     */
     public function setCreated( $v )        { $this->created = $v; return $this; }
 
+    /** @return \DateTime|null */
     public function getExpiresAt()          { return $this->expires_at; }
+    /**
+     * @param \DateTime|null $v
+     * @return $this
+     */
     public function setExpiresAt( $v )      { $this->expires_at = $v; return $this; }
 
+    /** @return \DateTime|null */
     public function getLastUsedAt()         { return $this->last_used_at; }
+    /**
+     * @param \DateTime|null $v
+     * @return $this
+     */
     public function setLastUsedAt( $v )     { $this->last_used_at = $v; return $this; }
 
+    /** @return bool */
     public function getRevoked()            { return (bool) $this->revoked; }
+    /**
+     * @param bool $v
+     * @return $this
+     */
     public function setRevoked( $v )        { $this->revoked = (bool) $v; return $this; }
 
     /**
      * A scope string contains "*" or the requested scope token.
      */
+    /**
+     * @param string $want
+     * @return bool
+     */
     public function hasScope( $want )
     {
-        $have = preg_split( '/[\s,]+/', (string) $this->scope, -1, PREG_SPLIT_NO_EMPTY );
+        $have = preg_split( '/[\s,]+/', (string) $this->scope, -1, PREG_SPLIT_NO_EMPTY ) ?: [];
         return in_array( '*', $have, true ) || in_array( $want, $have, true );
     }
 
     /**
      * True if the token is usable right now (not revoked, not expired).
      */
+    /** @return bool */
     public function isActive( ?\DateTime $now = null )
     {
         if( $this->revoked )
             return false;
         if( $this->expires_at !== null )
         {
-            $now = $now ?: new \DateTime();
+            $now = $now ?: new DateTime();
             if( $this->expires_at < $now )
                 return false;
         }
