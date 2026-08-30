@@ -242,7 +242,7 @@ class ViMbAdmin_Service_QueueRunner
      * still hold a traversal-shaped value — reject any path separator or
      * parent-dir reference here rather than trusting the input.
      *
-     * @throws ViMbAdmin_Exception
+     * @throws \RuntimeException
      */
     private static function assertPathSafe($value)
     {
@@ -302,7 +302,7 @@ class ViMbAdmin_Service_QueueRunner
                 ->setMaildirOrigSize($origSize)
                 ->setMaildirSize($size)
                 ->setAutoprune($autoprune)
-                ->setData(json_encode([
+                ->setData($this->encodeTaskData([
                     'username' => $user,
                     'type'     => $task->getType(),
                     'task_id'  => $task->getId(),
@@ -328,7 +328,7 @@ class ViMbAdmin_Service_QueueRunner
                ->setCreatedAt(new \DateTime())
                ->setDomain($task->getDomain())
                ->setRequestedBy($task->getRequestedBy())
-               ->setData(json_encode(['dest' => $dest]));
+               ->setData($this->encodeTaskData(['dest' => $dest]));
             $em->persist($mt);
         }
     }
@@ -449,7 +449,7 @@ class ViMbAdmin_Service_QueueRunner
                    ->setPriority(-20)
                    ->setCreatedAt(new \DateTime())
                    ->setDomain($archive->getDomain())
-                   ->setData(json_encode(['dest' => $archive->getMaildirFile()]));
+                   ->setData($this->encodeTaskData(['dest' => $archive->getMaildirFile()]));
                 $em->persist($mt);
             }
             $em->flush();
@@ -598,5 +598,21 @@ class ViMbAdmin_Service_QueueRunner
             } catch (\Throwable $e) {
             }
         }
+    }
+
+    /**
+     * Encode queue/archive metadata and fail closed if the payload is not valid JSON.
+     *
+     * @param array<string, mixed> $data
+     * @throws \RuntimeException
+     */
+    private function encodeTaskData(array $data): string
+    {
+        $json = json_encode($data);
+        if ($json === false) {
+            throw new \RuntimeException('failed to encode mailbox task metadata');
+        }
+
+        return $json;
     }
 }

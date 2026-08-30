@@ -56,6 +56,7 @@ class MailboxTask
      */
     const TYPE_BACKUP_ORPHAN = "BACKUP_ORPHAN";
 
+    /** @var array<string, string> */
     public static $TYPES = [
         self::TYPE_REPAIR       => "Repair / optimize",
         self::TYPE_OPTIMIZE     => "Repair / optimize",
@@ -71,6 +72,7 @@ class MailboxTask
     const STATUS_FAILED    = "FAILED";
     const STATUS_CANCELLED = "CANCELLED";
 
+    /** @var array<string, string> */
     public static $STATUSES = [
         self::STATUS_PENDING   => "Pending",
         self::STATUS_RUNNING   => "Running",
@@ -84,6 +86,11 @@ class MailboxTask
     #[ORM\Column(type: 'bigint')]
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
+
+    protected function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
 
     /** @var string */
     #[ORM\Column(type: 'string', length: 32)]
@@ -131,30 +138,71 @@ class MailboxTask
     #[ORM\JoinColumn(name: 'Admin_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?\Entities\Admin $RequestedBy = null;
 
+    /** @return int|null */
     public function getId()                 { return $this->id; }
 
+    /** @return string|null */
     public function getType()               { return $this->type; }
+    /**
+     * @param string $v
+     * @return $this
+     */
     public function setType( $v )           { $this->type = $v; return $this; }
 
+    /** @return string|null */
     public function getUsername()           { return $this->username; }
+    /**
+     * @param string $v
+     * @return $this
+     */
     public function setUsername( $v )       { $this->username = $v; return $this; }
 
+    /** @return string|null */
     public function getStatus()             { return $this->status; }
+    /**
+     * @param string $v
+     * @return $this
+     */
     public function setStatus( $v )         { $this->status = $v; return $this; }
 
+    /** @return int */
     public function getPriority()           { return $this->priority; }
+    /**
+     * @param int $v
+     * @return $this
+     */
     public function setPriority( $v )       { $this->priority = (int) $v; return $this; }
 
+    /** @return \DateTime|null */
     public function getCreatedAt()          { return $this->created_at; }
+    /**
+     * @param \DateTime $v
+     * @return $this
+     */
     public function setCreatedAt( $v )      { $this->created_at = $v; return $this; }
 
+    /** @return \DateTime|null */
     public function getStartedAt()          { return $this->started_at; }
+    /**
+     * @param \DateTime|null $v
+     * @return $this
+     */
     public function setStartedAt( $v )      { $this->started_at = $v; return $this; }
 
+    /** @return \DateTime|null */
     public function getFinishedAt()         { return $this->finished_at; }
+    /**
+     * @param \DateTime|null $v
+     * @return $this
+     */
     public function setFinishedAt( $v )     { $this->finished_at = $v; return $this; }
 
+    /** @return string|null */
     public function getLog()                { return $this->log; }
+    /**
+     * @param string|null $v
+     * @return $this
+     */
     public function setLog( $v )            { $this->log = $v; return $this; }
 
     /**
@@ -169,13 +217,22 @@ class MailboxTask
         return $this;
     }
 
+    /** @return string|null */
     public function getData()               { return $this->data; }
+    /**
+     * @param string|null $v
+     * @return $this
+     */
     public function setData( $v )           { $this->data = $v; return $this; }
 
+    /** @return \Entities\Domain|null */
     public function getDomain()             { return $this->Domain; }
+    /** @return $this */
     public function setDomain( ?\Entities\Domain $v = null )     { $this->Domain = $v; return $this; }
 
+    /** @return \Entities\Admin|null */
     public function getRequestedBy()        { return $this->RequestedBy; }
+    /** @return $this */
     public function setRequestedBy( ?\Entities\Admin $v = null ) { $this->RequestedBy = $v; return $this; }
 
     /**

@@ -349,216 +349,6 @@ parameters:
 			path: application/Entities/MailboxPreference.php
 
 		-
-			message: '#^Method Entities\\MailboxTask\:\:getCreatedAt\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:getData\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:getDomain\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:getFinishedAt\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:getId\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:getLog\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:getPriority\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:getRequestedBy\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:getStartedAt\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:getStatus\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:getType\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:getUsername\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setCreatedAt\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setCreatedAt\(\) has parameter \$v with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setData\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setData\(\) has parameter \$v with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setDomain\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setFinishedAt\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setFinishedAt\(\) has parameter \$v with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setLog\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setLog\(\) has parameter \$v with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setPriority\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setPriority\(\) has parameter \$v with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setRequestedBy\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setStartedAt\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setStartedAt\(\) has parameter \$v with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setStatus\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setStatus\(\) has parameter \$v with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setType\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setType\(\) has parameter \$v with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setUsername\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:setUsername\(\) has parameter \$v with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Property Entities\\MailboxTask\:\:\$STATUSES has no type specified\.$#'
-			identifier: missingType.property
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Property Entities\\MailboxTask\:\:\$TYPES has no type specified\.$#'
-			identifier: missingType.property
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Property Entities\\MailboxTask\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
 			message: '#^Method Entities\\QueueRunner\:\:getHeartbeatAt\(\) has no return type specified\.$#'
 			identifier: missingType.return
 			count: 1
@@ -2839,12 +2629,6 @@ parameters:
 			path: library/ViMbAdmin/Service/QueueRunner.php
 
 		-
-			message: '#^Parameter \#1 \$data of method Entities\\Archive\:\:setData\(\) expects string, string\|false given\.$#'
-			identifier: argument.type
-			count: 1
-			path: library/ViMbAdmin/Service/QueueRunner.php
-
-		-
 			message: '#^Parameter \#1 \$string of function substr expects string, string\|false given\.$#'
 			identifier: argument.type
 			count: 2
@@ -3943,12 +3727,6 @@ parameters:
 			path: src/Kernel/Controller/MaintenanceController.php
 
 		-
-			message: '#^Call to an undefined method object\:\:getFormattedName\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Kernel/Controller/MaintenanceController.php
-
-		-
 			message: '#^Call to an undefined method object\:\:getRepository\(\)\.$#'
 			identifier: method.notFound
 			count: 3
@@ -3957,7 +3735,7 @@ parameters:
 		-
 			message: '#^Call to an undefined method object\:\:isSuper\(\)\.$#'
 			identifier: method.notFound
-			count: 2
+			count: 1
 			path: src/Kernel/Controller/MaintenanceController.php
 
 		-
@@ -3969,12 +3747,6 @@ parameters:
 		-
 			message: '#^Call to an undefined method object\:\:remove\(\)\.$#'
 			identifier: method.notFound
-			count: 1
-			path: src/Kernel/Controller/MaintenanceController.php
-
-		-
-			message: '#^Parameter \#1 \$admin of method Entities\\Log\:\:setAdmin\(\) expects Entities\\Admin\|null, object given\.$#'
-			identifier: argument.type
 			count: 1
 			path: src/Kernel/Controller/MaintenanceController.php
 
@@ -3992,12 +3764,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$em of static method ViMbAdmin_Setting\:\:stampNow\(\) expects Doctrine\\ORM\\EntityManager, object given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/MaintenanceController.php
-
-		-
-			message: '#^Parameter \#4 \$by of static method ViMbAdmin_MailboxQueue\:\:enqueue\(\) expects Entities\\Admin\|null, object given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Kernel/Controller/MaintenanceController.php

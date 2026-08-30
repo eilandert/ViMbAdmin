@@ -478,10 +478,10 @@ final class MaintenanceController extends AbstractController
      * Super + POST + CSRF guard (the maintenance forms carry the token in the POST
      * body). Returns the admin on success, or the Response to return on failure.
      */
-    private function guardSuperPost(): object
+    private function guardSuperPost(): \Entities\Admin|Response
     {
         $admin = $this->admin();
-        if ($admin === null || !$admin->isSuper()) {
+        if (!$admin instanceof \Entities\Admin || !$admin->isSuper()) {
             return $this->redirect('auth/login');
         }
         if (!$this->isPost()) {
@@ -500,7 +500,7 @@ final class MaintenanceController extends AbstractController
             ->isValid((string) ($this->postData()['csrf'] ?? ''));
     }
 
-    private function logMaintenance(object $admin, string $message): void
+    private function logMaintenance(\Entities\Admin $admin, string $message): void
     {
         $log = new \Entities\Log();
         $log->setAction(\Entities\Log::ACTION_MAINTENANCE)
