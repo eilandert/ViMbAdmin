@@ -52,19 +52,27 @@ class ViMbAdmin_TwoFactor
 
     // ---- enrolment -----------------------------------------------------
 
-    /** Generate a new base32 TOTP secret. */
+    /** @return string New base32 TOTP secret. */
     public function createSecret()
     {
         return $this->_tfa->createSecret();
     }
 
-    /** otpauth:// provisioning URI (for QR code) for a label + secret. */
+    /**
+     * @param string $label
+     * @param string $secret
+     * @return string otpauth:// provisioning URI for the label and secret.
+     */
     public function getProvisioningUri( $label, $secret )
     {
         return $this->_tfa->getQRText( $label, $secret );
     }
 
-    /** Inline data: URI PNG of the QR code, for embedding in a template. */
+    /**
+     * @param string $label
+     * @param string $secret
+     * @return string Inline data URI of the QR code.
+     */
     public function getQrDataUri( $label, $secret )
     {
         return $this->_tfa->getQRCodeImageAsDataUri( $label, $secret );
@@ -75,6 +83,8 @@ class ViMbAdmin_TwoFactor
     /**
      * Verify a 6-digit TOTP code against the secret (±1 time step for skew).
      *
+     * @param string $secret
+     * @param string $code
      * @return bool
      */
     public function verifyCode( $secret, $code )
@@ -88,7 +98,10 @@ class ViMbAdmin_TwoFactor
 
     // ---- per-admin state (encrypted at rest) ---------------------------
 
-    /** Is 2FA enabled for this admin? */
+    /**
+     * @param mixed $admin
+     * @return bool
+     */
     public function isEnabled( $admin )
     {
         return (bool) $admin->getPreference( self::PREF_SECRET );
@@ -99,6 +112,8 @@ class ViMbAdmin_TwoFactor
      * backup codes. Returns the plaintext backup codes (show once, never
      * again).
      *
+     * @param mixed $admin
+     * @param string $secret
      * @return string[] plaintext backup codes
      */
     public function enable( $admin, $secret )
@@ -112,6 +127,7 @@ class ViMbAdmin_TwoFactor
      * super-admin setting it up on someone's behalf). Returns the plaintext
      * secret + backup codes so they can be shown / handed over.
      *
+     * @param mixed $admin
      * @return array{secret:string,backup:string[]}
      */
     public function provision( $admin )
@@ -122,7 +138,10 @@ class ViMbAdmin_TwoFactor
         return [ 'secret' => $secret, 'backup' => $backup ];
     }
 
-    /** Disable 2FA for an admin (clears secret + backup codes + replay state). */
+    /**
+     * @param mixed $admin
+     * @return void
+     */
     public function disable( $admin )
     {
         $admin->deletePreference( self::PREF_SECRET );
@@ -132,13 +151,20 @@ class ViMbAdmin_TwoFactor
 
     // ---- force-at-next-login -------------------------------------------
 
-    /** Is this admin required to set up 2FA at their next login? */
+    /**
+     * @param mixed $admin
+     * @return bool
+     */
     public function isForced( $admin )
     {
         return (bool) $admin->getPreference( self::PREF_FORCE );
     }
 
-    /** Require (or stop requiring) the admin to enrol 2FA at next login. */
+    /**
+     * @param mixed $admin
+     * @param bool $on
+     * @return void
+     */
     public function setForce( $admin, $on = true )
     {
         if( $on )
@@ -147,13 +173,19 @@ class ViMbAdmin_TwoFactor
             $this->clearForce( $admin );
     }
 
-    /** Clear the force flag. */
+    /**
+     * @param mixed $admin
+     * @return void
+     */
     public function clearForce( $admin )
     {
         $admin->deletePreference( self::PREF_FORCE );
     }
 
-    /** Decrypt and return the admin's TOTP secret (or null). */
+    /**
+     * @param mixed $admin
+     * @return string|null
+     */
     public function getSecret( $admin )
     {
         $enc = $admin->getPreference( self::PREF_SECRET );
@@ -165,6 +197,8 @@ class ViMbAdmin_TwoFactor
      * protection: a given time-slice can only be used once (a code captured by
      * a MITM cannot be replayed within its validity window).
      *
+     * @param mixed $admin
+     * @param string $code
      * @return bool
      */
     public function verifyForAdmin( $admin, $code )
@@ -197,6 +231,8 @@ class ViMbAdmin_TwoFactor
      * Generate, store (hashed) and return a fresh set of one-time backup
      * codes. Each is 10 chars from an unambiguous alphabet.
      *
+     * @param mixed $admin
+     * @param int $count
      * @return string[] plaintext codes
      */
     public function regenerateBackupCodes( $admin, $count = 8 )
@@ -217,6 +253,8 @@ class ViMbAdmin_TwoFactor
      * Consume a backup code: if it matches an unused stored code, remove it
      * and return true. Single use.
      *
+     * @param mixed $admin
+     * @param string $code
      * @return bool
      */
     public function consumeBackupCode( $admin, $code )
@@ -242,7 +280,10 @@ class ViMbAdmin_TwoFactor
         return false;
     }
 
-    /** How many backup codes remain unused. */
+    /**
+     * @param mixed $admin
+     * @return int
+     */
     public function backupCodesRemaining( $admin )
     {
         $raw = $admin->getPreference( self::PREF_BACKUP );
@@ -254,6 +295,10 @@ class ViMbAdmin_TwoFactor
 
     // ---- crypto --------------------------------------------------------
 
+    /**
+     * @param string $plaintext
+     * @return string
+     */
     private function _encrypt( $plaintext )
     {
         $nonce = random_bytes( SODIUM_CRYPTO_SECRETBOX_NONCEBYTES );
@@ -261,6 +306,10 @@ class ViMbAdmin_TwoFactor
         return base64_encode( $nonce . $ct );
     }
 
+    /**
+     * @param string $encoded
+     * @return string|null
+     */
     private function _decrypt( $encoded )
     {
         $raw = base64_decode( $encoded, true );
