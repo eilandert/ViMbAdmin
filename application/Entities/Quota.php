@@ -55,6 +55,11 @@ class Quota
     #[ORM\Column(type: 'datetime', columnDefinition: 'timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()')]
     private ?\DateTime $updated_at = null;
 
+    protected function assignUpdatedAt(\DateTime $updatedAt): void
+    {
+        $this->updated_at = $updatedAt;
+    }
+
     /**
      * Set username
      *

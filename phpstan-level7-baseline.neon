@@ -55,12 +55,6 @@ parameters:
 			path: application/Entities/Mailbox.php
 
 		-
-			message: '#^Property Entities\\Quota\:\:\$updated_at \(DateTime\|null\) is never assigned DateTime so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: application/Entities/Quota.php
-
-		-
 			message: '#^Method Repositories\\Admin\:\:getCount\(\) should return int but returns bool\|float\|int\|string\|null\.$#'
 			identifier: return.type
 			count: 1
