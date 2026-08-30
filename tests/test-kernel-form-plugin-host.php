@@ -99,8 +99,10 @@ check('apply() ran the writeback',          $mb->getName() === 'EXT');
 // ============ Part B: AccessPermissions native adapter ================= //
 require __DIR__ . '/../library/OSS/Plugin/Observer.php';
 require __DIR__ . '/../library/ViMbAdmin/Plugin.php';
+require __DIR__ . '/../library/ViMbAdmin/Plugin/MutationContext.php';
+require __DIR__ . '/../library/ViMbAdmin/Plugin/MailboxContext.php';
 require __DIR__ . '/../application/plugins/AccessPermissions.php';
-final class DirectoryEntryEntityManagerDouble
+final class DirectoryEntryEntityManagerDouble extends \Doctrine\ORM\Decorator\EntityManagerDecorator
 {
     /** @var list<object> */
     public array $persisted = [];
@@ -110,12 +112,20 @@ final class DirectoryEntryEntityManagerDouble
 
     public int $flushes = 0;
 
+    public function __construct()
+    {
+        $config = \Doctrine\ORM\ORMSetup::createAttributeMetadataConfig([], true);
+        $config->enableNativeLazyObjects(true);
+        $connection = \Doctrine\DBAL\DriverManager::getConnection(['driver' => 'pdo_mysql'], $config);
+        parent::__construct(new \Doctrine\ORM\EntityManager($connection, $config));
+    }
+
     public function persist(object $entity): void { $this->persisted[] = $entity; }
     public function remove(object $entity): void { $this->removed[] = $entity; }
     public function flush(): void { $this->flushes++; }
 }
 
-final class DirectoryEntryMailboxContext
+final class DirectoryEntryMailboxContext implements ViMbAdmin_Plugin_MailboxContext
 {
     /** @param array<string, mixed> $options */
     public function __construct(
@@ -126,12 +136,13 @@ final class DirectoryEntryMailboxContext
         private \Entities\Mailbox $mailbox,
     ) {}
 
+    /** @return array<string, mixed> */
     public function getOptions(): array { return $this->options; }
     public function getD2EM(): DirectoryEntryEntityManagerDouble { return $this->entityManager; }
     public function getAdmin(): \Entities\Admin { return $this->admin; }
     public function getDomain(): \Entities\Domain { return $this->domain; }
     public function getMailbox(): \Entities\Mailbox { return $this->mailbox; }
-    public function addMessage($message, $class = null, $type = null): void {}
+    public function addMessage(mixed $message, mixed $class = null, mixed $type = null): void {}
 }
 
 $opts = ['vimbadmin_plugins' => ['AccessPermissions' => ['type' => ['SMTP' => 'SMTP', 'IMAP' => 'IMAP', 'POP3' => 'POP3', 'SIEVE' => 'SIEVE']]]];
