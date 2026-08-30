@@ -22,6 +22,49 @@ class Domain
         return \Entities\DomainPreference::class;
     }
 
+    protected function _getPreferenceEntityManager(): \Doctrine\ORM\EntityManagerInterface
+    {
+        $entityManager = \OSS_Runtime::entityManager();
+        if (!$entityManager instanceof \Doctrine\ORM\EntityManagerInterface) {
+            throw new \UnexpectedValueException('Runtime entity manager does not implement Doctrine ORM EntityManagerInterface');
+        }
+
+        return $entityManager;
+    }
+
+    /**
+     * @param string $attribute
+     * @param bool $withIndex
+     * @param bool $ignoreExpired
+     * @return array<int, mixed>|false
+     */
+    public function getIndexedPreference($attribute, $withIndex = false, $ignoreExpired = true)
+    {
+        return $this->_getIndexedPreference($attribute, $withIndex, $ignoreExpired);
+    }
+
+    /**
+     * @param string $attribute
+     * @param int|null $index
+     * @param bool $ignoreExpired
+     * @return array<int|string, mixed>|false
+     */
+    public function getAssocPreference($attribute, $index = null, $ignoreExpired = true)
+    {
+        return $this->_getAssocPreference($attribute, $index, $ignoreExpired);
+    }
+
+    /**
+     * @param array<int|string, mixed> $config
+     * @param string $key
+     * @param string $value
+     * @return array<int|string, mixed>
+     */
+    private function _processKey($config, $key, $value)
+    {
+        return $this->_processPreferenceKey($config, $key, $value);
+    }
+
     /**
      * @var string $domain
      */
@@ -102,6 +145,11 @@ class Domain
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    private function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
+
     /**
      * @var integer $max_quota
      */
@@ -133,25 +181,25 @@ class Domain
     private ?int $mailbox_count = null;
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\Mailbox>
      */
     #[ORM\OneToMany(targetEntity: \Entities\Mailbox::class, mappedBy: 'Domain')]
     private $Mailboxes;
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\Alias>
      */
     #[ORM\OneToMany(targetEntity: \Entities\Alias::class, mappedBy: 'Domain')]
     private $Aliases;
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\Log>
      */
     #[ORM\OneToMany(targetEntity: \Entities\Log::class, mappedBy: 'Domain')]
     private $Logs;
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\Admin>
      */
     #[ORM\ManyToMany(targetEntity: \Entities\Admin::class, mappedBy: 'Domains')]
     private $Admins;
@@ -492,6 +540,7 @@ class Domain
      * Remove Mailboxes
      *
      * @param \Entities\Mailbox $mailboxes
+     * @return void
      */
     public function removeMailbox(\Entities\Mailbox $mailboxes)
     {
@@ -515,6 +564,7 @@ class Domain
      * Remove Aliases
      *
      * @param \Entities\Alias $aliases
+     * @return void
      */
     public function removeAlias(\Entities\Alias $aliases)
     {
@@ -538,6 +588,7 @@ class Domain
      * Remove Logs
      *
      * @param \Entities\Log $logs
+     * @return void
      */
     public function removeLog(\Entities\Log $logs)
     {
@@ -571,6 +622,7 @@ class Domain
      * Remove Admins
      *
      * @param \Entities\Admin $admins
+     * @return void
      */
     public function removeAdmin(\Entities\Admin $admins)
     {
@@ -767,6 +819,7 @@ class Domain
      * Remove Mailboxes
      *
      * @param \Entities\Mailbox $mailboxes
+     * @return void
      */
     public function removeMailboxe(\Entities\Mailbox $mailboxes)
     {
@@ -790,13 +843,14 @@ class Domain
      * Remove Aliases
      *
      * @param \Entities\Alias $aliases
+     * @return void
      */
     public function removeAliase(\Entities\Alias $aliases)
     {
         $this->Aliases->removeElement($aliases);
     }
     /**
-     * @var \Doctrine\Common\Collections\Collection
+     * @var \Doctrine\Common\Collections\Collection<int, \Entities\DomainPreference>
      */
     #[ORM\OneToMany(targetEntity: \Entities\DomainPreference::class, mappedBy: 'Domain')]
     private $Preferences;
@@ -819,6 +873,7 @@ class Domain
      * Remove Preferences
      *
      * @param \Entities\DomainPreference $preferences
+     * @return void
      */
     public function removePreference(\Entities\DomainPreference $preferences)
     {
@@ -828,14 +883,14 @@ class Domain
     /**
      * Get Preferences
      *
-     * @return \Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\DomainPreference>
      */
     public function getPreferences()
     {
         return $this->Preferences;
     }
     /**
-     * @var \Doctrine\Common\Collections\Collection
+     * @var \Doctrine\Common\Collections\Collection<int, \Entities\Archive>
      */
     #[ORM\OneToMany(targetEntity: \Entities\Archive::class, mappedBy: 'Domain')]
     private $Archives;
@@ -858,6 +913,7 @@ class Domain
      * Remove Archives
      *
      * @param \Entities\Archive $archives
+     * @return void
      */
     public function removeArchive(\Entities\Archive $archives)
     {
@@ -867,7 +923,7 @@ class Domain
     /**
      * Get Archives
      *
-     * @return \Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Archive>
      */
     public function getArchives()
     {
