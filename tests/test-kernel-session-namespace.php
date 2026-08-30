@@ -19,8 +19,19 @@ use ViMbAdmin\Kernel\Session\SessionNamespace;
 
 $failures = 0;
 function check(string $label, bool $ok): void {
+    global $failures;
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { $failures++; }
+}
+
+function sessionValue(string $namespace, string $key): mixed {
+    $values = $_SESSION[$namespace] ?? null;
+    return is_array($values) ? ($values[$key] ?? null) : null;
+}
+
+function sessionHasKey(string $namespace, string $key): bool {
+    $values = $_SESSION[$namespace] ?? null;
+    return is_array($values) && array_key_exists($key, $values);
 }
 
 echo "== native session namespace ==\n";
@@ -35,14 +46,14 @@ check('absent property not set',    !$app->__isset('domain'));
 
 $app->__set('domain', 'example.com');
 check('set writes through to $_SESSION slot',
-    ($_SESSION['Application']['domain'] ?? null) === 'example.com');
+    sessionValue('Application', 'domain') === 'example.com');
 check('get reads the value back', $app->__get('domain') === 'example.com');
 check('isset true after set',     $app->__isset('domain'));
 
 $app->__unset('domain');
 check('unset clears the value', !$app->__isset('domain') && $app->__get('domain') === null);
 check('unset removes the $_SESSION key',
-    !array_key_exists('domain', $_SESSION['Application'] ?? []));
+    !sessionHasKey('Application', 'domain'));
 
 // --- namespaces are isolated ------------------------------------------------
 $app->__set('flashMessages', ['hi']);
@@ -51,10 +62,10 @@ $auth->__set('storage', ['id' => 1, 'username' => 'admin@example.com']);
 check('Application namespace unaffected by Zend_Auth write',
     $app->__get('flashMessages') === ['hi']);
 check('Zend_Auth namespace stored separately',
-    array_key_exists('storage', $_SESSION['Zend_Auth'])
-        && is_array($_SESSION['Zend_Auth']['storage'])
-        && ($_SESSION['Zend_Auth']['storage']['id'] ?? null) === 1
-        && !array_key_exists('storage', $_SESSION['Application']));
+    sessionHasKey('Zend_Auth', 'storage')
+        && is_array(sessionValue('Zend_Auth', 'storage'))
+        && sessionValue('Zend_Auth', 'storage')['id'] === 1
+        && !sessionHasKey('Application', 'storage'));
 
 // --- the integration that matters: wrap in MagicPropertyStorage ------------
 // This is exactly how the Auth bridge will be built once the ZF1 namespace is
@@ -65,7 +76,7 @@ check('storage->get sees the magic-property value',
 check('storage->has true for present key', $store->has('storage'));
 $store->set('token', 'abc');
 check('storage->set writes through magic property',
-    ($_SESSION['Zend_Auth']['token'] ?? null) === 'abc');
+    sessionValue('Zend_Auth', 'token') === 'abc');
 $store->remove('token');
 check('storage->remove clears it', !$store->has('token'));
 
@@ -73,7 +84,7 @@ check('storage->remove clears it', !$store->has('token'));
 $default = new SessionNamespace();
 $default->__set('x', 1);
 check("default namespace is 'Application'",
-    ($_SESSION['Application']['x'] ?? null) === 1);
+    sessionValue('Application', 'x') === 1);
 
 echo $failures === 0 ? "\nALL PASSED\n" : "\n{$failures} FAILED\n";
 exit($failures === 0 ? 0 : 1);
