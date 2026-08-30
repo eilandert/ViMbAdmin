@@ -42,6 +42,7 @@ jobs:
         env:
           PHPSTAN_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git fetch --no-tags --depth=1 origin "$PHPSTAN_BASE_SHA"
           git cat-file -e "${PHPSTAN_BASE_SHA}^{commit}"
 
