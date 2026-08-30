@@ -49,6 +49,8 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  *
  * @package ViMbAdmin
  * @subpackage Kernel
+ * @method \Doctrine\ORM\EntityManager em()
+ * @method \Entities\Admin|null admin()
  */
 final class AuthController extends AbstractController
 {
@@ -76,7 +78,7 @@ final class AuthController extends AbstractController
             return $this->redirect('');
         }
 
-        if ((int) $this->em()->getRepository('\\Entities\\Admin')->getCount() === 0) {
+        if ((int) $this->adminRepository()->getCount() === 0) {
             return $this->redirect('auth/setup');
         }
 
@@ -95,7 +97,8 @@ final class AuthController extends AbstractController
             if ($form->isValid($post)) {
                 $values   = $form->values();
                 $username = (string) $values['username'];
-                $admin    = $this->em()->getRepository('\\Entities\\Admin')->findOneBy(['username' => $username]);
+                /** @var \Entities\Admin|null $admin */
+                $admin    = $this->adminRepository()->findOneBy(['username' => $username]);
                 $authOpts = $options['resources']['auth']['oss'];
 
                 if ($admin !== null && \OSS_Auth_Password::verify((string) $values['password'], $admin->getPassword(), $authOpts)) {
@@ -138,9 +141,9 @@ final class AuthController extends AbstractController
      * through `Service_Admin::create`. The welcome email is dropped (no mailer in
      * the native kernel, consistent with the native login).
      */
-    public function setupAction(): ?Response
+    public function setupAction(): Response
     {
-        if ((int) $this->em()->getRepository('\\Entities\\Admin')->getCount() !== 0) {
+        if ((int) $this->adminRepository()->getCount() !== 0) {
             $this->flash('Admins already exist in the system.', FlashMessages::INFO);
             return $this->redirect('auth/login');
         }
@@ -220,15 +223,16 @@ final class AuthController extends AbstractController
             return $this->redirect('');
         }
 
-        $session   = $this->session();
-        $pendingId = $session->totp_pending_admin_id ?? null;
+        $session   = new MagicPropertyStorage($this->session());
+        $pendingId = $session->get('totp_pending_admin_id');
         if (!$pendingId) {
             return $this->redirect('auth/login');
         }
 
-        $admin = $this->em()->getRepository('\\Entities\\Admin')->find((int) $pendingId);
+        /** @var \Entities\Admin|null $admin */
+        $admin = $this->adminRepository()->find((int) $pendingId);
         if (!$admin) {
-            unset($session->totp_pending_admin_id);
+            $session->remove('totp_pending_admin_id');
             return $this->redirect('auth/login');
         }
 
@@ -269,32 +273,33 @@ final class AuthController extends AbstractController
             return $this->redirect('');
         }
 
-        $session   = $this->session();
-        $pendingId = $session->totp_pending_admin_id ?? null;
+        $session   = new MagicPropertyStorage($this->session());
+        $pendingId = $session->get('totp_pending_admin_id');
         if (!$pendingId) {
             return $this->redirect('auth/login');
         }
 
-        $admin = $this->em()->getRepository('\\Entities\\Admin')->find((int) $pendingId);
+        /** @var \Entities\Admin|null $admin */
+        $admin = $this->adminRepository()->find((int) $pendingId);
         if (!$admin) {
-            unset($session->totp_pending_admin_id);
+            $session->remove('totp_pending_admin_id');
             return $this->redirect('auth/login');
         }
 
         $options = $this->container->options();
 
         if (\ViMbAdmin_Demo::isLocked($options, $admin->getUsername())) {
-            unset($session->totp_pending_admin_id);
+            $session->remove('totp_pending_admin_id');
             $this->flash('Two-factor enrolment is disabled for the demo account.', FlashMessages::INFO);
             return $this->redirect('auth/login');
         }
 
         $tfa = new \ViMbAdmin_TwoFactor('ViMbAdmin', (string) ($options['securitysalt'] ?? ''));
 
-        $secret = $session->totp_setup_secret ?? null;
+        $secret = $session->get('totp_setup_secret');
         if (!$secret) {
             $secret = $tfa->createSecret();
-            $session->totp_setup_secret = $secret;
+            $session->set('totp_setup_secret', $secret);
         }
 
         if ($this->isPost() && trim((string) ($this->postData()['code'] ?? '')) !== '') {
@@ -302,7 +307,7 @@ final class AuthController extends AbstractController
                 $backup = $tfa->enable($admin, $secret);
                 $tfa->clearForce($admin);
                 $this->em()->flush();
-                unset($session->totp_setup_secret);
+                $session->remove('totp_setup_secret');
 
                 $this->bruteForce($options)->clear($admin->getUsername(), null);
                 // Grant the identity, but render the one-time backup codes first.
@@ -350,7 +355,8 @@ final class AuthController extends AbstractController
 
         if ($this->isPost() && $form->isValid($this->postData())) {
             $v       = $form->values();
-            $mailbox = $this->em()->getRepository('\\Entities\\Mailbox')->findOneBy(['username' => $v['username']]);
+            /** @var \Entities\Mailbox|null $mailbox */
+            $mailbox = $this->mailboxRepository()->findOneBy(['username' => $v['username']]);
 
             $pwOpts = [
                 'pwhash'   => $options['defaults']['mailbox']['password_scheme'] ?? null,
@@ -557,26 +563,26 @@ final class AuthController extends AbstractController
      * `_reauthenticate` + session bookkeeping. Returns the post-auth redirect
      * (honouring a stashed `postAuthRedirect`).
      */
-    private function grantPendingLogin(object $admin, object $session): Response
+    private function grantPendingLogin(\Entities\Admin $admin, MagicPropertyStorage $session): Response
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_regenerate_id(true);
         }
 
-        $session->totp_verified = true;
-        $session->logged_in_via = $session->totp_pending_via ?? 'auth';
-        unset($session->totp_pending_admin_id);
-        unset($session->totp_pending_via);
+        $session->set('totp_verified', true);
+        $session->set('logged_in_via', $session->get('totp_pending_via') ?? 'auth');
+        $session->remove('totp_pending_admin_id');
+        $session->remove('totp_pending_via');
 
         $this->container->auth()->establish($admin);
 
-        $session->timeOfLastAction = time();
+        $session->set('timeOfLastAction', time());
         $admin->setLastLogin(new \DateTime());
         $this->em()->flush();
 
-        $target = $session->postAuthRedirect ?? '';
+        $target = (string) ($session->get('postAuthRedirect') ?? '');
         if ($target !== '') {
-            unset($session->postAuthRedirect);
+            $session->remove('postAuthRedirect');
         }
 
         return $this->redirect($target);
@@ -612,15 +618,16 @@ final class AuthController extends AbstractController
     /**
      * Complete a verified login, enforcing the 2FA gate first.
      */
-    private function completeLogin(object $admin, object $bf, array $options): Response
+    /** @param array<string,mixed> $options */
+    private function completeLogin(\Entities\Admin $admin, \ViMbAdmin_BruteForce $bf, array $options): Response
     {
         $tfa     = new \ViMbAdmin_TwoFactor('ViMbAdmin', (string) ($options['securitysalt'] ?? ''));
-        $session = $this->session();
+        $session = new MagicPropertyStorage($this->session());
 
         // Every password authentication demands a fresh second factor: drop any
         // stale `totp_verified` (e.g. left in a shared-browser session by a prior
         // 2FA login) BEFORE the gate below reads it, so it can never bypass 2FA.
-        unset($session->totp_verified);
+        $session->remove('totp_verified');
 
         // Lost-device recovery without DB surgery: application.ini
         // `twofactor.force_disable = "user@dom"` (or "*" for everyone) wipes the
@@ -645,15 +652,15 @@ final class AuthController extends AbstractController
         // login behind it.
         $isDemo = \ViMbAdmin_Demo::isLocked($options, (string) $admin->getUsername());
 
-        if (!$isDemo && $tfa->isEnabled($admin) && !$session->totp_verified) {
-            $session->totp_pending_admin_id = $admin->getId();
-            $session->totp_pending_via      = 'auth';
+        if (!$isDemo && $tfa->isEnabled($admin) && !$session->get('totp_verified')) {
+            $session->set('totp_pending_admin_id', $admin->getId());
+            $session->set('totp_pending_via', 'auth');
             return $this->redirect('auth/totp');
         }
 
-        if (!$isDemo && $tfa->isForced($admin) && !$tfa->isEnabled($admin) && !$session->totp_verified) {
-            $session->totp_pending_admin_id = $admin->getId();
-            $session->totp_pending_via      = 'auth';
+        if (!$isDemo && $tfa->isForced($admin) && !$tfa->isEnabled($admin) && !$session->get('totp_verified')) {
+            $session->set('totp_pending_admin_id', $admin->getId());
+            $session->set('totp_pending_via', 'auth');
             return $this->redirect('auth/totp-setup');
         }
 
@@ -667,7 +674,7 @@ final class AuthController extends AbstractController
         // and the native kernel both read it.
         $this->container->auth()->establish($admin);
 
-        $session->logged_in_via = 'auth';
+        $session->set('logged_in_via', 'auth');
 
         $bf->clear($admin->getUsername(), null);
         $admin->setLastLogin(new \DateTime());
@@ -679,7 +686,8 @@ final class AuthController extends AbstractController
     /**
      * The brute-force gate, built exactly as AuthController::_bruteForce() does.
      */
-    private function bruteForce(array $options): object
+    /** @param array<string,mixed> $options */
+    private function bruteForce(array $options): \ViMbAdmin_BruteForce
     {
         $opts = $options['bruteforce'] ?? [];
         if (empty($opts['statedir'])) {
@@ -691,6 +699,36 @@ final class AuthController extends AbstractController
         }
 
         return new \ViMbAdmin_BruteForce($this->em(), $opts);
+    }
+
+    protected function em(): \Doctrine\ORM\EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof \Doctrine\ORM\EntityManager) {
+            throw new \LogicException('Doctrine entity manager resource has an invalid type');
+        }
+
+        return $em;
+    }
+
+    private function adminRepository(): \Repositories\Admin
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Admin');
+        if (!$repo instanceof \Repositories\Admin) {
+            throw new \LogicException('Admin repository has an invalid type');
+        }
+
+        return $repo;
+    }
+
+    private function mailboxRepository(): \Repositories\Mailbox
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Mailbox');
+        if (!$repo instanceof \Repositories\Mailbox) {
+            throw new \LogicException('Mailbox repository has an invalid type');
+        }
+
+        return $repo;
     }
 
     /** The login form. CSRF-guarded (login-CSRF defence; the GET mints the token). */
