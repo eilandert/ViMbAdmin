@@ -149,6 +149,9 @@ jobs:
       - name: String utility behavior
         run: php tests/test-string.php
 
+      - name: Bcrypt password hashing behavior
+        run: php tests/test-bcrypt.php
+
       - name: Native MCP transport
         run: php tests/test-kernel-mcp.php
 

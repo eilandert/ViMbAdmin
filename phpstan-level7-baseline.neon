@@ -265,54 +265,6 @@ parameters:
 			path: library/OSS/Auth/Password.php
 
 		-
-			message: '#^Loose comparison using \!\= between 1 and 1 will always evaluate to false\.$#'
-			identifier: notEqual.alwaysFalse
-			count: 1
-			path: library/OSS/Crypt/Bcrypt.php
-
-		-
-			message: '#^Method OSS_Crypt_Bcrypt\:\:__construct\(\) has parameter \$cost with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Crypt/Bcrypt.php
-
-		-
-			message: '#^Method OSS_Crypt_Bcrypt\:\:generateSalt\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: library/OSS/Crypt/Bcrypt.php
-
-		-
-			message: '#^Method OSS_Crypt_Bcrypt\:\:hash\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: library/OSS/Crypt/Bcrypt.php
-
-		-
-			message: '#^Method OSS_Crypt_Bcrypt\:\:hash\(\) has parameter \$plain with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Crypt/Bcrypt.php
-
-		-
-			message: '#^Method OSS_Crypt_Bcrypt\:\:verify\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: library/OSS/Crypt/Bcrypt.php
-
-		-
-			message: '#^Method OSS_Crypt_Bcrypt\:\:verify\(\) has parameter \$hash with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Crypt/Bcrypt.php
-
-		-
-			message: '#^Method OSS_Crypt_Bcrypt\:\:verify\(\) has parameter \$plain with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Crypt/Bcrypt.php
-
-		-
 			message: '#^Parameter \#1 \$value of static method OSS_Filter_FileSize\:\:unfilter\(\) expects int, string given\.$#'
 			identifier: argument.type
 			count: 1
