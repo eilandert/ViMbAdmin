@@ -110,6 +110,9 @@ jobs:
       - name: ViMbAdmin\Kernel\Http\Kernel
         run: php tests/test-kernel-http.php
 
+      - name: ViMbAdmin\Kernel\Controller\MaintenanceController
+        run: php tests/test-maintenance-controller.php
+
       - name: ViMbAdmin\Kernel\Security\Auth
         run: php tests/test-kernel-auth.php
 

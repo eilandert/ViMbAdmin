@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
+use Doctrine\ORM\EntityManager;
+use Entities\Admin;
+use LogicException;
+use Repositories\Archive as ArchiveRepository;
 use ViMbAdmin\Kernel\Flash\FlashMessages;
 use ViMbAdmin\Kernel\Http\Response;
 use ViMbAdmin\Kernel\Mvc\AbstractController;
@@ -160,7 +164,7 @@ final class MaintenanceController extends AbstractController
 
         $days   = max(0, (int) ($this->container->options()['queue']['autoprune']['days'] ?? 90));
         $cutoff = (new \DateTime())->modify('-' . $days . ' days');
-        $candidates = $this->em()->getRepository('\\Entities\\Archive')->findAutoprune($cutoff);
+        $candidates = $this->archiveRepository()->findAutoprune($cutoff);
 
         if ((int) ($this->postData()['confirm'] ?? 0) !== 1) {
             return $this->renderDashboard([
@@ -187,7 +191,7 @@ final class MaintenanceController extends AbstractController
             return $guard;
         }
 
-        $candidates = $this->em()->getRepository('\\Entities\\Archive')->findAutoprune(null);
+        $candidates = $this->archiveRepository()->findAutoprune(null);
 
         if ((int) ($this->postData()['confirm'] ?? 0) !== 1) {
             return $this->renderDashboard([
@@ -472,6 +476,36 @@ final class MaintenanceController extends AbstractController
         ];
 
         return $this->view('maintenance/index.phtml', $extra + $vars);
+    }
+
+    protected function em(): EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof EntityManager) {
+            throw new LogicException('Doctrine entity manager resource has an invalid type');
+        }
+
+        return $em;
+    }
+
+    protected function admin(): ?Admin
+    {
+        $admin = parent::admin();
+        if ($admin !== null && !$admin instanceof Admin) {
+            throw new LogicException('Authenticated admin has an invalid type');
+        }
+
+        return $admin;
+    }
+
+    private function archiveRepository(): ArchiveRepository
+    {
+        $repository = $this->em()->getRepository('\\Entities\\Archive');
+        if (!$repository instanceof ArchiveRepository) {
+            throw new LogicException('Archive repository has an invalid type');
+        }
+
+        return $repository;
     }
 
     /**
