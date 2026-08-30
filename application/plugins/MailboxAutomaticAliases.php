@@ -63,6 +63,9 @@
  * @subpackage Plugins
  */
 
+use InvalidArgumentException;
+use UnexpectedValueException;
+
 class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implements OSS_Plugin_Observer
 {
 
@@ -76,19 +79,27 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
     {
         parent::__construct( $controller, get_class( $this ) );
 
-        // read config parameters
-        $this->defaultAliases = isset( $controller->getOptions()['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultAliases'] )
-            ? $controller->getOptions()['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultAliases'] : [];
+        if( !method_exists( $controller, 'getOptions' ) )
+            throw new InvalidArgumentException( 'MailboxAutomaticAliases requires a controller with getOptions().' );
 
-        $this->defaultMapping = isset( $controller->getOptions()['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultMapping'] )
-           ? $controller->getOptions()['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultMapping'] : [];
+        $options = $controller->getOptions();
+        if( !is_array( $options ) )
+            throw new UnexpectedValueException( 'MailboxAutomaticAliases controller getOptions() must return an array.' );
+
+        // read config parameters
+        $this->defaultAliases = isset( $options['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultAliases'] )
+            ? $options['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultAliases'] : [];
+
+        $this->defaultMapping = isset( $options['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultMapping'] )
+           ? $options['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultMapping'] : [];
     }
 
     /**
      * Create automatic aliases after a mailbox was created
      *
      * @param ViMbAdmin_Plugin_MailboxContext $controller
-     * @param array|null $options
+     * @param array<string, mixed>|null $options
+     * @return void
      */
     public function mailbox_add_addPostflush( ViMbAdmin_Plugin_MailboxContext $controller, $options )
     {
@@ -121,7 +132,7 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
      * prevents its deletion
      *
      * @param ViMbAdmin_Plugin_MailboxContext $controller
-     * @param array|null $options
+     * @param array<string, mixed>|null $options
      * @return bool
      */
     public function mailbox_purge_preRemove( ViMbAdmin_Plugin_MailboxContext $controller, $options )
@@ -156,7 +167,7 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
      * prevents disabling the mailbox
      *
      * @param ViMbAdmin_Plugin_MailboxContext $controller
-     * @param array|null $options
+     * @param array{active: bool|null} $options
      * @return bool
      */
     public function mailbox_toggleActive_preToggle( ViMbAdmin_Plugin_MailboxContext $controller, $options )
@@ -190,7 +201,8 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
      * Create automatic aliases after an alias was created
      *
      * @param ViMbAdmin_Plugin_AliasContext $controller
-     * @param array|null $options
+     * @param array<string, mixed>|null $options
+     * @return void
      */
     public function alias_add_addPostflush( ViMbAdmin_Plugin_AliasContext $controller, $options )
     {
@@ -224,7 +236,7 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
      * goto alias, and prevents its deletion
      *
      * @param ViMbAdmin_Plugin_AliasContext $controller
-     * @param array|null $options
+     * @param array<string, mixed>|null $options
      * @return bool
      */
     public function alias_delete_preRemove( ViMbAdmin_Plugin_AliasContext $controller, $options )
@@ -283,7 +295,7 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
      * goto alias, and prevents disabling the alias
      *
      * @param ViMbAdmin_Plugin_AliasContext $controller
-     * @param array|null $options
+     * @param array{active: bool|null} $options
      * @return bool
      */
     public function alias_toggleActive_preToggle( ViMbAdmin_Plugin_AliasContext $controller, $options )
@@ -342,7 +354,7 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
      *
      * @param ViMbAdmin_Plugin_MutationContext $controller
      * @param string $alias
-     * @return array|null
+     * @return array{address: string, goto: string, active: bool}|null
      */
     private function getAlias( ViMbAdmin_Plugin_MutationContext $controller, $alias )
     {
@@ -371,7 +383,7 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
      * @param ViMbAdmin_Plugin_MutationContext $controller
      * @param string $item
      * @param string $goto
-     * @return \Entities\Alias|null
+     * @return \Entities\Alias
      */
     private function createAutomaticAlias( ViMbAdmin_Plugin_MutationContext $controller, $item, $goto )
     {
@@ -393,7 +405,7 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
         $alias->setAddress( $item . '@' . $domain );
         $alias->setGoto( $goto );
         $alias->setDomain( $controller->getDomain() );
-        $alias->setActive( 1 );
+        $alias->setActive( true );
         $alias->setCreated( new \DateTime() );
         $controller->getD2EM()->persist( $alias );
 
