@@ -100,6 +100,39 @@ check('apply() ran the writeback',          $mb->getName() === 'EXT');
 require __DIR__ . '/../library/OSS/Plugin/Observer.php';
 require __DIR__ . '/../library/ViMbAdmin/Plugin.php';
 require __DIR__ . '/../application/plugins/AccessPermissions.php';
+final class DirectoryEntryEntityManagerDouble
+{
+    /** @var list<object> */
+    public array $persisted = [];
+
+    /** @var list<object> */
+    public array $removed = [];
+
+    public int $flushes = 0;
+
+    public function persist(object $entity): void { $this->persisted[] = $entity; }
+    public function remove(object $entity): void { $this->removed[] = $entity; }
+    public function flush(): void { $this->flushes++; }
+}
+
+final class DirectoryEntryMailboxContext
+{
+    /** @param array<string, mixed> $options */
+    public function __construct(
+        private array $options,
+        private DirectoryEntryEntityManagerDouble $entityManager,
+        private \Entities\Admin $admin,
+        private \Entities\Domain $domain,
+        private \Entities\Mailbox $mailbox,
+    ) {}
+
+    public function getOptions(): array { return $this->options; }
+    public function getD2EM(): DirectoryEntryEntityManagerDouble { return $this->entityManager; }
+    public function getAdmin(): \Entities\Admin { return $this->admin; }
+    public function getDomain(): \Entities\Domain { return $this->domain; }
+    public function getMailbox(): \Entities\Mailbox { return $this->mailbox; }
+    public function addMessage($message, $class = null, $type = null): void {}
+}
 
 $opts = ['vimbadmin_plugins' => ['AccessPermissions' => ['type' => ['SMTP' => 'SMTP', 'IMAP' => 'IMAP', 'POP3' => 'POP3', 'SIEVE' => 'SIEVE']]]];
 $ap = new ViMbAdminPlugin_AccessPermissions((object) ['getOptions' => null]);
@@ -195,14 +228,12 @@ check('DE add: HomePostalAddress is textarea', $byName['plugin_directoryEntry_Ho
 check('DE validate: always null',            $de->nativeMailboxValidate([], $deOpts) === null);
 
 // apply: creates + persists a DirectoryEntry, sets mail + the mapped attributes
-$deEm = new class {
-    public array $persisted = [];
-    public function persist(object $o): void { $this->persisted[] = $o; }
-};
+$deEm = new DirectoryEntryEntityManagerDouble();
 $mbD = new \Entities\Mailbox();
 $mbD->setUsername('dir@example.com');
 $de->nativeMailboxApply($mbD, [
     'plugin_directoryEntry_GivenName' => 'Ada',
+    'plugin_directoryEntry_JpegPhoto' => 'jpeg-binary',
     'plugin_directoryEntry_Sn'        => 'Lovelace',
     'plugin_directoryEntry_O'         => 'Acme Corp',
 ], $deOpts, $deEm);
@@ -212,7 +243,23 @@ check('DE apply: entity created + linked',    $dent instanceof \Entities\Directo
 check('DE apply: persisted via em',           in_array($dent, $deEm->persisted, true));
 check('DE apply: mail = username',            $dent->getMail() === 'dir@example.com');
 check('DE apply: GivenName written',          $dent->getGivenName() === 'Ada');
+check('DE apply: JpegPhoto keeps scalar bytes', $dent->getJpegPhoto() === 'jpeg-binary');
 check('DE apply: Sn written',                 $dent->getSn() === 'Lovelace');
+
+$editFields = [];
+foreach ($de->nativeMailboxFields($mbD, $deOpts) as $f) { $editFields[$f->name] = $f; }
+check('DE edit: JpegPhoto prefilled from scalar bytes', $editFields['plugin_directoryEntry_JpegPhoto']->value() === 'jpeg-binary');
+
+$purgeEm = new DirectoryEntryEntityManagerDouble();
+$purgeMailbox = new \Entities\Mailbox();
+$purgeMailbox->setUsername('purge@example.com');
+$purgeEntry = new \Entities\DirectoryEntry();
+$purgeEntry->setMailbox($purgeMailbox);
+$purgeMailbox->setDirectoryEntry($purgeEntry);
+$purgeCtx = new DirectoryEntryMailboxContext($deOpts, $purgeEm, new \Entities\Admin(), new \Entities\Domain(), $purgeMailbox);
+$de->mailbox_purge_preFlush($purgeCtx, null);
+check('DE purge: removes linked directory entry', in_array($purgeEntry, $purgeEm->removed, true));
+check('DE purge: flushes after remove',           $purgeEm->flushes === 1);
 
 echo "\n";
 if ($failures === 0) {

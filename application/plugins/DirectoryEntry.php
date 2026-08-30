@@ -74,7 +74,8 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
     /**
      * Deletes the directory entry with its mailbox.
      *
-     * @param object $controller an OSS_Controller_Action instance
+     * @param ViMbAdmin_Plugin_MailboxContext $controller
+     * @param array<string,mixed>|null $params
      * @return void
      * @access public
      */
@@ -94,6 +95,7 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
     /**
      * Which attributes are disabled via vimbadmin_plugins.DirectoryEntry.disabled_elements.
      *
+     * @param array<string,mixed> $options
      * @return array<string,bool>
      */
     private function _disabled( array $options ): array
@@ -101,6 +103,93 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
         return $options['vimbadmin_plugins']['DirectoryEntry']['disabled_elements'] ?? [];
     }
 
+    /**
+     * DirectoryEntry.jpegPhoto is still stored through Doctrine's legacy
+     * serialized-scalar object type, so the native text field only replays
+     * string-ish values.
+     */
+    private function _fieldValue( mixed $value ): ?string
+    {
+        if( $value === null )
+            return null;
+
+        if( is_string( $value ) )
+            return $value;
+
+        if( is_scalar( $value ) )
+            return (string) $value;
+
+        return null;
+    }
+
+    /**
+     * The legacy jpegPhoto column persists a serialized scalar, not an object.
+     *
+     * @return mixed
+     */
+    private function _jpegPhotoValue( mixed $value )
+    {
+        if( is_string( $value ) )
+            return $value;
+
+        if( is_scalar( $value ) )
+            return (string) $value;
+
+        return '';
+    }
+
+    private function _persistDirectoryEntry( object $em, \Entities\DirectoryEntry $dentry ): void
+    {
+        if( !is_callable( [ $em, 'persist' ] ) )
+            return;
+
+        call_user_func( [ $em, 'persist' ], $dentry );
+    }
+
+    private function _setJpegPhoto( \Entities\DirectoryEntry $dentry, mixed $value ): void
+    {
+        if( !is_callable( [ $dentry, 'setJpegPhoto' ] ) )
+            return;
+
+        call_user_func( [ $dentry, 'setJpegPhoto' ], $this->_jpegPhotoValue( $value ) );
+    }
+
+    private function _setScalarAttribute( \Entities\DirectoryEntry $dentry, string $attr, string $value ): void
+    {
+        match( $attr ) {
+            'PersonalTitle' => $dentry->setPersonalTitle( $value ),
+            'GivenName' => $dentry->setGivenName( $value ),
+            'Sn' => $dentry->setSn( $value ),
+            'DisplayName' => $dentry->setDisplayName( $value ),
+            'Initials' => $dentry->setInitials( $value ),
+            'BusinessCategory' => $dentry->setBusinessCategory( $value ),
+            'EmployeeType' => $dentry->setEmployeeType( $value ),
+            'Title' => $dentry->setTitle( $value ),
+            'DepartmentNumber' => $dentry->setDepartmentNumber( $value ),
+            'Ou' => $dentry->setOu( $value ),
+            'RoomNumber' => $dentry->setRoomNumber( $value ),
+            'O' => $dentry->setO( $value ),
+            'CarLicense' => $dentry->setCarLicense( $value ),
+            'EmployeeNumber' => $dentry->setEmployeeNumber( $value ),
+            'Manager' => $dentry->setManager( $value ),
+            'Secretary' => $dentry->setSecretary( $value ),
+            'Mail' => $dentry->setMail( $value ),
+            'HomePhone' => $dentry->setHomePhone( $value ),
+            'Mobile' => $dentry->setMobile( $value ),
+            'Pager' => $dentry->setPager( $value ),
+            'TelephoneNumber' => $dentry->setTelephoneNumber( $value ),
+            'FacsimileTelephoneNumber' => $dentry->setFacsimileTelephoneNumber( $value ),
+            'HomePostalAddress' => $dentry->setHomePostalAddress( $value ),
+            'LabeledURI' => $dentry->setLabeledURI( $value ),
+            'PreferredLanguage' => $dentry->setPreferredLanguage( $value ),
+            default => null,
+        };
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array<int,\ViMbAdmin\Kernel\Form\Field>
+     */
     public function nativeMailboxFields( ?\Entities\Mailbox $mailbox, array $options ): array
     {
         $disabled = $this->_disabled( $options );
@@ -118,8 +207,9 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
             $field = new \ViMbAdmin\Kernel\Form\Field( "plugin_directoryEntry_{$attr}", _( $attr ), $type );
 
             $getFn = 'get' . $attr;
-            if( $dentry !== null && $dentry->$getFn() !== null )
-                $field->setValue( (string) $dentry->$getFn() );
+            $value = $dentry !== null ? $this->_fieldValue( $dentry->$getFn() ) : null;
+            if( $value !== null )
+                $field->setValue( $value );
             elseif( $attr === 'O' && $orgname )
                 $field->setValue( (string) $orgname );
 
@@ -129,12 +219,21 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
         return $fields;
     }
 
+    /**
+     * @param array<string,mixed> $values
+     * @param array<string,mixed> $options
+     */
     public function nativeMailboxValidate( array $values, array $options ): ?string
     {
         // The directory-entry attributes are free-form text; no cross-field rule.
         return null;
     }
 
+    /**
+     * @param array<string,mixed> $values
+     * @param array<string,mixed> $options
+     * @param object|null $em
+     */
     public function nativeMailboxApply( \Entities\Mailbox $mailbox, array $values, array $options, ?object $em = null ): void
     {
         // The DirectoryEntry is the inverse side of the relation, so a NEW one must
@@ -149,7 +248,7 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
             $mailbox->setDirectoryEntry( $dentry );
             $dentry->setVimbCreated( new \DateTime() );
             if( $em !== null )
-                $em->persist( $dentry );
+                $this->_persistDirectoryEntry( $em, $dentry );
         }
 
         $disabled = $this->_disabled( $options );
@@ -163,8 +262,13 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
             if( !empty( $disabled[ $attr ] ) && !in_array( $attr, [ 'DisplayName', 'Initials' ], true ) )
                 continue;
 
-            $setFn = 'set' . $attr;
-            $dentry->$setFn( (string) $values[ $key ] );
+            if( $attr === 'JpegPhoto' )
+            {
+                $this->_setJpegPhoto( $dentry, $values[ $key ] );
+                continue;
+            }
+
+            $this->_setScalarAttribute( $dentry, $attr, (string) $values[ $key ] );
         }
 
         // `mail` always tracks the mailbox address — set it AFTER the attribute
