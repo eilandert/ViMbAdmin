@@ -49,8 +49,6 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  *
  * @package ViMbAdmin
  * @subpackage Kernel
- * @method \Doctrine\ORM\EntityManager em()
- * @method \Entities\Admin|null admin()
  */
 final class AuthController extends AbstractController
 {
@@ -97,7 +95,6 @@ final class AuthController extends AbstractController
             if ($form->isValid($post)) {
                 $values   = $form->values();
                 $username = (string) $values['username'];
-                /** @var \Entities\Admin|null $admin */
                 $admin    = $this->adminRepository()->findOneBy(['username' => $username]);
                 $authOpts = $options['resources']['auth']['oss'];
 
@@ -229,7 +226,6 @@ final class AuthController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        /** @var \Entities\Admin|null $admin */
         $admin = $this->adminRepository()->find((int) $pendingId);
         if (!$admin) {
             $session->remove('totp_pending_admin_id');
@@ -279,7 +275,6 @@ final class AuthController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        /** @var \Entities\Admin|null $admin */
         $admin = $this->adminRepository()->find((int) $pendingId);
         if (!$admin) {
             $session->remove('totp_pending_admin_id');
@@ -355,7 +350,6 @@ final class AuthController extends AbstractController
 
         if ($this->isPost() && $form->isValid($this->postData())) {
             $v       = $form->values();
-            /** @var \Entities\Mailbox|null $mailbox */
             $mailbox = $this->mailboxRepository()->findOneBy(['username' => $v['username']]);
 
             $pwOpts = [
@@ -422,7 +416,7 @@ final class AuthController extends AbstractController
     {
         $options     = $this->container->options();
         $useCaptcha  = !empty($options['resources']['auth']['oss']['lost_password']['use_captcha']);
-        $entityClass = $options['resources']['auth']['oss']['entity'] ?? '\\Entities\\Admin';
+        $entityClass = $this->authEntityClass($options);
 
         $form = $this->buildLostPasswordForm($useCaptcha);
         $form->field('username')?->setValue((string) $this->param('username', ''));
@@ -505,7 +499,7 @@ final class AuthController extends AbstractController
     public function resetPasswordAction(): Response
     {
         $options     = $this->container->options();
-        $entityClass = $options['resources']['auth']['oss']['entity'] ?? '\\Entities\\Admin';
+        $entityClass = $this->authEntityClass($options);
         $form        = $this->buildResetPasswordForm();
 
         if ($this->isPost() && $form->isValid($this->postData())) {
@@ -731,6 +725,23 @@ final class AuthController extends AbstractController
         return $repo;
     }
 
+    /**
+     * Resolve the configurable password-reset entity while preserving the
+     * Admin contract required by the reset flow and email templates.
+     *
+     * @param array<string,mixed> $options
+     * @return class-string<\Entities\Admin>
+     */
+    private function authEntityClass(array $options): string
+    {
+        $entityClass = $options['resources']['auth']['oss']['entity'] ?? \Entities\Admin::class;
+        if (!is_string($entityClass) || !is_a($entityClass, \Entities\Admin::class, true)) {
+            throw new \LogicException('Authentication entity must extend Entities\\Admin');
+        }
+
+        return $entityClass;
+    }
+
     /** The login form. CSRF-guarded (login-CSRF defence; the GET mints the token). */
     private function buildLoginForm(): Form
     {
@@ -838,7 +849,7 @@ final class AuthController extends AbstractController
      *
      * @param array<string,mixed> $vars extra template variables (e.g. the token)
      */
-    private function sendAuthEmail(string $template, string $subject, object $user, array $vars): void
+    private function sendAuthEmail(string $template, string $subject, \Entities\Admin $user, array $vars): void
     {
         $options = $this->container->options();
 

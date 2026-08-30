@@ -151,30 +151,6 @@ parameters:
 			path: application/Entities/RememberMe.php
 
 		-
-			message: '#^Call to an undefined method object\:\:getActive\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: application/Repositories/Admin.php
-
-		-
-			message: '#^Call to an undefined method object\:\:getId\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: application/Repositories/Admin.php
-
-		-
-			message: '#^Call to an undefined method object\:\:getUsername\(\)\.$#'
-			identifier: method.notFound
-			count: 2
-			path: application/Repositories/Admin.php
-
-		-
-			message: '#^Class Repositories\\Admin extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/Admin.php
-
-		-
 			message: '#^Method Repositories\\Admin\:\:getCount\(\) should return int but returns bool\|float\|int\|string\|null\.$#'
 			identifier: return.type
 			count: 1
@@ -377,12 +353,6 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: application/Repositories/Log.php
-
-		-
-			message: '#^Class Repositories\\Mailbox extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/Mailbox.php
 
 		-
 			message: '#^Method Repositories\\Mailbox\:\:loadForMailboxList\(\) return type has no value type specified in iterable type array\.$#'
