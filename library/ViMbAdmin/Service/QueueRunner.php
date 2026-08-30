@@ -33,9 +33,10 @@ class ViMbAdmin_Service_QueueRunner
     /** @var \Doctrine\ORM\EntityManager */
     private $em;
 
-    /** @var array */
+    /** @var array<string, mixed> */
     private $options;
 
+    /** @param array<string, mixed> $options */
     public function __construct(\Doctrine\Persistence\ObjectManager $em, array $options)
     {
         if (!$em instanceof \Doctrine\ORM\EntityManager) {
@@ -50,6 +51,10 @@ class ViMbAdmin_Service_QueueRunner
      *
      * Returns the number processed, or -1 if every runner slot
      * (queue.runner.max_concurrent) was busy (throttled, not "no work").
+     *
+     * @param mixed $max
+     * @param mixed $verbose
+     * @return int
      */
     public function drain($max, $verbose = false)
     {
@@ -112,6 +117,8 @@ class ViMbAdmin_Service_QueueRunner
     /**
      * Execute a single task (already claimed / RUNNING). Throws on failure; the
      * caller records DONE/FAILED + finishedAt + flush.
+     *
+     * @return void
      */
     public function runOne(\Entities\MailboxTask $task)
     {
@@ -122,6 +129,7 @@ class ViMbAdmin_Service_QueueRunner
     //  Engine (moved verbatim from the ZF1 QueueController)
     // ---------------------------------------------------------------------
 
+    /** @return void */
     private function execute(\Entities\MailboxTask $task, ViMbAdmin_Doveadm $doveadm)
     {
         $user = $task->getUsername();
@@ -225,11 +233,13 @@ class ViMbAdmin_Service_QueueRunner
         }
     }
 
+    /** @return string */
     private function backupDest(\Entities\MailboxTask $task)
     {
         $tpl  = (string) ($this->options['doveadm']['backup']['dest'] ?? 'maildir:/backups/%d/%u');
         $user = self::assertPathSafe($task->getUsername());
-        $dom  = $task->getDomain() ? $task->getDomain()->getDomain() : (strstr($user, '@') ? substr(strrchr($user, '@'), 1) : '');
+        $domainSuffix = strrchr($user, '@');
+        $dom  = $task->getDomain() ? $task->getDomain()->getDomain() : ($domainSuffix === false ? '' : substr($domainSuffix, 1));
         $dom  = self::assertPathSafe((string) $dom);
         return str_replace(['%d', '%u'], [$dom, $user], $tpl);
     }
@@ -243,6 +253,8 @@ class ViMbAdmin_Service_QueueRunner
      * parent-dir reference here rather than trusting the input.
      *
      * @throws \RuntimeException
+     * @param mixed $value
+     * @return string
      */
     private static function assertPathSafe($value)
     {
@@ -254,6 +266,11 @@ class ViMbAdmin_Service_QueueRunner
         return $s;
     }
 
+    /**
+     * @param string $dest
+     * @param bool $autoprune
+     * @return void
+     */
     private function recordArchive(\Entities\MailboxTask $task, $dest, $autoprune)
     {
         $em   = $this->em;
@@ -333,6 +350,11 @@ class ViMbAdmin_Service_QueueRunner
         }
     }
 
+    /**
+     * @param ViMbAdmin_Doveadm $doveadm
+     * @param string $user
+     * @return void
+     */
     private function removeMaildirHome(\Entities\MailboxTask $task, $doveadm, $user)
     {
         $root = isset($this->options['doveadm']['maildir_root'])
@@ -358,6 +380,10 @@ class ViMbAdmin_Service_QueueRunner
         }
     }
 
+    /**
+     * @param string $username
+     * @return void
+     */
     private function removeMailboxRow($username)
     {
         $em      = $this->em;
@@ -379,6 +405,11 @@ class ViMbAdmin_Service_QueueRunner
         }
     }
 
+    /**
+     * @param string $action
+     * @param string $message
+     * @return void
+     */
     private function logAudit(\Entities\MailboxTask $task, $action, $message)
     {
         try {
@@ -386,10 +417,10 @@ class ViMbAdmin_Service_QueueRunner
             $log->setAction($action)
                 ->setData($message)
                 ->setTimestamp(new \DateTime());
-            if (method_exists($task, 'getRequestedBy') && $task->getRequestedBy()) {
+            if ($task->getRequestedBy()) {
                 $log->setAdmin($task->getRequestedBy());
             }
-            if (method_exists($task, 'getDomain') && $task->getDomain()) {
+            if ($task->getDomain()) {
                 $log->setDomain($task->getDomain());
             }
             $this->em->persist($log);
@@ -399,12 +430,14 @@ class ViMbAdmin_Service_QueueRunner
         }
     }
 
+    /** @return int */
     private function autopruneDays()
     {
         $v = $this->options['queue']['autoprune']['days'] ?? 90;
         return max(0, (int) $v);
     }
 
+    /** @return void */
     private function autopruneSweep()
     {
         $em = $this->em;
@@ -458,6 +491,10 @@ class ViMbAdmin_Service_QueueRunner
         }
     }
 
+    /**
+     * @param ViMbAdmin_Doveadm $doveadm
+     * @return void
+     */
     private function backupOrphan(\Entities\MailboxTask $task, $doveadm)
     {
         $em   = $this->em;
@@ -471,7 +508,8 @@ class ViMbAdmin_Service_QueueRunner
             return;
         }
 
-        $domainPart = strstr($user, '@') ? substr(strrchr($user, '@'), 1) : null;
+        $domainSuffix = strrchr($user, '@');
+        $domainPart = $domainSuffix === false ? null : substr($domainSuffix, 1);
         if (!$domainPart) {
             $task->appendLog("backup-orphan: '{$user}' has no domain part — cannot create temp user");
             return;
