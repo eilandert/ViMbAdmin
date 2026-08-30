@@ -250,7 +250,8 @@ class Mailbox extends EntityRepository
      * Returns false if privileges not allowed and true if removed.
      *
      * @param \Entities\Mailbox $mailbox Mailbox to purge
-     * @param \Entities\Admin   $admin   Admin which purging mailbox for privilege validation.
+     * @param \Entities\Admin|null $admin Admin which purging mailbox for privilege validation,
+     *                                     or null for a trusted system context.
      * @param bool $removeMailbox If true, also remove the Mailbox entity. If false, purge everything but this entity.
      * @return bool
      */

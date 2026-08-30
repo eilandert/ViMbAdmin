@@ -25,7 +25,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     //  Web endpoint  (POST /mcp, JSON-RPC 2.0)
     // =====================================================================
 
-    public function indexAction()
+    public function indexAction(): \ViMbAdmin\Kernel\Http\Response
     {
         if( !$this->_mcpEnabled() )
             return $this->_http( 404, 'mcp disabled' );
@@ -33,7 +33,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         if( strtoupper( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) !== 'POST' )
             return $this->_http( 405, 'POST required' );
 
-        $body = file_get_contents( 'php://input' );
+        $body = (string) file_get_contents( 'php://input' );
         $req  = json_decode( $body, true );
         if( !is_array( $req ) || !isset( $req['method'] ) )
             return $this->_rpcError( null, -32700, 'parse error' );
@@ -97,12 +97,14 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
 
     // ---- abilities -----------------------------------------------------
 
-    private function _ping()
+    /** @return array<string,mixed> */
+    private function _ping(): array
     {
         return [ 'pong' => true, 'time' => gmdate( 'c' ) ];
     }
 
-    private function _domainsList()
+    /** @return array<string,mixed> */
+    private function _domainsList(): array
     {
         $out = [];
         foreach( $this->em()->getRepository( '\\Entities\\Domain' )->findAll() as $d )
@@ -123,7 +125,11 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         return [ 'domains' => $out ];
     }
 
-    private function _mailboxesList( array $params )
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _mailboxesList( array $params ): array
     {
         $domain = $this->_requireDomain( $params );
         $out = [];
@@ -138,7 +144,11 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         return [ 'domain' => $domain->getDomain(), 'mailboxes' => $out ];
     }
 
-    private function _aliasesList( array $params )
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _aliasesList( array $params ): array
     {
         $domain = $this->_requireDomain( $params );
         $out = [];
@@ -153,7 +163,11 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
 
     // ---- write abilities (scope: write) --------------------------------
 
-    private function _domainCreate( array $params )
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _domainCreate( array $params ): array
     {
         $name = $this->_str( $params, 'domain', true );
         $this->_validate( $name, \ViMbAdmin\Kernel\Form\Validators::hostname(), 'domain' );
@@ -182,15 +196,23 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         return [ 'created' => true, 'domain' => $d->getDomain(), 'id' => $d->getId() ];
     }
 
-    private function _domainDelete( array $params )
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _domainDelete( array $params ): array
     {
         $domain = $this->_requireDomain( $params );
         $name   = $domain->getDomain();
-        $this->em()->getRepository( '\\Entities\\Domain' )->purge( $domain );
+        $this->_domainRepository()->purge( $domain );
         return [ 'deleted' => true, 'domain' => $name ];
     }
 
-    private function _mailboxCreate( array $params )
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _mailboxCreate( array $params ): array
     {
         $domain    = $this->_requireDomain( $params );
         $localPart = $this->_str( $params, 'local_part', true );
@@ -198,7 +220,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $password  = $this->_str( $params, 'password', true );
         $username  = $localPart . '@' . $domain->getDomain();
 
-        $repo = $this->em()->getRepository( '\\Entities\\Mailbox' );
+        $repo = $this->_mailboxRepository();
         if( !$repo->isUnique( $username ) )
             throw new ViMbAdmin_Mcp_Exception( 'mailbox already exists' );
 
@@ -240,18 +262,26 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         return [ 'created' => true, 'username' => $username ];
     }
 
-    private function _mailboxDelete( array $params )
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _mailboxDelete( array $params ): array
     {
         $m = $this->_requireMailbox( $params );
         $username = $m->getUsername();
         $domain   = $m->getDomain();
-        $this->em()->getRepository( '\\Entities\\Mailbox' )->purgeMailbox( $m, null, true );
+        $this->_mailboxRepository()->purgeMailbox( $m, null, true );
         $domain->setMailboxCount( max( 0, $domain->getMailboxCount() - 1 ) );
         $this->em()->flush();
         return [ 'deleted' => true, 'username' => $username ];
     }
 
-    private function _aliasCreate( array $params )
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _aliasCreate( array $params ): array
     {
         $domain  = $this->_requireDomain( $params );
         $address = $this->_str( $params, 'address', true );
@@ -282,7 +312,11 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         return [ 'created' => true, 'address' => $address ];
     }
 
-    private function _aliasDelete( array $params )
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _aliasDelete( array $params ): array
     {
         $address = $this->_str( $params, 'address', true );
         $a = $this->em()->getRepository( '\\Entities\\Alias' )->findOneBy( [ 'address' => $address ] );
@@ -301,7 +335,11 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
 
     // ---- destructive: archive queue (scope: write, rate-limited) --------
 
-    private function _mailboxArchive( array $params )
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _mailboxArchive( array $params ): array
     {
         $m  = $this->_requireMailbox( $params );
         $em = $this->em();
@@ -323,7 +361,11 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
      * ArchiveController actions; over MCP we perform the equivalent directly.
      * $status is TYPE_RESTORE / TYPE_DELETE intent.
      */
-    private function _archiveState( array $params, $status )
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _archiveState( array $params, string $status ): array
     {
         $username = $this->_str( $params, 'username', true );
         $em       = $this->em();
@@ -378,6 +420,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     // ---- lookup + param helpers ----------------------------------------
 
     /**
+     * @param array<string,mixed> $params
      * @return \Entities\Domain
      * @throws ViMbAdmin_Mcp_Exception
      */
@@ -398,13 +441,14 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
      *
      * @throws ViMbAdmin_Mcp_Exception
      */
-    private function _assertDomainAllowed( $domain )
+    private function _assertDomainAllowed( string $domain ): void
     {
         if( $this->_token && !$this->_token->allowsDomain( $domain ) )
             throw new ViMbAdmin_Mcp_Exception( 'unknown domain' );
     }
 
     /**
+     * @param array<string,mixed> $params
      * @return \Entities\Mailbox
      * @throws ViMbAdmin_Mcp_Exception
      */
@@ -419,7 +463,8 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         return $m;
     }
 
-    private function _str( array $params, $key, $required = false )
+    /** @param array<string,mixed> $params */
+    private function _str( array $params, string $key, bool $required = false ): string
     {
         $v = isset( $params[ $key ] ) ? trim( (string) $params[ $key ] ) : '';
         if( $v === '' && $required )
@@ -438,7 +483,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
      * @param callable(mixed):?string $validator
      * @throws ViMbAdmin_Mcp_Exception on a validation miss
      */
-    private function _validate( string $value, callable $validator, string $label )
+    private function _validate( string $value, callable $validator, string $label ): string
     {
         $err = $validator( $value );
         if( $err !== null )
@@ -447,7 +492,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     }
 
     /** Validate a full email address (localpart@hostname) shape for MCP input. */
-    private function _validateEmail( string $addr, string $label )
+    private function _validateEmail( string $addr, string $label ): string
     {
         $at = strrpos( $addr, '@' );
         if( $at === false || $at === 0 || $at === strlen( $addr ) - 1 )
@@ -459,28 +504,30 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
 
     // ---- scope / rate-limit routing ------------------------------------
 
-    private function _writeMethods()
+    /** @return list<string> */
+    private function _writeMethods(): array
     {
         return [ 'domain.create','domain.delete','mailbox.create','mailbox.delete',
                  'alias.create','alias.delete','mailbox.archive','archive.restore','archive.delete' ];
     }
 
-    private function _destructiveMethods()
+    /** @return list<string> */
+    private function _destructiveMethods(): array
     {
         return [ 'mailbox.delete','domain.delete','mailbox.archive','archive.restore','archive.delete' ];
     }
 
-    private function _scopeFor( $method )
+    private function _scopeFor( string $method ): string
     {
         return in_array( $method, $this->_writeMethods(), true ) ? 'write' : 'read';
     }
 
-    private function _isDestructive( $method )
+    private function _isDestructive( string $method ): bool
     {
         return in_array( $method, $this->_destructiveMethods(), true );
     }
 
-    private function _rateLimiter()
+    private function _rateLimiter(): ViMbAdmin_Mcp_RateLimit
     {
         $rl = $this->options()['mcp']['ratelimit']['destructive'] ?? [];
         return new ViMbAdmin_Mcp_RateLimit( [
@@ -492,28 +539,28 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
 
     // ---- helpers -------------------------------------------------------
 
-    private function _mcpEnabled()
+    private function _mcpEnabled(): bool
     {
         return isset( $this->options()['mcp']['enabled'] ) && $this->options()['mcp']['enabled'];
     }
 
-    private function _json( $payload, $httpStatus = 200 )
+    private function _json( mixed $payload, int $httpStatus = 200 ): \ViMbAdmin\Kernel\Http\Response
     {
         return $this->json( $payload, $httpStatus );
     }
 
-    private function _rpcResult( $id, $result )
+    private function _rpcResult( mixed $id, mixed $result ): \ViMbAdmin\Kernel\Http\Response
     {
         return $this->_json( [ 'jsonrpc' => '2.0', 'id' => $id, 'result' => $result ] );
     }
 
-    private function _rpcError( $id, $code, $message, $httpStatus = 200 )
+    private function _rpcError( mixed $id, int $code, string $message, int $httpStatus = 200 ): \ViMbAdmin\Kernel\Http\Response
     {
         return $this->_json( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => $code, 'message' => $message ] ], $httpStatus );
     }
 
     /** Auth/transport-level failure: HTTP status + JSON-RPC error envelope. */
-    private function _http( $status, $message, $id = null )
+    private function _http( int $status, string $message, mixed $id = null ): \ViMbAdmin\Kernel\Http\Response
     {
         $response = $this->_rpcError( $id, -32000, $message, $status );
         if( $status !== 401 )
@@ -527,8 +574,33 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         );
     }
 
+    /** @return array<string,mixed> */
     private function options(): array
     {
         return $this->container->options();
+    }
+
+    protected function em(): \Doctrine\ORM\EntityManager
+    {
+        $em = parent::em();
+        if( !$em instanceof \Doctrine\ORM\EntityManager )
+            throw new \LogicException( 'Doctrine entity manager resource has an invalid type' );
+        return $em;
+    }
+
+    private function _domainRepository(): \Repositories\Domain
+    {
+        $repo = $this->em()->getRepository( '\\Entities\\Domain' );
+        if( !$repo instanceof \Repositories\Domain )
+            throw new \LogicException( 'Domain repository has an invalid type' );
+        return $repo;
+    }
+
+    private function _mailboxRepository(): \Repositories\Mailbox
+    {
+        $repo = $this->em()->getRepository( '\\Entities\\Mailbox' );
+        if( !$repo instanceof \Repositories\Mailbox )
+            throw new \LogicException( 'Mailbox repository has an invalid type' );
+        return $repo;
     }
 }
