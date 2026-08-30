@@ -21,6 +21,49 @@ class Admin
         return \Entities\AdminPreference::class;
     }
 
+    protected function _getPreferenceEntityManager(): \Doctrine\ORM\EntityManagerInterface
+    {
+        $entityManager = \OSS_Runtime::entityManager();
+        if (!$entityManager instanceof \Doctrine\ORM\EntityManagerInterface) {
+            throw new \UnexpectedValueException('Runtime entity manager does not implement Doctrine ORM EntityManagerInterface');
+        }
+
+        return $entityManager;
+    }
+
+    /**
+     * @param string $attribute
+     * @param bool $withIndex
+     * @param bool $ignoreExpired
+     * @return array<int, mixed>|false
+     */
+    public function getIndexedPreference($attribute, $withIndex = false, $ignoreExpired = true)
+    {
+        return $this->_getIndexedPreference($attribute, $withIndex, $ignoreExpired);
+    }
+
+    /**
+     * @param string $attribute
+     * @param int|null $index
+     * @param bool $ignoreExpired
+     * @return array<int|string, mixed>|false
+     */
+    public function getAssocPreference($attribute, $index = null, $ignoreExpired = true)
+    {
+        return $this->_getAssocPreference($attribute, $index, $ignoreExpired);
+    }
+
+    /**
+     * @param array<int|string, mixed> $config
+     * @param string $key
+     * @param string $value
+     * @return array<int|string, mixed>
+     */
+    private function _processKey($config, $key, $value)
+    {
+        return $this->_processPreferenceKey($config, $key, $value);
+    }
+
     /**
      * @var string $username
      */
@@ -71,19 +114,24 @@ class Admin
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    private function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
+
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\AdminPreference>
      */
     private $Admin;
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\Log>
      */
     #[ORM\OneToMany(targetEntity: \Entities\Log::class, mappedBy: 'Admin')]
     private $Logs;
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\Domain>
      */
     #[ORM\ManyToMany(targetEntity: \Entities\Domain::class, inversedBy: 'Admins')]
     #[ORM\JoinTable(name: 'domain_admins')]
@@ -324,6 +372,7 @@ class Admin
      * Remove Admin
      *
      * @param \Entities\AdminPreference $admin
+     * @return void
      */
     public function removeAdmin(\Entities\AdminPreference $admin)
     {
@@ -357,6 +406,7 @@ class Admin
      * Remove Logs
      *
      * @param \Entities\Log $logs
+     * @return void
      */
     public function removeLog(\Entities\Log $logs)
     {
@@ -390,6 +440,7 @@ class Admin
      * Remove Domains
      *
      * @param \Entities\Domain $domains
+     * @return void
      */
     public function removeDomain(\Entities\Domain $domains)
     {
@@ -406,7 +457,7 @@ class Admin
         return $this->Domains;
     }
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\AdminPreference>
      */
     #[ORM\OneToMany(targetEntity: \Entities\AdminPreference::class, mappedBy: 'Admin')]
     private $Preferences;
@@ -429,6 +480,7 @@ class Admin
      * Remove Preferences
      *
      * @param \Entities\AdminPreference $preferences
+     * @return void
      */
     public function removePreference(\Entities\AdminPreference $preferences)
     {
@@ -480,7 +532,7 @@ class Admin
         return $this;
     }
     /**
-     * @var \Doctrine\Common\Collections\Collection
+     * @var \Doctrine\Common\Collections\Collection<int, \Entities\RememberMe>
      */
     #[ORM\OneToMany(targetEntity: \Entities\RememberMe::class, mappedBy: 'User')]
     private $RememberMes;
@@ -503,6 +555,7 @@ class Admin
      * Remove RememberMes
      *
      * @param \Entities\RememberMe $rememberMes
+     * @return void
      */
     public function removeRememberMe(\Entities\RememberMe $rememberMes)
     {
@@ -512,14 +565,14 @@ class Admin
     /**
      * Get RememberMes
      *
-     * @return \Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\RememberMe>
      */
     public function getRememberMes()
     {
         return $this->RememberMes;
     }
     /**
-     * @var \Doctrine\Common\Collections\Collection
+     * @var \Doctrine\Common\Collections\Collection<int, \Entities\Archive>
      */
     #[ORM\OneToMany(targetEntity: \Entities\Archive::class, mappedBy: 'ArchivedBy')]
     private $Archives;
@@ -542,6 +595,7 @@ class Admin
      * Remove Archives
      *
      * @param \Entities\Archive $archives
+     * @return void
      */
     public function removeArchive(\Entities\Archive $archives)
     {
@@ -551,7 +605,7 @@ class Admin
     /**
      * Get Archives
      *
-     * @return \Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Archive>
      */
     public function getArchives()
     {

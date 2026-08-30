@@ -50,6 +50,11 @@ use Doctrine\ORM\Mapping as ORM;
  */
 trait OSS_Doctrine2_WithPreferences
 {
+    protected function _getPreferenceEntityManager(): object
+    {
+        return \OSS_Runtime::entityManager();
+    }
+
     /** @return class-string<object> */
     protected function _getPreferenceEntityClassname()
     {
@@ -187,7 +192,7 @@ trait OSS_Doctrine2_WithPreferences
         $pref->setExpire( $expires );
         $pref->setIx( $index );
 
-        $em = \OSS_Runtime::entityManager();
+        $em = $this->_getPreferenceEntityManager();
         $em->persist( $pref );
         return $this;
     }
@@ -290,7 +295,7 @@ trait OSS_Doctrine2_WithPreferences
         if( $max != 0 && $count >= $max )
             throw new \OSS_Doctrine2_WithPreferences_IndexLimitException( 'Requested maximum number of indexed preferences reached' );
 
-        $em = \OSS_Runtime::entityManager();
+        $em = $this->_getPreferenceEntityManager();
         if( is_array( $value ) )
         {
             foreach( $value as $v )
@@ -339,7 +344,7 @@ trait OSS_Doctrine2_WithPreferences
         if( $asOf === null )
             $asOf = time();
 
-        $em = \OSS_Runtime::entityManager();
+        $em = $this->_getPreferenceEntityManager();
         foreach( $this->_getPreferences() as $pref )
         {
             if( $attribute !== null && $pref->getAttribute() != $attribute )
@@ -369,7 +374,7 @@ trait OSS_Doctrine2_WithPreferences
     {
         $count = 0;
 
-        $em = \OSS_Runtime::entityManager();
+        $em = $this->_getPreferenceEntityManager();
         foreach( $this->_getPreferences() as $pref )
         {
             if( $pref->getAttribute() == $attribute )
@@ -394,7 +399,7 @@ trait OSS_Doctrine2_WithPreferences
      */
     public function expungePreferences()
     {
-        $em = \OSS_Runtime::entityManager();
+        $em = $this->_getPreferenceEntityManager();
 
         return $em->createQuery( "DELETE \\Entities\\UserPreference up WHERE up.User = ?1" )
             ->setParameter( 1, $this )
@@ -424,6 +429,17 @@ trait OSS_Doctrine2_WithPreferences
      * @return boolean|array False if no such preference(s) exist, otherwise an array.
      */
     public function getIndexedPreference( $attribute, $withIndex = false, $ignoreExpired = true )
+    {
+        return $this->_getIndexedPreference($attribute, $withIndex, $ignoreExpired);
+    }
+
+    /**
+     * @param string $attribute
+     * @param bool $withIndex
+     * @param bool $ignoreExpired
+     * @return array<int, mixed>|false
+     */
+    protected function _getIndexedPreference($attribute, $withIndex, $ignoreExpired)
     {
         $values = [];
 
@@ -487,6 +503,17 @@ trait OSS_Doctrine2_WithPreferences
      */
     public function getAssocPreference( $attribute, $index = null, $ignoreExpired = true )
     {
+        return $this->_getAssocPreference($attribute, $index, $ignoreExpired);
+    }
+
+    /**
+     * @param string $attribute
+     * @param int|null $index
+     * @param bool $ignoreExpired
+     * @return array<int|string, mixed>|false
+     */
+    protected function _getAssocPreference($attribute, $index, $ignoreExpired)
+    {
         $values = [];
 
         foreach( $this->_getPreferences() as $pref )
@@ -532,7 +559,7 @@ trait OSS_Doctrine2_WithPreferences
     {
         $cnt = 0;
 
-        $em = \OSS_Runtime::entityManager();
+        $em = $this->_getPreferenceEntityManager();
         foreach( $this->_getPreferences() as $pref )
         {
             if( strpos( $pref->getAttribute(), $attribute ) === 0 )
@@ -620,7 +647,7 @@ trait OSS_Doctrine2_WithPreferences
             $this->_getFullClassname(), $this->_getShortClassname(), $this->getId()
         );
 
-        return \OSS_Runtime::entityManager()->createQuery( $query )->getResult();
+        return $this->_getPreferenceEntityManager()->createQuery( $query )->getResult();
     }
 
     /**
@@ -633,6 +660,17 @@ trait OSS_Doctrine2_WithPreferences
      * @return array
      */
     private function _processKey($config, $key, $value)
+    {
+        return $this->_processPreferenceKey($config, $key, $value);
+    }
+
+    /**
+     * @param array<int|string, mixed> $config
+     * @param string $key
+     * @param string $value
+     * @return array<int|string, mixed>
+     */
+    protected function _processPreferenceKey($config, $key, $value)
     {
         if( strpos( $key, "." ) !== false)
         {
