@@ -16,7 +16,11 @@ class ViMbAdmin_Mcp_RateLimit
     private $_window;
 
     /**
-     * @param array $opts  ['statedir'=>..,'max'=>..,'window'=>..]
+     * @param array{
+     *     statedir?: string|null,
+     *     max?: int|numeric-string|null,
+     *     window?: int|numeric-string|null
+     * } $opts
      */
     public function __construct( array $opts = [] )
     {
@@ -33,7 +37,7 @@ class ViMbAdmin_Mcp_RateLimit
      *
      * @throws ViMbAdmin_Mcp_Exception (429) when over the limit
      */
-    public function hit( $tokenId, $bucket = 'destructive' )
+    public function hit( int|string|null $tokenId, string $bucket = 'destructive' ): void
     {
         if( $this->_max <= 0 )           // 0/neg disables the limiter
             return;
@@ -79,9 +83,16 @@ class ViMbAdmin_Mcp_RateLimit
 
             $hits[] = $now;
 
+            $encoded = json_encode( $hits );
+            if( $encoded === false )
+            {
+                error_log( "ViMbAdmin_Mcp_RateLimit: cannot encode state for {$file} — destructive rate limit NOT enforced for token {$tokenId}" );
+                return;
+            }
+
             ftruncate( $fh, 0 );
             rewind( $fh );
-            fwrite( $fh, json_encode( $hits ) );
+            fwrite( $fh, $encoded );
             fflush( $fh );
         }
         finally
@@ -93,7 +104,7 @@ class ViMbAdmin_Mcp_RateLimit
 
     // ---- internals -----------------------------------------------------
 
-    private function _file( $tokenId, $bucket )
+    private function _file( int|string|null $tokenId, string $bucket ): string
     {
         if( !is_dir( $this->_dir ) )
             @mkdir( $this->_dir, 0750, true );
