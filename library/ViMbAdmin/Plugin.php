@@ -69,8 +69,15 @@ class ViMbAdmin_Plugin
      * @param string $action
      * @param string $hook
      * @param object $controllerObject the ZF1 controller or a native plugin context
+     * @param array<string,mixed>|null $params
      */
-    public function update( $controller, $action, $hook, object $controllerObject, $params = null )
+    public function update(
+        string $controller,
+        string $action,
+        string $hook,
+        object $controllerObject,
+        ?array $params = null
+    ): bool
     {
         // typically the update() function will be pretty simple
         $hookfn = "{$controller}_{$action}_{$hook}";
