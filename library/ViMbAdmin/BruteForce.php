@@ -25,18 +25,26 @@
  */
 class ViMbAdmin_BruteForce
 {
+    /** @var bool */
     private $_enabled   = true;
+    /** @var int */
     private $_max       = 5;
+    /** @var int */
     private $_window    = 900;
+    /** @var int */
     private $_lockout   = 900;
+    /** @var string|null */
     private $_statedir  = null;
+    /** @var array<int|string, mixed> */
     private $_whitelist = [];
+    /** @var string */
     private $_proxyMode = 'auto';
+    /** @var array<int|string, mixed> */
     private $_proxies   = [];
 
     /**
      * @param mixed $em   Unused (kept for call-site compatibility).
-     * @param array $opts [bruteforce] options from application.ini.
+     * @param array<string, mixed> $opts [bruteforce] options from application.ini.
      */
     public function __construct( $em = null, array $opts = [] )
     {
@@ -72,6 +80,8 @@ class ViMbAdmin_BruteForce
      * locked out. Call early in the login flow (_preLogin).
      *
      * @throws never returns when locked (sends 429 + exits)
+     * @param mixed $request
+     * @return void
      */
     public function assertNotLocked( $request )
     {
@@ -97,6 +107,10 @@ class ViMbAdmin_BruteForce
      * when it crosses the threshold inside the window. Counting is per-IP only;
      * $username is accepted for call-site symmetry/logging but not keyed on
      * (an attacker rotating usernames from one IP still trips the same lock).
+     *
+     * @param mixed $username
+     * @param mixed $request
+     * @return void
      */
     public function record( $username, $request )
     {
@@ -125,7 +139,13 @@ class ViMbAdmin_BruteForce
         $this->_save( $ip, $rec );
     }
 
-    /** Clear the counter for a source after a fully successful login. */
+    /**
+     * Clear the counter for a source after a fully successful login.
+     *
+     * @param mixed $username
+     * @param mixed $request
+     * @return void
+     */
     public function clear( $username, $request )
     {
         if( !$this->_enabled )
@@ -133,7 +153,12 @@ class ViMbAdmin_BruteForce
         $this->_delete( $this->_ip( $request ) );
     }
 
-    /** Is this source currently locked? (no side effects) */
+    /**
+     * Is this source currently locked? (no side effects)
+     *
+     * @param mixed $request
+     * @return bool
+     */
     public function isLocked( $request )
     {
         if( !$this->_enabled )
@@ -146,6 +171,10 @@ class ViMbAdmin_BruteForce
 
     // ---- storage (one JSON file per IP under the state dir) ------------
 
+    /**
+     * @param string $ip
+     * @return string
+     */
     private function _file( $ip )
     {
         // Hash the IP so the filename is filesystem-safe and doesn't leak the
@@ -153,12 +182,17 @@ class ViMbAdmin_BruteForce
         return $this->_statedir . '/' . hash( 'sha256', $ip ) . '.json';
     }
 
+    /** @return void */
     private function _ensureDir()
     {
         if( !is_dir( $this->_statedir ) )
             @mkdir( $this->_statedir, 0750, true );
     }
 
+    /**
+     * @param string $ip
+     * @return array{attempts:int, first:int, last:int, locked_until:int}
+     */
     private function _load( $ip )
     {
         $default = [ 'attempts' => 0, 'first' => 0, 'last' => 0, 'locked_until' => 0 ];
@@ -173,6 +207,11 @@ class ViMbAdmin_BruteForce
         return $default;
     }
 
+    /**
+     * @param string $ip
+     * @param array{attempts:int, first:int, last:int, locked_until:int} $rec
+     * @return void
+     */
     private function _save( $ip, array $rec )
     {
         $this->_ensureDir();
@@ -182,6 +221,10 @@ class ViMbAdmin_BruteForce
             @rename( $tmp, $f );   // atomic replace
     }
 
+    /**
+     * @param string $ip
+     * @return void
+     */
     private function _delete( $ip )
     {
         @unlink( $this->_file( $ip ) );
@@ -189,6 +232,10 @@ class ViMbAdmin_BruteForce
 
     // ---- helpers -------------------------------------------------------
 
+    /**
+     * @param mixed $request
+     * @return string
+     */
     private function _ip( $request )
     {
         // Resolve the real client IP per the trusted-proxy policy (default
@@ -197,6 +244,10 @@ class ViMbAdmin_BruteForce
         return ViMbAdmin_Net::clientIp( $_SERVER, $this->_proxyMode, $this->_proxies );
     }
 
+    /**
+     * @param string $ip
+     * @return bool
+     */
     private function _isWhitelisted( $ip )
     {
         // Shared IP/CIDR matching (see ViMbAdmin_Net) so the brute-force
