@@ -54,7 +54,7 @@ class OSS_Date
     /**
      * Date formats
      *
-     * @var array
+     * @var array<int, string>
      */
     public static $DATE_FORMATS = [
         self::DF_EUROPEAN => 'DD/MM/YYYY',
@@ -68,7 +68,7 @@ class OSS_Date
     /**
      * Date formats for data picker
      *
-     * @var array 
+     * @var array<int, string>
      */
     public static $DATEPICKER_FORMATS = [
         self::DF_EUROPEAN => 'dd/mm/yy',
@@ -81,7 +81,7 @@ class OSS_Date
     /**
      * Date formats for PHP
      *
-     * @var array 
+     * @var array<int, string>
      */
     public static $PHP_FORMATS = [
         self::DF_EUROPEAN => 'd/m/Y',
@@ -98,7 +98,7 @@ class OSS_Date
      *
      * I.e. returns self::$DATE_FORMATS
      *
-     * @return array
+     * @return array<int, string>
      */
     public static function getDateFormats()
     {
@@ -110,7 +110,7 @@ class OSS_Date
      *
      * ie. returns the keys of self::$DATE_FORMATS
      *
-     * @return array
+     * @return list<int>
      */
     public static function getDateFormatKeys()
     {
@@ -167,7 +167,7 @@ class OSS_Date
      *
      * @param string $string
      * @param int $format
-     * @return int
+     * @return int|false
      */
     public static function getTimestamp( $string, $format = self::DF_EUROPEAN )
     {
@@ -185,7 +185,7 @@ class OSS_Date
      *
      * @param string $string
      * @param int $format
-     * @return array
+     * @return array<int, string|null>
      */
     public static function dateSplit( $string, $format = self::DF_EUROPEAN )
     {

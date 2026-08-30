@@ -140,6 +140,9 @@ jobs:
       - name: Standalone captcha lifecycle
         run: php tests/test-captcha.php
 
+      - name: Date utility behavior
+        run: php tests/test-date.php
+
       - name: Native MCP transport
         run: php tests/test-kernel-mcp.php
 
