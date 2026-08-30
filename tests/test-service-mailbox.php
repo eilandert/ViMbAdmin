@@ -37,12 +37,13 @@ require __DIR__ . '/../library/OSS/Auth/Password.php';
  * Records purgeMailbox() calls so the service's orchestration can be asserted
  * without the real (DB-backed) repository.
  */
+/** @implements \Doctrine\Persistence\ObjectRepository<\Entities\Mailbox> */
 final class FakeMailboxRepo implements \Doctrine\Persistence\ObjectRepository
 {
     /** @var array<int,array{mailbox:object,admin:?object,removeMailbox:bool}> */
     public array $purges = [];
 
-    public function purgeMailbox($mailbox, $admin, $removeMailbox = true)
+    public function purgeMailbox(\Entities\Mailbox $mailbox, ?\Entities\Admin $admin, bool $removeMailbox = true): bool
     {
         $this->purges[] = ['mailbox' => $mailbox, 'admin' => $admin, 'removeMailbox' => $removeMailbox];
         return true;
@@ -60,6 +61,7 @@ final class FakeMailboxRepo implements \Doctrine\Persistence\ObjectRepository
  * configurable findOneBy() result lets the create() test exercise both the
  * "no clashing alias -> create one" and "alias already exists -> skip" branches.
  */
+/** @implements \Doctrine\Persistence\ObjectRepository<\Entities\Alias> */
 final class FakeAliasRepo implements \Doctrine\Persistence\ObjectRepository
 {
     public ?object $existing = null;
@@ -90,11 +92,16 @@ final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager
     public function clear(): void {}
     public function detach(object $object): void {}
     public function refresh(object $object): void {}
+    /**
+     * @template T of object
+     * @param class-string<T> $className
+     * @return \Doctrine\Persistence\ObjectRepository<T>
+     */
     public function getRepository(string $className): \Doctrine\Persistence\ObjectRepository {
-        if ($this->aliasRepo !== null && str_contains($className, 'Alias')) {
+        if ($this->aliasRepo !== null && $className === '\\Entities\\Alias') {
             return $this->aliasRepo;
         }
-        if ($this->mailboxRepo !== null && str_contains($className, 'Mailbox')) {
+        if ($this->mailboxRepo !== null && $className === '\\Entities\\Mailbox') {
             return $this->mailboxRepo;
         }
         throw new \RuntimeException('not used');
@@ -133,8 +140,9 @@ final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager
 
 $failures = 0;
 function check(string $label, bool $ok): void {
+    global $failures;
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { $failures++; }
 }
 
 echo "== ViMbAdmin_Service_Mailbox ==\n";
@@ -145,7 +153,7 @@ $actor->setUsername('admin@example.com');
 $mkMailbox = static function (bool $active): \Entities\Mailbox {
     $mb = new \Entities\Mailbox();
     $mb->setUsername('user@example.com');
-    $mb->setActive($active ? 1 : 0);
+    $mb->setActive($active);
     return $mb;
 };
 
@@ -168,9 +176,9 @@ check('mailbox is now active',                (bool) $mb->getActive() === true);
 check('exactly one flush',                    $em->flushes === 1);
 check('a Log row was persisted',              $em->lastLog() instanceof \Entities\Log);
 check('log action is ACTIVATE',               $em->lastLog()?->getAction() === \Entities\Log::ACTION_MAILBOX_ACTIVATE);
-check('preToggle saw pre-toggle state (0)',   $order[0] === 'preToggle:0');
-check('preFlush saw post-toggle state (1)',   $order[1] === 'preFlush:1');
-check('postFlush saw post-toggle state (1)',  $order[2] === 'postFlush:1');
+check('preToggle saw pre-toggle state (0)',   hash_equals('preToggle:0', $order[0]));
+check('preFlush saw post-toggle state (1)',   hash_equals('preFlush:1', $order[1]));
+check('postFlush saw post-toggle state (1)',  hash_equals('postFlush:1', $order[2]));
 check('hook order preToggle<preFlush<postFlush', $order === ['preToggle:0', 'preFlush:1', 'postFlush:1']);
 
 // --- deactivate path -------------------------------------------------- //
