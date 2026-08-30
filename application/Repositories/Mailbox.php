@@ -77,7 +77,7 @@ class Mailbox extends EntityRepository
      *
      * @param \Entities\Admin       $admin
      * @param \Entities\Domain|null $domain
-     * @return array{rows: array, total: int, filtered: int}
+     * @return array{rows: list<array<string,mixed>>, total: int, filtered: int}
      */
     public function pagedForMailboxList( $admin, $domain, string $search, string $sortField, string $sortDir, int $start, int $length )
     {
@@ -123,7 +123,7 @@ class Mailbox extends EntityRepository
             ->setMaxResults( max( 1, $length ) )
             ->getQuery()->getArrayResult();
 
-        return [ 'rows' => $this->_mergeQuotaUsage( $rows ), 'total' => $total, 'filtered' => $filtered ];
+        return [ 'rows' => array_values( $this->_mergeQuotaUsage( $rows ) ), 'total' => $total, 'filtered' => $filtered ];
     }
 
     /**
@@ -136,8 +136,8 @@ class Mailbox extends EntityRepository
      * (e.g. a brand new mailbox), in which case the view shows 0 until Dovecot
      * writes the first usage figure.
      *
-     * @param array $rows Mailbox list rows from getArrayResult()
-     * @return array
+     * @param array<int,array<string,mixed>> $rows Mailbox list rows from getArrayResult()
+     * @return array<int,array<string,mixed>>
      */
     private function _mergeQuotaUsage( array $rows )
     {

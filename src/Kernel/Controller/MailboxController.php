@@ -49,6 +49,8 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  *
  * @package ViMbAdmin
  * @subpackage Kernel
+ * @method \Doctrine\ORM\EntityManager em()
+ * @method \Entities\Admin|null admin()
  */
 final class MailboxController extends AbstractController
 {
@@ -75,7 +77,7 @@ final class MailboxController extends AbstractController
         // computed columns — used quota, last login, controls — fall back).
         $sortField = [0 => 'username', 1 => 'name', 4 => 'domain', 5 => 'active'][$q->sortColumn] ?? 'username';
 
-        $r = $this->em()->getRepository('\\Entities\\Mailbox')
+        $r = $this->mailboxRepository()
             ->pagedForMailboxList($admin, $domain, $q->search, $sortField, $q->sortDir, $q->start, $q->length);
 
         return new Response(
@@ -108,13 +110,13 @@ final class MailboxController extends AbstractController
 
         // preDispatch domain juggling (list/index/list-search): the selected
         // domain is remembered in the session and reused until `unset`.
-        $session = $this->session();
+        $session = new MagicPropertyStorage($this->session());
         $domain  = null;
 
         if ($this->param('unset', false)) {
-            unset($session->domain);
-        } elseif (isset($session->domain) && $session->domain) {
-            $domain = $session->domain;
+            $session->remove('domain');
+        } elseif ($session->has('domain') && $session->get('domain')) {
+            $domain = $session->get('domain');
         } elseif ($did = $this->param('did')) {
             $domain = $this->em()->getRepository('\\Entities\\Domain')->find((int) $did);
             // loadDomain() authorises a non-super admin against the domain.
@@ -122,7 +124,7 @@ final class MailboxController extends AbstractController
                 return $this->redirect('auth/login');
             }
             if ($domain) {
-                $session->domain = $domain;
+                $session->set('domain', $domain);
             }
         }
 
@@ -134,7 +136,7 @@ final class MailboxController extends AbstractController
         $vars = [
             'mailboxes' => $paginate
                 ? []
-                : $this->em()->getRepository('\\Entities\\Mailbox')->loadForMailboxList($admin, $domain),
+                : $this->mailboxRepository()->loadForMailboxList($admin, $domain),
         ];
 
         if (empty($opts['defaults']['list_size']['disabled'])) {
@@ -190,8 +192,12 @@ final class MailboxController extends AbstractController
             $mailbox,
             $admin,
             fn() => $host->notify('mailbox', 'toggleActive', 'preToggle', $context, ['active' => $mailbox->getActive()]) === true,
-            fn() => $host->notify('mailbox', 'toggleActive', 'preflush', $context, ['active' => $mailbox->getActive()]),
-            fn() => $host->notify('mailbox', 'toggleActive', 'postflush', $context, ['active' => $mailbox->getActive()]),
+            function () use ($host, $context, $mailbox): void {
+                $host->notify('mailbox', 'toggleActive', 'preflush', $context, ['active' => $mailbox->getActive()]);
+            },
+            function () use ($host, $context, $mailbox): void {
+                $host->notify('mailbox', 'toggleActive', 'postflush', $context, ['active' => $mailbox->getActive()]);
+            },
         );
 
         return new Response($result === null ? 'ko' : 'ok');
@@ -233,7 +239,7 @@ final class MailboxController extends AbstractController
             return $this->redirect('mailbox/list');
         }
 
-        $aliasRepo = $this->em()->getRepository('\\Entities\\Alias');
+        $aliasRepo = $this->aliasRepository();
 
         if ($this->isPost() && (($this->postData()['purge'] ?? null) === 'purge')) {
             // On-disk file deletion removed: ViMbAdmin has no shared maildir
@@ -257,8 +263,12 @@ final class MailboxController extends AbstractController
                 $admin,
                 $deleteFiles,
                 fn() => $host->notify('mailbox', 'purge', 'preRemove', $context) !== false,
-                fn() => $host->notify('mailbox', 'purge', 'preFlush', $context),
-                fn() => $host->notify('mailbox', 'purge', 'postFlush', $context),
+                function () use ($host, $context): void {
+                    $host->notify('mailbox', 'purge', 'preFlush', $context);
+                },
+                function () use ($host, $context): void {
+                    $host->notify('mailbox', 'purge', 'postFlush', $context);
+                },
             );
 
             if ($purged) {
@@ -302,7 +312,7 @@ final class MailboxController extends AbstractController
      * cross-field failure flashes the reason and re-renders the repopulated form,
      * mirroring the ZF1 `addMessage(...) + return`.
      */
-    public function addAction(): ?Response
+    public function addAction(): Response
     {
         // Edit is served natively by editAction; redirect the legacy
         // add-with-mid alias there rather than punting to ZF1.
@@ -321,7 +331,7 @@ final class MailboxController extends AbstractController
         $minPw   = (int) ($options['defaults']['mailbox']['min_password_length'] ?? 8);
 
         // The domains this admin may add a mailbox to (id => name); super sees all.
-        $choices = $em->getRepository('\\Entities\\Domain')->loadForAdminAsArray($admin, true);
+        $choices = $this->domainRepository()->loadForAdminAsArray($admin, true);
         if ($choices === []) {
             $this->flash('There are no domains to which you can add a mailbox.', FlashMessages::INFO);
             return $this->redirect('domain/list');
@@ -357,7 +367,7 @@ final class MailboxController extends AbstractController
                 $localPart = strtolower(trim((string) $v['local_part']));
                 $username  = sprintf('%s@%s', $localPart, $domain->getDomain());
 
-                if (!$em->getRepository('\\Entities\\Mailbox')->isUnique($username)) {
+                if (!$this->mailboxRepository()->isUnique($username)) {
                     $this->flash("Mailbox already exists for {$username}", FlashMessages::ERROR);
                 } else {
                     $mailbox = new \Entities\Mailbox();
@@ -397,11 +407,13 @@ final class MailboxController extends AbstractController
                         $admin,
                         $options,
                         null,
-                        fn() => $host->notify('mailbox', 'add', 'addPostflush', $context, ['options' => $options]),
+                        function () use ($host, $context, $options): void {
+                            $host->notify('mailbox', 'add', 'addPostflush', $context, ['options' => $options]);
+                        },
                     );
 
                     if ($this->param('did')) {
-                        $this->session()->domain = $domain;
+                        (new MagicPropertyStorage($this->session()))->set('domain', $domain);
                     }
 
                     $this->flash('You have successfully added the mailbox record.');
@@ -434,7 +446,7 @@ final class MailboxController extends AbstractController
      * missing / unmanaged mailbox flashes and bounces to the list (the ZF1
      * `loadMailbox` redirect).
      */
-    public function editAction(): ?Response
+    public function editAction(): Response
     {
         $admin = $this->admin();
         if ($admin === null) {
@@ -493,7 +505,9 @@ final class MailboxController extends AbstractController
                     $mailbox,
                     $admin,
                     null,
-                    fn() => $host->notify('mailbox', 'add', 'addPostflush', $context, ['options' => $options]),
+                    function () use ($host, $context, $options): void {
+                        $host->notify('mailbox', 'add', 'addPostflush', $context, ['options' => $options]);
+                    },
                 );
 
                 $this->flash('You have successfully added/edited the mailbox record.');
@@ -530,8 +544,8 @@ final class MailboxController extends AbstractController
             return $this->redirect('mailbox/list');
         }
 
-        $ima       = (int) $this->param('ima', 0);
-        $aliasRepo = $this->em()->getRepository('\\Entities\\Alias');
+        $ima       = (bool) $this->param('ima', 0);
+        $aliasRepo = $this->aliasRepository();
 
         return $this->view('mailbox/aliases.phtml', [
             'mailbox' => $mailbox,
@@ -607,7 +621,7 @@ final class MailboxController extends AbstractController
     }
 
     /** Write an ALIAS_DELETE audit row. */
-    private function logAlias(object $admin, string $message): void
+    private function logAlias(\Entities\Admin $admin, string $message): void
     {
         $log = new \Entities\Log();
         $log->setAction(\Entities\Log::ACTION_ALIAS_DELETE)
@@ -628,7 +642,7 @@ final class MailboxController extends AbstractController
      * new password" is dropped (no mailer in the native kernel, like native login).
      * Password rendered as a visible text field, matching the ZF1 form.
      */
-    public function passwordAction(): ?Response
+    public function passwordAction(): Response
     {
         $admin = $this->admin();
         if ($admin === null) {
@@ -837,7 +851,7 @@ final class MailboxController extends AbstractController
      * @param array<string,mixed> $options the merged application options
      */
     private function buildMailboxEditForm(
-        object $mailbox,
+        \Entities\Mailbox $mailbox,
         string $mult,
         FormPluginHost $formHost,
         array $options
@@ -880,7 +894,7 @@ final class MailboxController extends AbstractController
      */
     private function buildMailboxAddForm(
         array $choices,
-        ?object $preferred,
+        ?\Entities\Domain $preferred,
         string $mult,
         int $minPw,
         FormPluginHost $formHost,
@@ -1040,7 +1054,7 @@ final class MailboxController extends AbstractController
      * @param array<string,string> $typeOptions value => label
      */
     private function renderEmailSettingsModal(
-        object $mailbox,
+        \Entities\Mailbox $mailbox,
         array $typeOptions,
         string $selectedType,
         string $emailValue,
@@ -1065,7 +1079,7 @@ final class MailboxController extends AbstractController
      *
      * @param list<string> $recipients
      */
-    private function sendSettingsEmail(object $mailbox, array $recipients): bool
+    private function sendSettingsEmail(\Entities\Mailbox $mailbox, array $recipients): bool
     {
         $options = $this->container->options();
 
@@ -1105,5 +1119,41 @@ final class MailboxController extends AbstractController
             error_log('MailboxController::emailSettings send: ' . $e->getMessage());
             return false;
         }
+    }
+
+    protected function em(): \Doctrine\ORM\EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof \Doctrine\ORM\EntityManager) {
+            throw new \LogicException('Doctrine entity manager resource has an invalid type');
+        }
+        return $em;
+    }
+
+    private function domainRepository(): \Repositories\Domain
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Domain');
+        if (!$repo instanceof \Repositories\Domain) {
+            throw new \LogicException('Domain repository has an invalid type');
+        }
+        return $repo;
+    }
+
+    private function mailboxRepository(): \Repositories\Mailbox
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Mailbox');
+        if (!$repo instanceof \Repositories\Mailbox) {
+            throw new \LogicException('Mailbox repository has an invalid type');
+        }
+        return $repo;
+    }
+
+    private function aliasRepository(): \Repositories\Alias
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Alias');
+        if (!$repo instanceof \Repositories\Alias) {
+            throw new \LogicException('Alias repository has an invalid type');
+        }
+        return $repo;
     }
 }
