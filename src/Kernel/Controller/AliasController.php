@@ -71,20 +71,19 @@ final class AliasController extends AbstractController
 
         // preDispatch domain juggling: the selected domain is remembered in the
         // session and reused until `unset`.
-        $session = $this->session();
+        $session = new MagicPropertyStorage($this->session());
         $domain  = null;
 
         if ($this->param('unset', false)) {
-            unset($session->domain);
-        } elseif (isset($session->domain) && $session->domain) {
-            $domain = $session->domain;
+            $session->remove('domain');
+        } elseif (($domain = $this->storedDomain($session)) !== null) {
         } elseif ($did = $this->param('did')) {
-            $domain = $this->em()->getRepository('\\Entities\\Domain')->find((int) $did);
+            $domain = $this->domainRepository()->find((int) $did);
             if ($domain && !$admin->isSuper() && !$admin->canManageDomain($domain)) {
                 return $this->redirect('auth/login');
             }
             if ($domain) {
-                $session->domain = $domain;
+                $session->set('domain', $domain);
             }
         }
 
@@ -97,7 +96,7 @@ final class AliasController extends AbstractController
 
         $aliases = $paginate
             ? []
-            : $this->em()->getRepository('\\Entities\\Alias')->loadForAliasList($admin, $domain, $ima);
+            : $this->aliasRepository()->loadForAliasList($admin, $domain, (bool) $ima);
 
         return $this->view('alias/list.phtml', [
             'ima'     => $ima,
@@ -120,8 +119,8 @@ final class AliasController extends AbstractController
             return new Response('ko');
         }
 
-        $session = $this->session();
-        $domain  = (isset($session->domain) && $session->domain) ? $session->domain : null;
+        $session = new MagicPropertyStorage($this->session());
+        $domain  = $this->storedDomain($session);
         $ima     = (int) $this->param('ima', 0);
 
         $q = DataTableQuery::fromArray($_GET);
@@ -129,11 +128,11 @@ final class AliasController extends AbstractController
         // fall back to address).
         $sortField = [0 => 'address', 1 => 'domain', 2 => 'active'][$q->sortColumn] ?? 'address';
 
-        $r = $this->em()->getRepository('\\Entities\\Alias')
+        $r = $this->aliasRepository()
             ->pagedForAliasList($admin, $domain, (bool) $ima, $q->search, $sortField, $q->sortDir, $q->start, $q->length);
 
         return new Response(
-            DataTableResult::json($q, $r['total'], $r['filtered'], $r['rows']),
+            DataTableResult::json($q, $r['total'], $r['filtered'], array_values($r['rows'])),
             200,
             'application/json; charset=utf-8'
         );
@@ -157,7 +156,7 @@ final class AliasController extends AbstractController
         }
 
         $alias = ($alid = $this->param('alid'))
-            ? $this->em()->getRepository('\\Entities\\Alias')->find((int) $alid)
+            ? $this->aliasRepository()->find((int) $alid)
             : null;
 
         // loadAlias() authorises a non-super admin against the alias's domain.
@@ -179,8 +178,12 @@ final class AliasController extends AbstractController
             $alias,
             $admin,
             fn() => $host->notify('alias', 'toggleActive', 'preToggle', $context, ['active' => $alias->getActive()]) === true,
-            fn() => $host->notify('alias', 'toggleActive', 'preflush', $context, ['active' => $alias->getActive()]),
-            fn() => $host->notify('alias', 'toggleActive', 'postflush', $context, ['active' => $alias->getActive()]),
+            function () use ($host, $context, $alias): void {
+                $host->notify('alias', 'toggleActive', 'preflush', $context, ['active' => $alias->getActive()]);
+            },
+            function () use ($host, $context, $alias): void {
+                $host->notify('alias', 'toggleActive', 'postflush', $context, ['active' => $alias->getActive()]);
+            },
         );
 
         return new Response($result === null ? 'ko' : 'ok');
@@ -213,7 +216,7 @@ final class AliasController extends AbstractController
      * the reason and re-renders the repopulated form, mirroring the ZF1
      * `addMessage(...) + return`.
      */
-    public function addAction(): ?Response
+    public function addAction(): Response
     {
         // Edit is served natively by editAction; redirect the legacy
         // add-with-alid alias there rather than punting to ZF1.
@@ -230,7 +233,7 @@ final class AliasController extends AbstractController
         $options = $this->container->options();
 
         // The domains this admin may add an alias to (id => name); super sees all.
-        $choices = $em->getRepository('\\Entities\\Domain')->loadForAdminAsArray($admin, true);
+        $choices = $this->domainRepository()->loadForAdminAsArray($admin, true);
         if ($choices === []) {
             $this->flash('There are no domains to which you can add an alias.', FlashMessages::INFO);
             return $this->redirect('domain/list');
@@ -239,7 +242,7 @@ final class AliasController extends AbstractController
         // A preferred domain from `did` preselects the dropdown.
         $preferred = null;
         if ($did = $this->param('did')) {
-            $d = $em->getRepository('\\Entities\\Domain')->find((int) $did);
+            $d = $this->domainRepository()->find((int) $did);
             if ($d !== null && ($admin->isSuper() || $admin->canManageDomain($d))) {
                 $preferred = $d;
             }
@@ -249,7 +252,7 @@ final class AliasController extends AbstractController
 
         if ($this->isPost() && $form->isValid($this->postData())) {
             $v      = $form->values();
-            $domain = $em->getRepository('\\Entities\\Domain')->find((int) $v['domain']);
+            $domain = $this->domainRepository()->find((int) $v['domain']);
 
             // The inArray rule already rejected a domain not offered; re-check
             // management server-side so a non-super admin cannot widen scope.
@@ -271,7 +274,7 @@ final class AliasController extends AbstractController
 
                     if ($localPart !== '' && filter_var($address, FILTER_VALIDATE_EMAIL) === false) {
                         $this->flash('Invalid email address.', FlashMessages::ERROR);
-                    } elseif ($em->getRepository('\\Entities\\Alias')->findOneBy(['address' => $address]) !== null) {
+                    } elseif ($this->aliasRepository()->findOneBy(['address' => $address]) !== null) {
                         $this->flash("Alias already exists for {$address}", FlashMessages::ERROR);
                     } else {
                         $alias = new \Entities\Alias();
@@ -295,11 +298,13 @@ final class AliasController extends AbstractController
                             $domain,
                             $admin,
                             null,
-                            fn() => $host->notify('alias', 'add', 'addPostflush', $context, ['options' => $options]),
+                            function () use ($host, $context, $options): void {
+                                $host->notify('alias', 'add', 'addPostflush', $context, ['options' => $options]);
+                            },
                         );
 
                         if ($this->param('did')) {
-                            $this->session()->domain = $domain;
+                            (new MagicPropertyStorage($this->session()))->set('domain', $domain);
                         }
 
                         $this->flash('You have successfully added the alias.');
@@ -330,7 +335,7 @@ final class AliasController extends AbstractController
      * {@see PluginHost} (the ZF1 add/edit path always notifies). The address, its
      * domain and the alias count are not touched on an edit, matching ZF1.
      */
-    public function editAction(): ?Response
+    public function editAction(): Response
     {
         $admin = $this->admin();
         if ($admin === null) {
@@ -339,7 +344,7 @@ final class AliasController extends AbstractController
 
         $em    = $this->em();
         $alias = ($alid = $this->param('alid'))
-            ? $em->getRepository('\\Entities\\Alias')->find((int) $alid)
+            ? $this->aliasRepository()->find((int) $alid)
             : null;
 
         // loadAlias() authorises a non-super admin against the alias's domain.
@@ -375,7 +380,9 @@ final class AliasController extends AbstractController
                     $alias,
                     $admin,
                     null,
-                    fn() => $host->notify('alias', 'add', 'addPostflush', $context, ['options' => $options]),
+                    function () use ($host, $context, $options): void {
+                        $host->notify('alias', 'add', 'addPostflush', $context, ['options' => $options]);
+                    },
                 );
 
                 $this->flash('You have successfully added/edited the alias.');
@@ -415,7 +422,7 @@ final class AliasController extends AbstractController
         }
 
         $alias = ($alid = $this->param('alid'))
-            ? $this->em()->getRepository('\\Entities\\Alias')->find((int) $alid)
+            ? $this->aliasRepository()->find((int) $alid)
             : null;
 
         // loadAlias() authorises a non-super admin against the alias's domain.
@@ -437,8 +444,12 @@ final class AliasController extends AbstractController
             $alias,
             $admin,
             fn() => $host->notify('alias', 'delete', 'preRemove', $context) !== false,
-            fn() => $host->notify('alias', 'delete', 'preFlush', $context),
-            fn() => $host->notify('alias', 'delete', 'postFlush', $context),
+            function () use ($host, $context): void {
+                $host->notify('alias', 'delete', 'preFlush', $context);
+            },
+            function () use ($host, $context): void {
+                $host->notify('alias', 'delete', 'postFlush', $context);
+            },
         );
 
         if ($deleted) {
@@ -454,7 +465,7 @@ final class AliasController extends AbstractController
      *
      * @param array<int|string,string> $choices domain id → name for the dropdown
      */
-    private function buildAliasAddForm(array $choices, ?object $preferred): Form
+    private function buildAliasAddForm(array $choices, ?\Entities\Domain $preferred): Form
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
 
@@ -487,7 +498,7 @@ final class AliasController extends AbstractController
      * domain are dropped on edit, matching ZF1), prefilled from the entity — the
      * stored comma-joined goto list shown one address per line.
      */
-    private function buildAliasEditForm(object $alias): Form
+    private function buildAliasEditForm(\Entities\Alias $alias): Form
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
 
@@ -544,5 +555,48 @@ final class AliasController extends AbstractController
         }
 
         return [$gotos, null];
+    }
+
+    private function storedDomain(MagicPropertyStorage $session): ?\Entities\Domain
+    {
+        $domain = $session->get('domain');
+
+        return $domain instanceof \Entities\Domain ? $domain : null;
+    }
+
+    protected function em(): \Doctrine\ORM\EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof \Doctrine\ORM\EntityManager) {
+            throw new \LogicException('Doctrine entity manager resource has an invalid type');
+        }
+        return $em;
+    }
+
+    protected function admin(): ?\Entities\Admin
+    {
+        $admin = parent::admin();
+        if ($admin !== null && !$admin instanceof \Entities\Admin) {
+            throw new \LogicException('Authenticated admin has an invalid type');
+        }
+        return $admin;
+    }
+
+    private function aliasRepository(): \Repositories\Alias
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Alias');
+        if (!$repo instanceof \Repositories\Alias) {
+            throw new \LogicException('Alias repository has an invalid type');
+        }
+        return $repo;
+    }
+
+    private function domainRepository(): \Repositories\Domain
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Domain');
+        if (!$repo instanceof \Repositories\Domain) {
+            throw new \LogicException('Domain repository has an invalid type');
+        }
+        return $repo;
     }
 }

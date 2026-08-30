@@ -169,12 +169,6 @@ parameters:
 			path: application/Repositories/AdminPreference.php
 
 		-
-			message: '#^Class Repositories\\Alias extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
 			message: '#^Method Repositories\\Alias\:\:filterForAliasList\(\) has parameter \$ima with no type specified\.$#'
 			identifier: missingType.parameter
 			count: 1
@@ -233,30 +227,6 @@ parameters:
 			identifier: missingType.generics
 			count: 1
 			path: application/Repositories/DirectoryEntry.php
-
-		-
-			message: '#^Call to an undefined method object\:\:getActive\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Call to an undefined method object\:\:getDomain\(\)\.$#'
-			identifier: method.notFound
-			count: 2
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Call to an undefined method object\:\:getId\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Class Repositories\\Domain extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/Domain.php
 
 		-
 			message: '#^Method Repositories\\Domain\:\:_mergeDomainUsage\(\) has parameter \$rows with no value type specified in iterable type array\.$#'
@@ -1769,120 +1739,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Kernel/Controller/AdminController.php
-
-		-
-			message: '#^Access to an undefined property object\:\:\$domain\.$#'
-			identifier: property.notFound
-			count: 2
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Call to an undefined method object\:\:canManageDomain\(\)\.$#'
-			identifier: method.notFound
-			count: 6
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Call to an undefined method object\:\:getGoto\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Call to an undefined method object\:\:getId\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Call to an undefined method object\:\:getRepository\(\)\.$#'
-			identifier: method.notFound
-			count: 10
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Call to an undefined method object\:\:isSuper\(\)\.$#'
-			identifier: method.notFound
-			count: 7
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Method ViMbAdmin\\Kernel\\Controller\\AliasController\:\:addAction\(\) never returns null so it can be removed from the return type\.$#'
-			identifier: return.unusedType
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Method ViMbAdmin\\Kernel\\Controller\\AliasController\:\:editAction\(\) never returns null so it can be removed from the return type\.$#'
-			identifier: return.unusedType
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Parameter \#1 \$em of class ViMbAdmin_Service_Alias constructor expects Doctrine\\Persistence\\ObjectManager, object given\.$#'
-			identifier: argument.type
-			count: 4
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Parameter \#2 \$actor of method ViMbAdmin_Service_Alias\:\:delete\(\) expects Entities\\Admin, object given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Parameter \#2 \$actor of method ViMbAdmin_Service_Alias\:\:toggleActive\(\) expects Entities\\Admin, object given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Parameter \#2 \$actor of method ViMbAdmin_Service_Alias\:\:update\(\) expects Entities\\Admin, object given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Parameter \#3 \$actor of method ViMbAdmin_Service_Alias\:\:create\(\) expects Entities\\Admin, object given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Parameter \#4 \$postFlush of method ViMbAdmin_Service_Alias\:\:update\(\) expects \(callable\(\)\: void\)\|null, Closure\(\)\: bool given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Parameter \#4 \$preFlush of method ViMbAdmin_Service_Alias\:\:delete\(\) expects \(callable\(\)\: void\)\|null, Closure\(\)\: bool given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Parameter \#4 \$preFlush of method ViMbAdmin_Service_Alias\:\:toggleActive\(\) expects \(callable\(\)\: void\)\|null, Closure\(\)\: bool given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Parameter \#5 \$postFlush of method ViMbAdmin_Service_Alias\:\:create\(\) expects \(callable\(\)\: void\)\|null, Closure\(\)\: bool given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Parameter \#5 \$postFlush of method ViMbAdmin_Service_Alias\:\:delete\(\) expects \(callable\(\)\: void\)\|null, Closure\(\)\: bool given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
-
-		-
-			message: '#^Parameter \#5 \$postFlush of method ViMbAdmin_Service_Alias\:\:toggleActive\(\) expects \(callable\(\)\: void\)\|null, Closure\(\)\: bool given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/AliasController.php
 
 		-
 			message: '#^Access to an undefined property object\:\:\$domain\.$#'
