@@ -22,6 +22,49 @@ class Alias
         return \Entities\AliasPreference::class;
     }
 
+    protected function _getPreferenceEntityManager(): \Doctrine\ORM\EntityManagerInterface
+    {
+        $entityManager = \OSS_Runtime::entityManager();
+        if (!$entityManager instanceof \Doctrine\ORM\EntityManagerInterface) {
+            throw new \UnexpectedValueException('Runtime entity manager does not implement Doctrine ORM EntityManagerInterface');
+        }
+
+        return $entityManager;
+    }
+
+    /**
+     * @param string $attribute
+     * @param bool $withIndex
+     * @param bool $ignoreExpired
+     * @return array<int, mixed>|false
+     */
+    public function getIndexedPreference($attribute, $withIndex = false, $ignoreExpired = true)
+    {
+        return $this->_getIndexedPreference($attribute, $withIndex, $ignoreExpired);
+    }
+
+    /**
+     * @param string $attribute
+     * @param int|null $index
+     * @param bool $ignoreExpired
+     * @return array<int|string, mixed>|false
+     */
+    public function getAssocPreference($attribute, $index = null, $ignoreExpired = true)
+    {
+        return $this->_getAssocPreference($attribute, $index, $ignoreExpired);
+    }
+
+    /**
+     * @param array<int|string, mixed> $config
+     * @param string $key
+     * @param string $value
+     * @return array<int|string, mixed>
+     */
+    private function _processKey($config, $key, $value)
+    {
+        return $this->_processPreferenceKey($config, $key, $value);
+    }
+
     /**
      * @var string $address
      */
@@ -59,6 +102,11 @@ class Alias
     #[ORM\Column(type: 'bigint')]
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
+
+    private function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
 
     /**
      * @var \Entities\Domain|null
@@ -215,9 +263,7 @@ class Alias
     {
         return $this->Domain;
     }
-    /**
-     * @var \Doctrine\Common\Collections\Collection
-     */
+    /** @var \Doctrine\Common\Collections\Collection<int, \Entities\AliasPreference> */
     #[ORM\OneToMany(targetEntity: \Entities\AliasPreference::class, mappedBy: 'Alias')]
     private $Preferences;
 
@@ -247,7 +293,7 @@ class Alias
      *
      * @param \Entities\AliasPreference $preferences
      */
-    public function removePreference(\Entities\AliasPreference $preferences)
+    public function removePreference(\Entities\AliasPreference $preferences): void
     {
         $this->Preferences->removeElement($preferences);
     }
@@ -255,7 +301,7 @@ class Alias
     /**
      * Get Preferences
      *
-     * @return \Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\AliasPreference>
      */
     public function getPreferences()
     {
