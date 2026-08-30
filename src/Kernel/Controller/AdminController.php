@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
+use Doctrine\ORM\EntityManager;
+use Entities\Admin;
+use LogicException;
+use Repositories\Admin as AdminRepository;
+use Repositories\Domain as DomainRepository;
 use ViMbAdmin\Kernel\Flash\FlashMessages;
 use ViMbAdmin\Kernel\Form\Field;
 use ViMbAdmin\Kernel\Form\Form;
@@ -55,7 +60,7 @@ final class AdminController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $admins = $this->em()->getRepository('\\Entities\\Admin')->findAll();
+        $admins = $this->adminRepository()->findAll();
 
         return $this->view('admin/list.phtml', ['admins' => $admins]);
     }
@@ -83,7 +88,7 @@ final class AdminController extends AbstractController
         }
 
         $target = ($aid = $this->param('aid'))
-            ? $this->em()->getRepository('\\Entities\\Admin')->find((int) $aid)
+            ? $this->adminRepository()->find((int) $aid)
             : null;
 
         if (!$target) {
@@ -159,18 +164,18 @@ final class AdminController extends AbstractController
         }
 
         $tfa     = new \ViMbAdmin_TwoFactor('ViMbAdmin', (string) ($this->container->options()['securitysalt'] ?? ''));
-        $session = $this->session();
+        $session = new MagicPropertyStorage($this->session());
 
         if ($this->isPost() && $this->postCsrfValid()) {
             $op   = (string) ($this->postData()['op'] ?? '');
             $code = trim((string) ($this->postData()['code'] ?? ''));
 
             if ($op === 'enable' && !$tfa->isEnabled($admin)) {
-                $secret = $session->totp_enrol_secret ?? null;
+                $secret = $session->get('totp_enrol_secret');
                 if ($secret && $tfa->verifyCode($secret, $code)) {
                     $backup = $tfa->enable($admin, $secret);
                     $this->em()->flush();
-                    unset($session->totp_enrol_secret);
+                    $session->remove('totp_enrol_secret');
                     return $this->view('admin/two-factor.phtml', [
                         'justEnabled'     => true,
                         'backupCodes'     => $backup,
@@ -205,10 +210,10 @@ final class AdminController extends AbstractController
         $vars    = ['enabled' => $enabled, 'backupRemaining' => $tfa->backupCodesRemaining($admin)];
 
         if (!$enabled) {
-            $secret = $session->totp_enrol_secret ?? null;
+            $secret = $session->get('totp_enrol_secret');
             if (!$secret) {
                 $secret = $tfa->createSecret();
-                $session->totp_enrol_secret = $secret;
+                $session->set('totp_enrol_secret', $secret);
             }
             $vars['secret']    = $secret;
             $vars['qrDataUri'] = $tfa->getQrDataUri($admin->getUsername(), $secret);
@@ -232,7 +237,7 @@ final class AdminController extends AbstractController
         }
 
         $target = ($aid = $this->param('aid'))
-            ? $this->em()->getRepository('\\Entities\\Admin')->find((int) $aid)
+            ? $this->adminRepository()->find((int) $aid)
             : null;
         if (!$target) {
             return $this->redirect('admin/list');
@@ -333,7 +338,7 @@ final class AdminController extends AbstractController
      * preserved). An invalid/missing aid is handled natively here (flash +
      * redirect), so the action never falls through to ZF1.
      */
-    public function passwordAction(): ?Response
+    public function passwordAction(): Response
     {
         $admin = $this->admin();
         if ($admin === null) {
@@ -343,7 +348,7 @@ final class AdminController extends AbstractController
         $redirectUrl = $admin->isSuper() ? 'admin/list' : 'domain/list';
 
         $target = ($aid = $this->param('aid'))
-            ? $this->em()->getRepository('\\Entities\\Admin')->find((int) $aid)
+            ? $this->adminRepository()->find((int) $aid)
             : null;
 
         if ($target === null) {
@@ -403,7 +408,7 @@ final class AdminController extends AbstractController
      * supplies the new password (shown as text, as the ZF1 Password form does).
      * Both enforce the 8-char minimum the ZF1 validators set.
      *
-     * @param array $authOptions the `resources.auth.oss` config OSS_Auth_Password needs
+     * @param array<string,mixed> $authOptions the `resources.auth.oss` config OSS_Auth_Password needs
      */
     private function buildPasswordForm(bool $self, \Entities\Admin $target, array $authOptions): Form
     {
@@ -459,7 +464,7 @@ final class AdminController extends AbstractController
         }
 
         $target = ($aid = $this->param('aid'))
-            ? $this->em()->getRepository('\\Entities\\Admin')->find((int) $aid)
+            ? $this->adminRepository()->find((int) $aid)
             : null;
 
         if ($target === null) {
@@ -485,7 +490,7 @@ final class AdminController extends AbstractController
         }
 
         $target = ($aid = $this->param('aid'))
-            ? $this->em()->getRepository('\\Entities\\Admin')->find((int) $aid)
+            ? $this->adminRepository()->find((int) $aid)
             : null;
 
         if ($target === null) {
@@ -494,7 +499,7 @@ final class AdminController extends AbstractController
         }
 
         $domain = ($did = $this->param('did'))
-            ? $this->em()->getRepository('\\Entities\\Domain')->find((int) $did)
+            ? $this->domainRepository()->find((int) $did)
             : null;
 
         if ($domain === null) {
@@ -527,7 +532,7 @@ final class AdminController extends AbstractController
         }
 
         $target = ($aid = $this->param('aid'))
-            ? $this->em()->getRepository('\\Entities\\Admin')->find((int) $aid)
+            ? $this->adminRepository()->find((int) $aid)
             : null;
 
         if ($target === null) {
@@ -535,11 +540,11 @@ final class AdminController extends AbstractController
             return $this->redirect('admin/list');
         }
 
-        $remaining = $this->em()->getRepository('\\Entities\\Domain')->getNotAssignedForAdmin($target);
+        $remaining = $this->domainRepository()->getNotAssignedForAdmin($target);
         $form      = $this->buildAssignDomainForm($remaining);
 
         if ($this->isPost() && $form->isValid($this->postData())) {
-            $domain = $this->em()->getRepository('\\Entities\\Domain')->find((int) $form->values()['domain']);
+            $domain = $this->domainRepository()->find((int) $form->values()['domain']);
 
             if ($domain !== null) {
                 try {
@@ -619,7 +624,7 @@ final class AdminController extends AbstractController
         }
 
         $target = ($aid = $this->param('aid'))
-            ? $this->em()->getRepository('\\Entities\\Admin')->find((int) $aid)
+            ? $this->adminRepository()->find((int) $aid)
             : null;
 
         if (!$target || $admin->getId() == $target->getId()) {
@@ -629,5 +634,45 @@ final class AdminController extends AbstractController
         (new \ViMbAdmin_Service_Admin($this->em()))->{$method}($target, $admin);
 
         return new Response('ok');
+    }
+
+    protected function em(): EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof EntityManager) {
+            throw new LogicException('Doctrine entity manager resource has an invalid type');
+        }
+
+        return $em;
+    }
+
+    protected function admin(): ?Admin
+    {
+        $admin = parent::admin();
+        if ($admin !== null && !$admin instanceof Admin) {
+            throw new LogicException('Authenticated admin has an invalid type');
+        }
+
+        return $admin;
+    }
+
+    private function adminRepository(): AdminRepository
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Admin');
+        if (!$repo instanceof AdminRepository) {
+            throw new LogicException('Admin repository has an invalid type');
+        }
+
+        return $repo;
+    }
+
+    private function domainRepository(): DomainRepository
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Domain');
+        if (!$repo instanceof DomainRepository) {
+            throw new LogicException('Domain repository has an invalid type');
+        }
+
+        return $repo;
     }
 }
