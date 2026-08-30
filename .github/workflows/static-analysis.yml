@@ -50,5 +50,6 @@ jobs:
 
       - name: Run PHPStan
         env:
+          PHPSTAN_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PHPSTAN_EVENT_BEFORE: ${{ github.event.before }}
         run: bash tests/lint-phpstan-ratchet.sh

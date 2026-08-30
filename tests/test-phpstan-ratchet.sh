@@ -148,6 +148,15 @@ run_gate env PHPSTAN_REPO_ROOT="$repo" PHPSTAN_BIN="$phpstan_stub" \
 expect_status 0 "$gate_status" "pull request succeeds"
 expect_log 'ARG=src/push-added.php' "pull request checks additions from its base"
 
+git -C "$repo" update-ref -d refs/remotes/origin/master
+run_gate env PHPSTAN_REPO_ROOT="$repo" PHPSTAN_BIN="$phpstan_stub" \
+  GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request \
+  GITHUB_BASE_REF=master PHPSTAN_BASE_SHA="$base_sha" bash "$ratchet_script"
+expect_status 0 "$gate_status" \
+  "pull request succeeds without a remote-tracking base ref"
+expect_log 'ARG=src/push-added.php' \
+  "pull request base SHA checks additions without a remote-tracking ref"
+
 run_gate env PHPSTAN_REPO_ROOT="$repo" PHPSTAN_BIN="$phpstan_stub" \
   GITHUB_ACTIONS=true GITHUB_EVENT_NAME=workflow_dispatch \
   bash "$ratchet_script"

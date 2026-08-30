@@ -11,7 +11,8 @@
 # manual dispatch. Local runs default to HEAD.
 #
 # Inputs: committed source, PHPStan configs/baselines, optional base revision;
-#         PHPSTAN_EVENT_BEFORE is supplied by GitHub Actions for push events.
+#         PHPSTAN_BASE_SHA and PHPSTAN_EVENT_BEFORE are supplied by GitHub
+#         Actions for pull-request and push events respectively.
 # Output: PHPStan diagnostics. Side effects: PHPStan cache only.
 # Limits: "materially rewritten" legacy files cannot be classified reliably;
 # their diagnostics are governed by aggregate per-file baseline counts.
@@ -55,7 +56,7 @@ echo "== PHPStan level 3: repository floor =="
 echo "== PHPStan level 7: no-new-errors ratchet =="
 "${phpstan[@]}" analyse -c phpstan-level7.neon --no-progress --error-format=github
 
-base=${1:-${PHPSTAN_BASE_REF:-}}
+base=${1:-${PHPSTAN_BASE_REF:-${PHPSTAN_BASE_SHA:-}}}
 if [ -z "$base" ]; then
   if [ "${GITHUB_ACTIONS:-false}" = true ]; then
     case ${GITHUB_EVENT_NAME:-} in
