@@ -7,24 +7,6 @@ parameters:
 			path: application/Entities/Archive.php
 
 		-
-			message: '#^Property Entities\\Archive\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Property Entities\\DatabaseVersion\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: application/Entities/DatabaseVersion.php
-
-		-
-			message: '#^Property Entities\\DirectoryEntry\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
 			message: '#^Method Entities\\LastLogin\:\:getLastLogin\(\) has no return type specified\.$#'
 			identifier: missingType.return
 			count: 1
@@ -47,12 +29,6 @@ parameters:
 			identifier: missingType.parameter
 			count: 1
 			path: application/Entities/LastLogin.php
-
-		-
-			message: '#^Property Entities\\Log\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: application/Entities/Log.php
 
 		-
 			message: '#^Call to an undefined method object\:\:createQuery\(\)\.$#'
@@ -109,22 +85,10 @@ parameters:
 			path: application/Entities/Mailbox.php
 
 		-
-			message: '#^Property Entities\\Mailbox\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
 			message: '#^Property Entities\\Quota\:\:\$updated_at \(DateTime\|null\) is never assigned DateTime so it can be removed from the property type\.$#'
 			identifier: property.unusedType
 			count: 1
 			path: application/Entities/Quota.php
-
-		-
-			message: '#^Property Entities\\RememberMe\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
-			identifier: property.unusedType
-			count: 1
-			path: application/Entities/RememberMe.php
 
 		-
 			message: '#^Method Repositories\\Admin\:\:getCount\(\) should return int but returns bool\|float\|int\|string\|null\.$#'
