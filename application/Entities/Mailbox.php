@@ -22,6 +22,49 @@ class Mailbox
         return \Entities\MailboxPreference::class;
     }
 
+    protected function _getPreferenceEntityManager(): \Doctrine\ORM\EntityManagerInterface
+    {
+        $entityManager = \OSS_Runtime::entityManager();
+        if (!$entityManager instanceof \Doctrine\ORM\EntityManagerInterface) {
+            throw new \UnexpectedValueException('Runtime entity manager does not implement Doctrine ORM EntityManagerInterface');
+        }
+
+        return $entityManager;
+    }
+
+    /**
+     * @param string $attribute
+     * @param bool $withIndex
+     * @param bool $ignoreExpired
+     * @return array<int, mixed>|false
+     */
+    public function getIndexedPreference($attribute, $withIndex = false, $ignoreExpired = true)
+    {
+        return $this->_getIndexedPreference($attribute, $withIndex, $ignoreExpired);
+    }
+
+    /**
+     * @param string $attribute
+     * @param int|null $index
+     * @param bool $ignoreExpired
+     * @return array<int|string, mixed>|false
+     */
+    public function getAssocPreference($attribute, $index = null, $ignoreExpired = true)
+    {
+        return $this->_getAssocPreference($attribute, $index, $ignoreExpired);
+    }
+
+    /**
+     * @param array<int|string, mixed> $config
+     * @param string $key
+     * @param string $value
+     * @return array<int|string, mixed>
+     */
+    private function _processKey($config, $key, $value)
+    {
+        return $this->_processPreferenceKey($config, $key, $value);
+    }
+
     /**
      * @var string $username
      */
@@ -96,7 +139,7 @@ class Mailbox
     }
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\MailboxPreference>
      */
     #[ORM\OneToMany(targetEntity: \Entities\MailboxPreference::class, mappedBy: 'Mailbox')]
     private $Preferences;
@@ -367,7 +410,7 @@ class Mailbox
      *
      * @param \Entities\MailboxPreference $preferences
      */
-    public function removePreference(\Entities\MailboxPreference $preferences)
+    public function removePreference(\Entities\MailboxPreference $preferences): void
     {
         $this->Preferences->removeElement($preferences);
     }
