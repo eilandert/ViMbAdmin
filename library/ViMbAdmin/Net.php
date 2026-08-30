@@ -15,30 +15,30 @@ class ViMbAdmin_Net
      * defeats XFF spoofing -- prepended fake entries sit to the left and are
      * never selected.
      *
-     * @param array  $server   typically $_SERVER
+     * @param array<string,mixed> $server   typically $_SERVER
      * @param string $mode     'auto' (default) | 'off' | 'on'
      *                          - off : always REMOTE_ADDR (ignore XFF)
      *                          - auto: trust XFF only if REMOTE_ADDR is a
      *                                  private/loopback address (a local proxy)
      *                          - on  : trust XFF only if REMOTE_ADDR is in $proxies
-     * @param array  $proxies  IP/CIDR list of trusted proxies (mode 'on')
+     * @param array<array-key,mixed> $proxies IP/CIDR list of trusted proxies (mode 'on')
      * @return string
      */
-    public static function clientIp( array $server, $mode = 'auto', array $proxies = [] )
+    public static function clientIp( array $server, string $mode = 'auto', array $proxies = [] ): string
     {
-        $remote = isset( $server['REMOTE_ADDR'] ) ? $server['REMOTE_ADDR'] : '0.0.0.0';
-        $mode   = strtolower( (string) $mode );
+        $remote = isset( $server['REMOTE_ADDR'] ) ? (string) $server['REMOTE_ADDR'] : '0.0.0.0';
+        $mode   = strtolower( $mode );
 
         if( $mode === 'off' || $mode === '0' || $mode === 'false' )
             return $remote;
 
         $xff = '';
         if( isset( $server['HTTP_X_FORWARDED_FOR'] ) )
-            $xff = $server['HTTP_X_FORWARDED_FOR'];
+            $xff = (string) $server['HTTP_X_FORWARDED_FOR'];
         if( $xff === '' )
             return $remote;
 
-        $trusted = function( $ip ) use ( $mode, $proxies ) {
+        $trusted = function( string $ip ) use ( $mode, $proxies ): bool {
             if( $mode === 'auto' )
                 return self::isPrivate( $ip );
             foreach( $proxies as $p ) {
@@ -65,7 +65,7 @@ class ViMbAdmin_Net
     /**
      * RFC1918 / loopback / link-local / unique-local (fc00::/7).
      */
-    public static function isPrivate( $ip )
+    public static function isPrivate( string $ip ): bool
     {
         if( filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) !== false )
             return false;                       // it's a normal public IP
@@ -80,9 +80,9 @@ class ViMbAdmin_Net
      * @param string $list  e.g. "127.0.0.1, 10.0.0.0/8 ::1"
      * @return bool
      */
-    public static function ipInList( $ip, $list )
+    public static function ipInList( string $ip, string $list ): bool
     {
-        foreach( preg_split( '/[\s,]+/', trim( (string) $list ), -1, PREG_SPLIT_NO_EMPTY ) as $entry )
+        foreach( preg_split( '/[\s,]+/', trim( $list ), -1, PREG_SPLIT_NO_EMPTY ) ?: [] as $entry )
             if( self::ipInCidr( $ip, $entry ) )
                 return true;
         return false;
@@ -91,16 +91,23 @@ class ViMbAdmin_Net
     /**
      * Match $ip against a single IP or CIDR (IPv4 + IPv6).
      */
-    public static function ipInCidr( $ip, $cidr )
+    public static function ipInCidr( string $ip, string $cidr ): bool
     {
-        list( $subnet, $bits ) = array_pad( explode( '/', $cidr, 2 ), 2, null );
-        if( $bits === null )
-            return $ip === $subnet;
-        $bits = (int) $bits;
+        $parts = explode( '/', $cidr );
+        if( count( $parts ) === 1 )
+            return filter_var( $ip, FILTER_VALIDATE_IP ) !== false && $ip === $cidr;
+        if( count( $parts ) !== 2 || $parts[1] === '' || !ctype_digit( $parts[1] ) )
+            return false;
+
+        [ $subnet, $prefix ] = $parts;
 
         $ipBin     = @inet_pton( $ip );
         $subnetBin = @inet_pton( $subnet );
         if( $ipBin === false || $subnetBin === false || strlen( $ipBin ) !== strlen( $subnetBin ) )
+            return false;
+
+        $bits = (int) $prefix;
+        if( $bits > strlen( $subnetBin ) * 8 )
             return false;
 
         $bytes = intdiv( $bits, 8 );
