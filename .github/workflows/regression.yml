@@ -143,6 +143,9 @@ jobs:
       - name: Date utility behavior
         run: php tests/test-date.php
 
+      - name: String utility behavior
+        run: php tests/test-string.php
+
       - name: Native MCP transport
         run: php tests/test-kernel-mcp.php
 

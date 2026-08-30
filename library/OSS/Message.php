@@ -106,12 +106,12 @@ class OSS_Message
     /**
      * The constructor
      *
-     * @param string $message The message
+     * @param mixed $message The message
      * @param string $class The HTML div class
      * @param bool $isHTML Is the message HTML? (default: true)
      * @return void
+     * @SuppressWarnings("PHPMD.BooleanArgumentFlag")
      */
-    /** @SuppressWarnings("PHPMD.BooleanArgumentFlag") */
     public function __construct( $message = '', $class = '', $isHTML = true )
     {
         $this->message = $message;

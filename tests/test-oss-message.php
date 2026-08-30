@@ -7,10 +7,10 @@ require __DIR__ . '/../library/OSS/Message/Pop/Up.php';
 require __DIR__ . '/../library/OSS/Smarty/functions/function.OSS_Message.php';
 
 $failures = 0;
-function check(string $label, bool $ok): void {
+$check = static function (string $label, bool $ok) use (&$failures): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
-}
+    if (!$ok) { $failures++; }
+};
 
 final class MessageSmartyDouble extends \Smarty\Smarty
 {
@@ -39,19 +39,19 @@ $_SESSION = [];
 echo "== OSS message ==\n";
 
 $plain = new OSS_Message('<b>Saved</b>', OSS_Message::ALERT, true);
-check('ALERT normalizes to warning', $plain->getClass() === OSS_Message::WARNING);
-check('plaintext strips tags for HTML messages', $plain->getPlaintext() === 'Saved');
+$check('ALERT normalizes to warning', $plain->getClass() === OSS_Message::WARNING);
+$check('plaintext strips tags for HTML messages', $plain->getPlaintext() === 'Saved');
 
 $block = new OSS_Message_Block('Block body', OSS_Message::SUCCESS, false);
-check('block type is set', $block->getType() === OSS_Message::TYPE_BLOCK);
-check('block actions default null', $block->getActions() === null);
+$check('block type is set', $block->getType() === OSS_Message::TYPE_BLOCK);
+$check('block actions default null', $block->getActions() === null);
 $block->addAction('<a href="/undo">Undo</a>');
 $block->addAction('<a href="/retry">Retry</a>');
-check('block actions preserve order', $block->getActions() === ['<a href="/undo">Undo</a>', '<a href="/retry">Retry</a>']);
+$check('block actions preserve order', $block->getActions() === ['<a href="/undo">Undo</a>', '<a href="/retry">Retry</a>']);
 
 $popup = new OSS_Message_Pop_Up(['One', 'Two'], OSS_Message::INFO, false);
-check('popup type is set', $popup->getType() === OSS_Message::TYPE_POP_UP);
-check('popup actions default null', $popup->getActions() === null);
+$check('popup type is set', $popup->getType() === OSS_Message::TYPE_POP_UP);
+$check('popup actions default null', $popup->getActions() === null);
 
 $smarty = new MessageSmartyDouble([
     'OSS_Messages' => [
@@ -62,9 +62,9 @@ $smarty = new MessageSmartyDouble([
 ]);
 
 $rendered = smarty_function_OSS_Message([], $smarty);
-check('block render includes actions container', str_contains($rendered, 'alert-actions') && str_contains($rendered, 'Undo') && str_contains($rendered, 'Retry'));
-check('popup render emits each bootbox item', str_contains($rendered, 'bootbox.alert(') && str_contains($rendered, "'One'") && str_contains($rendered, "'Two'"));
-check('plain render emits each message item', str_contains($rendered, 'Alpha') && str_contains($rendered, 'Beta') && str_contains($rendered, 'alert-error'));
+$check('block render includes actions container', str_contains($rendered, 'alert-actions') && str_contains($rendered, 'Undo') && str_contains($rendered, 'Retry'));
+$check('popup render emits each bootbox item', str_contains($rendered, 'bootbox.alert(') && str_contains($rendered, "'One'") && str_contains($rendered, "'Two'"));
+$check('plain render emits each message item', str_contains($rendered, 'Alpha') && str_contains($rendered, 'Beta') && str_contains($rendered, 'alert-error'));
 
 echo "\n";
 $exitCode = $failures === 0 ? 0 : 1;

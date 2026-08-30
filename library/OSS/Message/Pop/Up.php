@@ -58,12 +58,12 @@ class OSS_Message_Pop_Up extends OSS_Message
      /**
      * Constructor
      *
-     * @param string $message Message to display
+     * @param mixed $message Message to display
      * @param string $class  Message class
      * @param bool $isHTML Htmk flag
      * @return void
+     * @SuppressWarnings("PHPMD.BooleanArgumentFlag")
      */
-    /** @SuppressWarnings("PHPMD.BooleanArgumentFlag") */
     public function __construct( $message = '', $class = '', $isHTML = true )
     {
         parent::__construct( $message, $class, $isHTML );
