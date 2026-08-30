@@ -120,7 +120,11 @@ class ViMbAdmin_Service_Mailbox
             return false;
         }
 
-        $this->em->getRepository('\\Entities\\Mailbox')->purgeMailbox($mailbox, $actor, !$deleteFiles);
+        $repository = $this->em->getRepository('\\Entities\\Mailbox');
+        if (!method_exists($repository, 'purgeMailbox')) {
+            throw new \LogicException('Mailbox repository must implement purgeMailbox().');
+        }
+        $repository->purgeMailbox($mailbox, $actor, !$deleteFiles);
 
         $this->log(
             $actor,

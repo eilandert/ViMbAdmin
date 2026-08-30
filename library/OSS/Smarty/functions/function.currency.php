@@ -57,7 +57,7 @@
      * @subpackage Functions
      * 
      * @param array $params 
-     * @param Smarty $smarty A reference to the Smarty template object
+     * @param \Smarty\Smarty $smarty A reference to the Smarty template object
      * @return string
      */
     function smarty_function_currency( $params, &$smarty )
@@ -67,4 +67,3 @@
 
         return ( $value < 0 ? '-' : '' ) . $currency . sprintf( "%.2f", abs( $params['value'] ) );
     }
-

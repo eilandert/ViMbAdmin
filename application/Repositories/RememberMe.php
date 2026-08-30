@@ -33,7 +33,7 @@ class RememberMe extends EntityRepository
     /**
      * Delete all RememberMe entries for a given user
      *
-     * @param \Entities\User $user The user to delete all RememberMe entries for
+     * @param \Entities\Admin $user The user to delete all RememberMe entries for
      * @return int The number of entries removed
      */
     public function deleteForUser( $user )

@@ -50,8 +50,11 @@ class ViMbAdmin_Mcp_Auth
         if( $raw === null )
             throw new ViMbAdmin_Mcp_Exception( 'missing or malformed Authorization: Bearer header', 401 );
 
-        $hash  = hash( 'sha256', $raw );
-        $token = $this->_em->getRepository( '\\Entities\\McpToken' )->findByHash( $hash );
+        $hash       = hash( 'sha256', $raw );
+        $repository = $this->_em->getRepository( '\\Entities\\McpToken' );
+        if( !$repository instanceof \Repositories\McpToken )
+            throw new \LogicException( 'McpToken entity must use Repositories\\McpToken.' );
+        $token = $repository->findByHash( $hash );
 
         // Constant-time-ish: always do a comparison even on miss.
         if( $token === null || !hash_equals( $token->getTokenHash(), $hash ) )

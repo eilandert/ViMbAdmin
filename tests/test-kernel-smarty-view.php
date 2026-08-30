@@ -46,7 +46,7 @@ $mk = fn() => new SmartyView(['templates' => $tmp . '/tpl', 'compiled' => $tmp .
 
 check('magic __set + render a template', function () use ($mk) {
     $v = $mk();
-    $v->name = 'World';
+    $v->__set('name', 'World');
     if (trim($v->render('hello.tpl')) !== 'Hello World!') {
         throw new RuntimeException('got: ' . $v->render('hello.tpl'));
     }
@@ -54,7 +54,7 @@ check('magic __set + render a template', function () use ($mk) {
 
 check('auto HTML-escape on by default', function () use ($mk) {
     $v = $mk();
-    $v->html = '<b>x</b>';
+    $v->__set('html', '<b>x</b>');
     $out = $v->render('raw.tpl');
     if (str_contains($out, '<b>')) {
         throw new RuntimeException('not escaped: ' . $out);
@@ -75,7 +75,7 @@ check('compile dir is created when missing', function () use ($tmp) {
 
 check('default template used when no skin set', function () use ($mk) {
     $v = $mk();
-    $v->name = 'Z';
+    $v->__set('name', 'Z');
     if (trim($v->render('skinned.tpl')) !== 'DEFAULT Z') {
         throw new RuntimeException('got: ' . $v->render('skinned.tpl'));
     }
@@ -90,7 +90,7 @@ check('skin override wins when skin set + file present', function () use ($mk) {
     if ($v->resolveTemplate('skinned.tpl') !== '_skins/myskin/skinned.tpl') {
         throw new RuntimeException('resolve: ' . $v->resolveTemplate('skinned.tpl'));
     }
-    $v->name = 'Z';
+    $v->__set('name', 'Z');
     if (trim($v->render('skinned.tpl')) !== 'SKIN Z') {
         throw new RuntimeException('got: ' . $v->render('skinned.tpl'));
     }
@@ -120,7 +120,7 @@ check('fromOptions reads resources.smarty.*', function () use ($tmp) {
         'compiled'  => $tmp . '/compile',
         'skin'      => 'myskin',
     ]]]);
-    $v->name = 'Q';
+    $v->__set('name', 'Q');
     if (trim($v->render('skinned.tpl')) !== 'SKIN Q') {
         throw new RuntimeException('got: ' . $v->render('skinned.tpl'));
     }

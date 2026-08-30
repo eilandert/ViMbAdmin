@@ -103,7 +103,7 @@ final class AuthController extends AbstractController
                 }
 
                 // Credential miss: mirror the ZF1 adapter's failed-login count.
-                if ($admin !== null && method_exists($admin, 'setFailedLogins')) {
+                if (is_object($admin) && method_exists($admin, 'setFailedLogins') && method_exists($admin, 'getFailedLogins')) {
                     $admin->setFailedLogins($admin->getFailedLogins() + 1);
                     $this->em()->flush();
                 }

@@ -31,11 +31,11 @@ use Doctrine\ORM\Mapping as ORM;
 class Quota
 {
     /**
-     * @var string $username
+     * @var string|null $username
      */
     #[ORM\Id]
     #[ORM\Column(type: 'string')]
-    private ?int $username = null;
+    private ?string $username = null;
 
     /**
      * @var integer $bytes
@@ -71,7 +71,7 @@ class Quota
     /**
      * Get username
      *
-     * @return string
+     * @return string|null
      */
     public function getUsername()
     {

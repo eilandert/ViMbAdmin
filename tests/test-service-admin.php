@@ -43,7 +43,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 /**
  * In-memory ObjectManager double recording persist()/remove()/flush().
  */
-final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager
+final class FakeAdminObjectManager implements \Doctrine\Persistence\ObjectManager
 {
     /** @var object[] */ public array $persisted = [];
     /** @var object[] */ public array $removed = [];
@@ -87,7 +87,7 @@ function check(string $label, bool $ok): void {
     if (!$ok) { $GLOBALS['failures']++; }
 }
 
-function makeAdmin(string $username, bool $hydrateCollections = false): \Entities\Admin {
+function makeAdminForService(string $username, bool $hydrateCollections = false): \Entities\Admin {
     $a = new \Entities\Admin();
     $a->setUsername($username);
     if ($hydrateCollections) {
@@ -103,7 +103,7 @@ function makeAdmin(string $username, bool $hydrateCollections = false): \Entitie
     return $a;
 }
 
-function makeDomain(string $name): \Entities\Domain {
+function makeDomainForService(string $name): \Entities\Domain {
     $d = new \Entities\Domain();
     $d->setDomain($name);
     return $d;
@@ -112,10 +112,10 @@ function makeDomain(string $name): \Entities\Domain {
 echo "== ViMbAdmin_Service_Admin ==\n";
 
 // ---- toggleActive both directions --------------------------------------- //
-$actor = makeAdmin('boss@example.com');
+$actor = makeAdminForService('boss@example.com');
 
-$em = new FakeObjectManager();
-$t  = makeAdmin('t@example.com'); $t->setActive(true);
+$em = new FakeAdminObjectManager();
+$t  = makeAdminForService('t@example.com'); $t->setActive(true);
 $r  = (new ViMbAdmin_Service_Admin($em))->toggleActive($t, $actor);
 check('toggleActive(true) returns false',        $r === false);
 check('toggleActive(true) sets inactive',        $t->getActive() === false);
@@ -124,30 +124,30 @@ check('toggleActive logged DEACTIVATE',          $em->lastLog() && $em->lastLog(
 check('toggleActive log binds NO domain',        $em->lastLog() && $em->lastLog()->getDomain() === null);
 check('toggleActive log binds actor',            $em->lastLog() && $em->lastLog()->getAdmin() === $actor);
 
-$em = new FakeObjectManager();
-$t  = makeAdmin('t2@example.com'); $t->setActive(false);
+$em = new FakeAdminObjectManager();
+$t  = makeAdminForService('t2@example.com'); $t->setActive(false);
 $r  = (new ViMbAdmin_Service_Admin($em))->toggleActive($t, $actor);
 check('toggleActive(false) returns true',        $r === true);
 check('toggleActive logged ACTIVATE',            $em->lastLog() && $em->lastLog()->getAction() === \Entities\Log::ACTION_ADMIN_ACTIVATE);
 
 // ---- toggleSuper both directions ---------------------------------------- //
-$em = new FakeObjectManager();
-$t  = makeAdmin('s@example.com'); $t->setSuper(false);
+$em = new FakeAdminObjectManager();
+$t  = makeAdminForService('s@example.com'); $t->setSuper(false);
 $r  = (new ViMbAdmin_Service_Admin($em))->toggleSuper($t, $actor);
 check('toggleSuper(false) returns true',         $r === true);
 check('toggleSuper sets super',                  $t->getSuper() === true);
 check('toggleSuper logged SUPER',                $em->lastLog() && $em->lastLog()->getAction() === \Entities\Log::ACTION_ADMIN_SUPER);
 
-$em = new FakeObjectManager();
-$t  = makeAdmin('s2@example.com'); $t->setSuper(true);
+$em = new FakeAdminObjectManager();
+$t  = makeAdminForService('s2@example.com'); $t->setSuper(true);
 $r  = (new ViMbAdmin_Service_Admin($em))->toggleSuper($t, $actor);
 check('toggleSuper(true) returns false',         $r === false);
 check('toggleSuper logged NORMAL',               $em->lastLog() && $em->lastLog()->getAction() === \Entities\Log::ACTION_ADMIN_NORMAL);
 
 // ---- assignDomain happy path -------------------------------------------- //
-$em  = new FakeObjectManager();
-$t   = makeAdmin('a@example.com');
-$dom = makeDomain('assign.example');
+$em  = new FakeAdminObjectManager();
+$t   = makeAdminForService('a@example.com');
+$dom = makeDomainForService('assign.example');
 (new ViMbAdmin_Service_Admin($em))->assignDomain($t, $dom, $actor);
 check('assignDomain mutates target->Domains',    $t->getDomains()->contains($dom));
 check('assignDomain flushed once',               $em->flushes === 1);
@@ -155,9 +155,9 @@ check('assignDomain logged ADD',                 $em->lastLog() && $em->lastLog(
 check('assignDomain Log binds the domain',       $em->lastLog() && $em->lastLog()->getDomain() === $dom);
 
 // ---- assignDomain duplicate throws -------------------------------------- //
-$em  = new FakeObjectManager();
-$t   = makeAdmin('d@example.com');
-$dom = makeDomain('dup.example');
+$em  = new FakeAdminObjectManager();
+$t   = makeAdminForService('d@example.com');
+$dom = makeDomainForService('dup.example');
 $t->addDomain($dom);
 $threw = false;
 try { (new ViMbAdmin_Service_Admin($em))->assignDomain($t, $dom, $actor); }
@@ -167,9 +167,9 @@ check('assignDomain duplicate did NOT flush',    $em->flushes === 0);
 check('assignDomain duplicate wrote no Log',     $em->lastLog() === null);
 
 // ---- removeDomain ------------------------------------------------------- //
-$em  = new FakeObjectManager();
-$t   = makeAdmin('rm@example.com');
-$dom = makeDomain('remove.example');
+$em  = new FakeAdminObjectManager();
+$t   = makeAdminForService('rm@example.com');
+$dom = makeDomainForService('remove.example');
 $t->addDomain($dom);
 (new ViMbAdmin_Service_Admin($em))->removeDomain($t, $dom, $actor);
 check('removeDomain detaches',                   !$t->getDomains()->contains($dom));
@@ -178,9 +178,9 @@ check('removeDomain logged REMOVE',              $em->lastLog() && $em->lastLog(
 check('removeDomain Log binds the domain',       $em->lastLog() && $em->lastLog()->getDomain() === $dom);
 
 // ---- purge -------------------------------------------------------------- //
-$em     = new FakeObjectManager();
-$victim = makeAdmin('victim@example.com', true);
-$dom    = makeDomain('purge.example');
+$em     = new FakeAdminObjectManager();
+$victim = makeAdminForService('victim@example.com', true);
+$dom    = makeDomainForService('purge.example');
 $victim->addDomain($dom);   // owning side
 $dom->addAdmin($victim);    // inverse side, so removeAdmin() has something to drop
 (new ViMbAdmin_Service_Admin($em))->purge($victim, $actor);
@@ -193,8 +193,8 @@ check('purge Log binds actor not victim',        $em->lastLog() && $em->lastLog(
 
 // ---- changePassword: self (no log) -------------------------------------- //
 $authOpts = ['pwhash' => 'crypt:sha512'];
-$em  = new FakeObjectManager();
-$me  = makeAdmin('me@example.com');
+$em  = new FakeAdminObjectManager();
+$me  = makeAdminForService('me@example.com');
 $me->setPassword(OSS_Auth_Password::hash('OldPass123', $authOpts));
 $old = $me->getPassword();
 (new ViMbAdmin_Service_Admin($em))->changePassword($me, 'NewPass456', $me, true, $authOpts);
@@ -204,8 +204,8 @@ check('changePassword(self) changed the hash',     $me->getPassword() !== $old);
 check('changePassword(self) new password verifies', OSS_Auth_Password::verify('NewPass456', $me->getPassword(), $authOpts));
 
 // ---- changePassword: super for another (logs PW_CHANGE) ----------------- //
-$em  = new FakeObjectManager();
-$tgt = makeAdmin('target@example.com');
+$em  = new FakeAdminObjectManager();
+$tgt = makeAdminForService('target@example.com');
 $tgt->setPassword(OSS_Auth_Password::hash('Whatever11', $authOpts));
 (new ViMbAdmin_Service_Admin($em))->changePassword($tgt, 'ForcedPass9', $actor, false, $authOpts);
 check('changePassword(other) flushed once',        $em->flushes === 1);

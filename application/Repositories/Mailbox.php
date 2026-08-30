@@ -18,7 +18,7 @@ class Mailbox extends EntityRepository
      * If admin is super he gets all mailboxes.
      *
      * @param \Entities\Admin $admin Admin for filtering mailboxes.
-     * @return \Entities\Mailboxes[]
+     * @return \Entities\Mailbox[]
      */
     public function loadForAdmin( $admin )
     {
@@ -262,8 +262,11 @@ class Mailbox extends EntityRepository
         if( $admin !== null && !$admin->isSuper() && !$mailbox->getDomain()->getAdmins()->contains( $admin ) )
             return false;
 
-        $aliases = $this->getEntityManager()->getRepository( "\\Entities\\Alias" )->loadForMailbox( $mailbox, $admin, true );
-        $inAliases = $this->getEntityManager()->getRepository( "\\Entities\\Alias" )->loadWithMailbox( $mailbox, $admin );
+        $aliasRepository = $this->getEntityManager()->getRepository( "\\Entities\\Alias" );
+        if( !$aliasRepository instanceof \Repositories\Alias )
+            throw new \LogicException( 'Alias entity must use Repositories\\Alias.' );
+        $aliases = $aliasRepository->loadForMailbox( $mailbox, $admin, true );
+        $inAliases = $aliasRepository->loadWithMailbox( $mailbox, $admin );
 
         foreach( $mailbox->getPreferences() as $pref )
             $this->getEntityManager()->remove( $pref );

@@ -42,6 +42,9 @@ $verbose = true;
 
 // We use APPLICATION_PATH as per the Zend framework. Feel free to remove as it's only used for the paths defined below here
 defined( 'APPLICATION_PATH' ) || define( 'APPLICATION_PATH', realpath( __DIR__ . '/../application' ) );
+// vendor/bin/minify.php defines this for normal use; keep the config loadable on
+// its own as well (for validation and custom runners).
+defined( 'SCRIPTDIR' ) || define( 'SCRIPTDIR', __DIR__ );
 
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -147,5 +150,4 @@ $del_mini_css = true;
 // do we want to keep older minified CSS files? If you have old installs taking JS/CSS
 // from a CDN / central repository you may want to keep these and delete manually
 $del_old_css_bundles = true;
-
 

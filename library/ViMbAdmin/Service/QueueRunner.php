@@ -30,7 +30,7 @@
  */
 class ViMbAdmin_Service_QueueRunner
 {
-    /** @var \Doctrine\Persistence\ObjectManager */
+    /** @var \Doctrine\ORM\EntityManager */
     private $em;
 
     /** @var array */
@@ -38,6 +38,9 @@ class ViMbAdmin_Service_QueueRunner
 
     public function __construct(\Doctrine\Persistence\ObjectManager $em, array $options)
     {
+        if (!$em instanceof \Doctrine\ORM\EntityManager) {
+            throw new \LogicException('QueueRunner requires Doctrine ORM EntityManager capabilities.');
+        }
         $this->em      = $em;
         $this->options = $options;
     }
@@ -53,6 +56,9 @@ class ViMbAdmin_Service_QueueRunner
         $max  = max(1, (int) $max);
         $em   = $this->em;
         $repo = $em->getRepository('\\Entities\\MailboxTask');
+        if (!$repo instanceof \Repositories\MailboxTask) {
+            throw new \LogicException('MailboxTask entity must use Repositories\\MailboxTask.');
+        }
 
         $lease = ViMbAdmin_QueueRunner::acquireLease($em, $this->options);
         if ($lease === null) {
@@ -360,7 +366,11 @@ class ViMbAdmin_Service_QueueRunner
             return;
         }
 
-        $em->getRepository('\\Entities\\Mailbox')->purgeMailbox($mailbox, null, true);
+        $repository = $em->getRepository('\\Entities\\Mailbox');
+        if (!method_exists($repository, 'purgeMailbox')) {
+            throw new \LogicException('Mailbox repository must implement purgeMailbox().');
+        }
+        $repository->purgeMailbox($mailbox, null, true);
 
         try {
             $em->getConnection()->executeStatement('DELETE FROM dovecot_quota WHERE username = ?', [$username]);
@@ -412,7 +422,11 @@ class ViMbAdmin_Service_QueueRunner
         try {
             $days   = max(0, (int) ($this->options['queue']['autoprune']['days'] ?? 90));
             $cutoff = (new \DateTime())->modify('-' . $days . ' days');
-            $expired = $em->getRepository('\\Entities\\Archive')->findAutoprune($cutoff);
+            $archiveRepository = $em->getRepository('\\Entities\\Archive');
+            if (!$archiveRepository instanceof \Repositories\Archive) {
+                throw new \LogicException('Archive entity must use Repositories\\Archive.');
+            }
+            $expired = $archiveRepository->findAutoprune($cutoff);
 
             foreach ($expired as $archive) {
                 $user = $archive->getUsername();

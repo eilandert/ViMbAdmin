@@ -66,7 +66,7 @@ class DirectoryEntry
     private ?string $initials = null;
 
     /**
-     * @var \stdClass
+     * @var \stdClass|null
      */
     #[ORM\Column(type: 'object', nullable: true)]
     private mixed $jpegPhoto = null;

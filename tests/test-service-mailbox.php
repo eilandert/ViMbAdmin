@@ -51,7 +51,8 @@ final class FakeMailboxRepo implements \Doctrine\Persistence\ObjectRepository
     public function find(mixed $id): ?object { return null; }
     public function findAll(): array { return []; }
     public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array { return []; }
-    public function getClassName(): string { return ''; }
+    /** @return class-string<object> */
+    public function getClassName(): string { return \Entities\Mailbox::class; }
 }
 
 /**
@@ -70,7 +71,8 @@ final class FakeAliasRepo implements \Doctrine\Persistence\ObjectRepository
     public function find(mixed $id): ?object { return null; }
     public function findAll(): array { return []; }
     public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array { return []; }
-    public function getClassName(): string { return ''; }
+    /** @return class-string<object> */
+    public function getClassName(): string { return \Entities\Alias::class; }
 }
 
 final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager

@@ -49,7 +49,7 @@ class OSS_Utils
      * Parses an XML using SimpleXML and returns with the result object, or false on error.
      *
      * @param string $XML
-     * @return array|bool
+     * @return array|bool|\SimpleXMLElement
      */
     public static function parseXML( $XML )
     {
@@ -86,7 +86,7 @@ class OSS_Utils
     * Returns a named runtime resource.
     *
     * @param string $resource
-    * @return object
+    * @return object|null
     */
     public static function getResource( $resource )
     {

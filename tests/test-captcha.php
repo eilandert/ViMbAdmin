@@ -19,7 +19,6 @@ echo "== standalone captcha ==\n";
 $captcha = new OSS_Captcha_Image(0, 0, 6, 60);
 $id = $captcha->generate();
 $path = OSS_Captcha_Image::path($id);
-$word = $_SESSION['OSS_Captcha_' . $id]['word'] ?? '';
 
 check('generated id is a 32-character hex value', preg_match('/^[a-f0-9]{32}$/', $id) === 1);
 check('generated image exists', $path !== null && is_file($path));

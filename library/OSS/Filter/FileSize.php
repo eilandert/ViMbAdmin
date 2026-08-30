@@ -130,7 +130,7 @@ class OSS_Filter_FileSize
      *     else it will return 20.
      *
      * @param string $value String to parse size in bytes
-     * @return int|bool
+     * @return int|bool|string
      */
     public function filter( $value )
     {
@@ -189,7 +189,7 @@ class OSS_Filter_FileSize
      *  20 input will return 20B.
      *
      * @param int $value String to parse size in bytes
-     * @return string
+     * @return int|string
      */
     public static function unfilter( $value )
     {

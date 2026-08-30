@@ -58,7 +58,7 @@
      * @subpackage Functions
      *
      * @param array $params 
-     * @param Smarty $smarty A reference to the Smarty template object
+     * @param \Smarty\Smarty $smarty A reference to the Smarty template object
      * @return string
      */
     function smarty_function_customdate( $params, &$smarty )
@@ -69,4 +69,3 @@
         
         return date( $format, strtotime( $offset, $now ) );
     }
-

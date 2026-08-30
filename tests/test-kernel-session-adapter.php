@@ -42,24 +42,24 @@ check('get() null on empty',        $s->get('x') === null);
 $s->set('x', 'hi');
 check('set then has',               $s->has('x') === true);
 check('set then get',               $s->get('x') === 'hi');
-check('writes through to object',    $ns->x === 'hi');
-$ns->y = 'direct';
+check('writes through to object',    $ns->__get('x') === 'hi');
+$ns->__set('y', 'direct');
 check('reads object writes',         $s->get('y') === 'direct' && $s->has('y'));
 $s->remove('x');
-check('remove() clears',            $s->has('x') === false && $s->get('x') === null && !isset($ns->x));
+check('remove() clears',            $s->has('x') === false && $s->get('x') === null && !$ns->__isset('x'));
 
 echo "== Csrf over the namespace adapter ==\n";
 $ns2  = new MagicNamespaceFake();
 $csrf = new Csrf(new MagicPropertyStorage($ns2));
 $t = $csrf->token();
-check('token minted + stored on ns',  is_string($t) && strlen($t) === 64 && $ns2->csrfToken === $t);
+check('token minted + stored on ns',  is_string($t) && strlen($t) === 64 && $ns2->__get('csrfToken') === $t);
 check('isValid(token) true',          $csrf->isValid($t) === true);
 check('isValid(bad) false',           $csrf->isValid('nope') === false);
 
 // Back-compat: a pre-existing (old-format) token on the namespace is honoured,
 // not regenerated — so tokens minted before the upgrade keep validating.
 $ns3 = new MagicNamespaceFake();
-$ns3->csrfToken = 'legacy-40-char-token-from-OSS_String-random';
+$ns3->__set('csrfToken', 'legacy-40-char-token-from-OSS_String-random');
 $csrf3 = new Csrf(new MagicPropertyStorage($ns3));
 check('pre-existing token reused',    $csrf3->token() === 'legacy-40-char-token-from-OSS_String-random');
 check('pre-existing token validates', $csrf3->isValid('legacy-40-char-token-from-OSS_String-random') === true);

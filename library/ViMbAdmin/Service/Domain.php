@@ -120,7 +120,11 @@ class ViMbAdmin_Service_Domain
      */
     public function purge(\Entities\Domain $domain): void
     {
-        $this->em->getRepository( '\\Entities\\Domain' )->purge( $domain );
+        $repository = $this->em->getRepository( '\\Entities\\Domain' );
+        if (!method_exists($repository, 'purge')) {
+            throw new \LogicException('Domain repository must implement purge().');
+        }
+        $repository->purge( $domain );
     }
 
     /**

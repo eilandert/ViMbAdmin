@@ -68,7 +68,7 @@ class Domain extends EntityRepository
                     'domain'        => $domain->getDomain(),
                     'description'   => $domain->getDescription(),
                     'max_aliaseses' => $domain->getMaxAliases(),
-                    'alias_count'   => $domain->getAliasesCount(),
+                    'alias_count'   => $domain->getAliasCount(),
                     'max_mailboxes' => $domain->getMaxMailboxes(),
                     'alias_mailbox' => $domain->getMailboxCount(),
                     'max_quota'     => $domain->getMaxQuota(),
