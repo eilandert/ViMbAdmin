@@ -159,6 +159,7 @@ printf '<?php\n' >"$repo/src/staged.php"
 git -C "$repo" add src/staged.php
 printf '<?php\n' >"$repo/src/untracked.php"
 run_gate env PHPSTAN_REPO_ROOT="$repo" PHPSTAN_BIN="$phpstan_stub" \
+  GITHUB_ACTIONS=false \
   bash "$ratchet_script"
 expect_status 0 "$gate_status" "local pre-commit run succeeds"
 expect_log 'ARG=src/staged.php' "local run checks staged additions"
