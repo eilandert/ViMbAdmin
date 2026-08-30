@@ -50,10 +50,10 @@ jobs:
         include:
           - php: '8.4'
             image: >-
-              php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
+              mirror.gcr.io/library/php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
           - php: '8.5'
             image: >-
-              php@sha256:19667d836740e24a3ba340532c7349ab59bb961b86f20e3c85a58150644e5e55
+              mirror.gcr.io/library/php@sha256:19667d836740e24a3ba340532c7349ab59bb961b86f20e3c85a58150644e5e55
     container:
       image: ${{ matrix.image }}
     steps:
@@ -160,10 +160,10 @@ jobs:
         include:
           - php: '8.4'
             image: >-
-              php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
+              mirror.gcr.io/library/php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
           - php: '8.5'
             image: >-
-              php@sha256:19667d836740e24a3ba340532c7349ab59bb961b86f20e3c85a58150644e5e55
+              mirror.gcr.io/library/php@sha256:19667d836740e24a3ba340532c7349ab59bb961b86f20e3c85a58150644e5e55
     container:
       image: ${{ matrix.image }}
     steps:
@@ -216,11 +216,11 @@ jobs:
     runs-on: [self-hosted, builder02, docker]
     container:
       image: >-
-        php@sha256:19667d836740e24a3ba340532c7349ab59bb961b86f20e3c85a58150644e5e55
+        mirror.gcr.io/library/php@sha256:19667d836740e24a3ba340532c7349ab59bb961b86f20e3c85a58150644e5e55
     services:
       mariadb:
         image: >-
-          mariadb@sha256:2439dcd7d14010ecd1ff7a4e1c5abe8e208c34fe35290744deeeaac3569043c3
+          mirror.gcr.io/library/mariadb@sha256:2439dcd7d14010ecd1ff7a4e1c5abe8e208c34fe35290744deeeaac3569043c3
         env:
           MARIADB_ROOT_PASSWORD: ci
           MARIADB_DATABASE: vimbadmin

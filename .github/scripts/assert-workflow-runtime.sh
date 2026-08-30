@@ -12,6 +12,28 @@ if grep -HnE 'shivammathur/setup-php|runs-on:.*lxc' "${workflows[@]}"; then
   exit 1
 fi
 
+if grep -HnE '^[[:space:]]+(php|mariadb)@sha256:' "${workflows[@]}"; then
+  printf 'Workflow images must use the approved registry mirror.\n' >&2
+  exit 1
+fi
+
+readonly expected_mirrored_images=10
+actual_mirrored_images=$(grep -hEc \
+  'mirror\.gcr\.io/library/(php|mariadb)@sha256:' "${workflows[@]}" \
+  | awk '{ total += $1 } END { print total + 0 }')
+
+if [[ $actual_mirrored_images -ne $expected_mirrored_images ]]; then
+  printf 'Expected %d mirrored runtime images, found %d.\n' \
+    "$expected_mirrored_images" "$actual_mirrored_images" >&2
+  exit 1
+fi
+
+if ! grep -qF "git fetch --no-tags --depth=1 origin \"\$PHPSTAN_BASE_SHA\"" \
+  .github/workflows/static-analysis.yml; then
+  printf 'PHPStan must explicitly fetch its immutable pull-request base.\n' >&2
+  exit 1
+fi
+
 readonly expected_php_containers=6
 actual_php_containers=$(grep -hEc '^[[:space:]]+container:' "${workflows[@]}" \
   | awk '{ total += $1 } END { print total + 0 }')
