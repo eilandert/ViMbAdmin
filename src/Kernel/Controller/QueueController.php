@@ -43,7 +43,7 @@ final class QueueController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $repo = $this->em()->getRepository('\\Entities\\MailboxTask');
+        $repo = $this->mailboxTaskRepository();
 
         $tasks = $this->em()->createQueryBuilder()
             ->select('t')
@@ -219,7 +219,7 @@ final class QueueController extends AbstractController
             return $admin;
         }
 
-        $repo = $this->em()->getRepository('\\Entities\\MailboxTask');
+        $repo = $this->mailboxTaskRepository();
         $task = $this->taskFromPost();
 
         if (!$task || $task->getStatus() !== \Entities\MailboxTask::STATUS_PENDING) {
@@ -323,10 +323,10 @@ final class QueueController extends AbstractController
      * read from the POST body — not the URL like the GET-link actions). Returns the
      * admin on success, or the {@see Response} to return on any failure.
      */
-    private function guardSuperPost(): object
+    private function guardSuperPost(): \Entities\Admin|Response
     {
         $admin = $this->admin();
-        if ($admin === null || !$admin->isSuper()) {
+        if (!$admin instanceof \Entities\Admin || !$admin->isSuper()) {
             return $this->redirect('auth/login');
         }
 
@@ -346,12 +346,42 @@ final class QueueController extends AbstractController
     /**
      * Resolve the MailboxTask from the POST `id` field, or null when absent/unknown.
      */
-    private function taskFromPost(): ?object
+    private function taskFromPost(): ?\Entities\MailboxTask
     {
         $id = (int) ($this->postData()['id'] ?? 0);
 
-        return $id > 0
-            ? $this->em()->getRepository('\\Entities\\MailboxTask')->find($id)
-            : null;
+        if ($id <= 0) {
+            return null;
+        }
+
+        $task = $this->mailboxTaskRepository()->find($id);
+        return $task instanceof \Entities\MailboxTask ? $task : null;
+    }
+
+    protected function em(): \Doctrine\ORM\EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof \Doctrine\ORM\EntityManager) {
+            throw new \LogicException('Doctrine entity manager resource has an invalid type');
+        }
+        return $em;
+    }
+
+    protected function admin(): ?\Entities\Admin
+    {
+        $admin = parent::admin();
+        if ($admin !== null && !$admin instanceof \Entities\Admin) {
+            throw new \LogicException('Authenticated admin has an invalid type');
+        }
+        return $admin;
+    }
+
+    private function mailboxTaskRepository(): \Repositories\MailboxTask
+    {
+        $repo = $this->em()->getRepository('\\Entities\\MailboxTask');
+        if (!$repo instanceof \Repositories\MailboxTask) {
+            throw new \LogicException('MailboxTask repository has an invalid type');
+        }
+        return $repo;
     }
 }
