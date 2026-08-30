@@ -49,8 +49,8 @@ class Domain extends EntityRepository
      * two types of arrays: id => name, or id => [ domain data ]
      *
      * @param \Entities\Admin $admin
-     * @para bool $onlyNames Type of array if set to true only names will be returned, else all data.
-     * @return array
+     * @param bool $onlyNames Type of array if set to true only names will be returned, else all data.
+     * @return ($onlyNames is true ? array<int,string> : array<int,array<string,mixed>>)
      */
     public function loadForAdminAsArray( $admin, $onlyNames = false )
     {
@@ -94,7 +94,7 @@ class Domain extends EntityRepository
      * Loads information for domains list.
      *
      * @param \Entities\Admin $admin
-     * @return array
+     * @return array<int,array<string,mixed>>
      */
     public function loadForDomainList( $admin )
     {
@@ -128,7 +128,7 @@ class Domain extends EntityRepository
      * list query). `COUNT(DISTINCT d.id)` for the non-super `d.Admins` fan-out.
      *
      * @param \Entities\Admin $admin
-     * @return array{rows: array, total: int, filtered: int}
+     * @return array{rows: array<int,array<string,mixed>>, total: int, filtered: int}
      */
     public function pagedForDomainList( $admin, string $search, string $sortField, string $sortDir, int $start, int $length )
     {
@@ -184,8 +184,8 @@ class Domain extends EntityRepository
      * grouped by the domain part of the username and merge the total onto each
      * domain row. Domains with no quota rows yet report 0.
      *
-     * @param array $rows Domain list rows from getArrayResult()
-     * @return array
+     * @param array<int,array<string,mixed>> $rows Domain list rows from getArrayResult()
+     * @return array<int,array<string,mixed>>
      */
     private function _mergeDomainUsage( array $rows )
     {
@@ -226,6 +226,7 @@ class Domain extends EntityRepository
      * Convenience function to purge all associations of a domain and the domain
      *
      * @param \Entities\Domain $domain The domain object
+     * @return void
      */
     public function purge( $domain )
     {
@@ -241,7 +242,7 @@ class Domain extends EntityRepository
     /**
      * Purge all mailboxes of a domain
      *
-     * @param $domain \Entities\Domain The domain to purge the mailboxes of
+     * @param \Entities\Domain $domain The domain to purge the mailboxes of
      * @return int The number of records deleted
      */
     public function purgeMailboxes( $domain )
@@ -256,7 +257,7 @@ class Domain extends EntityRepository
     /**
      * Purge all alaises of a domain
      *
-     * @param $domain \Entities\Domain The domain to purge the aliases of
+     * @param \Entities\Domain $domain The domain to purge the aliases of
      * @return int The number of records deleted
      */
     public function purgeAliases( $domain )
@@ -271,7 +272,7 @@ class Domain extends EntityRepository
     /**
      * Purge all logs of a domain
      *
-     * @param $domain \Entities\Domain The domain to purge the logs of
+     * @param \Entities\Domain $domain The domain to purge the logs of
      * @return int The number of logs deleted
      */
     public function purgeLogs( $domain )
@@ -288,7 +289,7 @@ class Domain extends EntityRepository
      *
      * Requires a flush()
      *
-     * @param $domain \Entities\Domain The domain to purge the admin links of
+     * @param \Entities\Domain $domain The domain to purge the admin links of
      * @return int The number of links deleted
      */
     public function purgeDomainAdmins( $domain )
@@ -311,7 +312,7 @@ class Domain extends EntityRepository
      * through admin domains and removing all array elements which id is already in admin domains list.
      *
      * @param \Entities\Admin $admin Admin to look for not assign domains
-     * @retun array
+     * @return array<int,string>
      */
     public function getNotAssignedForAdmin( $admin )
     {
