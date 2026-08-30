@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
+use Doctrine\ORM\EntityManager;
+use Entities\Admin;
+use LogicException;
+use Repositories\Archive as ArchiveRepository;
+use Repositories\Domain as DomainRepository;
 use ViMbAdmin\Kernel\DataTable\DataTableQuery;
 use ViMbAdmin\Kernel\DataTable\DataTableResult;
 use ViMbAdmin\Kernel\Flash\FlashMessages;
 use ViMbAdmin\Kernel\Http\Response;
 use ViMbAdmin\Kernel\Mvc\AbstractController;
+use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
 
 /**
  * Native port of `ArchiveController::list` + `toggleAutoprune`
@@ -52,26 +58,37 @@ final class ArchiveController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $session = $this->session();
+        $session = new MagicPropertyStorage($this->session());
         $domain  = null;
+        $unset   = $this->param('unset', false);
 
-        if ($this->param('unset', false)) {
-            unset($session->domain);
-        } elseif (isset($session->domain) && $session->domain) {
-            $domain = $session->domain;
-        } elseif ($did = $this->param('did')) {
-            $domain = $this->em()->getRepository('\\Entities\\Domain')->find((int) $did);
-            if ($domain && !$admin->isSuper() && !$admin->canManageDomain($domain)) {
-                return $this->redirect('auth/login');
+        if ($unset) {
+            $session->remove('domain');
+        }
+
+        if (!$unset) {
+            $storedDomain = $session->get('domain');
+            if ($storedDomain instanceof \Entities\Domain) {
+                $domain = $storedDomain;
             }
-            if ($domain) {
-                $session->domain = $domain;
+
+            if (!($storedDomain instanceof \Entities\Domain)) {
+                $did = $this->param('did');
+                if ($did) {
+                    $domain = $this->domainRepository()->find((int) $did);
+                    if ($domain && !$admin->isSuper() && !$admin->canManageDomain($domain)) {
+                        return $this->redirect('auth/login');
+                    }
+                    if ($domain) {
+                        $session->set('domain', $domain);
+                    }
+                }
             }
         }
 
         $cfg      = $this->container->options()['defaults']['server_side']['pagination']['archive'] ?? [];
         $archives = empty($cfg['enable'])
-            ? $this->em()->getRepository('\\Entities\\Archive')->loadForArchiveList($admin, $domain)
+            ? $this->archiveRepository()->loadForArchiveList($admin, $domain)
             : [];
 
         return $this->view('archive/list.phtml', [
@@ -96,15 +113,16 @@ final class ArchiveController extends AbstractController
             return new Response('ko');
         }
 
-        $session = $this->session();
-        $domain  = (isset($session->domain) && $session->domain) ? $session->domain : null;
+        $session = new MagicPropertyStorage($this->session());
+        $storedDomain = $session->get('domain');
+        $domain = $storedDomain instanceof \Entities\Domain ? $storedDomain : null;
 
         $q = DataTableQuery::fromArray($_GET);
         // Column index -> sortable field (matches JS column order; size / user-exists
         // / autoprune / controls fall back to archived date).
         $sortField = [0 => 'username', 1 => 'status', 2 => 'domain', 4 => 'archived_at'][$q->sortColumn] ?? 'archived_at';
 
-        $r = $this->em()->getRepository('\\Entities\\Archive')
+        $r = $this->archiveRepository()
             ->pagedForArchiveList($admin, $domain, $q->search, $sortField, $q->sortDir, $q->start, $q->length);
 
         foreach ($r['rows'] as &$row) {
@@ -115,7 +133,7 @@ final class ArchiveController extends AbstractController
         unset($row);
 
         return new Response(
-            DataTableResult::json($q, $r['total'], $r['filtered'], $r['rows']),
+            DataTableResult::json($q, $r['total'], $r['filtered'], array_values($r['rows'])),
             200,
             'application/json; charset=utf-8'
         );
@@ -146,9 +164,7 @@ final class ArchiveController extends AbstractController
             return $this->redirect('archive/list');
         }
 
-        $archive = ($arid = $this->param('arid'))
-            ? $this->em()->getRepository('\\Entities\\Archive')->find((int) $arid)
-            : null;
+        $archive = $this->archiveFromParameter('arid');
 
         // loadArchive() authorises a non-super admin against the archive's domain.
         if (!$archive || (!$admin->isSuper() && !$admin->canManageDomain($archive->getDomain()))) {
@@ -185,9 +201,7 @@ final class ArchiveController extends AbstractController
             return $this->redirect('archive/list');
         }
 
-        $archive = ($arid = $this->param('arid'))
-            ? $this->em()->getRepository('\\Entities\\Archive')->find((int) $arid)
-            : null;
+        $archive = $this->archiveFromParameter('arid');
 
         if (!$archive || (!$admin->isSuper() && !$admin->canManageDomain($archive->getDomain()))) {
             return $this->redirect('archive/list');
@@ -240,9 +254,7 @@ final class ArchiveController extends AbstractController
         }
 
         $em      = $this->em();
-        $archive = ($arid = $this->param('arid'))
-            ? $em->getRepository('\\Entities\\Archive')->find((int) $arid)
-            : null;
+        $archive = $this->archiveFromParameter('arid');
 
         if (!$archive || (!$admin->isSuper() && !$admin->canManageDomain($archive->getDomain()))) {
             return $this->redirect('archive/list');
@@ -307,15 +319,13 @@ final class ArchiveController extends AbstractController
         // 4) Queue a background REPAIR (force-resync + index + quota recalc) so the
         //    restored account is fully consistent. Non-blocking.
         $repairQueued = false;
-        if ($mailbox) {
-            try {
-                if (\ViMbAdmin_MailboxQueue::enqueue($em, $mailbox, \Entities\MailboxTask::TYPE_REPAIR, $admin)) {
-                    $em->flush();
-                    $repairQueued = true;
-                }
-            } catch (\Throwable $e) {
-                error_log("ArchiveController::restoreAction enqueue repair {$user}: " . $e->getMessage());
+        try {
+            if (\ViMbAdmin_MailboxQueue::enqueue($em, $mailbox, \Entities\MailboxTask::TYPE_REPAIR, $admin)) {
+                $em->flush();
+                $repairQueued = true;
             }
+        } catch (\Throwable $e) {
+            error_log("ArchiveController::restoreAction enqueue repair {$user}: " . $e->getMessage());
         }
 
         (new \ViMbAdmin_Service_Archive($em))->logRestore($admin, $user, $repairQueued);
@@ -326,5 +336,56 @@ final class ArchiveController extends AbstractController
             $repairQueued ? ' A repair/optimize was queued and will run in the background.' : ''
         ));
         return $this->redirect('archive/list');
+    }
+
+    protected function em(): EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof EntityManager) {
+            throw new LogicException('Doctrine entity manager resource has an invalid type');
+        }
+
+        return $em;
+    }
+
+    protected function admin(): ?Admin
+    {
+        $admin = parent::admin();
+        if ($admin !== null && !$admin instanceof Admin) {
+            throw new LogicException('Authenticated admin has an invalid type');
+        }
+
+        return $admin;
+    }
+
+    private function archiveRepository(): ArchiveRepository
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Archive');
+        if (!$repo instanceof ArchiveRepository) {
+            throw new LogicException('Archive repository has an invalid type');
+        }
+
+        return $repo;
+    }
+
+    private function archiveFromParameter(string $parameter): ?\Entities\Archive
+    {
+        $id = $this->param($parameter);
+        if (!$id) {
+            return null;
+        }
+
+        $archive = $this->archiveRepository()->find((int) $id);
+        return $archive instanceof \Entities\Archive ? $archive : null;
+    }
+
+    private function domainRepository(): DomainRepository
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Domain');
+        if (!$repo instanceof DomainRepository) {
+            throw new LogicException('Domain repository has an invalid type');
+        }
+
+        return $repo;
     }
 }
