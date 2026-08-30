@@ -9,7 +9,12 @@ class OSS_Captcha_Image
     private int $wordLen;
     private int $timeout;
 
-    public function __construct($dotNoise = 100, $lineNoise = 5, $wordLen = 6, $timeout = 1800)
+    public function __construct(
+        mixed $dotNoise = 100,
+        mixed $lineNoise = 5,
+        mixed $wordLen = 6,
+        mixed $timeout = 1800
+    )
     {
         $this->dotNoise = (int) $dotNoise;
         $this->lineNoise = (int) $lineNoise;
@@ -20,6 +25,9 @@ class OSS_Captcha_Image
     public function generate(): string
     {
         $id = bin2hex(random_bytes(16));
+        if ($this->wordLen < 1) {
+            throw new ValueError('Captcha word length must be greater than 0');
+        }
         $word = substr(strtoupper(bin2hex(random_bytes($this->wordLen))), 0, $this->wordLen);
 
         $_SESSION['OSS_Captcha_' . $id] = [
@@ -39,7 +47,7 @@ class OSS_Captcha_Image
         return $id;
     }
 
-    public static function _isValid($id, $value): bool
+    public static function _isValid(mixed $id, mixed $value): bool
     {
         $key = 'OSS_Captcha_' . (string) $id;
         $captcha = $_SESSION[$key] ?? null;
@@ -75,6 +83,9 @@ class OSS_Captcha_Image
         $background = imagecolorallocate($image, 248, 248, 248);
         $foreground = imagecolorallocate($image, 35, 35, 35);
         $noise = imagecolorallocate($image, 150, 150, 150);
+        if ($background === false || $foreground === false || $noise === false) {
+            throw new RuntimeException('Unable to allocate captcha image colors');
+        }
         imagefilledrectangle($image, 0, 0, 259, 79, $background);
 
         for ($i = 0; $i < $this->dotNoise; $i++) {
