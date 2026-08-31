@@ -31,10 +31,12 @@ use Entities\Admin as AdminEntity;
 use Entities\DirectoryEntry as DirectoryEntryEntity;
 use Entities\Domain as DomainEntity;
 use Entities\Log as LogEntity;
+use Entities\Mailbox as MailboxEntity;
 use Psr\Cache\CacheItemPoolInterface;
 use ReflectionMethod as CoreReflectionMethod;
 use Repositories\DirectoryEntry as DirectoryEntryRepository;
 use Repositories\Log as LogRepository;
+use Repositories\Mailbox as MailboxRepository;
 use UnexpectedValueException as QueryProbeFailure;
 
 $appPath = realpath(__DIR__ . '/../application');
@@ -112,16 +114,22 @@ function logQueryParameters(QueryBuilder $query): array
 }
 
 /** @param list<mixed> $arguments */
-function invokeLogQuery(LogRepository $repository, string $method, array $arguments): QueryBuilder
+function invokePrivateRepositoryMethod(object $repository, string $method, array $arguments): mixed
 {
-    $query = (new CoreReflectionMethod($repository, $method))->invokeArgs($repository, $arguments);
+    return (new CoreReflectionMethod($repository, $method))->invokeArgs($repository, $arguments);
+}
+
+/** @param list<mixed> $arguments */
+function invokeRepositoryQuery(object $repository, string $method, array $arguments): QueryBuilder
+{
+    $query = invokePrivateRepositoryMethod($repository, $method, $arguments);
     if (!$query instanceof QueryBuilder) {
-        throw new QueryProbeFailure('Log repository query probe did not return a QueryBuilder');
+        throw new QueryProbeFailure('Repository query probe did not return a QueryBuilder');
     }
     return $query;
 }
 
-function recordLogRepositoryCheck(string $label, bool $ok): void
+function recordRepositoryCheck(string $label, bool $ok): void
 {
     global $failures;
     echo ($ok ? 'OK   ' : 'FAIL ') . $label . "\n";
@@ -197,17 +205,96 @@ function checkLogRepositoryQueryContract(mixed $entityManager): void
         return;
     }
 
-    $listQuery = invokeLogQuery($repository, 'logListQuery', [$admin, $domain]);
-    $pageQuery = invokeLogQuery($repository, 'pagedLogRowsQuery', [$admin, $domain, '50%_\\off', 'action', 'ASC', -5, 0]);
-    $fallbackQuery = invokeLogQuery($repository, 'pagedLogRowsQuery', [null, null, '', 'unsupported', 'sideways', 4, 9]);
-    $countQuery = invokeLogQuery($repository, 'logCountQuery', [$admin, $domain, 'mail']);
+    $listQuery = invokeRepositoryQuery($repository, 'logListQuery', [$admin, $domain]);
+    $pageQuery = invokeRepositoryQuery($repository, 'pagedLogRowsQuery', [$admin, $domain, '50%_\\off', 'action', 'ASC', -5, 0]);
+    $fallbackQuery = invokeRepositoryQuery($repository, 'pagedLogRowsQuery', [null, null, '', 'unsupported', 'sideways', 4, 9]);
+    $countQuery = invokeRepositoryQuery($repository, 'logCountQuery', [$admin, $domain, 'mail']);
 
-    recordLogRepositoryCheck('Log metadata resolves its entity-specific repository', logMetadataContract($entityManager, $repository));
-    recordLogRepositoryCheck('log list retains all array-hydration fields', logListHydrationContract($listQuery->getDQL()));
-    recordLogRepositoryCheck('log list preserves admin/domain joins and positional parameters', logListScopeContract($listQuery->getDQL(), logQueryParameters($listQuery), $admin, $domain));
-    recordLogRepositoryCheck('paged logs preserve search escaping and scoped count semantics', logCountContract($countQuery));
-    recordLogRepositoryCheck('paged logs preserve selected sorting and clamp pagination bounds', logSelectedPageContract($pageQuery));
-    recordLogRepositoryCheck('paged logs fall back to timestamp descending without a search predicate', logFallbackPageContract($fallbackQuery));
+    recordRepositoryCheck('Log metadata resolves its entity-specific repository', logMetadataContract($entityManager, $repository));
+    recordRepositoryCheck('log list retains all array-hydration fields', logListHydrationContract($listQuery->getDQL()));
+    recordRepositoryCheck('log list preserves admin/domain joins and positional parameters', logListScopeContract($listQuery->getDQL(), logQueryParameters($listQuery), $admin, $domain));
+    recordRepositoryCheck('paged logs preserve search escaping and scoped count semantics', logCountContract($countQuery));
+    recordRepositoryCheck('paged logs preserve selected sorting and clamp pagination bounds', logSelectedPageContract($pageQuery));
+    recordRepositoryCheck('paged logs fall back to timestamp descending without a search predicate', logFallbackPageContract($fallbackQuery));
+}
+
+/** @param array<int|string,mixed> $parameters */
+function mailboxListQueryContract(string $dql, array $parameters, AdminEntity $admin, DomainEntity $domain): bool
+{
+    return str_contains($dql, 'm.id as id')
+        && str_contains($dql, 'm.delete_pending')
+        && str_contains($dql, 'm.delete_pending = FALSE')
+        && str_contains($dql, 'JOIN d.Admins d2a')
+        && str_contains($dql, 'd2a = ?1')
+        && str_contains($dql, 'm.Domain = ?2')
+        && ($parameters[1] ?? null) === $admin
+        && ($parameters[2] ?? null) === $domain;
+}
+
+function mailboxUnscopedListContract(QueryBuilder $query): bool
+{
+    return !str_contains($query->getDQL(), 'd.Admins')
+        && str_contains($query->getDQL(), 'm.delete_pending = FALSE')
+        && count($query->getParameters()) === 0;
+}
+
+/** @param array<int|string,mixed> $parameters */
+function mailboxUsernameQueryContract(string $dql, array $parameters, AdminEntity $admin, DomainEntity $domain): bool
+{
+    return str_contains($dql, 'm.id as id')
+        && str_contains($dql, 'm.username as username')
+        && str_contains($dql, 'd2a.Admin = ?1')
+        && str_contains($dql, 'm.Domain = ?2')
+        && ($parameters[1] ?? null) === $admin
+        && ($parameters[2] ?? null) === $domain;
+}
+
+function checkMailboxRepositoryQueryContract(mixed $entityManager): void
+{
+    global $failures;
+
+    if (!$entityManager instanceof EntityManagerInterface) {
+        echo "FAIL Mailbox repository query contract has an entity manager\n";
+        $failures++;
+        return;
+    }
+
+    $repository = $entityManager->getRepository(MailboxEntity::class);
+    if (!$repository instanceof MailboxRepository) {
+        echo "FAIL Mailbox metadata resolves its entity-specific repository\n";
+        $failures++;
+        return;
+    }
+
+    $admin = new AdminEntity();
+    $admin->setSuper(false);
+    $domain = new DomainEntity();
+    $listQuery = invokeRepositoryQuery($repository, 'mailboxListQuery', [$admin, $domain]);
+    $usernameQuery = invokeRepositoryQuery($repository, 'usernameListQuery', [$admin, $domain]);
+
+    $superAdmin = new AdminEntity();
+    $superAdmin->setSuper(true);
+    $unscopedQuery = invokeRepositoryQuery($repository, 'mailboxListQuery', [$superAdmin, null]);
+    $indexedRows = invokePrivateRepositoryMethod($repository, 'indexUsernameRows', [[
+        ['id' => 7, 'username' => 'one@example.test'],
+        ['id' => 11, 'username' => 'two@example.test'],
+    ]]);
+    $emptyRows = invokePrivateRepositoryMethod($repository, '_mergeQuotaUsage', [[]]);
+
+    recordRepositoryCheck(
+        'mailbox list retains hydration, deletion and scoped-filter contracts',
+        mailboxListQueryContract($listQuery->getDQL(), logQueryParameters($listQuery), $admin, $domain),
+    );
+    recordRepositoryCheck('super-admin mailbox list omits ownership and domain filters', mailboxUnscopedListContract($unscopedQuery));
+    recordRepositoryCheck(
+        'mailbox username list retains selected fields and scoped parameters',
+        mailboxUsernameQueryContract($usernameQuery->getDQL(), logQueryParameters($usernameQuery), $admin, $domain),
+    );
+    recordRepositoryCheck(
+        'mailbox username rows remain indexed by numeric mailbox id',
+        $indexedRows === [7 => 'one@example.test', 11 => 'two@example.test'],
+    );
+    recordRepositoryCheck('empty mailbox hydration avoids quota queries', $emptyRows === []);
 }
 
 $em = null;
@@ -281,6 +368,7 @@ check('a known entity attribute mapping loads through the driver', function () u
 
 checkDirectoryEntryRepositoryContract($em);
 checkLogRepositoryQueryContract($em);
+checkMailboxRepositoryQueryContract($em);
 
 check('registerEntityAutoloaders loads an Entities class', function () use ($options) {
     EntityManagerFactory::registerEntityAutoloaders($options);

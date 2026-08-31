@@ -3,6 +3,7 @@
 namespace Repositories;
 
 use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\QueryBuilder;
 
 /**
  * Mailbox
@@ -11,6 +12,8 @@ use Doctrine\ORM\EntityRepository;
  * repository methods below.
  *
  * @extends EntityRepository<\Entities\Mailbox>
+ * @phpstan-type MailboxHydrationRow array{id:int,username:string,name:string|null,active:bool,quota:int|string,domain:string,delete_pending:bool|null}
+ * @phpstan-type MailboxListRow array{id:int,username:string,name:string|null,active:bool,quota:int|string,domain:string,delete_pending:bool|null,quota_bytes:int|string|null,quota_messages:int|string|null,last_login:int|null}
  */
 class Mailbox extends EntityRepository
 {
@@ -42,11 +45,16 @@ class Mailbox extends EntityRepository
      *
      * If admin is super he gets all mailboxes.
      *
-     * @param \Entities\Admin  $admin  Admin for filtering mailboxes.
-     * @param \Entities\Domain $domain Domain for filtering mailboxes.
-     * @return array
+     * @param \Entities\Admin       $admin  Admin for filtering mailboxes.
+     * @param \Entities\Domain|null $domain Domain for filtering mailboxes.
+     * @return array<int,MailboxListRow>
      */
     public function loadForMailboxList( $admin, $domain = null )
+    {
+        return $this->_mergeQuotaUsage( $this->mailboxListQuery( $admin, $domain )->getQuery()->getArrayResult() );
+    }
+
+    private function mailboxListQuery( \Entities\Admin $admin, ?\Entities\Domain $domain ): QueryBuilder
     {
         $qb = $this->getEntityManager()->createQueryBuilder()
             ->select( 'm.id as id, m.username as username, m.name as name, m.active as active,
@@ -64,7 +72,7 @@ class Mailbox extends EntityRepository
             $qb->andWhere( 'm.Domain = ?2' )
                 ->setParameter( 2, $domain );
 
-        return $this->_mergeQuotaUsage( $qb->getQuery()->getArrayResult() );
+        return $qb;
     }
 
     /**
@@ -138,8 +146,8 @@ class Mailbox extends EntityRepository
      * (e.g. a brand new mailbox), in which case the view shows 0 until Dovecot
      * writes the first usage figure.
      *
-     * @param array<int,array<string,mixed>> $rows Mailbox list rows from getArrayResult()
-     * @return array<int,array<string,mixed>>
+     * @param array<int,MailboxHydrationRow> $rows Mailbox list rows from getArrayResult()
+     * @return array<int,MailboxListRow>
      */
     private function _mergeQuotaUsage( array $rows )
     {
@@ -189,11 +197,16 @@ class Mailbox extends EntityRepository
      *
      * If admin is super he gets all mailboxes.
      *
-     * @param \Entities\Admin  $admin  Admin for filtering mailboxes.
-     * @param \Entities\Domain $domain Domain for filtering mailboxes.
-     * @return array
+     * @param \Entities\Admin       $admin  Admin for filtering mailboxes.
+     * @param \Entities\Domain|null $domain Domain for filtering mailboxes.
+     * @return array<int,string>
      */
     public function loadUsernameList( $admin, $domain = null )
+    {
+        return $this->indexUsernameRows( $this->usernameListQuery( $admin, $domain )->getQuery()->getArrayResult() );
+    }
+
+    private function usernameListQuery( \Entities\Admin $admin, ?\Entities\Domain $domain ): QueryBuilder
     {
         $qb = $this->getEntityManager()->createQueryBuilder()
             ->select( 'm.id as id , m.username as username' )
@@ -209,7 +222,15 @@ class Mailbox extends EntityRepository
             $qb->andWhere( 'm.Domain = ?2' )
                 ->setParameter( 2, $domain );
 
-        $data = $qb->getQuery()->getArrayResult();
+        return $qb;
+    }
+
+    /**
+     * @param array<int,array{id:int,username:string}> $data
+     * @return array<int,string>
+     */
+    private function indexUsernameRows( array $data ): array
+    {
         $result = [];
         foreach( $data as $row )
             $result[ $row['id'] ] = $row['username'];

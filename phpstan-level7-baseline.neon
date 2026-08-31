@@ -1,18 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Method Repositories\\Mailbox\:\:loadForMailboxList\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Method Repositories\\Mailbox\:\:loadUsernameList\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
 			message: '#^Class Repositories\\MailboxTask extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
 			identifier: missingType.generics
 			count: 1
