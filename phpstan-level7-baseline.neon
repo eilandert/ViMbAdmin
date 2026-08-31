@@ -1,24 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Call to an undefined method object\:\:getId\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Kernel/Security/Auth.php
-
-		-
-			message: '#^Call to an undefined method object\:\:getSuper\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Kernel/Security/Auth.php
-
-		-
-			message: '#^Call to an undefined method object\:\:getUsername\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Kernel/Security/Auth.php
-
-		-
 			message: '#^Cannot cast array\|string to string\.$#'
 			identifier: cast.string
 			count: 2

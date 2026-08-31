@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Security;
 
+use LogicException;
 use ViMbAdmin\Kernel\Session\SessionStorage;
 
 /**
@@ -76,7 +77,18 @@ final class Auth
             $this->loaded = true;
             $identity = $this->identity();
             if ($identity !== null && isset($identity['id']) && $identity['id']) {
-                $this->admin = ($this->adminLoader)((int) $identity['id']);
+                $admin = ($this->adminLoader)((int) $identity['id']);
+                if (
+                    $admin !== null
+                    && (
+                        !method_exists($admin, 'getUsername')
+                        || !method_exists($admin, 'getId')
+                        || !method_exists($admin, 'getSuper')
+                    )
+                ) {
+                    throw new LogicException('Authenticated admin has an invalid type');
+                }
+                $this->admin = $admin;
             }
         }
 
@@ -94,6 +106,14 @@ final class Auth
      */
     public function establish(object $admin): void
     {
+        if (
+            !method_exists($admin, 'getUsername')
+            || !method_exists($admin, 'getId')
+            || !method_exists($admin, 'getSuper')
+        ) {
+            throw new LogicException('Authenticated admin has an invalid type');
+        }
+
         $this->session->set($this->identityKey, [
             'username' => $admin->getUsername(),
             'user'     => $admin,
@@ -121,8 +141,14 @@ final class Auth
     public function isSuper(): bool
     {
         $admin = $this->admin();
+        if ($admin === null) {
+            return false;
+        }
+        if (!method_exists($admin, 'getSuper')) {
+            throw new LogicException('Authenticated admin has an invalid type');
+        }
 
-        return $admin !== null && (bool) $admin->getSuper();
+        return (bool) $admin->getSuper();
     }
 
     /**

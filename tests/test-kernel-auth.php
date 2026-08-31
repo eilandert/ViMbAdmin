@@ -85,6 +85,24 @@ check('stale: isAuthorised false',      $x->isAuthorised() === false);
 // --- malformed identity (no id) --------------------------------------- //
 $m = new Auth(new ArraySession(['identity' => ['username' => 'no-id']]), loaderFor([5 => $normal], $calls));
 check('no id -> not authenticated',     $m->isAuthenticated() === false);
+$malformedCalls = 0;
+$malformed = new Auth(new ArraySession(['identity' => 'not-an-array']), loaderFor([5 => $normal], $malformedCalls));
+check('malformed identity -> null',      $malformed->identity() === null);
+check('malformed identity is rejected before loading',
+    $malformed->isAuthenticated() === false && $malformed->admin() === null && $malformedCalls === 0);
+
+// --- repository returns the wrong object ------------------------------ //
+$wrongCalls = 0;
+$wrong = new Auth(new ArraySession(['identity' => ['id' => 5]]), loaderFor([5 => new stdClass()], $wrongCalls));
+$wrongObjectRejected = false;
+try {
+    $wrong->admin();
+} catch (Throwable $e) {
+    $wrongObjectRejected = $e instanceof LogicException
+        && $e->getMessage() === 'Authenticated admin has an invalid type';
+}
+check('wrong repository object fails at the authentication boundary',
+    $wrongObjectRejected && $wrongCalls === 1);
 
 // --- custom identity key ---------------------------------------------- //
 $c = new Auth(new ArraySession(['Zend_Auth' => ['id' => 5]]), loaderFor([5 => $normal], $calls), 'Zend_Auth');
@@ -101,6 +119,18 @@ check('establish -> admin() resolves',  $e->admin() === $normal);
 $e->clear();
 check('clear removes the identity',     $sess->get('identity') === null);
 check('clear -> anonymous',             $e->isAuthenticated() === false && $e->admin() === null);
+
+$invalidSession = new ArraySession([]);
+$invalidEstablish = new Auth($invalidSession, loaderFor([], $calls));
+$invalidEstablishRejected = false;
+try {
+    $invalidEstablish->establish(new stdClass());
+} catch (Throwable $e) {
+    $invalidEstablishRejected = $e instanceof LogicException
+        && $e->getMessage() === 'Authenticated admin has an invalid type';
+}
+check('wrong login object fails before writing identity',
+    $invalidEstablishRejected && $invalidSession->get('identity') === null);
 
 echo "\n";
 if ($failures === 0) {
