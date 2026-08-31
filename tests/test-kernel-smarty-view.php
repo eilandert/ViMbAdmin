@@ -31,12 +31,26 @@ if (!class_exists(\Smarty\Smarty::class)) {
 $tmp = sys_get_temp_dir() . '/vmb-smartyview-' . getmypid();
 @mkdir($tmp . '/tpl/_skins/myskin', 0770, true);
 @mkdir($tmp . '/compile', 0770, true);
+@mkdir($tmp . '/cache', 0770, true);
+@mkdir($tmp . '/config', 0770, true);
+@mkdir($tmp . '/plugins-one', 0770, true);
+@mkdir($tmp . '/plugins-two', 0770, true);
+@mkdir($tmp . '/app/views', 0770, true);
+@mkdir($tmp . '/app/configs/smarty', 0770, true);
+if (!defined('APPLICATION_PATH')) {
+    define('APPLICATION_PATH', $tmp . '/app');
+}
 file_put_contents($tmp . '/tpl/hello.tpl', 'Hello {$name}!');
 file_put_contents($tmp . '/tpl/raw.tpl', '{$html}');
 file_put_contents($tmp . '/tpl/skinned.tpl', 'DEFAULT {$name}');
 file_put_contents($tmp . '/tpl/_skins/myskin/skinned.tpl', 'SKIN {$name}');
 file_put_contents($tmp . '/tpl/included.tpl', 'DEFAULT INCLUDE {$name}');
 file_put_contents($tmp . '/tpl/_skins/myskin/included.tpl', 'SKIN INCLUDE {$name}');
+file_put_contents($tmp . '/tpl/plugin.tpl', '{$name|marker}');
+file_put_contents($tmp . '/plugins-two/modifier.marker.php', <<<'PHP'
+<?php
+function smarty_modifier_marker(string $value): string { return "[{$value}]"; }
+PHP);
 
 $failures = 0;
 function check(string $label, callable $fn): void {
@@ -181,15 +195,46 @@ check('unknown skin throws', function () use ($mk) {
     throw new RuntimeException('expected throw for unknown skin');
 });
 
-check('fromOptions reads resources.smarty.*', function () use ($tmp) {
+check('fromOptions preserves valid, missing, and malformed options', function () use ($tmp) {
     $v = SmartyView::fromOptions(['resources' => ['smarty' => [
         'templates' => $tmp . '/tpl',
         'compiled'  => $tmp . '/compile',
+        'cache'     => $tmp . '/cache',
+        'config'    => $tmp . '/config',
+        'plugins'   => [$tmp . '/plugins-one', $tmp . '/plugins-two'],
         'skin'      => 'myskin',
     ]]]);
+    $engine = $v->getEngine();
+    if (!in_array($tmp . '/tpl/', (array) $engine->getTemplateDir(), true)
+        || rtrim($engine->getCompileDir(), '/') !== $tmp . '/compile'
+        || rtrim($engine->getCacheDir(), '/') !== $tmp . '/cache'
+        || !in_array($tmp . '/config/', $engine->getConfigDir(), true)) {
+        throw new RuntimeException('explicit Smarty directories were not retained');
+    }
     $v->__set('name', 'Q');
     if (trim($v->render('skinned.tpl')) !== 'SKIN Q') {
         throw new RuntimeException('got: ' . $v->render('skinned.tpl'));
+    }
+    if (trim($v->render('plugin.tpl')) !== '[Q]') {
+        throw new RuntimeException('plugin directory list was not retained');
+    }
+
+    $engine = SmartyView::fromOptions([])->getEngine();
+    if (!in_array($tmp . '/app/views/', (array) $engine->getTemplateDir(), true)
+        || rtrim($engine->getCompileDir(), '/') !== $tmp . '/var/templates_c'
+        || rtrim($engine->getCacheDir(), '/') !== $tmp . '/var/cache'
+        || !in_array($tmp . '/app/configs/smarty/', $engine->getConfigDir(), true)) {
+        throw new RuntimeException('default Smarty directories were not retained');
+    }
+
+    foreach ([
+        ['resources' => new stdClass()],
+        ['resources' => ['smarty' => new stdClass()]],
+    ] as $options) {
+        $engine = SmartyView::fromOptions($options)->getEngine();
+        if (!in_array($tmp . '/app/views/', (array) $engine->getTemplateDir(), true)) {
+            throw new RuntimeException('malformed options did not retain the default template directory');
+        }
     }
 });
 

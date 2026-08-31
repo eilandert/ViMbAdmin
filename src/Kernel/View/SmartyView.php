@@ -84,7 +84,8 @@ final class SmartyView
      */
     public static function fromOptions(array $options): self
     {
-        $o = $options['resources']['smarty'] ?? [];
+        $resources = self::optionArray($options['resources'] ?? null);
+        $o = self::optionArray($resources['smarty'] ?? null);
 
         // Sensible defaults derived from APPLICATION_PATH so a lean
         // application.ini need not spell out the standard layout. Any
@@ -161,7 +162,7 @@ final class SmartyView
      */
     public function resolveTemplate(string $name): string
     {
-        $base = (string) $this->smarty->getTemplateDir(0);
+        $base = $this->templateBase();
         if ($this->skin !== '' && is_readable($base . '/_skins/' . $this->skin . '/' . $name)) {
             return '_skins/' . $this->skin . '/' . $name;
         }
@@ -175,7 +176,7 @@ final class SmartyView
      */
     public function setSkin(string $skin): void
     {
-        $base = (string) $this->smarty->getTemplateDir(0);
+        $base = $this->templateBase();
         if (!is_readable($base . '/_skins/' . $skin)) {
             throw new \RuntimeException("Skin directory does not exist or is not readable ({$base}/_skins/{$skin})");
         }
@@ -198,5 +199,22 @@ final class SmartyView
         if (!is_dir($dir)) {
             @mkdir($dir, 0770, true);
         }
+    }
+
+    private function templateBase(): string
+    {
+        $base = $this->smarty->getTemplateDir(0);
+        if (is_string($base)) {
+            return $base;
+        }
+
+        $first = reset($base);
+        return is_string($first) ? $first : '';
+    }
+
+    /** @return array<array-key,mixed> */
+    private static function optionArray(mixed $value): array
+    {
+        return is_array($value) ? $value : [];
     }
 }
