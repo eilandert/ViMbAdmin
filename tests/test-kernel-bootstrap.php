@@ -24,6 +24,39 @@ require __DIR__ . '/../src/Kernel/Bootstrap.php';
 use ViMbAdmin\Kernel\Bootstrap;
 use ViMbAdmin\Kernel\NativeResources;
 
+final class BootstrapAdminRepository
+{
+    /** @param array<int,object> $admins */
+    public function __construct(
+        private array $admins,
+        private ?Throwable $error = null,
+        private mixed $invalid = null,
+    ) {
+    }
+
+    public function find(int $id): mixed
+    {
+        if ($this->error !== null) {
+            throw $this->error;
+        }
+
+        return $this->invalid ?? ($this->admins[$id] ?? null);
+    }
+}
+
+final class BootstrapObjectManager
+{
+    public ?string $requestedClass = null;
+
+    public function __construct(private mixed $repository) {}
+
+    public function getRepository(string $className): mixed
+    {
+        $this->requestedClass = $className;
+        return $this->repository;
+    }
+}
+
 $failures = 0;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
@@ -71,6 +104,58 @@ check('getResource(smarty) returns the view',  $res->getResource('smarty') === $
 check('getResource(namespace) returns session', $res->getResource('namespace') === $session);
 check('unknown resource returns null',          $res->getResource('mailer') === null);
 check('getOptions returns the options array',   $res->getOptions() === $options);
+
+// --- boot-time auth wiring validates the persistence boundary --------------
+$admin = new stdClass();
+$manager = new BootstrapObjectManager(new BootstrapAdminRepository([7 => $admin]));
+$loader = (new ReflectionMethod(Bootstrap::class, 'adminLoader'))->invoke(null, $manager);
+check('admin loader requests the production entity class', $manager->requestedClass === '\\Entities\\Admin');
+check('admin loader returns the requested admin', $loader(7) === $admin);
+check('admin loader preserves a missing admin result', $loader(8) === null);
+
+$wrongManagerRejected = false;
+try {
+    (new ReflectionMethod(Bootstrap::class, 'adminLoader'))->invoke(null, new stdClass());
+} catch (LogicException $e) {
+    $wrongManagerRejected = $e->getMessage() === 'Native bootstrap requires a Doctrine object manager.';
+}
+check('bootstrap rejects a missing object-manager API', $wrongManagerRejected);
+
+$wrongRepositoryRejected = false;
+try {
+    (new ReflectionMethod(Bootstrap::class, 'adminLoader'))->invoke(
+        null,
+        new BootstrapObjectManager(new stdClass()),
+    );
+} catch (LogicException $e) {
+    $wrongRepositoryRejected = $e->getMessage() === 'Native bootstrap requires an admin repository.';
+}
+check('bootstrap rejects a missing admin-repository API', $wrongRepositoryRejected);
+
+$repositoryErrorPropagated = false;
+$repositoryError = new RuntimeException('admin lookup failed');
+$loader = (new ReflectionMethod(Bootstrap::class, 'adminLoader'))->invoke(
+    null,
+    new BootstrapObjectManager(new BootstrapAdminRepository([], $repositoryError)),
+);
+try {
+    $loader(7);
+} catch (RuntimeException $e) {
+    $repositoryErrorPropagated = $e === $repositoryError;
+}
+check('admin repository errors propagate unchanged', $repositoryErrorPropagated);
+
+$invalidAdminRejected = false;
+$loader = (new ReflectionMethod(Bootstrap::class, 'adminLoader'))->invoke(
+    null,
+    new BootstrapObjectManager(new BootstrapAdminRepository([], null, 'not-an-admin')),
+);
+try {
+    $loader(7);
+} catch (LogicException $e) {
+    $invalidAdminRejected = $e->getMessage() === 'Admin repository returned an invalid value.';
+}
+check('bootstrap rejects a non-object admin result', $invalidAdminRejected);
 
 echo $failures === 0 ? "\nALL PASSED\n" : "\n{$failures} FAILED\n";
 exit($failures === 0 ? 0 : 1);

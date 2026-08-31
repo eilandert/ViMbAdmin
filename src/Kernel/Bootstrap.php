@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel;
 
+use Closure;
+use LogicException;
 use ViMbAdmin\Kernel\Config\IniConfig;
 use ViMbAdmin\Kernel\Doctrine\EntityManagerFactory;
 use ViMbAdmin\Kernel\Security\Auth;
@@ -81,7 +83,7 @@ final class Bootstrap
         // the legacy `storage` key (the auth layer's default member name).
         $auth = new Auth(
             new MagicPropertyStorage(new SessionNamespace($authNs)),
-            static fn (int $id) => $em->getRepository('\\Entities\\Admin')->find($id),
+            self::adminLoader($em),
             'storage',
         );
 
@@ -89,6 +91,33 @@ final class Bootstrap
         \OSS_Runtime::configure($options, self::baseUrl($options), $em);
 
         return new Container($resources, $auth, ['skinCss' => self::skinCss($appPath, $options)]);
+    }
+
+    /**
+     * Validate the persistence boundary once, where the native entity manager
+     * is wired into the framework-free auth service.
+     *
+     * @return Closure(int):?object
+     */
+    private static function adminLoader(object $entityManager): Closure
+    {
+        if (!method_exists($entityManager, 'getRepository')) {
+            throw new LogicException('Native bootstrap requires a Doctrine object manager.');
+        }
+
+        $repository = $entityManager->getRepository('\\Entities\\Admin');
+        if (!is_object($repository) || !method_exists($repository, 'find')) {
+            throw new LogicException('Native bootstrap requires an admin repository.');
+        }
+
+        return static function (int $id) use ($repository): ?object {
+            $admin = $repository->find($id);
+            if ($admin !== null && !is_object($admin)) {
+                throw new LogicException('Admin repository returned an invalid value.');
+            }
+
+            return $admin;
+        };
     }
 
     /**
