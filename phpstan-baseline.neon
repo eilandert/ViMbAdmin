@@ -1,2 +1,4585 @@
 parameters:
-	ignoreErrors: []
+	ignoreErrors:
+		-
+			message: '#^Method Entities\\Admin\:\:_getPreferences\(\) should return list\<Entities\\AdminPreference\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:expungePreferences\(\) should return int but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getActive\(\) should return bool but returns bool\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getCreated\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getLastLogin\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getModified\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getPassword\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getSuper\(\) should return bool but returns bool\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\Admin\:\:getUsername\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Parameter \#1 \$config of method Entities\\Admin\:\:_processKey\(\) expects array\<int\|string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/Entities/Admin.php
+
+		-
+			message: '#^Method Entities\\AdminPreference\:\:getAttribute\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Method Entities\\AdminPreference\:\:getExpire\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Method Entities\\AdminPreference\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Method Entities\\AdminPreference\:\:getIx\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Method Entities\\AdminPreference\:\:getOp\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Method Entities\\AdminPreference\:\:getValue\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AdminPreference.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:_getPreferences\(\) should return list\<Entities\\AliasPreference\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:expungePreferences\(\) should return int but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:getActive\(\) should return bool but returns bool\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:getAddress\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:getCreated\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:getGoto\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\Alias\:\:getModified\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Parameter \#1 \$config of method Entities\\Alias\:\:_processKey\(\) expects array\<int\|string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/Entities/Alias.php
+
+		-
+			message: '#^Method Entities\\AliasPreference\:\:getAlias\(\) should return Entities\\Alias but returns Entities\\Alias\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AliasPreference.php
+
+		-
+			message: '#^Method Entities\\AliasPreference\:\:getAttribute\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AliasPreference.php
+
+		-
+			message: '#^Method Entities\\AliasPreference\:\:getExpire\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AliasPreference.php
+
+		-
+			message: '#^Method Entities\\AliasPreference\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AliasPreference.php
+
+		-
+			message: '#^Method Entities\\AliasPreference\:\:getIx\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AliasPreference.php
+
+		-
+			message: '#^Method Entities\\AliasPreference\:\:getOp\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AliasPreference.php
+
+		-
+			message: '#^Method Entities\\AliasPreference\:\:getValue\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/AliasPreference.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getArchivedAt\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getArchivedBy\(\) should return Entities\\Admin but returns Entities\\Admin\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getData\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getDomain\(\) should return Entities\\Domain but returns Entities\\Domain\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getHomedirFile\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getHomedirOrigSize\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getHomedirServer\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getHomedirSize\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getMaildirFile\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getMaildirOrigSize\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getMaildirServer\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getMaildirSize\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getStatus\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getStatusChangedAt\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\Archive\:\:getUsername\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Archive.php
+
+		-
+			message: '#^Method Entities\\DatabaseVersion\:\:getAppliedOn\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DatabaseVersion.php
+
+		-
+			message: '#^Method Entities\\DatabaseVersion\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DatabaseVersion.php
+
+		-
+			message: '#^Method Entities\\DatabaseVersion\:\:getName\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DatabaseVersion.php
+
+		-
+			message: '#^Method Entities\\DatabaseVersion\:\:getVersion\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DatabaseVersion.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getBusinessCategory\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getCarLicense\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getDepartmentNumber\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getDisplayName\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getEmployeeNumber\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getEmployeeType\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getFacsimileTelephoneNumber\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getGivenName\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getHomePhone\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getHomePostalAddress\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getInitials\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getJpegPhoto\(\) should return stdClass but returns stdClass\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getLabeledURI\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getMail\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getMailbox\(\) should return Entities\\Mailbox but returns Entities\\Mailbox\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getManager\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getMobile\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getO\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getOu\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getPager\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getPersonalTitle\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getPreferredLanguage\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getRoomNumber\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getSecretary\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getSn\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getTelephoneNumber\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getTitle\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getVimbCreated\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\DirectoryEntry\:\:getVimbUpdate\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DirectoryEntry.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:_getPreferences\(\) should return list\<Entities\\DomainPreference\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:expungePreferences\(\) should return int but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getActive\(\) should return bool but returns bool\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getBackupmx\(\) should return bool but returns bool\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getCreated\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getDescription\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getDomain\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getGid\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getHomedir\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getMaildir\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getMaxAliases\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getMaxMailboxes\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getMaxQuota\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getModified\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getQuota\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getTransport\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\Domain\:\:getUid\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Parameter \#1 \$config of method Entities\\Domain\:\:_processKey\(\) expects array\<int\|string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/Entities/Domain.php
+
+		-
+			message: '#^Method Entities\\DomainPreference\:\:getAttribute\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DomainPreference.php
+
+		-
+			message: '#^Method Entities\\DomainPreference\:\:getDomain\(\) should return Entities\\Domain but returns Entities\\Domain\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DomainPreference.php
+
+		-
+			message: '#^Method Entities\\DomainPreference\:\:getExpire\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DomainPreference.php
+
+		-
+			message: '#^Method Entities\\DomainPreference\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DomainPreference.php
+
+		-
+			message: '#^Method Entities\\DomainPreference\:\:getIx\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DomainPreference.php
+
+		-
+			message: '#^Method Entities\\DomainPreference\:\:getOp\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DomainPreference.php
+
+		-
+			message: '#^Method Entities\\DomainPreference\:\:getValue\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/DomainPreference.php
+
+		-
+			message: '#^Method Entities\\Log\:\:getAction\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^Method Entities\\Log\:\:getData\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^Method Entities\\Log\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^Method Entities\\Log\:\:getTimestamp\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Log.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:_getPreferences\(\) should return list\<Entities\\MailboxPreference\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:expungePreferences\(\) should return int but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getActive\(\) should return bool but returns bool\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getAltEmail\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getCreated\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getDeletePending\(\) should return bool but returns bool\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getDirectoryEntry\(\) should return Entities\\DirectoryEntry but returns Entities\\DirectoryEntry\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getLocalPart\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getModified\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getName\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getPassword\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getQuota\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\Mailbox\:\:getUsername\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Parameter \#1 \$config of method Entities\\Mailbox\:\:_processKey\(\) expects array\<int\|string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/Entities/Mailbox.php
+
+		-
+			message: '#^Method Entities\\MailboxPreference\:\:getAttribute\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/MailboxPreference.php
+
+		-
+			message: '#^Method Entities\\MailboxPreference\:\:getExpire\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/MailboxPreference.php
+
+		-
+			message: '#^Method Entities\\MailboxPreference\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/MailboxPreference.php
+
+		-
+			message: '#^Method Entities\\MailboxPreference\:\:getIx\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/MailboxPreference.php
+
+		-
+			message: '#^Method Entities\\MailboxPreference\:\:getOp\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/MailboxPreference.php
+
+		-
+			message: '#^Method Entities\\MailboxPreference\:\:getValue\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/MailboxPreference.php
+
+		-
+			message: '#^Method Entities\\MailboxTask\:\:getStatusLabel\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/MailboxTask.php
+
+		-
+			message: '#^Method Entities\\MailboxTask\:\:getTypeLabel\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/MailboxTask.php
+
+		-
+			message: '#^Method Entities\\Quota\:\:getUpdatedAt\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/Quota.php
+
+		-
+			message: '#^Method Entities\\RememberMe\:\:getCkey\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/RememberMe.php
+
+		-
+			message: '#^Method Entities\\RememberMe\:\:getCreated\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/RememberMe.php
+
+		-
+			message: '#^Method Entities\\RememberMe\:\:getExpires\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/RememberMe.php
+
+		-
+			message: '#^Method Entities\\RememberMe\:\:getId\(\) should return int but returns int\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/RememberMe.php
+
+		-
+			message: '#^Method Entities\\RememberMe\:\:getLastUsed\(\) should return DateTime but returns DateTime\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/RememberMe.php
+
+		-
+			message: '#^Method Entities\\RememberMe\:\:getOriginalIp\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/RememberMe.php
+
+		-
+			message: '#^Method Entities\\RememberMe\:\:getUser\(\) should return Entities\\Admin but returns Entities\\Admin\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/RememberMe.php
+
+		-
+			message: '#^Method Entities\\RememberMe\:\:getUserhash\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Entities/RememberMe.php
+
+		-
+			message: '#^Cannot call method andWhere\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Cannot call method getArrayResult\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Cannot call method getQuery\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Cannot call method getSingleScalarResult\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Cannot call method orderBy\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Cannot call method select\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Cannot call method setFirstResult\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Cannot call method setMaxResults\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Cannot call method setParameter\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Method Repositories\\Alias\:\:filterForAliasList\(\) should return array\<int, array\{id\: int\|string, address\: string, goto\: string, active\: bool, domain\: string\}\> but returns array\<mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Method Repositories\\Alias\:\:loadForAliasList\(\) should return array\<int, array\{id\: int\|string, address\: string, goto\: string, active\: bool, domain\: string\}\> but returns array\<mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Method Repositories\\Alias\:\:loadForMailbox\(\) should return array\<Entities\\Alias\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Method Repositories\\Alias\:\:loadWithMailbox\(\) should return array\<Entities\\Alias\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Method Repositories\\Alias\:\:pagedForAliasList\(\) should return array\{rows\: array\<int, array\{id\: int\|string, address\: string, goto\: string, active\: bool, domain\: string\}\>, total\: int, filtered\: int\} but returns array\{rows\: mixed, total\: int, filtered\: int\}\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Alias.php
+
+		-
+			message: '#^Cannot call method andWhere\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Cannot call method getArrayResult\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Cannot call method getQuery\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Cannot call method getSingleScalarResult\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Cannot call method orderBy\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Cannot call method select\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Cannot call method setFirstResult\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Cannot call method setMaxResults\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Cannot call method setParameter\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Method Repositories\\Archive\:\:findAutoprune\(\) should return array\<Entities\\Archive\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Method Repositories\\Archive\:\:loadForArchiveList\(\) should return array\<int, array\{id\: mixed, username\: mixed, status\: mixed, archived_at\: mixed, autoprune\: mixed, maildir_size\: mixed, domain\: mixed, user_exists\: mixed\}\> but returns array\<mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Method Repositories\\Archive\:\:pagedForArchiveList\(\) should return array\{rows\: array\<int, array\{id\: mixed, username\: mixed, status\: mixed, archived_at\: mixed, autoprune\: mixed, maildir_size\: mixed, domain\: mixed, user_exists\: mixed\}\>, total\: int, filtered\: int\} but returns array\{rows\: mixed, total\: int, filtered\: int\}\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Archive.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Cannot access offset ''bytes'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Cannot access offset ''domain'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Cannot call method andWhere\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Cannot call method getArrayResult\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Cannot call method getQuery\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Cannot call method getSingleScalarResult\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Cannot call method orderBy\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Cannot call method select\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Cannot call method setFirstResult\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Cannot call method setMaxResults\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Cannot call method setParameter\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Method Repositories\\Domain\:\:loadForAdmin\(\) should return array\<Entities\\Domain\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Method Repositories\\Domain\:\:purgeAliases\(\) should return int but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Method Repositories\\Domain\:\:purgeLogs\(\) should return int but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Method Repositories\\Domain\:\:purgeMailboxes\(\) should return int but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Parameter \#1 \$rows of method Repositories\\Domain\:\:_mergeDomainUsage\(\) expects array\<int, array\<string, mixed\>\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Parameter \#1 \$rows of method Repositories\\Domain\:\:_mergeDomainUsage\(\) expects array\<int, array\<string, mixed\>\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Possibly invalid array key type mixed\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 3
+			path: application/Repositories/Domain.php
+
+		-
+			message: '#^Method Repositories\\Log\:\:loadForLogList\(\) should return array\<int, array\{id\: mixed, action\: mixed, data\: mixed, timestamp\: mixed, admin\: mixed, domain\: mixed\}\> but returns array\<mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Log.php
+
+		-
+			message: '#^Method Repositories\\Log\:\:pagedForLogList\(\) should return array\{rows\: array\<int, array\{id\: mixed, action\: mixed, data\: mixed, timestamp\: mixed, admin\: mixed, domain\: mixed\}\>, total\: int, filtered\: int\} but returns array\{rows\: array\<mixed\>, total\: int, filtered\: int\}\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Log.php
+
+		-
+			message: '#^Cannot access offset ''bytes'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot access offset ''last_login'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot access offset ''messages'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot access offset ''username'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot call method andWhere\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot call method decreaseAliasCount\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot call method decreaseMailboxCount\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot call method getAdmins\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot call method getArrayResult\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot call method getQuery\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot call method getSingleScalarResult\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot call method orderBy\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot call method select\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot call method setFirstResult\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot call method setMaxResults\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot call method setParameter\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 2
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Method Repositories\\Mailbox\:\:_mergeQuotaUsage\(\) should return array\<int, array\{id\: int, username\: string, name\: string\|null, active\: bool, quota\: int\|string, domain\: string, delete_pending\: bool\|null, quota_bytes\: int\|string\|null, \.\.\.\}\> but returns non\-empty\-array\<int, array\{id\: int, username\: string, name\: string\|null, active\: bool, quota\: int\|string, domain\: string, delete_pending\: bool\|null, quota_bytes\: mixed, \.\.\.\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Method Repositories\\Mailbox\:\:loadForAdmin\(\) should return array\<Entities\\Mailbox\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Method Repositories\\Mailbox\:\:pendingDelete\(\) should return array\<Entities\\Mailbox\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Parameter \#1 \$data of method Repositories\\Mailbox\:\:indexUsernameRows\(\) expects array\<int, array\{id\: int, username\: string\}\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Parameter \#1 \$rows of method Repositories\\Mailbox\:\:_mergeQuotaUsage\(\) expects array\<int, array\{id\: int, username\: string, name\: string\|null, active\: bool, quota\: int\|string, domain\: string, delete_pending\: bool\|null\}\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Parameter \#1 \$rows of method Repositories\\Mailbox\:\:_mergeQuotaUsage\(\) expects array\<int, array\{id\: int, username\: string, name\: string\|null, active\: bool, quota\: int\|string, domain\: string, delete_pending\: bool\|null\}\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Parameter \#2 \$admin of method Repositories\\Alias\:\:loadForMailbox\(\) expects Entities\\Admin, Entities\\Admin\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Parameter \#2 \$admin of method Repositories\\Alias\:\:loadWithMailbox\(\) expects Entities\\Admin, Entities\\Admin\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Possibly invalid array key type mixed\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 2
+			path: application/Repositories/Mailbox.php
+
+		-
+			message: '#^Parameter \#1 \$data of static method Repositories\\MailboxPreference\:\:uniquePreferenceValues\(\) expects array\<array\<string, mixed\>\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/Repositories/MailboxPreference.php
+
+		-
+			message: '#^Cannot access offset ''cnt'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/Repositories/MailboxTask.php
+
+		-
+			message: '#^Cannot access offset ''status'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/Repositories/MailboxTask.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: application/Repositories/MailboxTask.php
+
+		-
+			message: '#^Method Repositories\\MailboxTask\:\:pending\(\) should return array\<Entities\\MailboxTask\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/MailboxTask.php
+
+		-
+			message: '#^Method Repositories\\MailboxTask\:\:statusCounts\(\) should return array\<string, int\> but returns array\<int\>\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/MailboxTask.php
+
+		-
+			message: '#^Possibly invalid array key type mixed\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 1
+			path: application/Repositories/MailboxTask.php
+
+		-
+			message: '#^Method Repositories\\RememberMe\:\:deleteForUser\(\) should return int but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/RememberMe.php
+
+		-
+			message: '#^Method Repositories\\RememberMe\:\:load\(\) should return Entities\\RememberMe but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/Repositories/RememberMe.php
+
+		-
+			message: '#^Cannot access offset ''active'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''aliases'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''destructive'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''domain'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 5
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''enabled'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''local_part'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''mailbox'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''mailboxes'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''max'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''maxquota'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''password'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''password_scheme'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''quota'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''ratelimit'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''statedir'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''transport'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''username'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''window'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot call method getMailboxCount\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot call method setMailboxCount\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 5
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$active of method Entities\\Mailbox\:\:setActive\(\) expects bool, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$localPart of method Entities\\Mailbox\:\:setLocalPart\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$name of method Entities\\Mailbox\:\:setName\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$opts of class ViMbAdmin_Mcp_RateLimit constructor expects array\{statedir\?\: string\|null, max\?\: int\|numeric\-string\|null, window\?\: int\|numeric\-string\|null\}, array\{statedir\: mixed, max\: mixed, window\: mixed\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$params of method McpController\:\:_aliasCreate\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$params of method McpController\:\:_aliasDelete\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$params of method McpController\:\:_aliasesList\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$params of method McpController\:\:_archiveState\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 2
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$params of method McpController\:\:_domainCreate\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$params of method McpController\:\:_domainDelete\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$params of method McpController\:\:_mailboxArchive\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$params of method McpController\:\:_mailboxCreate\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$params of method McpController\:\:_mailboxDelete\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$params of method McpController\:\:_mailboxesList\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$password of method Entities\\Mailbox\:\:setPassword\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$quota of method Entities\\Mailbox\:\:setQuota\(\) expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$server of method ViMbAdmin_Mcp_Auth\:\:authenticate\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strtoupper expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$transport of method Entities\\Domain\:\:setTransport\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#1 \$username of method Entities\\Mailbox\:\:setUsername\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Parameter \#2 \$trustedProxy of class ViMbAdmin_Mcp_Auth constructor expects array\{mode\?\: bool\|float\|int\|string\|null, proxies\?\: list\<string\>\|string\}, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/controllers/McpController.php
+
+		-
+			message: '#^Cannot access offset ''AccessPermissions'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/plugins/AccessPermissions.php
+
+		-
+			message: '#^Cannot access offset ''type'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/plugins/AccessPermissions.php
+
+		-
+			message: '#^Method ViMbAdminPlugin_AccessPermissions\:\:_types\(\) should return array\<string, string\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/plugins/AccessPermissions.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: application/plugins/AdditionalInfo.php
+
+		-
+			message: '#^Cannot access offset ''DirectoryEntry'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/plugins/DirectoryEntry.php
+
+		-
+			message: '#^Cannot access offset ''disabled_elements'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/plugins/DirectoryEntry.php
+
+		-
+			message: '#^Cannot access offset ''orgname'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/plugins/DirectoryEntry.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: application/plugins/DirectoryEntry.php
+
+		-
+			message: '#^Method ViMbAdminPlugin_DirectoryEntry\:\:_disabled\(\) should return array\<string, bool\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: application/plugins/DirectoryEntry.php
+
+		-
+			message: '#^Parameter \#1 \$jpegPhoto of callable passed to call_user_func\(\) expects stdClass, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: application/plugins/DirectoryEntry.php
+
+		-
+			message: '#^Cannot access offset ''MailboxAutomaticAliases'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: application/plugins/MailboxAutomaticAliases.php
+
+		-
+			message: '#^Cannot access offset ''defaultAliases'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/plugins/MailboxAutomaticAliases.php
+
+		-
+			message: '#^Cannot access offset ''defaultMapping'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: application/plugins/MailboxAutomaticAliases.php
+
+		-
+			message: '#^Property ViMbAdminPlugin_MailboxAutomaticAliases\:\:\$defaultAliases \(array\<int, string\>\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: application/plugins/MailboxAutomaticAliases.php
+
+		-
+			message: '#^Property ViMbAdminPlugin_MailboxAutomaticAliases\:\:\$defaultMapping \(array\<string, string\>\) does not accept mixed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: application/plugins/MailboxAutomaticAliases.php
+
+		-
+			message: '#^Cannot access offset 1 on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: bin/doctrine-cli.php
+
+		-
+			message: '#^Cannot access offset 2 on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: bin/doctrine-cli.php
+
+		-
+			message: '#^Parameter \#1 \$array of function array_splice expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: bin/doctrine-cli.php
+
+		-
+			message: '#^Parameter \#1 \$cost of class OSS_Crypt_Bcrypt constructor expects int\|numeric\-string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: library/OSS/Auth/Password.php
+
+		-
+			message: '#^Parameter \#1 \$string of function substr expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 6
+			path: library/OSS/Auth/Password.php
+
+		-
+			message: '#^Parameter \#3 \$user of static method ViMbAdmin_Dovecot\:\:password\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/OSS/Auth/Password.php
+
+		-
+			message: '#^Parameter \#4 \$user of static method ViMbAdmin_Dovecot\:\:passwordVerify\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/OSS/Auth/Password.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 5
+			path: library/OSS/Captcha/Image.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 4
+			path: library/OSS/Captcha/Image.php
+
+		-
+			message: '#^Method OSS_Message\:\:getMessage\(\) should return string but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Message.php
+
+		-
+			message: '#^Method OSS_Message\:\:getPlaintext\(\) should return string but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Message.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strip_tags expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/OSS/Message.php
+
+		-
+			message: '#^Argument of an invalid type list\<mixed\>\|null supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Binary operation "\." between mixed and "\\n" results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Cannot access offset ''OSS_Messages'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Cannot access offset ''flashMessages'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Cannot access offset ''level'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Cannot access offset ''text'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Cannot call method getClass\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Cannot call method getMessage\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Parameter \#1 \$value of function count expects array\|Countable, list\<mixed\>\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Parameter \#1 \.\.\.\$arrays of function array_merge expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Part \$fmClass \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Part \$fmText \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Part \$item \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Part \$ossm\-\>getClass\(\) \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: library/OSS/Smarty/functions/function.OSS_Message.php
+
+		-
+			message: '#^Binary operation "\." between ''_skins/'' and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 2
+			path: library/OSS/Smarty/functions/function.tmplinclude.php
+
+		-
+			message: '#^Binary operation "\." between non\-falsy\-string and mixed results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 2
+			path: library/OSS/Smarty/functions/function.tmplinclude.php
+
+		-
+			message: '#^Parameter \#1 \$resource_name of method Smarty\\Smarty\:\:templateExists\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/OSS/Smarty/functions/function.tmplinclude.php
+
+		-
+			message: '#^Parameter \#1 \$template of method Smarty\\Smarty\:\:fetch\(\) expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: library/OSS/Smarty/functions/function.tmplinclude.php
+
+		-
+			message: '#^Part \$params\[''file''\] \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: library/OSS/Smarty/functions/function.tmplinclude.php
+
+		-
+			message: '#^Function smarty_modifier_alnum\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.alnum.php
+
+		-
+			message: '#^Function smarty_modifier_escape\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.escape.php
+
+		-
+			message: '#^Function smarty_modifier_intlmobile\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.intlmobile.php
+
+		-
+			message: '#^Parameter \#3 \$subject of function preg_replace expects array\<float\|int\|string\>\|string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.intlmobile.php
+
+		-
+			message: '#^Function smarty_modifier_mobile\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.mobile.php
+
+		-
+			message: '#^Parameter \#3 \$subject of function preg_replace expects array\<float\|int\|string\>\|string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.mobile.php
+
+		-
+			message: '#^Function smarty_modifier_preg_replace\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.preg_replace.php
+
+		-
+			message: '#^Parameter \#1 \$value of function sizeof expects array\|Countable, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.sizeof.php
+
+		-
+			message: '#^Function smarty_modifier_toValidId\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Smarty/functions/modifier.toValidId.php
+
+		-
+			message: '#^Function smarty_prefilter_whitespace_control\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Smarty/functions/prefilter.whitespace_control.php
+
+		-
+			message: '#^Parameter \#3 \$subject of function preg_replace expects array\<float\|int\|string\>\|string, string\|null given\.$#'
+			identifier: argument.type
+			count: 4
+			path: library/OSS/Smarty/functions/prefilter.whitespace_control.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: library/OSS/String.php
+
+		-
+			message: '#^Method OSS_String\:\:normalise\(\) should return string but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/String.php
+
+		-
+			message: '#^Offset 0 might not exist on string\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: library/OSS/String.php
+
+		-
+			message: '#^Parameter \#1 \$string of function mb_substr expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 3
+			path: library/OSS/String.php
+
+		-
+			message: '#^Parameter \#3 \$subject of function preg_replace expects array\<float\|int\|string\>\|string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/OSS/String.php
+
+		-
+			message: '#^Binary operation "\." between mixed and string results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: library/OSS/Utils.php
+
+		-
+			message: '#^Cannot access offset ''genurl'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/OSS/Utils.php
+
+		-
+			message: '#^Cannot access offset ''host_mode'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/OSS/Utils.php
+
+		-
+			message: '#^Cannot access offset ''host_replace'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/OSS/Utils.php
+
+		-
+			message: '#^Method OSS_Utils\:\:getTempDir\(\) should return string but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: library/OSS/Utils.php
+
+		-
+			message: '#^Part \$protocol \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: library/OSS/Utils.php
+
+		-
+			message: '#^Part \$value \(mixed\) of encapsed string cannot be cast to string\.$#'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: library/OSS/Utils.php
+
+		-
+			message: '#^Cannot access offset ''mode'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/BruteForce.php
+
+		-
+			message: '#^Cannot access offset ''proxies'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/BruteForce.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 3
+			path: library/ViMbAdmin/BruteForce.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: library/ViMbAdmin/BruteForce.php
+
+		-
+			message: '#^Method ViMbAdmin_BruteForce\:\:_load\(\) should return array\{attempts\: int, first\: int, last\: int, locked_until\: int\} but returns non\-empty\-array\<mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: library/ViMbAdmin/BruteForce.php
+
+		-
+			message: '#^Parameter \#1 \$directory of function mkdir expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/BruteForce.php
+
+		-
+			message: '#^Parameter \#1 \$filename of function is_dir expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/BruteForce.php
+
+		-
+			message: '#^Parameter \#1 \$server of static method ViMbAdmin_Net\:\:clientIp\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/BruteForce.php
+
+		-
+			message: '#^Parameter \#1 \$string of function rtrim expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/BruteForce.php
+
+		-
+			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array\<int\|string, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/BruteForce.php
+
+		-
+			message: '#^Cannot access offset ''api_key'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/Doveadm.php
+
+		-
+			message: '#^Cannot access offset ''http'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/Doveadm.php
+
+		-
+			message: '#^Cannot access offset ''size'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/Doveadm.php
+
+		-
+			message: '#^Cannot access offset ''timeout'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/Doveadm.php
+
+		-
+			message: '#^Cannot access offset ''url'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/Doveadm.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 3
+			path: library/ViMbAdmin/Doveadm.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: library/ViMbAdmin/Doveadm.php
+
+		-
+			message: '#^Method ViMbAdmin_Doveadm\:\:run\(\) should return array\<mixed\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: library/ViMbAdmin/Doveadm.php
+
+		-
+			message: '#^Parameter \#1 \$url of class ViMbAdmin_Doveadm constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Doveadm.php
+
+		-
+			message: '#^Parameter \#2 \$apiKey of class ViMbAdmin_Doveadm constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Doveadm.php
+
+		-
+			message: '#^Parameter \#3 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: library/ViMbAdmin/Doveadm.php
+
+		-
+			message: '#^Parameter \#4 \.\.\.\$values of function sprintf expects bool\|float\|int\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Doveadm.php
+
+		-
+			message: '#^Parameter \#1 \$known_string of function hash_equals expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Mcp/Auth.php
+
+		-
+			message: '#^Parameter \#2 \$subject of function preg_match expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Mcp/Auth.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: library/ViMbAdmin/Mcp/RateLimit.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 3
+			path: library/ViMbAdmin/Net.php
+
+		-
+			message: '#^Method ViMbAdmin_Plugin\:\:update\(\) should return bool but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: library/ViMbAdmin/Plugin.php
+
+		-
+			message: '#^Cannot access offset ''id'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/QueueRunner.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 4
+			path: library/ViMbAdmin/QueueRunner.php
+
+		-
+			message: '#^Parameter \#2 \$array of function array_map expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/QueueRunner.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 2
+			path: library/ViMbAdmin/Schema.php
+
+		-
+			message: '#^Cannot call method getAliasCount\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: library/ViMbAdmin/Service/Alias.php
+
+		-
+			message: '#^Cannot call method setAliasCount\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: library/ViMbAdmin/Service/Alias.php
+
+		-
+			message: '#^Cannot access offset ''mailbox'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/Service/Mailbox.php
+
+		-
+			message: '#^Cannot access offset ''password_scheme'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/Service/Mailbox.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: library/ViMbAdmin/Service/Mailbox.php
+
+		-
+			message: '#^Cannot access offset ''autoprune'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Cannot access offset ''backup'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Cannot access offset ''days'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Cannot access offset ''dest'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Cannot access offset ''http'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Cannot access offset ''maildir_root'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Cannot access offset ''url'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Cannot call method getId\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 4
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 5
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$haystack of function strrchr expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$haystack of function strstr expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$maildirOrigSize of method Entities\\Archive\:\:setMaildirOrigSize\(\) expects int, int\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$maildirSize of method Entities\\Archive\:\:setMaildirSize\(\) expects int, int\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$object of method Doctrine\\ORM\\EntityManager\:\:detach\(\) expects object, Entities\\Domain\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$user of method ViMbAdmin_Doveadm\:\:backup\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 3
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$user of method ViMbAdmin_Doveadm\:\:forceResync\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$user of method ViMbAdmin_Doveadm\:\:index\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$user of method ViMbAdmin_Doveadm\:\:mailboxDelete\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 4
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$user of method ViMbAdmin_Doveadm\:\:purge\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$user of method ViMbAdmin_Doveadm\:\:quotaRecalc\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 3
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$username of method Entities\\Archive\:\:setUsername\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$username of method ViMbAdmin_Service_QueueRunner\:\:removeMailboxRow\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#1 \$v of method Entities\\MailboxTask\:\:setUsername\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#2 \$options of static method ViMbAdmin_QueueRunner\:\:acquireLease\(\) expects array\{queue\?\: array\{runner\?\: array\{max_concurrent\?\: mixed, \.\.\.\<string, mixed\>\}, \.\.\.\<string, mixed\>\}, \.\.\.\<string, mixed\>\}, array\<string, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Parameter \#3 \$user of method ViMbAdmin_Service_QueueRunner\:\:removeMaildirHome\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 4
+			path: library/ViMbAdmin/Service/QueueRunner.php
+
+		-
+			message: '#^Method ViMbAdmin_Setting\:\:get\(\) should return string\|null but returns mixed\.$#'
+			identifier: return.type
+			count: 2
+			path: library/ViMbAdmin/Setting.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: library/ViMbAdmin/Smarty/functions/modifier.int.php
+
+		-
+			message: '#^Cannot call method deletePreference\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: library/ViMbAdmin/TwoFactor.php
+
+		-
+			message: '#^Cannot call method getPreference\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 6
+			path: library/ViMbAdmin/TwoFactor.php
+
+		-
+			message: '#^Cannot call method setPreference\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 5
+			path: library/ViMbAdmin/TwoFactor.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: library/ViMbAdmin/TwoFactor.php
+
+		-
+			message: '#^Parameter \#1 \$encoded of method ViMbAdmin_TwoFactor\:\:_decrypt\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/TwoFactor.php
+
+		-
+			message: '#^Parameter \#1 \$json of function json_decode expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: library/ViMbAdmin/TwoFactor.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strtoupper expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/TwoFactor.php
+
+		-
+			message: '#^Parameter \#2 \$code of method RobThree\\Auth\\TwoFactorAuth\:\:verifyCode\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: library/ViMbAdmin/TwoFactor.php
+
+		-
+			message: '#^Parameter \#2 \$hash of function password_verify expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: library/ViMbAdmin/TwoFactor.php
+
+		-
+			message: '#^Parameter \#2 \$subject of function preg_match expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: library/ViMbAdmin/TwoFactor.php
+
+		-
+			message: '#^Cannot access offset ''name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: library/ViMbAdmin/Version.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 3
+			path: library/ViMbAdmin/Version.php
+
+		-
+			message: '#^Parameter \#1 \$url of function parse_url expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: public/index.php
+
+		-
+			message: '#^Cannot access offset ''baseUrl'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Bootstrap.php
+
+		-
+			message: '#^Cannot access offset ''baseurl'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Bootstrap.php
+
+		-
+			message: '#^Cannot access offset ''frontController'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Bootstrap.php
+
+		-
+			message: '#^Cannot access offset ''frontcontroller'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Bootstrap.php
+
+		-
+			message: '#^Cannot access offset ''session'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Bootstrap.php
+
+		-
+			message: '#^Cannot access offset ''skin'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Bootstrap.php
+
+		-
+			message: '#^Cannot access offset ''smarty'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Bootstrap.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 7
+			path: src/Kernel/Bootstrap.php
+
+		-
+			message: '#^Cannot access offset ''max_per_run'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Cli/Command/QueueRunCommand.php
+
+		-
+			message: '#^Cannot access offset ''runner'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Cli/Command/QueueRunCommand.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: src/Kernel/Cli/Command/QueueRunCommand.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Kernel/Cli/Command/ResetTotpCommand.php
+
+		-
+			message: '#^Cannot access offset string on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Config/IniConfig.php
+
+		-
+			message: '#^Method ViMbAdmin\\Kernel\\Config\\IniConfig\:\:expandDottedKeys\(\) should return array\<string, mixed\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Kernel/Config/IniConfig.php
+
+		-
+			message: '#^Parameter \#1 \$base of static method ViMbAdmin\\Kernel\\Config\\IniConfig\:\:deepMerge\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Config/IniConfig.php
+
+		-
+			message: '#^Parameter \#1 \$flat of static method ViMbAdmin\\Kernel\\Config\\IniConfig\:\:expandDottedKeys\(\) expects array\<string, mixed\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Config/IniConfig.php
+
+		-
+			message: '#^Parameter \#1 \$flat of static method ViMbAdmin\\Kernel\\Config\\IniConfig\:\:expandDottedKeys\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Config/IniConfig.php
+
+		-
+			message: '#^Parameter \#2 \$override of static method ViMbAdmin\\Kernel\\Config\\IniConfig\:\:deepMerge\(\) expects array\<string, mixed\>, array\<mixed, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Config/IniConfig.php
+
+		-
+			message: '#^Cannot access offset ''mail'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Container.php
+
+		-
+			message: '#^Cannot access offset ''transport'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Container.php
+
+		-
+			message: '#^Method ViMbAdmin\\Kernel\\Container\:\:entityManager\(\) should return object but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Kernel/Container.php
+
+		-
+			message: '#^Method ViMbAdmin\\Kernel\\Container\:\:options\(\) should return array\<string, mixed\> but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Kernel/Container.php
+
+		-
+			message: '#^Method ViMbAdmin\\Kernel\\Container\:\:session\(\) should return object but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Kernel/Container.php
+
+		-
+			message: '#^Parameter \#1 \$transportOptions of class ViMbAdmin\\Kernel\\Mail\\Mailer constructor expects array\<string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Container.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Kernel/Controller/AdditionalInfoController.php
+
+		-
+			message: '#^Cannot access offset ''auth'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/AdminController.php
+
+		-
+			message: '#^Cannot access offset ''oss'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/AdminController.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 9
+			path: src/Kernel/Controller/AdminController.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 10
+			path: src/Kernel/Controller/AdminController.php
+
+		-
+			message: '#^Parameter \#1 \$secret of method ViMbAdmin_TwoFactor\:\:verifyCode\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/AdminController.php
+
+		-
+			message: '#^Parameter \#2 \$secret of method ViMbAdmin_TwoFactor\:\:enable\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/AdminController.php
+
+		-
+			message: '#^Parameter \#2 \$secret of method ViMbAdmin_TwoFactor\:\:getQrDataUri\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/AdminController.php
+
+		-
+			message: '#^Parameter \#3 \$authOptions of method ViMbAdmin\\Kernel\\Controller\\AdminController\:\:buildPasswordForm\(\) expects array\<string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/AdminController.php
+
+		-
+			message: '#^Parameter \#5 \$authOptions of method ViMbAdmin_Service_Admin\:\:changePassword\(\) expects array\<string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/AdminController.php
+
+		-
+			message: '#^Parameter \#5 \$authOptions of method ViMbAdmin_Service_Admin\:\:create\(\) expects array\<string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/AdminController.php
+
+		-
+			message: '#^Cannot access offset ''enable'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AliasController.php
+
+		-
+			message: '#^Cannot access offset ''pagination'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AliasController.php
+
+		-
+			message: '#^Cannot access offset ''server_side'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AliasController.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 9
+			path: src/Kernel/Controller/AliasController.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 3
+			path: src/Kernel/Controller/AliasController.php
+
+		-
+			message: '#^Parameter \#1 \$domain of method Entities\\Admin\:\:canManageDomain\(\) expects Entities\\Domain, Entities\\Domain\|null given\.$#'
+			identifier: argument.type
+			count: 3
+			path: src/Kernel/Controller/AliasController.php
+
+		-
+			message: '#^Parameter \#1 \$p of static method ViMbAdmin\\Kernel\\DataTable\\DataTableQuery\:\:fromArray\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/AliasController.php
+
+		-
+			message: '#^Parameter \#3 \$domain of class ViMbAdmin\\Kernel\\Plugin\\AliasContext constructor expects object, Entities\\Domain\|null given\.$#'
+			identifier: argument.type
+			count: 3
+			path: src/Kernel/Controller/AliasController.php
+
+		-
+			message: '#^Cannot access offset ''active'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Cannot access offset ''archive'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Cannot access offset ''enable'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Cannot access offset ''local_part'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Cannot access offset ''name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Cannot access offset ''pagination'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Cannot access offset ''password'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Cannot access offset ''quota'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Cannot access offset ''server_side'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Cannot access offset ''username'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 2
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Parameter \#1 \$active of method Entities\\Mailbox\:\:setActive\(\) expects bool, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Parameter \#1 \$localPart of method Entities\\Mailbox\:\:setLocalPart\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Parameter \#1 \$name of method Entities\\Mailbox\:\:setName\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Parameter \#1 \$p of static method ViMbAdmin\\Kernel\\DataTable\\DataTableQuery\:\:fromArray\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Parameter \#1 \$password of method Entities\\Mailbox\:\:setPassword\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Parameter \#1 \$quota of method Entities\\Mailbox\:\:setQuota\(\) expects int, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Parameter \#1 \$username of method Entities\\Mailbox\:\:setUsername\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/ArchiveController.php
+
+		-
+			message: '#^Binary operation "\+" between mixed and 1 results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Binary operation "\." between mixed and '' \- Password Reset…'' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Binary operation "\." between mixed and '' \- Your Password…'' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''auth'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 6
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''email'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''email_format'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''entity'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''force_disable'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''lost_password'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''mailbox'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''mailer'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''min_password_length'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''oss'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 6
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''password_scheme'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''sitename'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''statedir'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''trustedproxy'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''use_captcha'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 3
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 30
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Parameter \#1 \$secret of method ViMbAdmin_TwoFactor\:\:verifyCode\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Parameter \#2 \$config of static method OSS_Auth_Password\:\:hash\(\) expects array\<string, mixed\>\|string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Parameter \#2 \$opts of class ViMbAdmin_BruteForce constructor expects array\<string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Parameter \#2 \$secret of method ViMbAdmin_TwoFactor\:\:enable\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Parameter \#2 \$secret of method ViMbAdmin_TwoFactor\:\:getQrDataUri\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Parameter \#3 \$config of static method OSS_Auth_Password\:\:verify\(\) expects array\<string, mixed\>\|string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/AuthController.php
+
+		-
+			message: '#^Cannot access offset ''aliases'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot access offset ''disabled'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot access offset ''domain'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot access offset ''enable'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot access offset ''list_size'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot access offset ''mailboxes'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot access offset ''maxquota'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot access offset ''multiplier'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot access offset ''pagination'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot access offset ''quota'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot access offset ''server_side'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot access offset ''transport'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot call method setValue\(\) on ViMbAdmin\\Kernel\\Form\\Field\|null\.$#'
+			identifier: method.nonObject
+			count: 9
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 11
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 10
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Parameter \#1 \$multiplier of class OSS_Filter_FileSize constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Parameter \#1 \$p of static method ViMbAdmin\\Kernel\\DataTable\\DataTableQuery\:\:fromArray\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Parameter \#1 \$remaining of method ViMbAdmin\\Kernel\\Controller\\DomainController\:\:buildAssignAdminForm\(\) expects array\<int\|string, string\>, array\<int\|string, string\|null\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Parameter \#2 \$value of method ViMbAdmin\\Kernel\\Controller\\DomainController\:\:defaulted\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Possibly invalid array key type mixed\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 2
+			path: src/Kernel/Controller/DomainController.php
+
+		-
+			message: '#^Cannot access offset ''enable'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/LogController.php
+
+		-
+			message: '#^Cannot access offset ''log'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/LogController.php
+
+		-
+			message: '#^Cannot access offset ''pagination'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/LogController.php
+
+		-
+			message: '#^Cannot access offset ''server_side'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/LogController.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 2
+			path: src/Kernel/Controller/LogController.php
+
+		-
+			message: '#^Parameter \#1 \$p of static method ViMbAdmin\\Kernel\\DataTable\\DataTableQuery\:\:fromArray\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/LogController.php
+
+		-
+			message: '#^Anonymous function should return string\|null but returns mixed\.$#'
+			identifier: return.type
+			count: 2
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''address'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''disabled'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''email'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''enable'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''key'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''list_size'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''mailbox'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''min_password_length'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''multiplier'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''name'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''pagination'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''password_scheme'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''quota'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''runner'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''server_side'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset \(int\|string\) on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset mixed on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot call method getAliasCount\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot call method getDomain\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot call method getMaxQuota\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot call method getQuota\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot call method setAliasCount\(\) on Entities\\Domain\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 18
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 19
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Parameter \#1 \$altEmail of method Entities\\Mailbox\:\:setAltEmail\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Parameter \#1 \$domain of method Entities\\Admin\:\:canManageDomain\(\) expects Entities\\Domain, Entities\\Domain\|null given\.$#'
+			identifier: argument.type
+			count: 8
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Parameter \#1 \$multiplier of class OSS_Filter_FileSize constructor expects string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Parameter \#1 \$p of static method ViMbAdmin\\Kernel\\DataTable\\DataTableQuery\:\:fromArray\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Parameter \#2 \$domain of method Repositories\\Mailbox\:\:loadForMailboxList\(\) expects Entities\\Domain\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Parameter \#2 \$domain of method Repositories\\Mailbox\:\:pagedForMailboxList\(\) expects Entities\\Domain\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Parameter \#2 \$mult of method ViMbAdmin\\Kernel\\Controller\\MailboxController\:\:buildMailboxEditForm\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Parameter \#3 \$domain of class ViMbAdmin\\Kernel\\Plugin\\MailboxContext constructor expects object, Entities\\Domain\|null given\.$#'
+			identifier: argument.type
+			count: 3
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Parameter \#3 \$mult of method ViMbAdmin\\Kernel\\Controller\\MailboxController\:\:buildMailboxAddForm\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Possibly invalid array key type mixed\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 2
+			path: src/Kernel/Controller/MailboxController.php
+
+		-
+			message: '#^Cannot access offset ''autoprune'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MaintenanceController.php
+
+		-
+			message: '#^Cannot access offset ''days'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MaintenanceController.php
+
+		-
+			message: '#^Cannot access offset ''maildir_root'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/MaintenanceController.php
+
+		-
+			message: '#^Cannot access offset ''username'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/MaintenanceController.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 6
+			path: src/Kernel/Controller/MaintenanceController.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 3
+			path: src/Kernel/Controller/MaintenanceController.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strtolower expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/MaintenanceController.php
+
+		-
+			message: '#^Possibly invalid array key type mixed\.$#'
+			identifier: offsetAccess.invalidOffset
+			count: 1
+			path: src/Kernel/Controller/MaintenanceController.php
+
+		-
+			message: '#^Cannot access offset ''allowed_ips'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/QueueController.php
+
+		-
+			message: '#^Cannot access offset ''key'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/QueueController.php
+
+		-
+			message: '#^Cannot access offset ''max_per_run'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Controller/QueueController.php
+
+		-
+			message: '#^Cannot access offset ''mode'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/QueueController.php
+
+		-
+			message: '#^Cannot access offset ''proxies'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Controller/QueueController.php
+
+		-
+			message: '#^Cannot access offset ''runner'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: src/Kernel/Controller/QueueController.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 4
+			path: src/Kernel/Controller/QueueController.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 4
+			path: src/Kernel/Controller/QueueController.php
+
+		-
+			message: '#^Parameter \#1 \$server of static method ViMbAdmin_Net\:\:clientIp\(\) expects array\<string, mixed\>, array\<mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/QueueController.php
+
+		-
+			message: '#^Parameter \#2 \$mode of static method ViMbAdmin_Net\:\:clientIp\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Controller/QueueController.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 4
+			path: src/Kernel/DataTable/DataTableQuery.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 2
+			path: src/Kernel/DataTable/DataTableQuery.php
+
+		-
+			message: '#^Cannot access offset ''doctrine2'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Doctrine/EntityManagerFactory.php
+
+		-
+			message: '#^Cannot access offset ''doctrine2cache'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Doctrine/EntityManagerFactory.php
+
+		-
+			message: '#^Cannot access offset ''dsn'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Doctrine/EntityManagerFactory.php
+
+		-
+			message: '#^Cannot access offset ''options'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Doctrine/EntityManagerFactory.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: src/Kernel/Doctrine/EntityManagerFactory.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 9
+			path: src/Kernel/Doctrine/EntityManagerFactory.php
+
+		-
+			message: '#^Parameter \#1 \$cfg of static method ViMbAdmin\\Kernel\\Doctrine\\EntityManagerFactory\:\:buildCache\(\) expects array\<string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Doctrine/EntityManagerFactory.php
+
+		-
+			message: '#^Parameter \#1 \$dconfig of static method ViMbAdmin\\Kernel\\Doctrine\\EntityManagerFactory\:\:withLayoutDefaults\(\) expects array\<string, mixed\>, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Kernel/Doctrine/EntityManagerFactory.php
+
+		-
+			message: '#^Parameter \#1 \$params of static method Doctrine\\DBAL\\DriverManager\:\:getConnection\(\) expects array\{application_name\?\: string, charset\?\: string, dbname\?\: string, defaultTableOptions\?\: array\<string, mixed\>, driver\?\: ''ibm_db2''\|''mysqli''\|''oci8''\|''pdo_mysql''\|''pdo_oci''\|''pdo_pgsql''\|''pdo_sqlite''\|''pdo_sqlsrv''\|''pgsql''\|''sqlite3''\|''sqlsrv'', driverClass\?\: class\-string\<Doctrine\\DBAL\\Driver\>, driverOptions\?\: array\<mixed\>, host\?\: string, \.\.\.\}, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Doctrine/EntityManagerFactory.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Kernel/Doctrine/Type/LegacyObjectType.php
+
+		-
+			message: '#^Method ViMbAdmin\\Kernel\\Flash\\FlashMessages\:\:rawQueue\(\) should return list\<array\{text\?\: string, level\?\: string, isHtml\?\: bool\}\> but returns list\<mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Kernel/Flash/FlashMessages.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Kernel/Form/Form.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 3
+			path: src/Kernel/Form/FormRenderer.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 9
+			path: src/Kernel/Form/Validators.php
+
+		-
+			message: '#^Parameter \#1 \$callback of function array_map expects \(callable\(mixed\)\: mixed\)\|null, ''strval'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Form/Validators.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: src/Kernel/Mail/Mailer.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 5
+			path: src/Kernel/Mail/Mailer.php
+
+		-
+			message: '#^Cannot access offset ''idle_timeout'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot access offset ''session'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot access property \$action on mixed\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot access property \$controller on mixed\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot access property \$csrfToken on mixed\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot access property \$hasIdentity on mixed\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot access property \$identity on mixed\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot access property \$options on mixed\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot access property \$session on mixed\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot access property \$skinCss on mixed\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot access property \$user on mixed\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot call method render\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 2
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 3
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Method ViMbAdmin\\Kernel\\Mvc\\AbstractController\:\:postData\(\) should return array\<string, mixed\> but returns array\<mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Kernel/Mvc/AbstractController.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: src/Kernel/Plugin/AbstractContext.php
+
+		-
+			message: '#^Cannot access offset ''enabled'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Plugin/FormPluginHost.php
+
+		-
+			message: '#^Cannot access offset string on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Plugin/FormPluginHost.php
+
+		-
+			message: '#^Cannot access offset ''enabled'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Plugin/PluginHost.php
+
+		-
+			message: '#^Cannot access offset string on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Kernel/Plugin/PluginHost.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: src/Kernel/Security/Auth.php
+
+		-
+			message: '#^Method ViMbAdmin\\Kernel\\Security\\Auth\:\:identity\(\) should return array\<string, mixed\>\|null but returns array\<mixed, mixed\>\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Kernel/Security/Auth.php
+
+		-
+			message: '#^Cannot access offset string on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Kernel/Session/NativeSessionStorage.php
+
+		-
+			message: '#^Parameter \#2 \$array of function array_key_exists expects array, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/Session/NativeSessionStorage.php
+
+		-
+			message: '#^Cannot access offset string on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 3
+			path: src/Kernel/Session/SessionNamespace.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 8
+			path: src/Kernel/View/SmartyView.php
+
+		-
+			message: '#^Parameter \#1 \$plugins_dir of method Smarty\\Smarty\:\:addPluginsDir\(\) expects array\|string\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Kernel/View/SmartyView.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-cache-bootstrap.php
+
+		-
+			message: '#^Parameter \#1 \$paths of class Doctrine\\ORM\\Mapping\\Driver\\AttributeDriver constructor expects array\<string\>\|Doctrine\\Persistence\\Mapping\\Driver\\ClassLocator, array\<int, string\|false\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/test-cache-bootstrap.php
+
+		-
+			message: '#^Parameter \#2 \$ok of function check expects bool, Closure given\.$#'
+			identifier: argument.type
+			count: 3
+			path: tests/test-cache-bootstrap.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-cache-bootstrap.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-captcha.php
+
+		-
+			message: '#^Offset non\-falsy\-string on array\{\} in isset\(\) does not exist\.$#'
+			identifier: isset.offset
+			count: 1
+			path: tests/test-captcha.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: tests/test-captcha.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-dovecot-password.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: tests/test-dovecot-password.php
+
+		-
+			message: '#^Anonymous function should return object\|null but returns mixed\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/test-kernel-auth.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-auth.php
+
+		-
+			message: '#^Function loaderFor\(\) has parameter \$table with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/test-kernel-auth.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-kernel-auth.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-kernel-auth.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-bootstrap.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: tests/test-kernel-bootstrap.php
+
+		-
+			message: '#^Trying to invoke mixed but it''s not a callable\.$#'
+			identifier: callable.nonCallable
+			count: 4
+			path: tests/test-kernel-bootstrap.php
+
+		-
+			message: '#^Argument of an invalid type list\<string\>\|false supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: tests/test-kernel-cli.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-cli.php
+
+		-
+			message: '#^Instanceof between ViMbAdmin\\Kernel\\Cli\\Command\\QueueRunCommand and ViMbAdmin\\Kernel\\Cli\\CliCommand will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: tests/test-kernel-cli.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: tests/test-kernel-cli.php
+
+		-
+			message: '#^Cannot access offset ''b'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Cannot access offset ''connection'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Cannot access offset ''doctrine2'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Cannot access offset ''driver'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Cannot access offset ''k'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Cannot access offset ''library'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Cannot access offset ''off'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Cannot access offset ''on'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Cannot access offset ''options'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Cannot access offset ''prod'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Cannot access offset ''x'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Cannot access offset ''y'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: tests/test-kernel-config.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: tests/test-kernel-csrf.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-csrf.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-kernel-csrf.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-kernel-csrf.php
+
+		-
+			message: '#^Cannot access offset ''aaData'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/test-kernel-datatable.php
+
+		-
+			message: '#^Cannot access offset ''iTotalDisplayRecords'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/test-kernel-datatable.php
+
+		-
+			message: '#^Cannot access offset ''username'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/test-kernel-datatable.php
+
+		-
+			message: '#^Cannot access offset 1 on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/test-kernel-datatable.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-datatable.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: tests/test-kernel-datatable.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getId\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/test-kernel-dispatch.php
+
+		-
+			message: '#^Call to an undefined method object\:\:ping\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/test-kernel-dispatch.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-dispatch.php
+
+		-
+			message: '#^Method BootstrapFake\:\:getOptions\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/test-kernel-dispatch.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-kernel-dispatch.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-kernel-dispatch.php
+
+		-
+			message: '#^Cannot call method getAutoGenerateProxyClasses\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Cannot call method getClassMetadata\(\) on object\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Cannot call method getConfiguration\(\) on object\|null\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Cannot call method getMetadataCache\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Cannot call method getMetadataDriverImpl\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Cannot call method getProxyNamespace\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Cannot call method getQueryCache\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Cannot call method getResultCache\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Cannot call method getTableName\(\) on mixed\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Cannot cast mixed to int\.$#'
+			identifier: cast.int
+			count: 1
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 12
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Parameter \#2 \$ok of function check expects bool, Closure given\.$#'
+			identifier: argument.type
+			count: 6
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: tests/test-kernel-em-factory.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-flash.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-form-plugin-host.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-kernel-form-plugin-host.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-kernel-form-plugin-host.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-form.php
+
+		-
+			message: '#^Parameter \#2 \$offset of function substr expects int, int\<0, max\>\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/test-kernel-form.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-kernel-form.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-kernel-form.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-http.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-kernel-http.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-kernel-http.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-mailer.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: tests/test-kernel-mailer.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-mcp.php
+
+		-
+			message: '#^Function controllerFor\(\) has parameter \$options with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/test-kernel-mcp.php
+
+		-
+			message: '#^Method McpTestResources\:\:__construct\(\) has parameter \$options with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/test-kernel-mcp.php
+
+		-
+			message: '#^Method McpTestResources\:\:getOptions\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/test-kernel-mcp.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: tests/test-kernel-mcp.php
+
+		-
+			message: '#^Call to function in_array\(\) with arguments ''alias_toggleActive…'', array\{\} and true will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: tests/test-kernel-plugin-host.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-plugin-host.php
+
+		-
+			message: '#^Method class@anonymous/tests/test\-kernel\-plugin\-host\.php\:68\:\:getOptions\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/test-kernel-plugin-host.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-kernel-plugin-host.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-kernel-plugin-host.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-router.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-kernel-router.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-kernel-router.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: tests/test-kernel-session-adapter.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-session-adapter.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-kernel-session-adapter.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-kernel-session-adapter.php
+
+		-
+			message: '#^Cannot access offset ''username'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/test-kernel-session-namespace.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-session-namespace.php
+
+		-
+			message: '#^Cannot cast mixed to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: tests/test-kernel-smarty-view.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-kernel-smarty-view.php
+
+		-
+			message: '#^Parameter \#2 \$ok of function check expects bool, Closure given\.$#'
+			identifier: argument.type
+			count: 8
+			path: tests/test-kernel-smarty-view.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: tests/test-kernel-smarty-view.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-mcp-input-validation.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-mcp-input-validation.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-mcp-input-validation.php
+
+		-
+			message: '#^Binary operation "\." between mixed and ''/public/index\.php'' results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 2
+			path: tests/test-native-entrypoint.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-native-entrypoint.php
+
+		-
+			message: '#^Function runPath\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/test-native-entrypoint.php
+
+		-
+			message: '#^Parameter \#1 \$arg of function escapeshellarg expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: tests/test-native-entrypoint.php
+
+		-
+			message: '#^Parameter \#1 \$haystack of function str_starts_with expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 2
+			path: tests/test-native-entrypoint.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: tests/test-native-entrypoint.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-queuerunner-path-safe.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-queuerunner-path-safe.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-queuerunner-path-safe.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-service-admin.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-service-admin.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-service-admin.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-service-alias.php
+
+		-
+			message: '#^Parameter \#1 \$active of method Entities\\Alias\:\:setActive\(\) expects bool, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/test-service-alias.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''postFlush\:0''\|''postFlush\:1'' and ''preFlush\:1'' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: tests/test-service-alias.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''postFlush\:0''\|''postFlush\:1'' and ''preToggle\:0'' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: tests/test-service-alias.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-service-alias.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-service-alias.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-service-archive.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-service-archive.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-service-archive.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-service-domain.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: tests/test-service-domain.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: tests/test-service-domain.php
+
+		-
+			message: '#^Cannot use \+\+ on mixed\.$#'
+			identifier: postInc.type
+			count: 1
+			path: tests/test-service-mailbox.php

@@ -3,6 +3,6 @@ includes:
     - phpstan-baseline.neon
 
 parameters:
-    # Repository-wide floor. Existing debt is recorded in the baseline; new
-    # level-3 errors are blocking.
-    level: 3
+    # Repository-wide target. Existing debt is recorded in the generated
+    # baseline; every diagnostic without an exact baseline match is blocking.
+    level: 10

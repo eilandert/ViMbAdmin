@@ -22,8 +22,8 @@ jobs:
     container:
       image: >-
         mirror.gcr.io/library/php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
-    # Level 3 is the repository floor, level 7 blocks new errors throughout the
-    # project, and newly added PHP files must pass level 10 without a baseline.
+    # The complete project targets PHPStan level 10. Existing debt is generated
+    # into one baseline, which CI verifies has no stale or hand-edited drift.
     steps:
       - name: Prepare PHP container for checkout
         run: apt-get update && apt-get install --yes git
@@ -58,7 +58,9 @@ jobs:
         run: php bin/generate-proxies.php
 
       - name: Test PHPStan ratchet
-        run: bash tests/test-phpstan-ratchet.sh
+        run: |
+          bash tests/test-phpstan-ratchet.sh
+          bash tests/test-regenerate-phpstan-baseline.sh
 
       - name: Run PHPStan
         env:
