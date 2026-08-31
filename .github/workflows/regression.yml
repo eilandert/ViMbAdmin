@@ -164,6 +164,9 @@ jobs:
       - name: ViMbAdmin_Dovecot::passwordVerify (scheme-prefixed hashes)
         run: php tests/test-dovecot-password.php
 
+      - name: ViMbAdmin_Plugin construction and configuration
+        run: php tests/test-plugin.php
+
   # ------------------------------------------------------------------ #
   # Dependency + cache wiring — proves a composer bump (symfony/cache, #
   # doctrine/orm) does not break the Doctrine cache layer at runtime.  #

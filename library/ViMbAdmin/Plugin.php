@@ -54,7 +54,7 @@ class ViMbAdmin_Plugin
      */
     protected $controller;
 
-    public function __construct( object $controller, $classname )
+    public function __construct( object $controller, string $classname )
     {
         $this->controller = $controller;
 
@@ -102,9 +102,11 @@ class ViMbAdmin_Plugin
      * Set the configuration
      * @param array<string,mixed> $config
      */
-    public function setConfig( $config )
+    public function setConfig( $config ): static
     {
         $this->config = $config;
+
+        return $this;
     }
 
     /**
