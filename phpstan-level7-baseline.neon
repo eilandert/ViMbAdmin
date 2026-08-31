@@ -57,30 +57,6 @@ parameters:
 		-
 			message: '#^Call to an undefined method object\:\:flush\(\)\.$#'
 			identifier: method.notFound
-			count: 2
-			path: src/Kernel/Cli/Command/McpTokenGenerateCommand.php
-
-		-
-			message: '#^Call to an undefined method object\:\:getRepository\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Kernel/Cli/Command/McpTokenGenerateCommand.php
-
-		-
-			message: '#^Call to an undefined method object\:\:persist\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Kernel/Cli/Command/McpTokenGenerateCommand.php
-
-		-
-			message: '#^Call to an undefined method object\:\:remove\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Kernel/Cli/Command/McpTokenGenerateCommand.php
-
-		-
-			message: '#^Call to an undefined method object\:\:flush\(\)\.$#'
-			identifier: method.notFound
 			count: 1
 			path: src/Kernel/Cli/Command/ResetTotpCommand.php
 

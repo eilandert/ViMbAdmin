@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Cli\Command;
 
+use Doctrine\Persistence\ObjectRepository;
+use Entities\McpToken;
+use LogicException;
 use ViMbAdmin\Kernel\Cli\CliCommand;
 use ViMbAdmin\Kernel\Container;
 
@@ -38,16 +41,27 @@ final class McpTokenGenerateCommand implements CliCommand
             return 1;
         }
 
-        $em  = $container->entityManager();
-        $old = $em->getRepository('\\Entities\\McpToken')->findByName($name);
+        $entityManager = $container->entityManager();
+        if (
+            !method_exists($entityManager, 'getRepository')
+            || !method_exists($entityManager, 'persist')
+            || !method_exists($entityManager, 'remove')
+            || !method_exists($entityManager, 'flush')
+        ) {
+            throw new LogicException('MCP token generation requires a Doctrine object manager.');
+        }
+
+        /** @var ObjectRepository<McpToken> $repository */
+        $repository = $entityManager->getRepository('\\Entities\\McpToken');
+        $old = $repository->findOneBy(['name' => $name]);
         if ($old !== null) {
             if (!$old->getRevoked()) {
                 echo "ERROR: an active token named '{$name}' already exists (revoke it first)\n";
                 return 1;
             }
             // name is free to reuse: drop the old revoked row
-            $em->remove($old);
-            $em->flush();
+            $entityManager->remove($old);
+            $entityManager->flush();
         }
 
         $raw = bin2hex(random_bytes(32));
@@ -65,8 +79,8 @@ final class McpTokenGenerateCommand implements CliCommand
             $tok->setExpiresAt((new \DateTime())->modify('+' . (int) $days . ' days'));
         }
 
-        $em->persist($tok);
-        $em->flush();
+        $entityManager->persist($tok);
+        $entityManager->flush();
 
         echo "MCP token '{$name}' created. Scope: {$tok->getScope()}.";
         echo $tok->getAllowedIps() ? " IPs: {$tok->getAllowedIps()}." : ' IPs: any.';

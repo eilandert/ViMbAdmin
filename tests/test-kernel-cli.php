@@ -52,6 +52,7 @@ require __DIR__ . '/../src/Kernel/Cli/CliKernel.php';
 // CliKernel pulls in Bootstrap via a `use` import only for run(); canHandle()
 // touches none of it. Provide the class only if not already autoloaded.
 use ViMbAdmin\Kernel\Cli\Command\QueueRunCommand;
+use ViMbAdmin\Kernel\Cli\Command\McpTokenGenerateCommand;
 use ViMbAdmin\Kernel\Cli\Command\McpTokenListCommand;
 use ViMbAdmin\Kernel\Cli\Command\McpTokenRevokeCommand;
 use ViMbAdmin\Kernel\Cli\CliKernel;
@@ -128,6 +129,13 @@ final class CliMcpTokenRepository implements \Doctrine\Persistence\ObjectReposit
 final class CliMcpObjectManager
 {
     public int $flushes = 0;
+    /** @var list<string> */
+    public array $operations = [];
+    /** @var list<object> */
+    public array $persisted = [];
+    /** @var list<object> */
+    public array $removed = [];
+    public ?Throwable $writeError = null;
     public function __construct(public CliMcpTokenRepository $repository) {}
     public function getRepository(string $className): CliMcpTokenRepository
     {
@@ -136,7 +144,24 @@ final class CliMcpObjectManager
         }
         return $this->repository;
     }
-    public function flush(): void { $this->flushes++; }
+    public function persist(object $object): void
+    {
+        $this->operations[] = 'persist';
+        if ($this->writeError !== null) { throw $this->writeError; }
+        $this->persisted[] = $object;
+    }
+    public function remove(object $object): void
+    {
+        $this->operations[] = 'remove';
+        if ($this->writeError !== null) { throw $this->writeError; }
+        $this->removed[] = $object;
+    }
+    public function flush(): void
+    {
+        $this->operations[] = 'flush';
+        if ($this->writeError !== null) { throw $this->writeError; }
+        $this->flushes++;
+    }
 }
 
 final class CliTestResources
@@ -242,6 +267,21 @@ function runMcpTokenRevoke(object $entityManager, array $args): array
     ob_start();
     try {
         $status = (new McpTokenRevokeCommand())->run(cliContainer($entityManager), $args);
+        return [$status, (string) ob_get_clean()];
+    } catch (Throwable $e) {
+        ob_end_clean();
+        throw $e;
+    }
+}
+
+/** @param array<string,mixed> $args
+ *  @return array{int,string}
+ */
+function runMcpTokenGenerate(object $entityManager, array $args): array
+{
+    ob_start();
+    try {
+        $status = (new McpTokenGenerateCommand())->run(cliContainer($entityManager), $args);
         return [$status, (string) ob_get_clean()];
     } catch (Throwable $e) {
         ob_end_clean();
@@ -392,6 +432,63 @@ try {
     $revokeBoundaryRejected = $e->getMessage() === 'MCP token revocation requires a Doctrine object manager.';
 }
 check('revocation rejects non-Doctrine entity-manager resources locally', $revokeBoundaryRejected);
+
+echo "== MCP token generate command ==\n";
+
+$repository = new CliMcpTokenRepository([]);
+$entityManager = new CliMcpObjectManager($repository);
+[$status, $output] = runMcpTokenGenerate($entityManager, [
+    'name' => 'new-token',
+    'scope' => 'read write',
+    'ip' => '192.0.2.1',
+    'domains' => 'example.com',
+    'days' => '2',
+]);
+$created = $entityManager->persisted[0] ?? null;
+preg_match('/TOKEN \(shown once, store it now\):\n\n    ([a-f0-9]{64})\n/', $output, $rawMatches);
+$raw = $rawMatches[1] ?? null;
+check('token creation persists then flushes exactly once', $status === 0 && $created instanceof \Entities\McpToken && $entityManager->operations === ['persist', 'flush']);
+check('token creation retains name, scope and restriction options', $created instanceof \Entities\McpToken && $created->getName() === 'new-token' && $created->getScope() === 'read write' && $created->getAllowedIps() === '192.0.2.1' && $created->getAllowedDomains() === 'example.com');
+check('raw token is 32 random bytes shown twice while only its SHA-256 is stored', is_string($raw) && substr_count($output, $raw) === 2 && $created instanceof \Entities\McpToken && $created->getTokenHash() === hash('sha256', $raw));
+check('positive validity creates a future expiry and stable summary', $created instanceof \Entities\McpToken && $created->getCreated() instanceof DateTime && $created->getExpiresAt() instanceof DateTime && str_contains($output, "MCP token 'new-token' created. Scope: read write. IPs: 192.0.2.1. Domains: example.com. Expires: "));
+
+$active = cliMcpToken(11, 'collision');
+$repository = new CliMcpTokenRepository([$active]);
+$entityManager = new CliMcpObjectManager($repository);
+[$status, $output] = runMcpTokenGenerate($entityManager, ['name' => 'collision']);
+check('active-name collision returns an error without partial writes', $status === 1 && $repository->foundName === 'collision' && $entityManager->operations === [] && $output === "ERROR: an active token named 'collision' already exists (revoke it first)\n");
+
+$revoked = cliMcpToken(12, 'reusable')->setRevoked(true);
+$repository = new CliMcpTokenRepository([$revoked]);
+$entityManager = new CliMcpObjectManager($repository);
+[$status, $output] = runMcpTokenGenerate($entityManager, ['name' => 'reusable', 'days' => '0']);
+$replacement = $entityManager->persisted[0] ?? null;
+check('revoked-name replacement removes and flushes before creating', $status === 0 && $entityManager->removed === [$revoked] && $entityManager->operations === ['remove', 'flush', 'persist', 'flush']);
+check('zero-day boundary keeps defaults and no expiry', $replacement instanceof \Entities\McpToken && $replacement->getScope() === 'read' && $replacement->getAllowedIps() === null && $replacement->getAllowedDomains() === null && $replacement->getExpiresAt() === null && str_contains($output, 'Scope: read. IPs: any. Domains: all. No expiry.'));
+
+$repository = new CliMcpTokenRepository([]);
+$entityManager = new CliMcpObjectManager($repository);
+[$status, $output] = runMcpTokenGenerate($entityManager, ['name' => 123, 'scope' => ['write']]);
+check('invalid required input fails before repository or persistence work', $status === 1 && $repository->foundName === null && $entityManager->operations === [] && $output === "ERROR: --name is required\n");
+
+$repository = new CliMcpTokenRepository([]);
+$entityManager = new CliMcpObjectManager($repository);
+$entityManager->writeError = new RuntimeException('token persist failed');
+$writeErrorPropagated = false;
+try {
+    runMcpTokenGenerate($entityManager, ['name' => 'write-error']);
+} catch (RuntimeException $e) {
+    $writeErrorPropagated = $e->getMessage() === 'token persist failed';
+}
+check('persistence errors propagate without a flush', $writeErrorPropagated && $entityManager->operations === ['persist'] && $entityManager->flushes === 0);
+
+$generateBoundaryRejected = false;
+try {
+    runMcpTokenGenerate(new stdClass(), ['name' => 'boundary']);
+} catch (LogicException $e) {
+    $generateBoundaryRejected = $e->getMessage() === 'MCP token generation requires a Doctrine object manager.';
+}
+check('generation rejects non-Doctrine entity-manager resources locally', $generateBoundaryRejected);
 
 echo $failures === 0 ? "ALL PASSED\n" : "FAILED ($failures)\n";
 exit($failures === 0 ? 0 : 1);
