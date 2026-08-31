@@ -71,6 +71,7 @@ final class PluginHost
     public function notify(string $controller, string $action, string $hook, object $context, ?array $params = null): bool
     {
         foreach ($this->observers as $observer) {
+            /** @var \OSS_Plugin_Observer $observer */
             if ($observer->update($controller, $action, $hook, $context, $params) === false) {
                 return false;
             }

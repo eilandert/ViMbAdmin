@@ -99,11 +99,50 @@ check('notify returns false on veto',          $vetoed === false);
 $passed = $host->notify('mailbox', 'toggleActive', 'postflush', $context);
 check('notify true for a non-vetoed hook',     $passed === true);
 
+// A legacy plugin class without update() is still discovered and only fails
+// when dispatch reaches it, matching the historical dynamic-call boundary.
+$malformedDir = $dir . '-malformed';
+@mkdir($malformedDir, 0700, true);
+file_put_contents("$malformedDir/Malformed.php", <<<'PHP'
+<?php
+class ViMbAdminPlugin_Malformed
+{
+    public function __construct($context) { $GLOBALS['malformed_ctx'] = $context; }
+}
+PHP);
+$malformedContext = new class {
+    /** @return array<string,mixed> */
+    public function getOptions(): array
+    {
+        return ['vimbadmin_plugins' => [
+            'Malformed' => ['enabled' => true],
+            'Missing' => ['enabled' => true],
+        ]];
+    }
+};
+$malformedHost = new PluginHost($malformedContext, $malformedDir);
+check('malformed plugin is discovered', $malformedHost->observerCount() === 1);
+try {
+    $malformedHost->notify('mailbox', 'add', 'preflush', $malformedContext);
+    check('malformed plugin fails at dispatch', false);
+} catch (Error $e) {
+    check('malformed plugin fails at dispatch', str_contains($e->getMessage(), 'update'));
+}
+check('malformed plugin received context', ($GLOBALS['malformed_ctx'] ?? null) === $malformedContext);
+
+// A file without the conventional class is ignored rather than instantiated.
+file_put_contents("$malformedDir/Missing.php", "<?php\nclass UnrelatedPlugin {}\n");
+$missingHost = new PluginHost($malformedContext, $malformedDir);
+check('missing conventional class is ignored', $missingHost->observerCount() === 1);
+
 // --- cleanup ------------------------------------------------------------- //
 @unlink("$dir/Recorder.php");
 @unlink("$dir/Veto.php");
 @unlink("$dir/Disabled.php");
 @rmdir($dir);
+@unlink("$malformedDir/Malformed.php");
+@unlink("$malformedDir/Missing.php");
+@rmdir($malformedDir);
 
 echo "\n";
 if ($failures === 0) {

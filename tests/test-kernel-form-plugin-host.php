@@ -102,6 +102,22 @@ $host->apply($mb, ['x' => 1], $options);
 check('apply() ran the writeback',          $mb->getName() === 'EXT');
 check('apply() receives options and null EM', ($GLOBALS['ext_apply_opts'] ?? null) === $options && array_key_exists('ext_apply_em', $GLOBALS) && $GLOBALS['ext_apply_em'] === null);
 
+try {
+    $host->fields(new \stdClass(), $options);
+    check('fields() rejects a non-mailbox object', false);
+} catch (TypeError $e) {
+    check('fields() rejects a non-mailbox object', str_contains($e->getMessage(), 'Entities\\Mailbox'));
+}
+try {
+    $host->apply(new \stdClass(), ['x' => 1], $options);
+    check('apply() rejects a non-mailbox object', false);
+} catch (TypeError $e) {
+    check('apply() rejects a non-mailbox object', str_contains($e->getMessage(), 'Entities\\Mailbox'));
+}
+
+$emptyHost = new FormPluginHost([], $dir . '-missing');
+check('missing plugin directory yields no extensions', $emptyHost->extensionCount() === 0);
+
 @unlink("$dir/Ext.php"); @unlink("$dir/Plain.php"); @unlink("$dir/Off.php"); @rmdir($dir);
 
 // ============ Part B: AccessPermissions native adapter ================= //
