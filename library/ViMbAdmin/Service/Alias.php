@@ -107,7 +107,7 @@ class ViMbAdmin_Service_Alias
         ?callable $postFlush = null
     ): \Entities\Alias {
         $alias->setDomain($domain);
-        $alias->setActive(1);
+        $alias->setActive(true);
         $alias->setCreated(new \DateTime());
 
         $this->em->persist($alias);

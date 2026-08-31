@@ -61,6 +61,17 @@ final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager
     }
 }
 
+final class RecordingAlias extends \Entities\Alias
+{
+    public mixed $lastActiveArgument = null;
+
+    public function setActive($active)
+    {
+        $this->lastActiveArgument = $active;
+        return parent::setActive($active);
+    }
+}
+
 $failures = 0;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
@@ -135,7 +146,7 @@ $mkDomain = static function (int $count): \Entities\Domain {
 // --- create: forwarding alias (address != goto) bumps the count ------- //
 $emC = new FakeObjectManager();
 $domC = $mkDomain(4);
-$alC  = new \Entities\Alias();
+$alC  = new RecordingAlias();
 $alC->setAddress('info@example.com');
 $alC->setGoto('boss@example.com');
 $orderC = [];
@@ -146,13 +157,37 @@ $created = (new ViMbAdmin_Service_Alias($emC))->create(
 );
 check('create returns the alias',             $created === $alC);
 check('create set the domain',                $alC->getDomain() === $domC);
-check('create set active',                    (bool) $alC->getActive() === true);
+check('create passes a boolean active value', $alC->lastActiveArgument === true);
+check('create set active',                    $alC->getActive() === true);
 check('create stamped created',               $alC->getCreated() instanceof \DateTime);
 check('create persisted the alias',           in_array($alC, $emC->persisted, true));
 check('create bumped aliasCount (addr!=goto)', (int) $domC->getAliasCount() === 5);
 check('create logged ACTION_ALIAS_ADD',       $emC->lastLog()?->getAction() === \Entities\Log::ACTION_ALIAS_ADD);
 check('create flushed once',                  $emC->flushes === 1);
 check('create hook order around flush',       $orderC === ['preFlush:0', 'postFlush:1']);
+
+// --- create: preFlush failure stops flush and postFlush -------------- //
+$emE = new FakeObjectManager();
+$domE = $mkDomain(2);
+$alE = new \Entities\Alias();
+$alE->setAddress('error@example.com');
+$alE->setGoto('target@example.com');
+$postFlushRan = false;
+try {
+    (new ViMbAdmin_Service_Alias($emE))->create(
+        $alE,
+        $domE,
+        $actor,
+        static function (): void { throw new \RuntimeException('preFlush failure'); },
+        static function () use (&$postFlushRan): void { $postFlushRan = true; },
+    );
+    check('create propagates preFlush failure', false);
+} catch (\RuntimeException $e) {
+    check('create propagates preFlush failure', $e->getMessage() === 'preFlush failure');
+}
+check('create preFlush failure prevents flush', $emE->flushes === 0);
+check('create preFlush failure skips postFlush', $postFlushRan === false);
+check('create accounts allowance before preFlush', (int) $domE->getAliasCount() === 3);
 
 // --- create: self-alias (address == goto) does NOT bump the count ----- //
 $emS = new FakeObjectManager();
