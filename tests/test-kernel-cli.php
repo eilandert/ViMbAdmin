@@ -9,6 +9,41 @@
 require __DIR__ . '/../vendor/autoload.php';
 require __DIR__ . '/../application/Entities/McpToken.php';
 require __DIR__ . '/../src/Kernel/Cli/CliCommand.php';
+
+final class CliQueueRunnerState
+{
+    /** @var list<int|Throwable> */
+    public static array $results = [];
+    /** @var list<array{int,bool}> */
+    public static array $drains = [];
+    /** @var array<string,mixed> */
+    public static array $options = [];
+    public static ?Doctrine\Persistence\ObjectManager $entityManager = null;
+}
+
+final class ViMbAdmin_Service_QueueRunner
+{
+    /** @param array<string,mixed> $options */
+    public function __construct(Doctrine\Persistence\ObjectManager $entityManager, array $options)
+    {
+        CliQueueRunnerState::$entityManager = $entityManager;
+        CliQueueRunnerState::$options = $options;
+    }
+
+    public function drain(int $max, bool $verbose): int
+    {
+        CliQueueRunnerState::$drains[] = [$max, $verbose];
+        $result = array_shift(CliQueueRunnerState::$results);
+        if ($result instanceof Throwable) {
+            throw $result;
+        }
+        if (!is_int($result)) {
+            throw new LogicException('Queue command drained beyond the configured test results.');
+        }
+        return $result;
+    }
+}
+
 foreach (glob(__DIR__ . '/../src/Kernel/Cli/Command/*.php') as $cmd) {
     require $cmd;
 }
@@ -79,9 +114,10 @@ final class CliMcpObjectManager
 
 final class CliTestResources
 {
-    public function __construct(private object $entityManager) {}
+    /** @param array<string,mixed> $options */
+    public function __construct(private object $entityManager, private array $options = []) {}
     /** @return array<string,mixed> */
-    public function getOptions(): array { return []; }
+    public function getOptions(): array { return $this->options; }
     public function getResource(string $name): object
     {
         if ($name !== 'doctrine2') {
@@ -91,12 +127,61 @@ final class CliTestResources
     }
 }
 
-function cliContainer(object $entityManager): Container
+/** @param array<string,mixed> $options */
+function cliContainer(object $entityManager, array $options = []): Container
 {
     return new Container(
-        new CliTestResources($entityManager),
+        new CliTestResources($entityManager, $options),
         new Auth(new CliTestSession(), static fn(int $id): null => null),
     );
+}
+
+final class CliQueueObjectManager implements Doctrine\Persistence\ObjectManager
+{
+    public function find(string $className, mixed $id): ?object { return null; }
+    public function persist(object $object): void {}
+    public function remove(object $object): void {}
+    public function clear(): void {}
+    public function detach(object $object): void {}
+    public function refresh(object $object): void {}
+    public function flush(): void {}
+    public function getRepository(string $className): Doctrine\Persistence\ObjectRepository
+    {
+        throw new LogicException('Queue command test does not query repositories directly.');
+    }
+    public function getClassMetadata(string $className): Doctrine\Persistence\Mapping\ClassMetadata
+    {
+        throw new LogicException('Queue command test does not query metadata.');
+    }
+    public function getMetadataFactory(): Doctrine\Persistence\Mapping\ClassMetadataFactory
+    {
+        throw new LogicException('Queue command test does not query metadata.');
+    }
+    public function initializeObject(object $obj): void {}
+    public function isUninitializedObject(mixed $value): bool { return false; }
+    public function contains(object $object): bool { return false; }
+}
+
+/** @param list<int|Throwable> $results
+ *  @param array<string,mixed> $options
+ *  @param array<string,mixed> $args
+ *  @return array{int,string}
+ */
+function runQueueCommand(array $results, array $options = [], array $args = []): array
+{
+    CliQueueRunnerState::$results = $results;
+    CliQueueRunnerState::$drains = [];
+    CliQueueRunnerState::$options = [];
+    CliQueueRunnerState::$entityManager = null;
+
+    ob_start();
+    try {
+        $status = (new QueueRunCommand())->run(cliContainer(new CliQueueObjectManager(), $options), $args);
+        return [$status, (string) ob_get_clean()];
+    } catch (Throwable $e) {
+        ob_end_clean();
+        throw $e;
+    }
 }
 
 function cliMcpToken(int $id, string $name): \Entities\McpToken
@@ -156,6 +241,41 @@ check('commands() == registered set',    $got === $want);
 $cmd = new QueueRunCommand();
 check('QueueRunCommand name',            $cmd->name() === 'queue.cli-run');
 check('CliCommand contract',             $cmd instanceof \ViMbAdmin\Kernel\Cli\CliCommand);
+
+echo "== queue run command ==\n";
+
+[$status, $output] = runQueueCommand([2, 1, 0]);
+check('queue drains until empty and succeeds', $status === 0 && $output === '' && CliQueueRunnerState::$drains === [[5, false], [5, false], [5, false]]);
+check('queue passes the validated object manager to the runner', CliQueueRunnerState::$entityManager instanceof CliQueueObjectManager);
+
+$queueOptions = ['queue' => ['runner' => ['max_per_run' => 7]]];
+[$status, $output] = runQueueCommand([3, 0], $queueOptions);
+check('queue uses configured max_per_run and forwards options', $status === 0 && $output === '' && CliQueueRunnerState::$drains === [[7, false], [7, false]] && CliQueueRunnerState::$options === $queueOptions);
+
+[$status, $output] = runQueueCommand([4, 3], [], ['once' => true]);
+check('--once drains exactly one batch', $status === 0 && $output === '' && CliQueueRunnerState::$drains === [[5, false]]);
+
+[$status, $output] = runQueueCommand([2, 1, 0], [], ['verbose' => true]);
+check('verbose mode forwards the flag and prints the processed total', $status === 0 && $output === "Processed 3 task(s).\n" && CliQueueRunnerState::$drains === [[5, true], [5, true], [5, true]]);
+
+[$status, $output] = runQueueCommand([-1], [], ['v' => true]);
+check('lease throttling stops the loop and reports zero processed', $status === 0 && $output === "Processed 0 task(s).\n" && CliQueueRunnerState::$drains === [[5, true]]);
+
+$queueErrorPropagated = false;
+try {
+    runQueueCommand([new RuntimeException('queue drain failed')]);
+} catch (RuntimeException $e) {
+    $queueErrorPropagated = $e->getMessage() === 'queue drain failed';
+}
+check('queue drain errors propagate', $queueErrorPropagated);
+
+$queueBoundaryRejected = false;
+try {
+    (new QueueRunCommand())->run(cliContainer(new stdClass()), []);
+} catch (LogicException $e) {
+    $queueBoundaryRejected = $e->getMessage() === 'Queue command requires a Doctrine object manager.';
+}
+check('queue rejects non-Doctrine entity-manager resources locally', $queueBoundaryRejected);
 
 echo "== MCP token list command ==\n";
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Cli\Command;
 
+use Doctrine\Persistence\ObjectManager;
 use ViMbAdmin\Kernel\Cli\CliCommand;
 use ViMbAdmin\Kernel\Container;
 
@@ -38,7 +39,12 @@ final class QueueRunCommand implements CliCommand
         $options = $container->options();
         $max     = (int) ($options['queue']['runner']['max_per_run'] ?? 5);
 
-        $runner = new \ViMbAdmin_Service_QueueRunner($container->entityManager(), $options);
+        $entityManager = $container->entityManager();
+        if (!$entityManager instanceof ObjectManager) {
+            throw new \LogicException('Queue command requires a Doctrine object manager.');
+        }
+
+        $runner = new \ViMbAdmin_Service_QueueRunner($entityManager, $options);
 
         $total = 0;
         do {
