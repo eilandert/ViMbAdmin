@@ -25,24 +25,6 @@ parameters:
 			path: library/ViMbAdmin/Service/Admin.php
 
 		-
-			message: '#^Method ViMbAdmin_Service_Mailbox\:\:create\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/ViMbAdmin/Service/Mailbox.php
-
-		-
-			message: '#^Parameter \#1 \$active of method Entities\\Alias\:\:setActive\(\) expects bool, int given\.$#'
-			identifier: argument.type
-			count: 1
-			path: library/ViMbAdmin/Service/Mailbox.php
-
-		-
-			message: '#^Parameter \#1 \$active of method Entities\\Mailbox\:\:setActive\(\) expects bool, int given\.$#'
-			identifier: argument.type
-			count: 1
-			path: library/ViMbAdmin/Service/Mailbox.php
-
-		-
 			message: '#^Method ViMbAdmin\\Kernel\\Plugin\\AbstractContext\:\:getAdmin\(\) should return Entities\\Admin but returns object\.$#'
 			identifier: return.type
 			count: 1

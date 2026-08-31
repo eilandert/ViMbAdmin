@@ -33,6 +33,18 @@ require __DIR__ . '/../library/OSS/Exception.php';
 require __DIR__ . '/../library/OSS/String.php';
 require __DIR__ . '/../library/OSS/Auth/Password.php';
 
+final class ActiveRecordingMailbox extends \Entities\Mailbox
+{
+    public mixed $activeInput = null;
+
+    /** @param bool $active */
+    public function setActive($active): \Entities\Mailbox
+    {
+        $this->activeInput = $active;
+        return parent::setActive($active);
+    }
+}
+
 /**
  * Records purgeMailbox() calls so the service's orchestration can be asserted
  * without the real (DB-backed) repository.
@@ -65,9 +77,13 @@ final class FakeMailboxRepo implements \Doctrine\Persistence\ObjectRepository
 final class FakeAliasRepo implements \Doctrine\Persistence\ObjectRepository
 {
     public ?\Entities\Alias $existing = null;
+    public ?\Throwable $error = null;
 
     public function findOneBy(array $criteria): ?object
     {
+        if ($this->error !== null) {
+            throw $this->error;
+        }
         return $this->existing;
     }
     public function find(mixed $id): ?object { return null; }
@@ -272,7 +288,7 @@ $createOptions = [
 $emC = new FakeObjectManager();
 $emC->aliasRepo = new FakeAliasRepo();        // findOneBy -> null (no clash)
 $domC = $mkDomain(7);
-$mbC  = new \Entities\Mailbox();
+$mbC  = new ActiveRecordingMailbox();
 $mbC->setUsername('new@example.com');
 $mbC->setLocalPart('new');
 $mbC->setName('New User');
@@ -288,7 +304,8 @@ $created = (new ViMbAdmin_Service_Mailbox($emC))->create(
 
 check('create returns the mailbox',           $created === $mbC);
 check('create set the domain',                $mbC->getDomain() === $domC);
-check('create set active',                    (bool) $mbC->getActive() === true);
+check('create normalizes mailbox active=1 to bool true',
+    $mbC->activeInput === true && $mbC->getActive() === true);
 check('create cleared delete-pending',        (bool) $mbC->getDeletePending() === false);
 check('create hashed the password',           $mbC->getPassword() !== 's3cr3t-plaintext');
 check('create password verifies',             OSS_Auth_Password::verify('s3cr3t-plaintext', $mbC->getPassword(), ['pwhash' => 'crypt:sha512']) === true);
@@ -298,9 +315,20 @@ check('create logged ACTION_MAILBOX_ADD',     $emC->lastLog()?->getAction() === 
 check('create flushed once',                  $emC->flushes === 1);
 check('create hook order around flush',       $orderC === ['preFlush:0', 'postFlush:1']);
 // auto mailbox-alias
+$autoAlias = $emC->lastAlias();
 check('create made the auto-alias',           $emC->countPersisted(\Entities\Alias::class) === 1);
-check('auto-alias address == username',       $emC->lastAlias()?->getAddress() === 'new@example.com');
-check('auto-alias goto == username',          $emC->lastAlias()?->getGoto() === 'new@example.com');
+check('auto-alias address == username',
+    $autoAlias instanceof \Entities\Alias && $autoAlias->getAddress() === 'new@example.com');
+check('auto-alias goto == username',
+    $autoAlias instanceof \Entities\Alias && $autoAlias->getGoto() === 'new@example.com');
+check('auto-alias active matches mailbox bool state',
+    $autoAlias instanceof \Entities\Alias
+        && $autoAlias->getActive() === true
+        && $autoAlias->getActive() === $mbC->getActive());
+check('create persistence order is mailbox, alias, then log',
+    $emC->persisted[0] === $mbC
+        && $emC->persisted[1] instanceof \Entities\Alias
+        && $emC->persisted[2] instanceof \Entities\Log);
 
 // --- create: mailboxAliases off -> no auto-alias ---------------------- //
 $emN = new FakeObjectManager();
@@ -312,6 +340,31 @@ $mbN->setPassword('s3cr3t-plaintext');
 (new ViMbAdmin_Service_Mailbox($emN))->create($mbN, $mkDomain(0), $actor, $optsN);
 check('aliases off: no auto-alias',           $emN->countPersisted(\Entities\Alias::class) === 0);
 check('aliases off: still creates mailbox',   $emN->countPersisted(\Entities\Mailbox::class) === 1 && $emN->flushes === 1);
+check('aliases off active=0 does not deactivate the mailbox', $mbN->getActive() === true);
+
+// --- create: omitted mailboxAliases defaults to no auto-alias --------- //
+$emO = new FakeObjectManager();
+$mbO = new \Entities\Mailbox();
+$mbO->setUsername('omitted@example.com');
+$mbO->setPassword('s3cr3t-plaintext');
+$optsO = $createOptions;
+unset($optsO['mailboxAliases']);
+(new ViMbAdmin_Service_Mailbox($emO))->create($mbO, $mkDomain(0), $actor, $optsO);
+check('omitted aliases switch defaults to no auto-alias',
+    $emO->countPersisted(\Entities\Alias::class) === 0 && $mbO->getActive() === true);
+
+// --- create: legacy string "1" remains accepted ---------------------- //
+$emS = new FakeObjectManager();
+$emS->aliasRepo = new FakeAliasRepo();
+$mbS = new \Entities\Mailbox();
+$mbS->setUsername('string-switch@example.com');
+$mbS->setPassword('s3cr3t-plaintext');
+$optsS = $createOptions;
+$optsS['mailboxAliases'] = '1';
+(new ViMbAdmin_Service_Mailbox($emS))->create($mbS, $mkDomain(0), $actor, $optsS);
+check('legacy string aliases switch keeps the public input domain',
+    $emS->countPersisted(\Entities\Alias::class) === 1
+        && $emS->lastAlias()?->getActive() === $mbS->getActive());
 
 // --- create: a clashing alias already exists -> skip the auto-alias --- //
 $emE = new FakeObjectManager();
@@ -324,10 +377,55 @@ $mbE->setPassword('s3cr3t-plaintext');
 check('existing alias: no new auto-alias',    $emE->countPersisted(\Entities\Alias::class) === 0);
 check('existing alias: mailbox still created', $emE->countPersisted(\Entities\Mailbox::class) === 1);
 
+// --- create errors preserve ordering and propagate unchanged ---------- //
+$emBadOptions = new FakeObjectManager();
+$mbBadOptions = new \Entities\Mailbox();
+$mbBadOptions->setUsername('bad-options@example.com');
+$mbBadOptions->setPassword('s3cr3t-plaintext');
+$badOptions = $createOptions;
+$badOptions['defaults']['mailbox']['password_scheme'] = null;
+$badOptionsRejected = false;
+try {
+    (new ViMbAdmin_Service_Mailbox($emBadOptions))->create(
+        $mbBadOptions,
+        $mkDomain(0),
+        $actor,
+        $badOptions,
+    );
+} catch (OSS_Exception $e) {
+    $badOptionsRejected = $e->getMessage() === 'Cannot hash password without a hash method';
+}
+check('malformed password scheme fails before persistence or flush',
+    $badOptionsRejected && $emBadOptions->persisted === [] && $emBadOptions->flushes === 0);
+
+$aliasLookupError = new \RuntimeException('alias lookup failed');
+$emAliasError = new FakeObjectManager();
+$emAliasError->aliasRepo = new FakeAliasRepo();
+$emAliasError->aliasRepo->error = $aliasLookupError;
+$mbAliasError = new \Entities\Mailbox();
+$mbAliasError->setUsername('alias-error@example.com');
+$mbAliasError->setPassword('s3cr3t-plaintext');
+$aliasErrorPropagated = false;
+try {
+    (new ViMbAdmin_Service_Mailbox($emAliasError))->create(
+        $mbAliasError,
+        $mkDomain(0),
+        $actor,
+        $createOptions,
+    );
+} catch (\RuntimeException $e) {
+    $aliasErrorPropagated = $e === $aliasLookupError;
+}
+check('alias lookup errors propagate after mailbox persist but before log and flush',
+    $aliasErrorPropagated
+        && $emAliasError->persisted === [$mbAliasError]
+        && $emAliasError->flushes === 0);
+
 // --- update: stamp modified, log EDIT, single flush, hooks around flush -- //
 $emU = new FakeObjectManager();
 $mbU = new \Entities\Mailbox();
 $mbU->setUsername('edit@example.com');
+$mbU->setActive(false);
 $orderU = [];
 $updated = (new ViMbAdmin_Service_Mailbox($emU))->update(
     $mbU, $actor,
@@ -336,10 +434,18 @@ $updated = (new ViMbAdmin_Service_Mailbox($emU))->update(
 );
 check('update returns the mailbox',           $updated === $mbU);
 check('update stamped modified',              $mbU->getModified() instanceof \DateTime);
+check('update preserves active=false',        $mbU->getActive() === false);
 check('update logged ACTION_MAILBOX_EDIT',    $emU->lastLog()?->getAction() === \Entities\Log::ACTION_MAILBOX_EDIT);
 check('update did NOT create an alias',       $emU->countPersisted(\Entities\Alias::class) === 0);
 check('update flushed once',                  $emU->flushes === 1);
 check('update hook order around flush',       $orderU === ['preFlush:0', 'postFlush:1']);
+
+$emUActive = new FakeObjectManager();
+$mbUActive = new \Entities\Mailbox();
+$mbUActive->setUsername('active-edit@example.com');
+$mbUActive->setActive(true);
+(new ViMbAdmin_Service_Mailbox($emUActive))->update($mbUActive, $actor);
+check('update preserves active=true', $mbUActive->getActive() === true && $emUActive->flushes === 1);
 
 echo "\n";
 if (mailboxIdentical($failures, 0)) {

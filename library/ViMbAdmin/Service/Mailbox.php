@@ -169,7 +169,7 @@ class ViMbAdmin_Service_Mailbox
      * notify). Like {@see toggleActive}/{@see purge} the hooks are optional
      * callables so either dispatch path can thread its plugin notify in.
      *
-     * @param array $options the merged application options (needs
+     * @param array<string,mixed> $options the merged application options (needs
      *        `defaults.mailbox.password_scheme`
      *        and the top-level `mailboxAliases` switch)
      * @param callable():void|null $preFlush  fires after the log, before flush
@@ -186,7 +186,7 @@ class ViMbAdmin_Service_Mailbox
         $mb = $options['defaults']['mailbox'];
 
         $mailbox->setDomain($domain);
-        $mailbox->setActive(1);
+        $mailbox->setActive(true);
         $mailbox->setDeletePending(false);
         $mailbox->setCreated(new \DateTime());
 
@@ -208,7 +208,7 @@ class ViMbAdmin_Service_Mailbox
             $alias->setAddress($mailbox->getUsername());
             $alias->setGoto($mailbox->getUsername());
             $alias->setDomain($domain);
-            $alias->setActive(1);
+            $alias->setActive(true);
             $alias->setCreated(new \DateTime());
             $this->em->persist($alias);
         }
