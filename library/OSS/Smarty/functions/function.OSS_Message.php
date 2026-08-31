@@ -53,7 +53,7 @@
      * @package    OSS_Smarty
      * @subpackage Functions
      *
-     * @param array $params
+     * @param array{randomid?: mixed} $params
      * @param \Smarty\Smarty $smarty A reference to the Smarty template object
      * @return string
      */

@@ -56,14 +56,26 @@
      * @package    OSS_Smarty
      * @subpackage Functions
      * 
-     * @param array $params 
+     * @param array{value?: int|float|numeric-string, currency?: string} $params
      * @param \Smarty\Smarty $smarty A reference to the Smarty template object
      * @return string
      */
     function smarty_function_currency( $params, &$smarty )
     {
-        $value = isset( $params['value'] ) ? $params['value'] : 0;
-        $currency = isset( $params['currency'] ) ? $params['currency'] : '&euro;';
+        $value = $params['value'] ?? 0;
+        $currency = $params['currency'] ?? '&euro;';
 
-        return ( $value < 0 ? '-' : '' ) . $currency . sprintf( "%.2f", abs( $params['value'] ) );
+        // Keep the native abs() contract for callers outside Smarty's numeric
+        // parameter shape: non-numeric strings remain rejected with TypeError.
+        if( is_string( $value ) )
+        {
+            if( !is_numeric( $value ) )
+                throw new TypeError( 'Currency value must be numeric' );
+
+            $value += 0;
+        }
+
+        $absoluteValue = abs( $value );
+
+        return ( $value < 0 ? '-' : '' ) . $currency . sprintf( "%.2f", $absoluteValue );
     }

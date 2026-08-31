@@ -65,6 +65,19 @@ $rendered = smarty_function_OSS_Message([], $smarty);
 $check('block render includes actions container', str_contains($rendered, 'alert-actions') && str_contains($rendered, 'Undo') && str_contains($rendered, 'Retry'));
 $check('popup render emits each bootbox item', str_contains($rendered, 'bootbox.alert(') && str_contains($rendered, "'One'") && str_contains($rendered, "'Two'"));
 $check('plain render emits each message item', str_contains($rendered, 'Alpha') && str_contains($rendered, 'Beta') && str_contains($rendered, 'alert-error'));
+$check('default ids remain sequential', str_contains($rendered, 'id="oss-message-0"') && str_contains($rendered, 'id="oss-message-2"'));
+
+$randomSmarty = new MessageSmartyDouble([
+    'OSS_Messages' => [new OSS_Message('Random', OSS_Message::SUCCESS, false)],
+]);
+mt_srand(1234);
+$expectedRandomId = mt_rand();
+mt_srand(1234);
+$randomRendered = smarty_function_OSS_Message(['randomid' => true], $randomSmarty);
+$check('truthy randomid replaces the sequential id', str_contains($randomRendered, 'id="oss-message-' . $expectedRandomId . '"'));
+
+$emptySmarty = new MessageSmartyDouble([]);
+$check('empty message collection renders empty output', smarty_function_OSS_Message(['randomid' => false], $emptySmarty) === '');
 
 echo "\n";
 $exitCode = $failures === 0 ? 0 : 1;

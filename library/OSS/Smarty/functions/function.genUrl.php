@@ -59,7 +59,7 @@
      * @package    OSS_Smarty
      * @subpackage Functions
      *
-     * @param array $params An array of the parameters to make up the URL
+     * @param array{controller?: string|false, action?: string|false, module?: string|false, ...<string, mixed>} $params An array of the parameters to make up the URL
      * @param \Smarty\Smarty $smarty A reference to the Smarty object
      * @return string
      */

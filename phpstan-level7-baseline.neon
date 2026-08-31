@@ -241,30 +241,6 @@ parameters:
 			path: library/OSS/Auth/Password.php
 
 		-
-			message: '#^Function smarty_function_OSS_Message\(\) has parameter \$params with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Smarty/functions/function.OSS_Message.php
-
-		-
-			message: '#^Function smarty_function_currency\(\) has parameter \$params with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Smarty/functions/function.currency.php
-
-		-
-			message: '#^Function smarty_function_customdate\(\) has parameter \$params with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Smarty/functions/function.customdate.php
-
-		-
-			message: '#^Function smarty_function_genUrl\(\) has parameter \$params with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Smarty/functions/function.genUrl.php
-
-		-
 			message: '#^Cannot call method getSmarty\(\) on class\-string\|object\.$#'
 			identifier: method.nonObject
 			count: 1
