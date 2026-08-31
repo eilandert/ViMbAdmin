@@ -1,48 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Method ViMbAdminPlugin_AccessPermissions\:\:_selected\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/plugins/AccessPermissions.php
-
-		-
-			message: '#^Method ViMbAdminPlugin_AccessPermissions\:\:_selected\(\) has parameter \$values with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/plugins/AccessPermissions.php
-
-		-
-			message: '#^Method ViMbAdminPlugin_AccessPermissions\:\:_types\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/plugins/AccessPermissions.php
-
-		-
-			message: '#^Method ViMbAdminPlugin_AccessPermissions\:\:_types\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/plugins/AccessPermissions.php
-
-		-
-			message: '#^Method ViMbAdminPlugin_AccessPermissions\:\:nativeMailboxApply\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/plugins/AccessPermissions.php
-
-		-
-			message: '#^Method ViMbAdminPlugin_AccessPermissions\:\:nativeMailboxFields\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/plugins/AccessPermissions.php
-
-		-
-			message: '#^Method ViMbAdminPlugin_AccessPermissions\:\:nativeMailboxValidate\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/plugins/AccessPermissions.php
-
-		-
 			message: '#^Parameter \#1 \$appPath of static method ViMbAdmin\\Kernel\\Bootstrap\:\:boot\(\) expects string, string\|false given\.$#'
 			identifier: argument.type
 			count: 1

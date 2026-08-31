@@ -154,6 +154,18 @@ check('AP add: master + 4 type fields',     count($addFields) === 5);
 check('AP add: first is the master',        $addFields[0]->name === 'plugin_accessPermissions' && $addFields[0]->value() === false);
 check('AP add: a type field exists',        $addFields[1]->name === 'plugin_accessPermission_SMTP');
 
+// Custom configuration order and labels are preserved by the form adapter.
+$customFields = $ap->nativeMailboxFields(null, ['vimbadmin_plugins' => ['AccessPermissions' => ['type' => [
+    'SIEVE' => 'Manage filters',
+    'SMTP'  => 'Send mail',
+]]]]);
+check('AP add: configured type order preserved', array_map(static fn($field) => $field->name, $customFields) === [
+    'plugin_accessPermissions',
+    'plugin_accessPermission_SIEVE',
+    'plugin_accessPermission_SMTP',
+]);
+check('AP add: configured type label preserved', $customFields[1]->label === 'Manage filters');
+
 // edit: a mailbox restricted to SMTP,IMAP pre-fills master + those two
 $mbE = new \Entities\Mailbox();
 $mbE->setAccessRestriction('SMTP,IMAP');
@@ -175,6 +187,7 @@ check('AP edit ALL: master unchecked',      $af['plugin_accessPermissions'] === 
 check('AP validate: master+none -> error',  $ap->nativeMailboxValidate(['plugin_accessPermissions' => 1], $opts) !== null);
 check('AP validate: master+SMTP -> ok',     $ap->nativeMailboxValidate(['plugin_accessPermissions' => 1, 'plugin_accessPermission_SMTP' => 1], $opts) === null);
 check('AP validate: master off -> ok',      $ap->nativeMailboxValidate([], $opts) === null);
+check('AP validate: service alone -> ok',   $ap->nativeMailboxValidate(['plugin_accessPermission_IMAP' => 1], $opts) === null);
 
 // apply: writeback to accessRestriction
 $m1 = new \Entities\Mailbox();
@@ -188,6 +201,10 @@ check('AP apply: unchecked -> ALL',         $m2->getAccessRestriction() === 'ALL
 $m3 = new \Entities\Mailbox();
 $ap->nativeMailboxApply($m3, ['plugin_accessPermissions' => 1], $opts);
 check('AP apply: checked+none -> ALL',      $m3->getAccessRestriction() === 'ALL');
+
+$m4 = new \Entities\Mailbox();
+$ap->nativeMailboxApply($m4, ['plugin_accessPermission_IMAP' => 1], $opts);
+check('AP apply: service alone restricts',  $m4->getAccessRestriction() === 'IMAP');
 
 // ============ Part C: AdditionalInfo native adapter =================== //
 require __DIR__ . '/../src/Kernel/Form/Validators.php';
