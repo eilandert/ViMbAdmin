@@ -12,6 +12,7 @@ require __DIR__ . '/../src/Kernel/Session/SessionStorage.php';
 require __DIR__ . '/../src/Kernel/Security/Auth.php';
 require __DIR__ . '/../src/Kernel/Http/Response.php';
 require __DIR__ . '/../src/Kernel/RouteMatch.php';
+require __DIR__ . '/../src/Kernel/NativeResources.php';
 require __DIR__ . '/../src/Kernel/Container.php';
 require __DIR__ . '/../src/Kernel/Mvc/AbstractController.php';
 require __DIR__ . '/../src/Kernel/Mvc/Dispatcher.php';
@@ -20,6 +21,7 @@ use ViMbAdmin\Kernel\Container;
 use ViMbAdmin\Kernel\Http\Response;
 use ViMbAdmin\Kernel\Mvc\AbstractController;
 use ViMbAdmin\Kernel\Mvc\Dispatcher;
+use ViMbAdmin\Kernel\NativeResources;
 use ViMbAdmin\Kernel\RouteMatch;
 use ViMbAdmin\Kernel\Security\Auth;
 use ViMbAdmin\Kernel\Session\SessionStorage;
@@ -63,6 +65,34 @@ final class BootstrapFake
     public function getOptions(): array { return []; }
 }
 
+/** Legacy-compatible proxy whose bootstrap methods are exposed through __call(). */
+final class DynamicBootstrapFake
+{
+    /** @param array<string,mixed> $options */
+    public function __construct(private object $resource, private array $options) {}
+
+    /** @param list<mixed> $arguments */
+    public function __call(string $method, array $arguments): mixed
+    {
+        return match ($method) {
+            'getOptions' => $this->options,
+            'getResource' => $arguments[0] === 'dynamic' ? $this->resource : null,
+            default => null,
+        };
+    }
+}
+
+final class InvalidOptionsBootstrapFake
+{
+    public function getOptions(): string { return 'not-an-array'; }
+    public function getResource(string $name): mixed
+    {
+        return match ($name) {
+            default => null,
+        };
+    }
+}
+
 /** A native controller exercising every AbstractController helper. */
 final class ProbeController extends AbstractController
 {
@@ -100,6 +130,46 @@ $container = new Container(new BootstrapFake($em), $auth);
 check('container->entityManager() returns the doctrine2 resource', $container->entityManager() === $em);
 check('container->auth() returns the Auth service',                $container->auth() === $auth);
 check('container->getResource() passthrough',                      $container->getResource('doctrine2') === $em);
+
+$nativeOptions = ['footer' => ['hide' => '1']];
+$nativeSession = new stdClass();
+$nativeView = new stdClass();
+$native = new Container(
+    new NativeResources($nativeOptions, $em, $nativeView, $nativeSession),
+    $auth,
+);
+check('container->options() reads native resources', $native->options() === $nativeOptions);
+check('container->session() reads the native namespace', $native->session() === $nativeSession);
+check('container preserves an unknown native resource', $native->getResource('missing') === null);
+
+$dynamicResource = new stdClass();
+$dynamic = new Container(new DynamicBootstrapFake($dynamicResource, ['legacy' => true]), $auth);
+check('container preserves dynamic legacy options lookup', $dynamic->options() === ['legacy' => true]);
+check('container preserves dynamic legacy resource lookup', $dynamic->getResource('dynamic') === $dynamicResource);
+
+$missingOptionsRejected = false;
+try {
+    (new Container(new stdClass(), $auth))->options();
+} catch (Error $e) {
+    $missingOptionsRejected = str_contains($e->getMessage(), 'stdClass::getOptions()');
+}
+check('container rejects a missing options API', $missingOptionsRejected);
+
+$missingResourceRejected = false;
+try {
+    (new Container(new stdClass(), $auth))->getResource('doctrine2');
+} catch (Error $e) {
+    $missingResourceRejected = str_contains($e->getMessage(), 'stdClass::getResource()');
+}
+check('container rejects a missing resource API', $missingResourceRejected);
+
+$wrongOptionsRejected = false;
+try {
+    (new Container(new InvalidOptionsBootstrapFake(), $auth))->options();
+} catch (TypeError) {
+    $wrongOptionsRejected = true;
+}
+check('container rejects a non-array options return', $wrongOptionsRejected);
 
 $dispatcher = new Dispatcher($container, ['probe' => ProbeController::class]);
 

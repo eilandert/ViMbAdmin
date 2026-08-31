@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel;
 
+use Error;
 use ViMbAdmin\Kernel\Mail\Mailer;
 use ViMbAdmin\Kernel\Security\Auth;
 
@@ -86,7 +87,7 @@ final class Container
      */
     public function options(): array
     {
-        return $this->bootstrap->getOptions();
+        return ($this->bootstrapMethod('getOptions'))();
     }
 
     /**
@@ -111,6 +112,25 @@ final class Container
      */
     public function getResource(string $name): mixed
     {
-        return $this->bootstrap->getResource($name);
+        return ($this->bootstrapMethod('getResource'))($name);
+    }
+
+    /**
+     * Resolve the structural bootstrap API without coupling the constructor to
+     * a framework type. Dynamic legacy bootstrap proxies remain callable, while
+     * malformed objects still fail at the boundary instead of falling back.
+     */
+    private function bootstrapMethod(string $method): callable
+    {
+        $callable = [$this->bootstrap, $method];
+        if (!is_callable($callable)) {
+            throw new Error(sprintf(
+                'Call to undefined method %s::%s()',
+                $this->bootstrap::class,
+                $method,
+            ));
+        }
+
+        return $callable;
     }
 }
