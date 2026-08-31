@@ -55,6 +55,7 @@ use ViMbAdmin\Kernel\Cli\Command\QueueRunCommand;
 use ViMbAdmin\Kernel\Cli\Command\McpTokenGenerateCommand;
 use ViMbAdmin\Kernel\Cli\Command\McpTokenListCommand;
 use ViMbAdmin\Kernel\Cli\Command\McpTokenRevokeCommand;
+use ViMbAdmin\Kernel\Cli\Command\ResetTotpCommand;
 use ViMbAdmin\Kernel\Cli\CliKernel;
 use ViMbAdmin\Kernel\Container;
 use ViMbAdmin\Kernel\Security\Auth;
@@ -162,6 +163,81 @@ final class CliMcpObjectManager
         if ($this->writeError !== null) { throw $this->writeError; }
         $this->flushes++;
     }
+}
+
+final class CliTotpAdmin
+{
+    /** @param array<string,mixed> $preferences */
+    public function __construct(private string $username, public array $preferences) {}
+    public function getUsername(): string { return $this->username; }
+    public function getPreference(string $key): mixed { return $this->preferences[$key] ?? null; }
+    public function deletePreference(string $key): void { unset($this->preferences[$key]); }
+}
+
+/** @implements \Doctrine\Persistence\ObjectRepository<object> */
+final class CliTotpAdminRepository implements \Doctrine\Persistence\ObjectRepository
+{
+    /** @var list<object> */
+    public array $admins;
+    /** @var array<string,mixed>|null */
+    public ?array $criteria = null;
+    public bool $findAllCalled = false;
+    public ?Throwable $error = null;
+    /** @param list<object> $admins */
+    public function __construct(array $admins) { $this->admins = $admins; }
+    public function find(mixed $id): ?object { return null; }
+    /** @return list<object> */
+    public function findAll(): array
+    {
+        $this->findAllCalled = true;
+        if ($this->error !== null) { throw $this->error; }
+        return $this->admins;
+    }
+    /** @return list<object> */
+    public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
+    {
+        $this->criteria = $criteria;
+        if ($this->error !== null) { throw $this->error; }
+        return $this->admins;
+    }
+    public function findOneBy(array $criteria): ?object { return null; }
+    public function getClassName(): string { return \Entities\Admin::class; }
+}
+
+final class CliTotpObjectManager implements Doctrine\Persistence\ObjectManager
+{
+    /** @var list<string> */
+    public array $operations = [];
+    public ?Throwable $flushError = null;
+    public function __construct(public CliTotpAdminRepository $repository) {}
+    public function getRepository(string $className): CliTotpAdminRepository
+    {
+        $this->operations[] = 'getRepository';
+        if ($className !== '\\Entities\\Admin') { throw new RuntimeException("unexpected repository {$className}"); }
+        return $this->repository;
+    }
+    public function flush(): void
+    {
+        $this->operations[] = 'flush';
+        if ($this->flushError !== null) { throw $this->flushError; }
+    }
+    public function find(string $className, mixed $id): ?object { return null; }
+    public function persist(object $object): void {}
+    public function remove(object $object): void {}
+    public function clear(): void {}
+    public function detach(object $object): void {}
+    public function refresh(object $object): void {}
+    public function getClassMetadata(string $className): Doctrine\Persistence\Mapping\ClassMetadata
+    {
+        throw new LogicException('TOTP reset test does not query metadata.');
+    }
+    public function getMetadataFactory(): Doctrine\Persistence\Mapping\ClassMetadataFactory
+    {
+        throw new LogicException('TOTP reset test does not query metadata.');
+    }
+    public function initializeObject(object $obj): void {}
+    public function isUninitializedObject(mixed $value): bool { return false; }
+    public function contains(object $object): bool { return false; }
 }
 
 final class CliTestResources
@@ -289,6 +365,21 @@ function runMcpTokenGenerate(object $entityManager, array $args): array
     }
 }
 
+/** @param array<string,mixed> $args
+ *  @return array{int,string}
+ */
+function runResetTotp(object $entityManager, array $args): array
+{
+    ob_start();
+    try {
+        $status = (new ResetTotpCommand())->run(cliContainer($entityManager, ['securitysalt' => 'test-salt']), $args);
+        return [$status, (string) ob_get_clean()];
+    } catch (Throwable $e) {
+        ob_end_clean();
+        throw $e;
+    }
+}
+
 $failures = 0;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
@@ -358,6 +449,59 @@ try {
     $queueBoundaryRejected = $e->getMessage() === 'Queue command requires a Doctrine object manager.';
 }
 check('queue rejects non-Doctrine entity-manager resources locally', $queueBoundaryRejected);
+
+echo "== reset TOTP command ==\n";
+
+$enabled = new CliTotpAdmin('enabled@example.com', [
+    ViMbAdmin_TwoFactor::PREF_SECRET => 'secret',
+    ViMbAdmin_TwoFactor::PREF_BACKUP => 'backup',
+    ViMbAdmin_TwoFactor::PREF_LASTTS => 123,
+]);
+$repository = new CliTotpAdminRepository([$enabled]);
+$entityManager = new CliTotpObjectManager($repository);
+[$status, $output] = runResetTotp($entityManager, ['username' => 'enabled@example.com']);
+check('username reset queries the exact account', $repository->criteria === ['username' => 'enabled@example.com'] && !$repository->findAllCalled);
+check('enabled account reset clears all TOTP state before one flush', $status === 0 && $enabled->preferences === [] && $entityManager->operations === ['getRepository', 'flush']);
+check('username reset retains stable success output', $output === "2FA reset for: enabled@example.com\nDone. 1 admin(s) had 2FA disabled.\n");
+
+$disabled = new CliTotpAdmin('disabled@example.com', []);
+$enabled = new CliTotpAdmin('all@example.com', [ViMbAdmin_TwoFactor::PREF_SECRET => 'secret']);
+$repository = new CliTotpAdminRepository([$disabled, $enabled]);
+$entityManager = new CliTotpObjectManager($repository);
+[$status, $output] = runResetTotp($entityManager, ['all' => false, 'username' => 'ignored@example.com']);
+check('--all presence takes precedence and loads every account', $status === 0 && $repository->findAllCalled && $repository->criteria === null);
+check('--all resets only enabled accounts but still flushes once', $disabled->preferences === [] && $enabled->preferences === [] && $entityManager->operations === ['getRepository', 'flush']);
+check('--all counts only changed accounts', $output === "2FA reset for: all@example.com\nDone. 1 admin(s) had 2FA disabled.\n");
+
+$repository = new CliTotpAdminRepository([]);
+$entityManager = new CliTotpObjectManager($repository);
+[$status, $output] = runResetTotp($entityManager, ['username' => 'missing@example.com']);
+check('missing account fails without flushing', $status === 1 && $entityManager->operations === ['getRepository'] && $output === "No matching admin(s) found.\n");
+
+$repository = new CliTotpAdminRepository([]);
+$entityManager = new CliTotpObjectManager($repository);
+[$status, $output] = runResetTotp($entityManager, ['username' => ['invalid']]);
+check('invalid username input prints usage before repository access', $status === 1 && $entityManager->operations === [] && $output === "Usage: vimbtool.php -a admin.cli-reset-totp --username=<email> | --all\n");
+
+$repository = new CliTotpAdminRepository([]);
+$repository->error = new RuntimeException('admin lookup failed');
+$lookupErrorPropagated = false;
+try { runResetTotp(new CliTotpObjectManager($repository), ['all' => true]); }
+catch (RuntimeException $e) { $lookupErrorPropagated = $e->getMessage() === 'admin lookup failed'; }
+check('admin lookup errors propagate without flushing', $lookupErrorPropagated);
+
+$enabled = new CliTotpAdmin('flush@example.com', [ViMbAdmin_TwoFactor::PREF_SECRET => 'secret']);
+$entityManager = new CliTotpObjectManager(new CliTotpAdminRepository([$enabled]));
+$entityManager->flushError = new RuntimeException('admin flush failed');
+$flushErrorPropagated = false;
+try { runResetTotp($entityManager, ['all' => true]); }
+catch (RuntimeException $e) { $flushErrorPropagated = $e->getMessage() === 'admin flush failed'; }
+check('flush errors propagate after the reset mutation', $flushErrorPropagated && $enabled->preferences === [] && $entityManager->operations === ['getRepository', 'flush']);
+
+$resetBoundaryRejected = false;
+try { runResetTotp(new stdClass(), ['all' => true]); }
+catch (LogicException $e) { $resetBoundaryRejected = $e->getMessage() === 'TOTP reset requires a Doctrine object manager.'; }
+check('TOTP reset rejects non-Doctrine entity-manager resources locally', $resetBoundaryRejected);
 
 echo "== MCP token list command ==\n";
 
