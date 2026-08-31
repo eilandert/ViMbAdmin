@@ -86,6 +86,9 @@ jobs:
       - name: ViMbAdmin_Service_Archive
         run: php tests/test-service-archive.php
 
+      - name: Doctrine preference repositories
+        run: php tests/test-repository-preferences.php
+
       - name: ViMbAdmin\Kernel\Router
         run: php tests/test-kernel-router.php
 
