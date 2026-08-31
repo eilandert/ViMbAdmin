@@ -13,12 +13,6 @@ parameters:
 			path: application/Repositories/Admin.php
 
 		-
-			message: '#^Class Repositories\\AdminPreference extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/AdminPreference.php
-
-		-
 			message: '#^Method Repositories\\Alias\:\:filterForAliasList\(\) has parameter \$ima with no type specified\.$#'
 			identifier: missingType.parameter
 			count: 1
@@ -43,12 +37,6 @@ parameters:
 			path: application/Repositories/Alias.php
 
 		-
-			message: '#^Class Repositories\\AliasPreference extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/AliasPreference.php
-
-		-
 			message: '#^Class Repositories\\Archive extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
 			identifier: missingType.generics
 			count: 1
@@ -67,22 +55,10 @@ parameters:
 			path: application/Repositories/Archive.php
 
 		-
-			message: '#^Class Repositories\\DatabaseVersion extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/DatabaseVersion.php
-
-		-
 			message: '#^Class Repositories\\DirectoryEntry extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
 			identifier: missingType.generics
 			count: 1
 			path: application/Repositories/DirectoryEntry.php
-
-		-
-			message: '#^Class Repositories\\DomainPreference extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/DomainPreference.php
 
 		-
 			message: '#^Class Repositories\\Log extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
@@ -115,18 +91,6 @@ parameters:
 			path: application/Repositories/Mailbox.php
 
 		-
-			message: '#^Class Repositories\\MailboxPreference extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/MailboxPreference.php
-
-		-
-			message: '#^Method Repositories\\MailboxPreference\:\:loadPrefrenceValuesByAttribute\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/Repositories/MailboxPreference.php
-
-		-
 			message: '#^Class Repositories\\MailboxTask extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
 			identifier: missingType.generics
 			count: 1
@@ -155,12 +119,6 @@ parameters:
 			identifier: return.type
 			count: 1
 			path: application/Repositories/McpToken.php
-
-		-
-			message: '#^Class Repositories\\RememberMe extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/RememberMe.php
 
 		-
 			message: '#^Method ViMbAdminPlugin_AccessPermissions\:\:_selected\(\) has parameter \$options with no value type specified in iterable type array\.$#'
