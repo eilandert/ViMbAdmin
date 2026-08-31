@@ -149,6 +149,9 @@ jobs:
       - name: Date utility behavior
         run: php tests/test-date.php
 
+      - name: OSS utility behavior
+        run: php tests/test-oss-utils.php
+
       - name: String utility behavior
         run: php tests/test-string.php
 
