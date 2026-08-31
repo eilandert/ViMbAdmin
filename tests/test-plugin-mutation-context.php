@@ -12,12 +12,16 @@ use ViMbAdmin\Kernel\Flash\FlashMessages;
 use ViMbAdmin\Kernel\Plugin\AbstractContext;
 use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
 
-$failures = 0;
+final class MutationContextAssertions
+{
+    public static int $failures = 0;
+}
+
 function checkMutationContext(string $label, bool $ok): void
 {
     echo ($ok ? '  ok   ' : '  FAIL ') . $label . "\n";
     if (!$ok) {
-        $GLOBALS['failures']++;
+        MutationContextAssertions::$failures++;
     }
 }
 
@@ -47,5 +51,6 @@ $context->addMessage('empty', '');
 $message = $flash->peek()[2] ?? null;
 checkMutationContext('queues success for an empty class at the boundary', $message !== null && $message->level === FlashMessages::SUCCESS);
 
+$failures = MutationContextAssertions::$failures;
 echo $failures === 0 ? "\nALL PASSED\n" : "\n{$failures} FAILED\n";
 exit($failures === 0 ? 0 : 1);
