@@ -5,7 +5,14 @@ error_reporting(E_ALL & ~E_DEPRECATED);
 
 require_once dirname(__FILE__) . '/../vendor/autoload.php';
 
-defined('APPLICATION_PATH') || define('APPLICATION_PATH', realpath(dirname(__FILE__) . '/../application'));
+$applicationPath = defined('APPLICATION_PATH')
+    ? constant('APPLICATION_PATH')
+    : realpath(dirname(__FILE__) . '/../application');
+if (!is_string($applicationPath) || !is_dir($applicationPath)) {
+    fwrite(STDERR, "ViMbAdmin application directory is unavailable.\n");
+    exit(1);
+}
+defined('APPLICATION_PATH') || define('APPLICATION_PATH', $applicationPath);
 defined('APPLICATION_ENV') || define('APPLICATION_ENV', getenv('APPLICATION_ENV') ?: 'development');
 
 set_include_path(implode(PATH_SEPARATOR, [
@@ -21,9 +28,14 @@ if (isset($_SERVER['argv'][1]) && $_SERVER['argv'][1] === '--database') {
     array_splice($_SERVER['argv'], 1, 2);
 }
 
-$container = \ViMbAdmin\Kernel\Bootstrap::boot(APPLICATION_PATH, APPLICATION_ENV, 'cli');
+$container = \ViMbAdmin\Kernel\Bootstrap::boot($applicationPath, APPLICATION_ENV, 'cli');
+$entityManager = $container->entityManager();
+if (!$entityManager instanceof \Doctrine\ORM\EntityManagerInterface) {
+    fwrite(STDERR, "ViMbAdmin did not provide a Doctrine entity manager.\n");
+    exit(1);
+}
 $provider = new \Doctrine\ORM\Tools\Console\EntityManagerProvider\SingleManagerProvider(
-    $container->entityManager()
+    $entityManager
 );
 
 \Doctrine\ORM\Tools\Console\ConsoleRunner::run($provider);

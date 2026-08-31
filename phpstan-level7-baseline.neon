@@ -1,24 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Parameter \#1 \$appPath of static method ViMbAdmin\\Kernel\\Bootstrap\:\:boot\(\) expects string, string\|false given\.$#'
-			identifier: argument.type
-			count: 1
-			path: bin/doctrine-cli.php
-
-		-
-			message: '#^Parameter \#1 \$entityManager of class Doctrine\\ORM\\Tools\\Console\\EntityManagerProvider\\SingleManagerProvider constructor expects Doctrine\\ORM\\EntityManagerInterface, object given\.$#'
-			identifier: argument.type
-			count: 1
-			path: bin/doctrine-cli.php
-
-		-
-			message: '#^Parameter \#1 \$appPath of class ViMbAdmin\\Kernel\\Cli\\CliKernel constructor expects string, string\|false given\.$#'
-			identifier: argument.type
-			count: 1
-			path: bin/vimbtool.php
-
-		-
 			message: '#^Method OSS_Auth_\x50assword\:\:hash\(\) has parameter \$config with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
