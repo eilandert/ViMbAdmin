@@ -235,6 +235,71 @@ check('delete veto did NOT flush',            $emV->flushes === 0);
 check('delete veto wrote no log',             $emV->lastLog() === null);
 check('delete veto left aliasCount',          (int) $domV->getAliasCount() === 5);
 
+// --- repository list query contracts --------------------------------- //
+$configuration = \Doctrine\ORM\ORMSetup::createAttributeMetadataConfiguration([
+    __DIR__ . '/../application/Entities',
+]);
+$configuration->enableNativeLazyObjects(true);
+$connection = \Doctrine\DBAL\DriverManager::getConnection([
+    'driver' => 'pdo_mysql',
+    'host' => '127.0.0.1',
+    'dbname' => 'unused',
+], $configuration);
+$entityManager = new \Doctrine\ORM\EntityManager($connection, $configuration);
+$metadata = new \Doctrine\ORM\Mapping\ClassMetadata(\Entities\Alias::class);
+$aliasRepository = new \Repositories\Alias($entityManager, $metadata);
+
+$invokeAliasQuery = static function (
+    ReflectionMethod $method,
+    \Repositories\Alias $repository,
+    mixed ...$arguments,
+): \Doctrine\ORM\QueryBuilder {
+    $query = $method->invoke($repository, ...$arguments);
+    if (!$query instanceof \Doctrine\ORM\QueryBuilder) {
+        throw new RuntimeException('repository query factory did not return a QueryBuilder');
+    }
+    return $query;
+};
+$queryParameters = static function (\Doctrine\ORM\QueryBuilder $query): array {
+    $parameters = [];
+    foreach ($query->getParameters() as $parameter) {
+        $parameters[$parameter->getName()] = $parameter->getValue();
+    }
+    return $parameters;
+};
+
+$scopedAdmin = new \Entities\Admin();
+$scopedAdmin->setSuper(false);
+$repositoryDomain = new \Entities\Domain();
+$repositoryDomain->setDomain('repository.example');
+$listMethod = new ReflectionMethod($aliasRepository, 'aliasListQuery');
+$listQuery = $invokeAliasQuery($listMethod, $aliasRepository, $scopedAdmin, $repositoryDomain, false);
+$listDql = $listQuery->getDQL();
+$listParameters = $queryParameters($listQuery);
+check('alias list keeps the selected hydration columns', str_contains($listDql, 'a.id as id') && str_contains($listDql, 'd.domain as domain'));
+check('alias list scopes a non-super admin', str_contains($listDql, 'JOIN d.Admins d2a') && str_contains($listDql, 'd2a = ?1'));
+check('alias list retains domain and non-mailbox filters', str_contains($listDql, 'a.Domain = ?2') && str_contains($listDql, 'a.address != a.goto'));
+check('alias list preserves positional query parameters', ($listParameters[1] ?? null) === $scopedAdmin && ($listParameters[2] ?? null) === $repositoryDomain);
+
+$superAdmin = new \Entities\Admin();
+$superAdmin->setSuper(true);
+$unscopedQuery = $invokeAliasQuery($listMethod, $aliasRepository, $superAdmin, null, true);
+check('super-admin include-mailbox boundary adds no filters', !str_contains($unscopedQuery->getDQL(), 'WHERE') && count($unscopedQuery->getParameters()) === 0);
+
+$filterMethod = new ReflectionMethod($aliasRepository, 'filteredAliasListQuery');
+$filterQuery = $invokeAliasQuery($filterMethod, $aliasRepository, '*sales_%', $scopedAdmin, 17, false);
+$filterDql = $filterQuery->getDQL();
+$filterParameters = $queryParameters($filterQuery);
+check('filtered list retains search when admin scoping is appended', str_contains($filterDql, 'a.goto LIKE :s') && str_contains($filterDql, 'AND d2a = :admin'));
+check('filtered list escapes wildcard data in contains mode', ($filterParameters['s'] ?? null) === '%sales\_\%%');
+check('filtered list accepts the legacy numeric domain id', ($filterParameters['domain'] ?? null) === 17);
+check('filtered list preserves mailbox-alias exclusion', str_contains($filterDql, 'a.address != a.goto'));
+
+$quotedFilterQuery = $invokeAliasQuery($filterMethod, $aliasRepository, "o'hare", $superAdmin, null, true);
+$quotedParameters = $queryParameters($quotedFilterQuery);
+check('filtered list strips quotes and uses prefix mode', ($quotedParameters['s'] ?? null) === 'ohare%');
+check('super-admin filtered boundary omits ownership and mailbox filters', !str_contains($quotedFilterQuery->getDQL(), 'd2a') && !str_contains($quotedFilterQuery->getDQL(), 'a.address != a.goto'));
+
 echo "\n";
 if ($failures === 0) {
     echo "OK: all Service_Alias assertions passed (PHP " . PHP_VERSION . ")\n";

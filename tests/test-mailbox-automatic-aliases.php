@@ -32,14 +32,14 @@ if (!function_exists('_')) {
 
 final class AutomaticAliasRepository extends \Repositories\Alias
 {
-    /** @var array<string, array{address: string, goto: string, active: bool}> */
+    /** @var array<string, array{id: int|string, address: string, goto: string, active: bool, domain: string}> */
     public array $aliases = [];
 
     public function __construct() {}
 
     /**
      * @param bool $ima
-     * @return array<int, array{address: string, goto: string, active: bool}>
+     * @return array<int, array{id: int|string, address: string, goto: string, active: bool, domain: string}>
      */
     public function filterForAliasList($filter, $admin, $domain = null, $ima = false): array
     {
@@ -140,7 +140,13 @@ $failures += checkAutomaticAlias('creates active aliases and flushes once', $ali
 $failures += checkAutomaticAlias('reports the created alias', count($context->messages) === 1);
 
 $repository = new AutomaticAliasRepository();
-$repository->aliases['@example.test'] = ['address' => '@example.test', 'goto' => 'catchall@example.test', 'active' => true];
+$repository->aliases['@example.test'] = [
+    'id' => 1,
+    'address' => '@example.test',
+    'goto' => 'catchall@example.test',
+    'active' => true,
+    'domain' => 'example.test',
+];
 $context = makeContext($repository);
 (new ViMbAdminPlugin_MailboxAutomaticAliases($context))->mailbox_add_addPostflush($context, ['options' => []]);
 $failures += checkAutomaticAlias('does not create aliases when an active domain alias exists', $context->getD2EM()->persisted === [] && $context->messages === []);
