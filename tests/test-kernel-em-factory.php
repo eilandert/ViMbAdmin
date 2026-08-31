@@ -32,11 +32,13 @@ use Entities\DirectoryEntry as DirectoryEntryEntity;
 use Entities\Domain as DomainEntity;
 use Entities\Log as LogEntity;
 use Entities\Mailbox as MailboxEntity;
+use Entities\MailboxTask as MailboxTaskEntity;
 use Psr\Cache\CacheItemPoolInterface;
 use ReflectionMethod as CoreReflectionMethod;
 use Repositories\DirectoryEntry as DirectoryEntryRepository;
 use Repositories\Log as LogRepository;
 use Repositories\Mailbox as MailboxRepository;
+use Repositories\MailboxTask as MailboxTaskRepository;
 use UnexpectedValueException as QueryProbeFailure;
 
 $appPath = realpath(__DIR__ . '/../application');
@@ -297,6 +299,43 @@ function checkMailboxRepositoryQueryContract(mixed $entityManager): void
     recordRepositoryCheck('empty mailbox hydration avoids quota queries', $emptyRows === []);
 }
 
+function mailboxTaskPendingQueryContract(QueryBuilder $query): bool
+{
+    return str_contains($query->getDQL(), 't.status = :s')
+        && str_contains($query->getDQL(), 'ORDER BY t.priority DESC, t.id ASC')
+        && (logQueryParameters($query)['s'] ?? null) === MailboxTaskEntity::STATUS_PENDING
+        && $query->getMaxResults() === 3;
+}
+
+function checkMailboxTaskRepositoryContract(mixed $entityManager): void
+{
+    global $failures;
+
+    if (!$entityManager instanceof EntityManagerInterface) {
+        echo "FAIL MailboxTask repository contract has an entity manager\n";
+        $failures++;
+        return;
+    }
+
+    $metadata = $entityManager->getClassMetadata(MailboxTaskEntity::class);
+    $repository = $entityManager->getRepository(MailboxTaskEntity::class);
+    if (!$repository instanceof MailboxTaskRepository) {
+        echo "FAIL MailboxTask metadata resolves its entity-specific repository\n";
+        $failures++;
+        return;
+    }
+
+    recordRepositoryCheck(
+        'MailboxTask metadata resolves its entity-specific repository',
+        $metadata->customRepositoryClassName === MailboxTaskRepository::class
+            && $repository->getClassName() === MailboxTaskEntity::class,
+    );
+    recordRepositoryCheck(
+        'pending mailbox tasks retain status, priority, age and limit semantics',
+        mailboxTaskPendingQueryContract(invokeRepositoryQuery($repository, 'pendingQuery', [3])),
+    );
+}
+
 $em = null;
 
 // The attribute metadata driver needs no extra extension (reflection only), so
@@ -369,6 +408,7 @@ check('a known entity attribute mapping loads through the driver', function () u
 checkDirectoryEntryRepositoryContract($em);
 checkLogRepositoryQueryContract($em);
 checkMailboxRepositoryQueryContract($em);
+checkMailboxTaskRepositoryContract($em);
 
 check('registerEntityAutoloaders loads an Entities class', function () use ($options) {
     EntityManagerFactory::registerEntityAutoloaders($options);

@@ -2,7 +2,9 @@
 
 namespace Repositories;
 
+use DateTime;
 use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\QueryBuilder;
 
 /**
  * MailboxTask repository.
@@ -10,6 +12,8 @@ use Doctrine\ORM\EntityRepository;
  * Holds the queue-claim logic: a single atomic UPDATE flips a task from
  * PENDING to RUNNING and returns whether *this* runner won the race, so two
  * concurrent runners never process the same task.
+ *
+ * @extends EntityRepository<\Entities\MailboxTask>
  */
 class MailboxTask extends EntityRepository
 {
@@ -21,6 +25,11 @@ class MailboxTask extends EntityRepository
      */
     public function pending( $limit = 5 )
     {
+        return $this->pendingQuery( (int) $limit )->getQuery()->getResult();
+    }
+
+    private function pendingQuery( int $limit ): QueryBuilder
+    {
         return $this->getEntityManager()->createQueryBuilder()
             ->select( 't' )
             ->from( '\\Entities\\MailboxTask', 't' )
@@ -28,8 +37,7 @@ class MailboxTask extends EntityRepository
             ->setParameter( 's', \Entities\MailboxTask::STATUS_PENDING )
             ->orderBy( 't.priority', 'DESC' )
             ->addOrderBy( 't.id', 'ASC' )
-            ->setMaxResults( (int) $limit )
-            ->getQuery()->getResult();
+            ->setMaxResults( $limit );
     }
 
     /**
@@ -48,7 +56,7 @@ class MailboxTask extends EntityRepository
             . ' WHERE id = :id AND status = :pending',
             [
                 'running' => \Entities\MailboxTask::STATUS_RUNNING,
-                'now'     => ( new \DateTime() )->format( 'Y-m-d H:i:s' ),
+                'now'     => ( new DateTime() )->format( 'Y-m-d H:i:s' ),
                 'id'      => $task->getId(),
                 'pending' => \Entities\MailboxTask::STATUS_PENDING,
             ]
