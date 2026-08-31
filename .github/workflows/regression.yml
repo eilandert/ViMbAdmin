@@ -98,6 +98,9 @@ jobs:
       - name: QueueRunner path-safety guard (audit 2026-07-10 MAJOR)
         run: php tests/test-queuerunner-path-safe.php
 
+      - name: QueueRunner lease concurrency
+        run: php tests/test-queuerunner-leases.php
+
       - name: ViMbAdmin\Kernel\Security\Csrf
         run: php tests/test-kernel-csrf.php
 

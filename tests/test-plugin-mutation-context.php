@@ -35,17 +35,17 @@ checkMutationContext('preserves configured callbacks by identity', $context->get
 checkMutationContext('returns each mutation dependency unchanged',
     $context->getD2EM() === $em && $context->getAdmin() === $admin && $context->getDomain() === $domain);
 
-checkMutationContext('accepts a message with the legacy default class and type', $context->addMessage('created') === null);
+$context->addMessage('created');
 $message = $flash->peek()[0] ?? null;
-checkMutationContext('queues default messages as success', $message !== null && $message->text === 'created' && $message->level === FlashMessages::SUCCESS);
+checkMutationContext('queues the legacy default class and type as success', $message !== null && $message->text === 'created' && $message->level === FlashMessages::SUCCESS);
 
-checkMutationContext('accepts legacy error class and block type', $context->addMessage('failed', FlashMessages::ERROR, 1) === null);
+$context->addMessage('failed', FlashMessages::ERROR, 1);
 $message = $flash->peek()[1] ?? null;
-checkMutationContext('preserves the error class while ignoring the legacy type', $message !== null && $message->text === 'failed' && $message->level === FlashMessages::ERROR);
+checkMutationContext('queues the legacy error class while ignoring the block type', $message !== null && $message->text === 'failed' && $message->level === FlashMessages::ERROR);
 
-checkMutationContext('accepts an empty class at the boundary', $context->addMessage('empty', '') === null);
+$context->addMessage('empty', '');
 $message = $flash->peek()[2] ?? null;
-checkMutationContext('uses success for an empty class', $message !== null && $message->level === FlashMessages::SUCCESS);
+checkMutationContext('queues success for an empty class at the boundary', $message !== null && $message->level === FlashMessages::SUCCESS);
 
 echo $failures === 0 ? "\nALL PASSED\n" : "\n{$failures} FAILED\n";
 exit($failures === 0 ? 0 : 1);

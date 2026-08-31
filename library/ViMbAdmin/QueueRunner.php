@@ -17,6 +17,15 @@
  * is below the cap. Stale leases (the process died without releasing) are reaped
  * after LEASE_TTL seconds so a slot is never lost forever.
  */
+/**
+ * @phpstan-type QueueRunnerOptions array{
+ *     queue?: array{
+ *         runner?: array{max_concurrent?: mixed, ...<string, mixed>},
+ *         ...<string, mixed>
+ *     },
+ *     ...<string, mixed>
+ * }
+ */
 class ViMbAdmin_QueueRunner
 {
     /** Seconds after which a lease with no heartbeat is considered dead. */
@@ -27,7 +36,7 @@ class ViMbAdmin_QueueRunner
      * Reaps stale leases first so a crashed runner doesn't pin a slot.
      *
      * @param \Doctrine\ORM\EntityManager $em
-     * @param array $options
+     * @param QueueRunnerOptions $options
      * @return bool
      */
     public static function slotAvailable( $em, array $options )
@@ -46,7 +55,7 @@ class ViMbAdmin_QueueRunner
      * out if we overshot the cap — cheap and correct for the small N here.
      *
      * @param \Doctrine\ORM\EntityManager $em
-     * @param array $options
+     * @param QueueRunnerOptions $options
      * @return \Entities\QueueRunner|null
      */
     public static function acquireLease( $em, array $options )
