@@ -162,11 +162,23 @@ final class ViMbAdmin_Version
         return null;
     }
 
-    /** Short (12-char) form of the build commit, or null. */
+    /**
+     * Short (12-char) form of the build commit, or null.
+     *
+     * @return string|null
+     */
     public static function gitCommitShort()
     {
-        $c = self::gitCommit();
-        return $c ? substr( $c, 0, 12 ) : null;
+        return self::_shortCommit( self::gitCommit() );
+    }
+
+    /**
+     * @param string|null $commit
+     * @return string|null
+     */
+    private static function _shortCommit( $commit )
+    {
+        return $commit ? substr( $commit, 0, 12 ) : null;
     }
 
     /**
@@ -175,7 +187,7 @@ final class ViMbAdmin_Version
      * convenience, never load-bearing.
      *
      * @param string $path  e.g. "releases/latest"
-     * @return array|null
+     * @return array<array-key, mixed>|null
      */
     private static function _github( $path )
     {
@@ -199,20 +211,34 @@ final class ViMbAdmin_Version
             if( $body === false )
                 continue;
 
-            // Only accept a 2xx response; a 403 (rate limit) / 5xx is retried.
-            $ok = false;
-            if( isset( $http_response_header[0] )
-                && preg_match( '#\s(\d{3})\s#', $http_response_header[0], $m ) )
-                $ok = ( (int) $m[1] >= 200 && (int) $m[1] < 300 );
-            if( !$ok )
-                continue;
-
-            $json = json_decode( $body, true );
-            if( is_array( $json ) )
+            $json = self::_decodeGithubResponse(
+                $body,
+                $http_response_header
+            );
+            if( $json !== null )
                 return $json;
         }
 
         return null;
+    }
+
+    /**
+     * Decode a successful GitHub response without flattening its object/list
+     * structure. Non-2xx and malformed responses remain retryable failures.
+     *
+     * @param string $body
+     * @param list<string> $headers
+     * @return array<array-key, mixed>|null
+     */
+    private static function _decodeGithubResponse( $body, array $headers )
+    {
+        if( !isset( $headers[0] )
+            || !preg_match( '#\s(\d{3})\s#', $headers[0], $m )
+            || (int) $m[1] < 200 || (int) $m[1] >= 300 )
+            return null;
+
+        $json = json_decode( $body, true );
+        return is_array( $json ) ? $json : null;
     }
 
     /**
