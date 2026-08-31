@@ -403,30 +403,6 @@ parameters:
 			path: library/OSS/Utils.php
 
 		-
-			message: '#^Method ViMbAdmin_Demo\:\:account\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/ViMbAdmin/Demo.php
-
-		-
-			message: '#^Method ViMbAdmin_Demo\:\:enabled\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/ViMbAdmin/Demo.php
-
-		-
-			message: '#^Method ViMbAdmin_Demo\:\:isLocked\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/ViMbAdmin/Demo.php
-
-		-
-			message: '#^Method ViMbAdmin_Demo\:\:password\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/ViMbAdmin/Demo.php
-
-		-
 			message: '#^Call to function is_string\(\) with non\-empty\-string will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
 			count: 1
