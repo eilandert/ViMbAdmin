@@ -1,24 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Class Repositories\\Log extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/Log.php
-
-		-
-			message: '#^Method Repositories\\Log\:\:loadForLogList\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/Repositories/Log.php
-
-		-
-			message: '#^Method Repositories\\Log\:\:pagedForLogList\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/Repositories/Log.php
-
-		-
 			message: '#^Method Repositories\\Mailbox\:\:loadForMailboxList\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1

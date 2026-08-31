@@ -26,9 +26,16 @@ require __DIR__ . '/../src/Kernel/Doctrine/EntityManagerFactory.php';
 use ViMbAdmin\Kernel\Doctrine\EntityManagerFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\Driver\AttributeDriver;
+use Doctrine\ORM\QueryBuilder;
+use Entities\Admin as AdminEntity;
 use Entities\DirectoryEntry as DirectoryEntryEntity;
+use Entities\Domain as DomainEntity;
+use Entities\Log as LogEntity;
 use Psr\Cache\CacheItemPoolInterface;
+use ReflectionMethod as CoreReflectionMethod;
 use Repositories\DirectoryEntry as DirectoryEntryRepository;
+use Repositories\Log as LogRepository;
+use UnexpectedValueException as QueryProbeFailure;
 
 $appPath = realpath(__DIR__ . '/../application');
 
@@ -70,6 +77,10 @@ function check(string $label, callable $fn): void {
     }
 }
 
+// Register the Entities/Repositories autoloaders up front: repository probes
+// below extend the real classes, and metadata loading reflects their entities.
+EntityManagerFactory::registerEntityAutoloaders($options);
+
 function checkDirectoryEntryRepositoryContract(mixed $entityManager): void {
     global $failures;
 
@@ -90,10 +101,114 @@ function checkDirectoryEntryRepositoryContract(mixed $entityManager): void {
     }
 }
 
-// Register the Entities/Repositories autoloaders up front: getClassMetadata()
-// below reflects on the real entity class, so it must be loadable first — which
-// is also what the native bootstrap does once, before any query.
-EntityManagerFactory::registerEntityAutoloaders($options);
+/** @return array<int|string,mixed> */
+function logQueryParameters(QueryBuilder $query): array
+{
+    $parameters = [];
+    foreach ($query->getParameters() as $parameter) {
+        $parameters[$parameter->getName()] = $parameter->getValue();
+    }
+    return $parameters;
+}
+
+/** @param list<mixed> $arguments */
+function invokeLogQuery(LogRepository $repository, string $method, array $arguments): QueryBuilder
+{
+    $query = (new CoreReflectionMethod($repository, $method))->invokeArgs($repository, $arguments);
+    if (!$query instanceof QueryBuilder) {
+        throw new QueryProbeFailure('Log repository query probe did not return a QueryBuilder');
+    }
+    return $query;
+}
+
+function recordLogRepositoryCheck(string $label, bool $ok): void
+{
+    global $failures;
+    echo ($ok ? 'OK   ' : 'FAIL ') . $label . "\n";
+    if (!$ok) {
+        $failures++;
+    }
+}
+
+function logMetadataContract(EntityManagerInterface $entityManager, LogRepository $repository): bool
+{
+    $metadata = $entityManager->getClassMetadata(LogEntity::class);
+    return $metadata->customRepositoryClassName === LogRepository::class
+        && $repository->getClassName() === LogEntity::class;
+}
+
+function logListHydrationContract(string $dql): bool
+{
+    return str_contains($dql, 'l.id as id')
+        && str_contains($dql, 'l.timestamp as timestamp')
+        && str_contains($dql, 'a.username as admin')
+        && str_contains($dql, 'd.domain as domain');
+}
+
+/** @param array<int|string,mixed> $parameters */
+function logListScopeContract(string $dql, array $parameters, AdminEntity $admin, DomainEntity $domain): bool
+{
+    return str_contains($dql, 'JOIN d.Admins d2a')
+        && str_contains($dql, 'd2a = ?1')
+        && str_contains($dql, 'l.Domain = ?2')
+        && ($parameters[1] ?? null) === $admin
+        && ($parameters[2] ?? null) === $domain;
+}
+
+function logCountContract(QueryBuilder $query): bool
+{
+    return str_contains($query->getDQL(), 'COUNT(DISTINCT l.id)')
+        && str_contains($query->getDQL(), 'l.action LIKE :s')
+        && (logQueryParameters($query)['s'] ?? null) === '%mail%';
+}
+
+function logSelectedPageContract(QueryBuilder $query): bool
+{
+    return str_contains($query->getDQL(), 'ORDER BY l.action ASC')
+        && $query->getFirstResult() === 0
+        && $query->getMaxResults() === 1
+        && (logQueryParameters($query)['s'] ?? null) === '%50\\%\\_\\\\off%';
+}
+
+function logFallbackPageContract(QueryBuilder $query): bool
+{
+    return str_contains($query->getDQL(), 'ORDER BY l.timestamp DESC')
+        && !str_contains($query->getDQL(), 'LIKE :s')
+        && $query->getFirstResult() === 4
+        && $query->getMaxResults() === 9;
+}
+
+function checkLogRepositoryQueryContract(mixed $entityManager): void
+{
+    global $failures;
+
+    if (!$entityManager instanceof EntityManagerInterface) {
+        echo "FAIL Log repository query contract has an entity manager\n";
+        $failures++;
+        return;
+    }
+
+    $admin = new AdminEntity();
+    $domain = new DomainEntity();
+    $repository = $entityManager->getRepository(LogEntity::class);
+    if (!$repository instanceof LogRepository) {
+        echo "FAIL Log metadata resolves its entity-specific repository\n";
+        $failures++;
+        return;
+    }
+
+    $listQuery = invokeLogQuery($repository, 'logListQuery', [$admin, $domain]);
+    $pageQuery = invokeLogQuery($repository, 'pagedLogRowsQuery', [$admin, $domain, '50%_\\off', 'action', 'ASC', -5, 0]);
+    $fallbackQuery = invokeLogQuery($repository, 'pagedLogRowsQuery', [null, null, '', 'unsupported', 'sideways', 4, 9]);
+    $countQuery = invokeLogQuery($repository, 'logCountQuery', [$admin, $domain, 'mail']);
+
+    recordLogRepositoryCheck('Log metadata resolves its entity-specific repository', logMetadataContract($entityManager, $repository));
+    recordLogRepositoryCheck('log list retains all array-hydration fields', logListHydrationContract($listQuery->getDQL()));
+    recordLogRepositoryCheck('log list preserves admin/domain joins and positional parameters', logListScopeContract($listQuery->getDQL(), logQueryParameters($listQuery), $admin, $domain));
+    recordLogRepositoryCheck('paged logs preserve search escaping and scoped count semantics', logCountContract($countQuery));
+    recordLogRepositoryCheck('paged logs preserve selected sorting and clamp pagination bounds', logSelectedPageContract($pageQuery));
+    recordLogRepositoryCheck('paged logs fall back to timestamp descending without a search predicate', logFallbackPageContract($fallbackQuery));
+}
 
 $em = null;
 
@@ -165,6 +280,7 @@ check('a known entity attribute mapping loads through the driver', function () u
 });
 
 checkDirectoryEntryRepositoryContract($em);
+checkLogRepositoryQueryContract($em);
 
 check('registerEntityAutoloaders loads an Entities class', function () use ($options) {
     EntityManagerFactory::registerEntityAutoloaders($options);
