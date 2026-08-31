@@ -193,6 +193,24 @@ check('AP apply: checked+none -> ALL',      $m3->getAccessRestriction() === 'ALL
 require __DIR__ . '/../src/Kernel/Form/Validators.php';
 require __DIR__ . '/../application/plugins/AdditionalInfo.php';
 
+final class AdditionalInfoMailboxDouble extends \Entities\Mailbox
+{
+    /** @var array<string,string> */
+    private array $additionalInfoPreferences = [];
+
+    public function getPreference($attribute, $index = 0, $includeExpired = false)
+    {
+        return $this->additionalInfoPreferences[(string) $attribute] ?? false;
+    }
+
+    public function setPreference($attribute, $value, $operator = '=', $expires = 0, $index = 0)
+    {
+        $this->additionalInfoPreferences[(string) $attribute] = (string) $value;
+
+        return $this;
+    }
+}
+
 $aiOpts = ['vimbadmin_plugins' => ['AdditionalInfo' => ['elements' => [
     'ext_no' => ['type' => 'Zend_Form_Element_Text', 'options' => [
         'label'      => 'Ext No.',
@@ -219,6 +237,49 @@ check('AI validate: always null',            $ai->nativeMailboxValidate(['plugin
 
 // no configured elements -> no fields
 check('AI add: no elements -> empty',        $ai->nativeMailboxFields(null, ['vimbadmin_plugins' => ['AdditionalInfo' => []]]) === []);
+check('AI add: missing config -> empty',      $ai->nativeMailboxFields(null, []) === []);
+check('AI add: malformed plugin -> empty',   $ai->nativeMailboxFields(null, ['vimbadmin_plugins' => ['AdditionalInfo' => 'bad']]) === []);
+check('AI add: malformed elements -> empty', $ai->nativeMailboxFields(null, ['vimbadmin_plugins' => ['AdditionalInfo' => ['elements' => 'bad']]]) === []);
+
+// Malformed entries are ignored, while a malformed options block keeps the
+// configured field with its name as the label and no accidental validators.
+$aiMalformedFields = $ai->nativeMailboxFields(null, ['vimbadmin_plugins' => ['AdditionalInfo' => ['elements' => [
+    'ignored' => 'bad',
+    'fallback' => ['options' => 'bad'],
+]]]]);
+check('AI add: malformed entry ignored',     count($aiMalformedFields) === 1);
+check('AI add: malformed options fallback', $aiMalformedFields[0]->name === 'plugin_additionalInfo_fallback'
+    && $aiMalformedFields[0]->label === 'fallback');
+$aiMalformedFields[0]->setValue('anything');
+check('AI rule: malformed validators skipped', $aiMalformedFields[0]->validate() === null);
+check('AI add: malformed label fallback', $ai->nativeMailboxFields(null, ['vimbadmin_plugins' => ['AdditionalInfo' => ['elements' => [
+    'labelled' => ['options' => ['label' => ['bad']]],
+]]]])[0]->label === 'labelled');
+
+// StringLength is mapped, while an unknown validator remains best-effort and
+// does not prevent the value from being accepted.
+$aiLengthFields = $ai->nativeMailboxFields(null, ['vimbadmin_plugins' => ['AdditionalInfo' => ['elements' => [
+    'code' => ['options' => ['validators' => [
+        ['StringLength', 'range' => [3, 10]],
+        ['UnknownValidator'],
+        ['StringLength', 'range' => 'bad'],
+    ]]],
+]]]]);
+$aiLengthFields[0]->setValue('ab');
+check('AI rule: StringLength minimum enforced', $aiLengthFields[0]->validate() !== null);
+$aiLengthFields[0]->setValue('abc');
+check('AI rule: unknown validator skipped',     $aiLengthFields[0]->validate() === null);
+
+// apply: only configured and submitted keys become xpiInfo preferences.
+$aiMailbox = new AdditionalInfoMailboxDouble();
+$ai->nativeMailboxApply($aiMailbox, [
+    'plugin_additionalInfo_ext_no' => '4321',
+    'plugin_additionalInfo_unconfigured' => 'ignored',
+], $aiOpts);
+check('AI apply: configured value saved',       $aiMailbox->getPreference('xpiInfo.ext_no') === '4321');
+check('AI apply: unconfigured value ignored',   $aiMailbox->getPreference('xpiInfo.unconfigured') === false);
+$ai->nativeMailboxApply($aiMailbox, [], $aiOpts);
+check('AI apply: missing value preserves preference', $aiMailbox->getPreference('xpiInfo.ext_no') === '4321');
 
 // ============ Part D: DirectoryEntry native adapter ================== //
 require __DIR__ . '/../application/plugins/DirectoryEntry.php';
