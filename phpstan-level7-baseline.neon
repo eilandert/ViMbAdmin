@@ -1,24 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Class Repositories\\Archive extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
-			identifier: missingType.generics
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Method Repositories\\Archive\:\:loadForArchiveList\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Method Repositories\\Archive\:\:pagedForArchiveList\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
 			message: '#^Class Repositories\\DirectoryEntry extends generic class Doctrine\\ORM\\EntityRepository but does not specify its types\: T$#'
 			identifier: missingType.generics
 			count: 1

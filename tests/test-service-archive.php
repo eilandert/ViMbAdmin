@@ -101,6 +101,58 @@ check('ON->OFF one flush',                   $emOff->flushes === 1);
 check('ON->OFF logged ARCHIVE_REQUEST',      $emOff->lastLog()?->getAction() === \Entities\Log::ACTION_ARCHIVE_REQUEST);
 check('ON->OFF log mentions disabled',       str_contains((string) $emOff->lastLog()?->getData(), 'disabled autoprune'));
 
+// --- repository list query contracts --------------------------------- //
+$configuration = \Doctrine\ORM\ORMSetup::createAttributeMetadataConfiguration([
+    __DIR__ . '/../application/Entities',
+]);
+$configuration->enableNativeLazyObjects(true);
+$connection = \Doctrine\DBAL\DriverManager::getConnection([
+    'driver' => 'pdo_mysql',
+    'host' => '127.0.0.1',
+    'dbname' => 'unused',
+], $configuration);
+$entityManager = new \Doctrine\ORM\EntityManager($connection, $configuration);
+$metadata = new \Doctrine\ORM\Mapping\ClassMetadata(\Entities\Archive::class);
+$archiveRepository = new \Repositories\Archive($entityManager, $metadata);
+$queryMethod = new ReflectionMethod($archiveRepository, 'archiveListQuery');
+$invokeArchiveQuery = static function (
+    ReflectionMethod $method,
+    \Repositories\Archive $repository,
+    \Entities\Admin $admin,
+    ?\Entities\Domain $domain,
+): \Doctrine\ORM\QueryBuilder {
+    $query = $method->invoke($repository, $admin, $domain);
+    if (!$query instanceof \Doctrine\ORM\QueryBuilder) {
+        throw new RuntimeException('archiveListQuery did not return a QueryBuilder');
+    }
+    return $query;
+};
+$queryParameters = static function (\Doctrine\ORM\QueryBuilder $query): array {
+    $parameters = [];
+    foreach ($query->getParameters() as $parameter) {
+        $parameters[$parameter->getName()] = $parameter->getValue();
+    }
+    return $parameters;
+};
+
+$scopedAdmin = new \Entities\Admin();
+$scopedAdmin->setSuper(false);
+$repositoryDomain = new \Entities\Domain();
+$repositoryDomain->setDomain('archive.example');
+$scopedQuery = $invokeArchiveQuery($queryMethod, $archiveRepository, $scopedAdmin, $repositoryDomain);
+$scopedDql = $scopedQuery->getDQL();
+$scopedParameters = $queryParameters($scopedQuery);
+check('archive list retains all hydration fields', str_contains($scopedDql, 'a.maildir_size as maildir_size') && str_contains($scopedDql, 'as user_exists'));
+check('archive list retains live-mailbox existence join', str_contains($scopedDql, 'LEFT JOIN \\Entities\\Mailbox m WITH m.username = a.username'));
+check('archive list scopes a non-super admin', str_contains($scopedDql, 'JOIN d.Admins d2a') && str_contains($scopedDql, 'd2a = :admin'));
+check('archive list appends the selected domain filter', str_contains($scopedDql, 'AND a.Domain = ?2'));
+check('archive list preserves named and positional parameters', ($scopedParameters['admin'] ?? null) === $scopedAdmin && ($scopedParameters[2] ?? null) === $repositoryDomain);
+
+$superAdmin = new \Entities\Admin();
+$superAdmin->setSuper(true);
+$unscopedQuery = $invokeArchiveQuery($queryMethod, $archiveRepository, $superAdmin, null);
+check('super-admin null-domain boundary adds no filters', !str_contains($unscopedQuery->getDQL(), 'WHERE') && count($unscopedQuery->getParameters()) === 0);
+
 echo "\n";
 if ($failures === 0) {
     echo "OK: all Service_Archive assertions passed (PHP " . PHP_VERSION . ")\n";
