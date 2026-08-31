@@ -19,6 +19,7 @@ if (!is_file($autoload)) {
 }
 require $autoload;
 require __DIR__ . '/../src/Kernel/View/SmartyView.php';
+require __DIR__ . '/../library/OSS/Smarty/functions/function.tmplinclude.php';
 
 use ViMbAdmin\Kernel\View\SmartyView;
 
@@ -34,6 +35,8 @@ file_put_contents($tmp . '/tpl/hello.tpl', 'Hello {$name}!');
 file_put_contents($tmp . '/tpl/raw.tpl', '{$html}');
 file_put_contents($tmp . '/tpl/skinned.tpl', 'DEFAULT {$name}');
 file_put_contents($tmp . '/tpl/_skins/myskin/skinned.tpl', 'SKIN {$name}');
+file_put_contents($tmp . '/tpl/included.tpl', 'DEFAULT INCLUDE {$name}');
+file_put_contents($tmp . '/tpl/_skins/myskin/included.tpl', 'SKIN INCLUDE {$name}');
 
 $failures = 0;
 function check(string $label, callable $fn): void {
@@ -96,12 +99,76 @@ check('skin override wins when skin set + file present', function () use ($mk) {
     }
 });
 
-check('skin with no override falls back to default file', function () use ($mk) {
+check('skin fallback and tmplinclude compatibility', function () use ($mk, $tmp) {
     $v = $mk();
     $v->setSkin('myskin');
     // hello.tpl has no _skins/myskin copy -> default resolves.
     if ($v->resolveTemplate('hello.tpl') !== 'hello.tpl') {
         throw new RuntimeException('resolve: ' . $v->resolveTemplate('hello.tpl'));
+    }
+
+    $smarty = new \Smarty\Smarty();
+    $smarty->setTemplateDir($tmp . '/tpl');
+    $smarty->setCompileDir($tmp . '/compile');
+    $smarty->assign('___SKIN', 'myskin');
+    $smarty->assign('name', 'original');
+
+    $out = smarty_function_tmplinclude(['file' => "'included.tpl'", 'name' => 'temporary'], $smarty);
+    if (trim($out) !== 'SKIN INCLUDE temporary') {
+        throw new RuntimeException('got: ' . $out);
+    }
+    if ($smarty->getTemplateVars('name') !== 'temporary') {
+        throw new RuntimeException('plugin parameter was not retained');
+    }
+
+    $smarty = new \Smarty\Smarty();
+    $smarty->setTemplateDir($tmp . '/tpl');
+    $smarty->setCompileDir($tmp . '/compile');
+    $smarty->assign('name', 'template');
+    $template = $smarty->createTemplate('hello.tpl');
+
+    $out = smarty_function_tmplinclude(['file' => '"included.tpl"', 'assign' => 'included'], $template);
+    if ($out !== '') {
+        throw new RuntimeException('assigned include unexpectedly returned output');
+    }
+    if (trim((string) $template->getTemplateVars('included')) !== 'DEFAULT INCLUDE template') {
+        throw new RuntimeException('assigned output missing from template caller');
+    }
+
+    $smarty = new \Smarty\Smarty();
+    $smarty->setTemplateDir($tmp . '/tpl');
+    $smarty->setCompileDir($tmp . '/compile');
+    $smarty->assign('name', 'variable');
+    $smarty->assign('include_name', 'included.tpl');
+
+    $forms = [
+        "\$_smarty_tpl->tpl_vars['include_name']",
+        '($_smarty_tpl->tpl_vars[include_name])',
+        '$_smarty_tpl->tpl_vars[include_name]',
+    ];
+    foreach ($forms as $form) {
+        $out = smarty_function_tmplinclude(['file' => $form], $smarty);
+        if (trim($out) !== 'DEFAULT INCLUDE variable') {
+            throw new RuntimeException($form . ' resolved to: ' . $out);
+        }
+    }
+
+    $smarty = new \Smarty\Smarty();
+    $smarty->setTemplateDir($tmp . '/tpl');
+    $smarty->setCompileDir($tmp . '/compile');
+
+    $malformedRejected = false;
+    try {
+        smarty_function_tmplinclude(['file' => '$_smarty_tpl->tpl_vars[unterminated'], $smarty);
+    } catch (\Smarty\Exception $e) {
+        if ($e->getMessage() === 'Source: Missing  name') {
+            $malformedRejected = true;
+        } else {
+            throw new RuntimeException('unexpected Smarty error: ' . $e->getMessage());
+        }
+    }
+    if (!$malformedRejected) {
+        throw new RuntimeException('expected missing-source Smarty error');
     }
 });
 

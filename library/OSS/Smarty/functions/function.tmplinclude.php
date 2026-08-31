@@ -53,6 +53,8 @@
  * @package    OSS_Smarty
  * @subpackage Functions
  *
+ * @param array{file?: string, assign?: string, ...<string, mixed>} $params
+ * @param \Smarty\Smarty|\Smarty\Template $smarty
  * @return string
  */
 function smarty_function_tmplinclude( $params, $smarty )
@@ -62,7 +64,7 @@ function smarty_function_tmplinclude( $params, $smarty )
 
     // Smarty 5 passes a \Smarty\Template (not the engine) to function plugins;
     // templateExists()/fetch() live on the engine, so resolve it.
-    $engine = method_exists( $smarty, 'getSmarty' ) ? $smarty->getSmarty() : $smarty;
+    $engine = $smarty instanceof \Smarty\Template ? $smarty->getSmarty() : $smarty;
 
     $original_values = [];
     
@@ -81,19 +83,22 @@ function smarty_function_tmplinclude( $params, $smarty )
     if( substr( $params['file'], 0, 24 ) == '$_smarty_tpl->tpl_vars[\'' )
     {
         $params['file'] = substr( $params['file'], 24 );
-        $params['file'] = substr( $params['file'], 0, strpos( $params['file'], '\'' ) );
+        $end = strpos( $params['file'], '\'' );
+        $params['file'] = substr( $params['file'], 0, $end === false ? 0 : $end );
         $params['file'] = $smarty->getTemplateVars( $params['file'] );
     }
     elseif( substr( $params['file'], 0, 24 ) == '($_smarty_tpl->tpl_vars[' )
     {
         $params['file'] = substr( $params['file'], 24 );
-        $params['file'] = substr( $params['file'], 0, strpos( $params['file'], ']' ) );
+        $end = strpos( $params['file'], ']' );
+        $params['file'] = substr( $params['file'], 0, $end === false ? 0 : $end );
         $params['file'] = $smarty->getTemplateVars( $params['file'] );
     }
     elseif( substr( $params['file'], 0, 23 ) == '$_smarty_tpl->tpl_vars[' )
     {
         $params['file'] = substr( $params['file'], 23 );
-        $params['file'] = substr( $params['file'], 0, strpos( $params['file'], ']' ) );
+        $end = strpos( $params['file'], ']' );
+        $params['file'] = substr( $params['file'], 0, $end === false ? 0 : $end );
         $params['file'] = $smarty->getTemplateVars( $params['file'] );
     }
     else
