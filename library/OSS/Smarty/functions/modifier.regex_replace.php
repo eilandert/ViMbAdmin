@@ -4,10 +4,10 @@
  *
  * Usage: {$string|regex_replace:'/pattern/':'replacement'}
  *
- * @param  string       $string
- * @param  string|array $pattern
- * @param  string|array $replace
- * @return string
+ * @param  string                         $string
+ * @param  string|array<array-key,string> $pattern
+ * @param  string|array<array-key,string> $replace
+ * @return string|null
  */
 function smarty_modifier_regex_replace( $string, $pattern, $replace )
 {
@@ -27,7 +27,7 @@ function smarty_modifier_regex_replace( $string, $pattern, $replace )
  * Strip a back-reference-unsafe trailing modifier ("e") and reject embedded
  * null bytes, matching the historical Smarty behaviour.
  */
-function smarty_modifier_regex_replace_check( $pattern )
+function smarty_modifier_regex_replace_check( string $pattern ): string
 {
     if ( ( $pos = strpos( $pattern, "\0" ) ) !== false ) {
         $pattern = substr( $pattern, 0, $pos );
