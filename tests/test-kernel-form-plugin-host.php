@@ -46,12 +46,16 @@ class ViMbAdminPlugin_Ext implements ViMbAdmin_Plugin_MailboxFormExtension
 {
     public function __construct($ctx) { $GLOBALS['ext_opts'] = $ctx->getOptions(); }
     public function nativeMailboxFields(?\Entities\Mailbox $m, array $o): array {
+        $GLOBALS['ext_field_opts'] = $o;
         return [ new \ViMbAdmin\Kernel\Form\Field('x', 'X', 'checkbox') ];
     }
     public function nativeMailboxValidate(array $v, array $o): ?string {
+        $GLOBALS['ext_validate_opts'] = $o;
         return empty($v['x']) ? 'x required' : null;
     }
     public function nativeMailboxApply(\Entities\Mailbox $m, array $v, array $o, ?object $em = null): void {
+        $GLOBALS['ext_apply_opts'] = $o;
+        $GLOBALS['ext_apply_em'] = $em;
         $m->setName($v['x'] ? 'EXT' : 'plain');
     }
 }
@@ -87,12 +91,16 @@ check('host ctor passed options',           ($GLOBALS['ext_opts'] ?? null) === $
 
 $fields = $host->fields(null, $options);
 check('fields() collects extension field',  count($fields) === 1 && $fields[0]->name === 'x');
+check('fields() receives merged options',    ($GLOBALS['ext_field_opts'] ?? null) === $options);
 check('validate() surfaces the error',      $host->validate(['x' => 0], $options) === 'x required');
+check('validate() handles null boundary',    $host->validate(['x' => null], $options) === 'x required');
 check('validate() passes when satisfied',   $host->validate(['x' => 1], $options) === null);
+check('validate() receives merged options',  ($GLOBALS['ext_validate_opts'] ?? null) === $options);
 
 $mb = new \Entities\Mailbox();
 $host->apply($mb, ['x' => 1], $options);
 check('apply() ran the writeback',          $mb->getName() === 'EXT');
+check('apply() receives options and null EM', ($GLOBALS['ext_apply_opts'] ?? null) === $options && array_key_exists('ext_apply_em', $GLOBALS) && $GLOBALS['ext_apply_em'] === null);
 
 @unlink("$dir/Ext.php"); @unlink("$dir/Plain.php"); @unlink("$dir/Off.php"); @rmdir($dir);
 

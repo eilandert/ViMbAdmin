@@ -28,7 +28,7 @@ interface ViMbAdmin_Plugin_MailboxFormExtension
      *
      * @param \Entities\Mailbox|null $mailbox the mailbox being edited (null on
      *        add), so the fields can be pre-filled
-     * @param array $options the merged application options
+     * @param array<string,mixed> $options the merged application options
      * @return \ViMbAdmin\Kernel\Form\Field[]
      */
     public function nativeMailboxFields(?\Entities\Mailbox $mailbox, array $options): array;
@@ -39,7 +39,7 @@ interface ViMbAdmin_Plugin_MailboxFormExtension
      * the section is valid.
      *
      * @param array<string,mixed> $values the submitted form values
-     * @param array $options the merged application options
+     * @param array<string,mixed> $options the merged application options
      */
     public function nativeMailboxValidate(array $values, array $options): ?string;
 
@@ -48,7 +48,7 @@ interface ViMbAdmin_Plugin_MailboxFormExtension
      * of the plugin's addPostvalidate/addPreflush writeback).
      *
      * @param array<string,mixed> $values the submitted form values
-     * @param array $options the merged application options
+     * @param array<string,mixed> $options the merged application options
      * @param object|null $em the Doctrine entity manager, for a section that owns a
      *        SEPARATE entity it must persist itself (e.g. DirectoryEntry, whose
      *        relation is the inverse side and therefore not cascade-persisted via
