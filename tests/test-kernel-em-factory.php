@@ -26,7 +26,9 @@ require __DIR__ . '/../src/Kernel/Doctrine/EntityManagerFactory.php';
 use ViMbAdmin\Kernel\Doctrine\EntityManagerFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\Driver\AttributeDriver;
+use Entities\DirectoryEntry as DirectoryEntryEntity;
 use Psr\Cache\CacheItemPoolInterface;
+use Repositories\DirectoryEntry as DirectoryEntryRepository;
 
 $appPath = realpath(__DIR__ . '/../application');
 
@@ -65,6 +67,26 @@ function check(string $label, callable $fn): void {
     } catch (\Throwable $e) {
         $failures++;
         printf("FAIL %s :: %s: %s\n", $label, get_class($e), $e->getMessage());
+    }
+}
+
+function checkDirectoryEntryRepositoryContract(mixed $entityManager): void {
+    global $failures;
+
+    if (!$entityManager instanceof EntityManagerInterface) {
+        echo "FAIL DirectoryEntry metadata resolves its entity-specific repository\n";
+        $failures++;
+        return;
+    }
+    $metadata = $entityManager->getClassMetadata(DirectoryEntryEntity::class);
+    $repository = $entityManager->getRepository(DirectoryEntryEntity::class);
+    $ok = $metadata->customRepositoryClassName === DirectoryEntryRepository::class
+        && $repository instanceof DirectoryEntryRepository
+        && $repository->getClassName() === DirectoryEntryEntity::class;
+    echo ($ok ? 'OK   ' : 'FAIL ')
+        . "DirectoryEntry metadata resolves its entity-specific repository\n";
+    if (!$ok) {
+        $failures++;
     }
 }
 
@@ -141,6 +163,8 @@ check('a known entity attribute mapping loads through the driver', function () u
         throw new RuntimeException('Admin metadata has no table name');
     }
 });
+
+checkDirectoryEntryRepositoryContract($em);
 
 check('registerEntityAutoloaders loads an Entities class', function () use ($options) {
     EntityManagerFactory::registerEntityAutoloaders($options);
