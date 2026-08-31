@@ -33,12 +33,14 @@ use Entities\Domain as DomainEntity;
 use Entities\Log as LogEntity;
 use Entities\Mailbox as MailboxEntity;
 use Entities\MailboxTask as MailboxTaskEntity;
+use Entities\McpToken as McpTokenEntity;
 use Psr\Cache\CacheItemPoolInterface;
 use ReflectionMethod as CoreReflectionMethod;
 use Repositories\DirectoryEntry as DirectoryEntryRepository;
 use Repositories\Log as LogRepository;
 use Repositories\Mailbox as MailboxRepository;
 use Repositories\MailboxTask as MailboxTaskRepository;
+use Repositories\McpToken as McpTokenRepository;
 use UnexpectedValueException as QueryProbeFailure;
 
 $appPath = realpath(__DIR__ . '/../application');
@@ -336,6 +338,69 @@ function checkMailboxTaskRepositoryContract(mixed $entityManager): void
     );
 }
 
+final class McpTokenLookupRepositoryProbe extends McpTokenRepository
+{
+    /** @var array<string,mixed>|null */
+    public ?array $criteria = null;
+    /** @var array<string,string>|null */
+    public ?array $orderBy = null;
+
+    public function __construct(private ?McpTokenEntity $result) {}
+
+    /** @param array<string,mixed> $criteria */
+    public function findOneBy(array $criteria, ?array $orderBy = null): ?object
+    {
+        $this->criteria = $criteria;
+        $this->orderBy = $orderBy;
+        return $this->result;
+    }
+}
+
+function checkMcpTokenRepositoryContract(mixed $entityManager): void
+{
+    global $failures;
+
+    if (!$entityManager instanceof EntityManagerInterface) {
+        echo "FAIL McpToken repository contract has an entity manager\n";
+        $failures++;
+        return;
+    }
+
+    $metadata = $entityManager->getClassMetadata(McpTokenEntity::class);
+    $repository = $entityManager->getRepository(McpTokenEntity::class);
+    if (!$repository instanceof McpTokenRepository) {
+        echo "FAIL McpToken metadata resolves its entity-specific repository\n";
+        $failures++;
+        return;
+    }
+
+    recordRepositoryCheck(
+        'McpToken metadata resolves its entity-specific repository',
+        $metadata->customRepositoryClassName === McpTokenRepository::class
+            && $repository->getClassName() === McpTokenEntity::class,
+    );
+
+    $token = new McpTokenEntity();
+    $probe = new \McpTokenLookupRepositoryProbe($token);
+    recordRepositoryCheck(
+        'token hash lookup retains the token_hash criterion and entity result',
+        $probe->findByHash('abc123') === $token
+            && $probe->criteria === ['token_hash' => 'abc123'],
+    );
+    recordRepositoryCheck(
+        'token name lookup retains the name criterion and entity result',
+        $probe->findByName('deploy') === $token
+            && $probe->criteria === ['name' => 'deploy'],
+    );
+
+    $missing = new \McpTokenLookupRepositoryProbe(null);
+    recordRepositoryCheck(
+        'unknown token lookup remains nullable',
+        $missing->findByHash('missing') === null
+            && $missing->criteria === ['token_hash' => 'missing'],
+    );
+}
+
 $em = null;
 
 // The attribute metadata driver needs no extra extension (reflection only), so
@@ -409,6 +474,7 @@ checkDirectoryEntryRepositoryContract($em);
 checkLogRepositoryQueryContract($em);
 checkMailboxRepositoryQueryContract($em);
 checkMailboxTaskRepositoryContract($em);
+checkMcpTokenRepositoryContract($em);
 
 check('registerEntityAutoloaders loads an Entities class', function () use ($options) {
     EntityManagerFactory::registerEntityAutoloaders($options);
