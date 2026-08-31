@@ -19,7 +19,9 @@ class Admin extends EntityRepository
      *
      * Return count of all admins.
      *
-     * @return int
+     * Doctrine returns the driver's scalar value unchanged.
+     *
+     * @return bool|float|int|string|null
      */
     public function getCount()
     {
@@ -37,7 +39,7 @@ class Admin extends EntityRepository
      * through domain admins and removing all array elements which id is already in domain admins list.
      *
      * @param \Entities\Domain $domain Domain to look for admins
-     * @retun array
+     * @return array<int|string,string|null>
      */
     public function getNotAssignedForDomain( $domain )
     {

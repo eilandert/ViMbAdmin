@@ -80,6 +80,33 @@ final class FakeAdminObjectManager implements \Doctrine\Persistence\ObjectManage
     }
 }
 
+/** In-memory repository double for the repository's domain-exclusion contract. */
+final class InMemoryAdminRepository extends \Repositories\Admin
+{
+    /** @var list<\Entities\Admin> */
+    private array $admins;
+    /** @var array<string,mixed>|null */
+    public ?array $criteria = null;
+
+    /** @param list<\Entities\Admin> $admins */
+    public function __construct(array $admins)
+    {
+        $this->admins = $admins;
+    }
+
+    /**
+     * @param array<string,mixed> $criteria
+     * @param array<string,string>|null $orderBy
+     * @return list<\Entities\Admin>
+     */
+    public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
+    {
+        unset($orderBy, $limit, $offset); // Required by the Doctrine override.
+        $this->criteria = $criteria;
+        return $this->admins;
+    }
+}
+
 $failures = 0;
 function check(string $label, bool $ok): void {
     global $failures;
@@ -213,6 +240,35 @@ check('changePassword(other) logged PW_CHANGE',    $em->lastLog() && $em->lastLo
 check('changePassword(other) log binds actor',     $em->lastLog() && $em->lastLog()->getAdmin() === $actor);
 check('changePassword(other) log binds NO domain', $em->lastLog() && $em->lastLog()->getDomain() === null);
 check('changePassword(other) new password verifies', OSS_Auth_Password::verify('ForcedPass9', $tgt->getPassword(), $authOpts));
+
+// ---- repository: available admins -------------------------------------- //
+$available = makeAdminForService('available@example.com');
+$available->setActive(true);
+(new ReflectionMethod($available, 'assignGeneratedId'))->invoke($available, 101);
+$inactive = makeAdminForService('inactive@example.com');
+$inactive->setActive(false);
+(new ReflectionMethod($inactive, 'assignGeneratedId'))->invoke($inactive, 102);
+$assigned = makeAdminForService('assigned@example.com');
+$assigned->setActive(true);
+(new ReflectionMethod($assigned, 'assignGeneratedId'))->invoke($assigned, 103);
+$repositoryDomain = makeDomainForService('repository.example');
+$repositoryDomain->addAdmin($assigned);
+$adminRepository = new InMemoryAdminRepository([$available, $inactive, $assigned]);
+$notAssigned = $adminRepository->getNotAssignedForDomain($repositoryDomain);
+check('repository requests only non-super admins', $adminRepository->criteria === ['super' => false]);
+check('repository retains active username', ($notAssigned[101] ?? null) === 'available@example.com');
+check('repository labels inactive username', ($notAssigned[102] ?? null) === 'inactive@example.com (inactive)');
+check('repository excludes already assigned admin', !isset($notAssigned[103]));
+check('repository preserves id-to-username map shape', array_keys($notAssigned) === [101, 102]);
+
+$emptyRepository = new InMemoryAdminRepository([]);
+check('repository empty boundary returns empty map', $emptyRepository->getNotAssignedForDomain($repositoryDomain) === []);
+
+$countMethodDoc = (new ReflectionMethod(\Repositories\Admin::class, 'getCount'))->getDocComment();
+check(
+    'count contract preserves Doctrine scalar return types',
+    is_string($countMethodDoc) && str_contains($countMethodDoc, '@return bool|float|int|string|null')
+);
 
 echo "\n";
 if ($failures === 0) {
