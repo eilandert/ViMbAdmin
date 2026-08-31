@@ -70,7 +70,9 @@ parameters:
 EOF
 }
 run_generator() {
-	if PHPSTAN_REPO_ROOT=$test_root PHPSTAN_BIN=$phpstan_stub \
+	if GITHUB_ACTIONS=false GITHUB_EVENT_NAME='' PHPSTAN_BASE_REF='' \
+		PHPSTAN_BASE_SHA='' PHPSTAN_EVENT_BEFORE='' \
+		PHPSTAN_REPO_ROOT=$test_root PHPSTAN_BIN=$phpstan_stub \
 		PHPSTAN_STUB_SOURCE=$source_baseline \
 		PHPSTAN_CANDIDATE_LOG=$candidate_log "$@" >"$output" 2>&1; then
 		generator_status=0
