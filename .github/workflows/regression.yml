@@ -170,6 +170,9 @@ jobs:
       - name: ViMbAdmin plugin mutation context contract
         run: php tests/test-plugin-mutation-context.php
 
+      - name: ViMbAdmin kernel form plugin host
+        run: php tests/test-kernel-form-plugin-host.php
+
   # ------------------------------------------------------------------ #
   # Dependency + cache wiring — proves a composer bump (symfony/cache, #
   # doctrine/orm) does not break the Doctrine cache layer at runtime.  #
