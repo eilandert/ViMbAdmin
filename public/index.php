@@ -1,7 +1,12 @@
 <?php
 
-defined('APPLICATION_PATH')
-    || define('APPLICATION_PATH', realpath(dirname(__FILE__) . '/../application'));
+if (!defined('APPLICATION_PATH')) {
+    $applicationPath = realpath(dirname(__FILE__) . '/../application');
+    if ($applicationPath === false) {
+        throw new \RuntimeException('Unable to resolve the application directory.');
+    }
+    define('APPLICATION_PATH', $applicationPath);
+}
 defined('APPLICATION_ENV')
     || define('APPLICATION_ENV', getenv('APPLICATION_ENV') ?: 'development');
 

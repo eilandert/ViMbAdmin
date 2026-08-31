@@ -19,6 +19,26 @@ function runPath(string $path): array
     return [$status, implode("\n", $output)];
 }
 
+/** @return array{int, string} */
+function runWithoutApplicationDirectory(): array
+{
+    global $root, $php;
+
+    $directory = sys_get_temp_dir() . '/vimbadmin-entrypoint-' . bin2hex(random_bytes(8));
+    mkdir($directory . '/public', 0700, true);
+    copy($root . '/public/index.php', $directory . '/public/index.php');
+    exec(
+        escapeshellarg($php) . ' ' . escapeshellarg($directory . '/public/index.php') . ' 2>&1',
+        $output,
+        $status
+    );
+    unlink($directory . '/public/index.php');
+    rmdir($directory . '/public');
+    rmdir($directory);
+
+    return [$status, implode("\n", $output)];
+}
+
 $failures = 0;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
@@ -34,6 +54,13 @@ check('unknown route returns native 404', str_starts_with($unknown, "404\nNot fo
 [$status, $export] = runPath('/exportsettings/thunderbird/email/user@example.com');
 check('removed export route exits successfully', $status === 0);
 check('removed export route returns native 404', str_starts_with($export, "404\nNot found"));
+
+[$status, $missingApplication] = runWithoutApplicationDirectory();
+check('missing application directory fails fast', $status !== 0);
+check(
+    'missing application directory reports the bootstrap location',
+    str_contains($missingApplication, 'Unable to resolve the application directory')
+);
 
 echo $failures === 0 ? "\nALL PASSED\n" : "\n{$failures} FAILED\n";
 exit($failures === 0 ? 0 : 1);
