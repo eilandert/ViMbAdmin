@@ -106,8 +106,8 @@ abstract class AbstractController
             $options = $this->container->options();
             $idle    = (int) ($options['resources']['session']['idle_timeout'] ?? 0);
             if ($idle > 0) {
-                $session = $this->container->session();
-                $last    = (int) ($session->timeOfLastAction ?? 0);
+                $session = new MagicPropertyStorage($this->container->session());
+                $last    = (int) $session->get('timeOfLastAction');
                 if ($last > 0 && (time() - $last) > $idle) {
                     $auth->clear();
                     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -117,7 +117,7 @@ abstract class AbstractController
                     }
                     return null;
                 }
-                $session->timeOfLastAction = time();
+                $session->set('timeOfLastAction', time());
             }
         }
 

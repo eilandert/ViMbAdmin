@@ -73,12 +73,6 @@ parameters:
 			path: src/Kernel/Controller/LogController.php
 
 		-
-			message: '#^Access to an undefined property object\:\:\$timeOfLastAction\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Kernel/Mvc/AbstractController.php
-
-		-
 			message: '#^Method ViMbAdmin\\Kernel\\Plugin\\AbstractContext\:\:getAdmin\(\) should return Entities\\Admin but returns object\.$#'
 			identifier: return.type
 			count: 1

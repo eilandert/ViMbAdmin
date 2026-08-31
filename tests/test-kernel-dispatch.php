@@ -9,6 +9,7 @@
  */
 
 require __DIR__ . '/../src/Kernel/Session/SessionStorage.php';
+require __DIR__ . '/../src/Kernel/Session/MagicPropertyStorage.php';
 require __DIR__ . '/../src/Kernel/Security/Auth.php';
 require __DIR__ . '/../src/Kernel/Http/Response.php';
 require __DIR__ . '/../src/Kernel/RouteMatch.php';
@@ -91,6 +92,29 @@ final class InvalidOptionsBootstrapFake
             default => null,
         };
     }
+}
+
+/** Resource holder for idle-timeout boundary tests. */
+final class IdleBootstrapFake
+{
+    /** @param array<string,mixed> $options */
+    public function __construct(
+        private EmFake $em,
+        private array $options,
+        private mixed $session,
+    ) {}
+
+    public function getResource(string $name): mixed
+    {
+        return match ($name) {
+            'doctrine2' => $this->em,
+            'namespace' => $this->session,
+            default => null,
+        };
+    }
+
+    /** @return array<string,mixed> */
+    public function getOptions(): array { return $this->options; }
 }
 
 /** A native controller exercising every AbstractController helper. */
@@ -205,6 +229,80 @@ $anon = new Dispatcher(
 $respAnon = $anon->dispatch(new RouteMatch('probe', 'show', 'ProbeController', 'showAction', ['type' => 'X']));
 $bodyAnon = $respAnon !== null ? json_decode($respAnon->body, true) : null;
 check('admin() is null when unauthenticated', is_array($bodyAnon) && $bodyAnon['admin'] === null);
+
+// Idle-timeout session boundary --------------------------------------- //
+$idleOptions = ['resources' => ['session' => ['idle_timeout' => 60]]];
+$freshSession = (object) ['timeOfLastAction' => time() - 5];
+$freshAuth = new Auth(
+    new ArraySession(['identity' => ['id' => 7]]),
+    fn(int $id) => $id === 7 ? $admin : null,
+);
+$freshDispatcher = new Dispatcher(
+    new Container(new IdleBootstrapFake($em, $idleOptions, $freshSession), $freshAuth),
+    ['probe' => ProbeController::class],
+);
+$beforeRefresh = time();
+$freshResponse = $freshDispatcher->dispatch(
+    new RouteMatch('probe', 'show', 'ProbeController', 'showAction', []),
+);
+$freshBody = $freshResponse !== null ? json_decode($freshResponse->body, true) : null;
+check('authenticated admin survives within the idle timeout',
+    is_array($freshBody) && $freshBody['admin'] === 7);
+check('authenticated request refreshes its last-action timestamp',
+    is_int($freshSession->timeOfLastAction)
+        && $freshSession->timeOfLastAction >= $beforeRefresh
+        && $freshSession->timeOfLastAction <= time());
+
+$expiredSession = (object) ['timeOfLastAction' => time() - 61];
+$expiredIdentity = new ArraySession(['identity' => ['id' => 7]]);
+$expiredAuth = new Auth($expiredIdentity, fn(int $id) => $id === 7 ? $admin : null);
+$expiredDispatcher = new Dispatcher(
+    new Container(new IdleBootstrapFake($em, $idleOptions, $expiredSession), $expiredAuth),
+    ['probe' => ProbeController::class],
+);
+$expiredResponse = $expiredDispatcher->dispatch(
+    new RouteMatch('probe', 'show', 'ProbeController', 'showAction', []),
+);
+$expiredBody = $expiredResponse !== null ? json_decode($expiredResponse->body, true) : null;
+check('expired authenticated session returns no admin',
+    is_array($expiredBody) && $expiredBody['admin'] === null);
+check('expired authenticated session clears the identity', !$expiredIdentity->has('identity'));
+
+$anonymousMalformedDispatcher = new Dispatcher(
+    new Container(
+        new IdleBootstrapFake($em, $idleOptions, 'malformed-session'),
+        new Auth(new ArraySession([]), fn(int $id) => null),
+    ),
+    ['probe' => ProbeController::class],
+);
+$anonymousMalformedResponse = $anonymousMalformedDispatcher->dispatch(
+    new RouteMatch('probe', 'show', 'ProbeController', 'showAction', []),
+);
+$anonymousMalformedBody = $anonymousMalformedResponse !== null
+    ? json_decode($anonymousMalformedResponse->body, true)
+    : null;
+check('anonymous request does not touch a malformed session resource',
+    is_array($anonymousMalformedBody) && $anonymousMalformedBody['admin'] === null);
+
+$malformedRejected = false;
+try {
+    $malformedDispatcher = new Dispatcher(
+        new Container(
+            new IdleBootstrapFake($em, $idleOptions, 'malformed-session'),
+            new Auth(
+                new ArraySession(['identity' => ['id' => 7]]),
+                fn(int $id) => $id === 7 ? $admin : null,
+            ),
+        ),
+        ['probe' => ProbeController::class],
+    );
+    $malformedDispatcher->dispatch(
+        new RouteMatch('probe', 'show', 'ProbeController', 'showAction', []),
+    );
+} catch (TypeError) {
+    $malformedRejected = true;
+}
+check('authenticated request rejects a malformed session resource', $malformedRejected);
 
 echo "\n";
 if ($failures === 0) {
