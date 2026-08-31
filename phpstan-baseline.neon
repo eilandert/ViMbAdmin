@@ -4195,36 +4195,6 @@ parameters:
 			path: tests/test-kernel-mailer.php
 
 		-
-			message: '#^Cannot use \+\+ on mixed\.$#'
-			identifier: postInc.type
-			count: 1
-			path: tests/test-kernel-mcp.php
-
-		-
-			message: '#^Function controllerFor\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/test-kernel-mcp.php
-
-		-
-			message: '#^Method McpTestResources\:\:__construct\(\) has parameter \$options with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/test-kernel-mcp.php
-
-		-
-			message: '#^Method McpTestResources\:\:getOptions\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/test-kernel-mcp.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 2
-			path: tests/test-kernel-mcp.php
-
-		-
 			message: '#^Call to function in_array\(\) with arguments ''alias_toggleActive…'', array\{\} and true will always evaluate to false\.$#'
 			identifier: function.impossibleType
 			count: 1
