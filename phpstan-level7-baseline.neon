@@ -1,24 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Method OSS_Auth_\x50assword\:\:hash\(\) has parameter \$config with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Auth/Password.php
-
-		-
-			message: '#^Method OSS_Auth_\x50assword\:\:verify\(\) has parameter \$config with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Auth/Password.php
-
-		-
-			message: '#^Unreachable statement \- code above always terminates\.$#'
-			identifier: deadCode.unreachable
-			count: 3
-			path: library/OSS/Auth/Password.php
-
-		-
 			message: '#^Cannot call method getSmarty\(\) on class\-string\|object\.$#'
 			identifier: method.nonObject
 			count: 1

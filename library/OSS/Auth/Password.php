@@ -59,10 +59,11 @@ class OSS_Auth_Password
      * The parameters expected in `$config` are:
      *
      * * `pwhash`      - a hashing method from the `HASH_` constants in this class
-     * * `hash_cost`   - a *cost* parameter for certain hashing functions - e.g. bcrypt (defaults to 9)
+     * * `hash_cost`   - a *cost* parameter for certain hashing functions - e.g. bcrypt (defaults to 12)
      *
      * @param string $pw The plaintext password to hash
-     * @param array $config The resources.auth.oss array from `application.ini`
+     * @param array<string, mixed>|string $config
+     *     The resources.auth.oss array from `application.ini`, or a hash method
      * @throws OSS_Exception
      * @return string The hashed password
      */
@@ -118,15 +119,12 @@ class OSS_Auth_Password
                 case self::HASH_PLAINTEXT:
                 case self::HASH_PLAIN:
                     return $pw;
-                    break;
 
                 case self::HASH_BCRYPT:
-                    if( !isset( $config['hash_cost'] ) )
-                        $config['hash_cost'] = 12;
-
-                    $bcrypt = new OSS_Crypt_Bcrypt( $config['hash_cost'] );
+                    $cost = is_array( $config ) && isset( $config['hash_cost'] )
+                        ? $config['hash_cost'] : 12;
+                    $bcrypt = new OSS_Crypt_Bcrypt( $cost );
                     return $bcrypt->hash( $pw );
-                    break;
 
                 // UPDATE PHPDOC ABOVE WHEN ADDING NEW METHODS!
 
@@ -143,7 +141,8 @@ class OSS_Auth_Password
      *
      * @param string $pwplain The plaintext password
      * @param string $pwhash The hashed password to use for verification
-     * @param array $config The resources.auth.oss array from `application.ini`
+     * @param array<string, mixed>|string $config
+     *     The resources.auth.oss array from `application.ini`, or a hash method
      * @throws OSS_Exception
      * @return bool True if the passwords match
      */
@@ -161,15 +160,13 @@ class OSS_Auth_Password
         else
             $hash = $config;
 
-        switch( $config['pwhash'] )
+        switch( $hash )
         {
             case self::HASH_BCRYPT:
-                if( !isset( $config['hash_cost'] ) )
-                    $config['hash_cost'] = 12;
-
-                $bcrypt = new OSS_Crypt_Bcrypt( $config['hash_cost'] );
+                $cost = is_array( $config ) && isset( $config['hash_cost'] )
+                    ? $config['hash_cost'] : 12;
+                $bcrypt = new OSS_Crypt_Bcrypt( $cost );
                 return $bcrypt->verify( $pwplain, $pwhash );
-                break;
         }
 
         if( substr( $hash, 0, 6) == 'crypt:' )
