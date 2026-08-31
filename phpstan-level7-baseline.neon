@@ -82,18 +82,6 @@ parameters:
 			message: '#^Call to an undefined method object\:\:flush\(\)\.$#'
 			identifier: method.notFound
 			count: 1
-			path: src/Kernel/Cli/Command/McpTokenRevokeCommand.php
-
-		-
-			message: '#^Call to an undefined method object\:\:getRepository\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: src/Kernel/Cli/Command/McpTokenRevokeCommand.php
-
-		-
-			message: '#^Call to an undefined method object\:\:flush\(\)\.$#'
-			identifier: method.notFound
-			count: 1
 			path: src/Kernel/Cli/Command/ResetTotpCommand.php
 
 		-

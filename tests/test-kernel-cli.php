@@ -53,6 +53,7 @@ require __DIR__ . '/../src/Kernel/Cli/CliKernel.php';
 // touches none of it. Provide the class only if not already autoloaded.
 use ViMbAdmin\Kernel\Cli\Command\QueueRunCommand;
 use ViMbAdmin\Kernel\Cli\Command\McpTokenListCommand;
+use ViMbAdmin\Kernel\Cli\Command\McpTokenRevokeCommand;
 use ViMbAdmin\Kernel\Cli\CliKernel;
 use ViMbAdmin\Kernel\Container;
 use ViMbAdmin\Kernel\Security\Auth;
@@ -75,6 +76,9 @@ final class CliMcpTokenRepository implements \Doctrine\Persistence\ObjectReposit
     public ?array $criteria = null;
     /** @var array<string,string>|null */
     public ?array $orderBy = null;
+    public mixed $foundId = null;
+    public ?string $foundName = null;
+    public ?Throwable $error = null;
 
     /** @param list<\Entities\McpToken> $tokens */
     public function __construct(array $tokens)
@@ -82,7 +86,24 @@ final class CliMcpTokenRepository implements \Doctrine\Persistence\ObjectReposit
         $this->tokens = $tokens;
     }
 
-    public function find(mixed $id): ?object { return null; }
+    public function find(mixed $id): ?object
+    {
+        $this->foundId = $id;
+        if ($this->error !== null) { throw $this->error; }
+        foreach ($this->tokens as $token) {
+            if ($token->getId() === $id) { return $token; }
+        }
+        return null;
+    }
+    private function findByName(string $name): ?\Entities\McpToken
+    {
+        $this->foundName = $name;
+        if ($this->error !== null) { throw $this->error; }
+        foreach ($this->tokens as $token) {
+            if ($token->getName() === $name) { return $token; }
+        }
+        return null;
+    }
     /** @return list<\Entities\McpToken> */
     public function findAll(): array { return $this->tokens; }
     /** @return list<\Entities\McpToken> */
@@ -96,12 +117,17 @@ final class CliMcpTokenRepository implements \Doctrine\Persistence\ObjectReposit
         }
         return $tokens;
     }
-    public function findOneBy(array $criteria): ?object { return null; }
+    public function findOneBy(array $criteria): ?object
+    {
+        $name = $criteria['name'] ?? null;
+        return is_string($name) ? $this->findByName($name) : null;
+    }
     public function getClassName(): string { return \Entities\McpToken::class; }
 }
 
 final class CliMcpObjectManager
 {
+    public int $flushes = 0;
     public function __construct(public CliMcpTokenRepository $repository) {}
     public function getRepository(string $className): CliMcpTokenRepository
     {
@@ -110,6 +136,7 @@ final class CliMcpObjectManager
         }
         return $this->repository;
     }
+    public function flush(): void { $this->flushes++; }
 }
 
 final class CliTestResources
@@ -200,6 +227,21 @@ function runMcpTokenList(object $entityManager): array
     ob_start();
     try {
         $status = (new McpTokenListCommand())->run(cliContainer($entityManager), []);
+        return [$status, (string) ob_get_clean()];
+    } catch (Throwable $e) {
+        ob_end_clean();
+        throw $e;
+    }
+}
+
+/** @param array<string,mixed> $args
+ *  @return array{int,string}
+ */
+function runMcpTokenRevoke(object $entityManager, array $args): array
+{
+    ob_start();
+    try {
+        $status = (new McpTokenRevokeCommand())->run(cliContainer($entityManager), $args);
         return [$status, (string) ob_get_clean()];
     } catch (Throwable $e) {
         ob_end_clean();
@@ -305,6 +347,51 @@ try {
     $boundaryRejected = $e->getMessage() === 'MCP token listing requires a Doctrine object manager.';
 }
 check('non-Doctrine entity-manager resources fail at the local boundary', $boundaryRejected);
+
+echo "== MCP token revoke command ==\n";
+
+$byId = cliMcpToken(7, 'by-id');
+$repository = new CliMcpTokenRepository([$byId, cliMcpToken(8, 'by-name')]);
+$entityManager = new CliMcpObjectManager($repository);
+[$status, $output] = runMcpTokenRevoke($entityManager, ['id' => '7', 'name' => 'by-name']);
+check('id lookup takes precedence over name and succeeds', $status === 0 && $repository->foundId === 7 && $repository->foundName === null);
+check('id revocation is persisted once with stable output', $byId->getRevoked() && $entityManager->flushes === 1 && $output === "Revoked MCP token 'by-id' (id 7).\n");
+
+$byName = cliMcpToken(9, 'named-token');
+$repository = new CliMcpTokenRepository([$byName]);
+$entityManager = new CliMcpObjectManager($repository);
+[$status, $output] = runMcpTokenRevoke($entityManager, ['id' => '', 'name' => 'named-token']);
+check('empty id falls back to name lookup', $status === 0 && $repository->foundId === null && $repository->foundName === 'named-token');
+check('name revocation is persisted with stable output', $byName->getRevoked() && $entityManager->flushes === 1 && $output === "Revoked MCP token 'named-token' (id 9).\n");
+
+$alreadyRevoked = cliMcpToken(10, 'already-revoked')->setRevoked(true);
+$repository = new CliMcpTokenRepository([$alreadyRevoked]);
+$entityManager = new CliMcpObjectManager($repository);
+[$status, $output] = runMcpTokenRevoke($entityManager, ['name' => 'already-revoked']);
+check('already-revoked tokens retain the successful persistence contract', $status === 0 && $alreadyRevoked->getRevoked() && $entityManager->flushes === 1 && $output === "Revoked MCP token 'already-revoked' (id 10).\n");
+
+$repository = new CliMcpTokenRepository([]);
+$entityManager = new CliMcpObjectManager($repository);
+[$status, $output] = runMcpTokenRevoke($entityManager, ['name' => 'missing']);
+check('missing token returns the documented error without flushing', $status === 1 && $entityManager->flushes === 0 && $output === "ERROR: token not found (use --name or --id; see mcp.cli-token-list)\n");
+
+$repository = new CliMcpTokenRepository([]);
+$repository->error = new RuntimeException('token lookup failed');
+$lookupErrorPropagated = false;
+try {
+    runMcpTokenRevoke(new CliMcpObjectManager($repository), ['id' => '1']);
+} catch (RuntimeException $e) {
+    $lookupErrorPropagated = $e->getMessage() === 'token lookup failed';
+}
+check('repository lookup errors propagate', $lookupErrorPropagated);
+
+$revokeBoundaryRejected = false;
+try {
+    runMcpTokenRevoke(new stdClass(), ['id' => '1']);
+} catch (LogicException $e) {
+    $revokeBoundaryRejected = $e->getMessage() === 'MCP token revocation requires a Doctrine object manager.';
+}
+check('revocation rejects non-Doctrine entity-manager resources locally', $revokeBoundaryRejected);
 
 echo $failures === 0 ? "ALL PASSED\n" : "FAILED ($failures)\n";
 exit($failures === 0 ? 0 : 1);
