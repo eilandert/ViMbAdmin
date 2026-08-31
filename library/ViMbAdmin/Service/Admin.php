@@ -161,15 +161,15 @@ class ViMbAdmin_Service_Admin
      * configured auth options, persist the admin, log the action against the
      * actor, and flush. Returns the new admin.
      *
-     * @param array $authOptions the `resources.auth.oss` config OSS_Auth_Password needs
+     * @param array<string, mixed> $authOptions the `resources.auth.oss` config OSS_Auth_Password needs
      */
     public function create(string $username, string $plainPassword, bool $super, \Entities\Admin $actor, array $authOptions): \Entities\Admin
     {
         $admin = new \Entities\Admin();
         $admin->setUsername( $username );
         $admin->setPassword( OSS_Auth_Password::hash( $plainPassword, $authOptions ) );
-        $admin->setSuper( $super ? 1 : 0 );
-        $admin->setActive( 1 );
+        $admin->setSuper( $super );
+        $admin->setActive( true );
         $admin->setCreated( new \DateTime() );
 
         $this->em->persist( $admin );
@@ -193,7 +193,7 @@ class ViMbAdmin_Service_Admin
      * responsible for the privilege check and (for a self-change) verifying the
      * current password first.
      *
-     * @param array $authOptions the `resources.auth.oss` config OSS_Auth_Password needs
+     * @param array<string, mixed> $authOptions the `resources.auth.oss` config OSS_Auth_Password needs
      */
     public function changePassword(\Entities\Admin $target, string $plainPassword, \Entities\Admin $actor, bool $isSelf, array $authOptions): void
     {

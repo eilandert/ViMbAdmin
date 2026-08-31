@@ -9,8 +9,9 @@
  *
  * Covers toggleActive / toggleSuper (both directions, correct Log action, no
  * domain bound), assignDomain (happy + duplicate-throws-no-flush, domain bound
- * on the Log), removeDomain (domain bound), and purge (detaches domains, removes
- * the admin, logs ADMIN_PURGE with no domain).
+ * on the Log), removeDomain (domain bound), purge (detaches domains, removes
+ * the admin, logs ADMIN_PURGE with no domain), and password-backed create/change
+ * paths including legacy auth options and failure ordering.
  *
  * Exit 0 = all passed, 1 = a failure, 2 = bootstrap error.
  */
@@ -32,10 +33,12 @@ spl_autoload_register(static function (string $class): void {
 
 require __DIR__ . '/../library/ViMbAdmin/Service/Exception.php';
 require __DIR__ . '/../library/ViMbAdmin/Service/Admin.php';
-// changePassword() hashes through OSS_Auth_Password; crypt:sha512 needs only
-// these two helpers (no bcrypt/mcrypt class), so the hash path runs host-side.
+// Password operations hash through OSS_Auth_Password; load the crypt helpers
+// plus bcrypt so the service's configured and default-cost paths run host-side.
 require __DIR__ . '/../library/OSS/Exception.php';
+require __DIR__ . '/../library/OSS/Crypt/Exception.php';
 require __DIR__ . '/../library/OSS/String.php';
+require __DIR__ . '/../library/OSS/Crypt/Bcrypt.php';
 require __DIR__ . '/../library/OSS/Auth/Password.php';
 
 use Doctrine\Common\Collections\ArrayCollection;
@@ -218,8 +221,58 @@ check('purge logged ADMIN_PURGE',                $em->lastLog() && $em->lastLog(
 check('purge Log binds NO domain',               $em->lastLog() && $em->lastLog()->getDomain() === null);
 check('purge Log binds actor not victim',        $em->lastLog() && $em->lastLog()->getAdmin() === $actor);
 
+// ---- create: state, hashing and persistence ordering ------------------- //
+$em = new FakeAdminObjectManager();
+$created = (new ViMbAdmin_Service_Admin($em))->create(
+    'created@example.com',
+    'CreatePass123',
+    true,
+    $actor,
+    $authOpts = ['pwhash' => 'crypt:sha512'],
+);
+check('create returns and persists the new admin first',
+    $em->persisted[0] === $created && $created->getUsername() === 'created@example.com');
+check('create passes native boolean admin states',
+    $created->getSuper() === true && $created->getActive() === true);
+check('create hashes and verifies the plaintext password',
+    $created->getPassword() !== 'CreatePass123'
+        && OSS_Auth_Password::verify('CreatePass123', $created->getPassword(), $authOpts));
+check('create persists the log after the admin and flushes once',
+    count($em->persisted) === 2
+        && $em->persisted[1] instanceof \Entities\Log
+        && $em->lastLog()?->getAction() === \Entities\Log::ACTION_ADMIN_ADD
+        && $em->flushes === 1);
+
+// The auth helper historically accepts a numeric-string bcrypt cost from INI.
+$em = new FakeAdminObjectManager();
+$legacyAuthOpts = ['pwhash' => 'bcrypt', 'hash_cost' => '04'];
+$legacy = (new ViMbAdmin_Service_Admin($em))->create(
+    'legacy@example.com', 'LegacyPass123', false, $actor, $legacyAuthOpts,
+);
+check('create retains legacy numeric-string bcrypt cost',
+    str_starts_with($legacy->getPassword(), '$2a$04$')
+        && $legacy->getSuper() === false
+        && $legacy->getActive() === true);
+
+$em = new FakeAdminObjectManager();
+$defaultBcrypt = (new ViMbAdmin_Service_Admin($em))->create(
+    'default@example.com', 'DefaultPass123', false, $actor, ['pwhash' => 'bcrypt'],
+);
+check('create retains bcrypt default cost 12', str_starts_with($defaultBcrypt->getPassword(), '$2a$12$'));
+
+$em = new FakeAdminObjectManager();
+$createRejected = false;
+try {
+    (new ViMbAdmin_Service_Admin($em))->create(
+        'invalid@example.com', 'InvalidPass123', false, $actor, [],
+    );
+} catch (OSS_Exception $e) {
+    $createRejected = $e->getMessage() === 'Cannot hash password without a hash method';
+}
+check('create hash errors precede persistence, logging and flush',
+    $createRejected && $em->persisted === [] && $em->flushes === 0);
+
 // ---- changePassword: self (no log) -------------------------------------- //
-$authOpts = ['pwhash' => 'crypt:sha512'];
 $em  = new FakeAdminObjectManager();
 $me  = makeAdminForService('me@example.com');
 $me->setPassword(OSS_Auth_Password::hash('OldPass123', $authOpts));
@@ -240,6 +293,21 @@ check('changePassword(other) logged PW_CHANGE',    $em->lastLog() && $em->lastLo
 check('changePassword(other) log binds actor',     $em->lastLog() && $em->lastLog()->getAdmin() === $actor);
 check('changePassword(other) log binds NO domain', $em->lastLog() && $em->lastLog()->getDomain() === null);
 check('changePassword(other) new password verifies', OSS_Auth_Password::verify('ForcedPass9', $tgt->getPassword(), $authOpts));
+
+$em = new FakeAdminObjectManager();
+$unchanged = makeAdminForService('unchanged@example.com');
+$unchanged->setPassword('existing-hash');
+$changeRejected = false;
+try {
+    (new ViMbAdmin_Service_Admin($em))->changePassword($unchanged, 'RejectedPass9', $actor, false, []);
+} catch (OSS_Exception $e) {
+    $changeRejected = $e->getMessage() === 'Cannot hash password without a hash method';
+}
+check('changePassword hash errors preserve password and precede log and flush',
+    $changeRejected
+        && $unchanged->getPassword() === 'existing-hash'
+        && $em->persisted === []
+        && $em->flushes === 0);
 
 // ---- repository: available admins -------------------------------------- //
 $available = makeAdminForService('available@example.com');
