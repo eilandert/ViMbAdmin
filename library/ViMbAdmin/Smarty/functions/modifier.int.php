@@ -41,7 +41,7 @@
  * @package ViMbAdmin
  * @subpackage Smarty_Functions
  */
-function smarty_modifier_int( $input )
+function smarty_modifier_int( mixed $input ): int
 {
     return (int) $input;
 }

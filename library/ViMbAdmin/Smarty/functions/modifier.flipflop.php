@@ -41,7 +41,7 @@
  * @package ViMbAdmin
  * @subpackage Smarty_Functions
  */
-function smarty_modifier_flipflop( $input )
+function smarty_modifier_flipflop( mixed $input ): int
 {
     return (int) !( (bool) $input );
 }
