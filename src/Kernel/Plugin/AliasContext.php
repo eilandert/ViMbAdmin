@@ -31,6 +31,9 @@ final class AliasContext extends AbstractContext implements \ViMbAdmin_Plugin_Al
 
     public function getAlias()
     {
-        return $this->alias;
+        /** @var \Entities\Alias $alias */
+        $alias = $this->alias;
+
+        return $alias;
     }
 }

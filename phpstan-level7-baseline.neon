@@ -1,30 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Method ViMbAdmin\\Kernel\\Plugin\\AbstractContext\:\:getAdmin\(\) should return Entities\\Admin but returns object\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Kernel/Plugin/AbstractContext.php
-
-		-
-			message: '#^Method ViMbAdmin\\Kernel\\Plugin\\AbstractContext\:\:getD2EM\(\) should return Doctrine\\ORM\\EntityManagerInterface but returns object\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Kernel/Plugin/AbstractContext.php
-
-		-
-			message: '#^Method ViMbAdmin\\Kernel\\Plugin\\AbstractContext\:\:getDomain\(\) should return Entities\\Domain but returns object\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Kernel/Plugin/AbstractContext.php
-
-		-
-			message: '#^Method ViMbAdmin\\Kernel\\Plugin\\AliasContext\:\:getAlias\(\) should return Entities\\Alias but returns object\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Kernel/Plugin/AliasContext.php
-
-		-
 			message: '#^Method ViMbAdmin\\Kernel\\Plugin\\FormPluginHost\:\:apply\(\) has parameter \$options with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -65,12 +41,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Kernel/Plugin/FormPluginHost.php
-
-		-
-			message: '#^Method ViMbAdmin\\Kernel\\Plugin\\MailboxContext\:\:getMailbox\(\) should return Entities\\Mailbox but returns object\.$#'
-			identifier: return.type
-			count: 1
-			path: src/Kernel/Plugin/MailboxContext.php
 
 		-
 			message: '#^Call to an undefined method object\:\:update\(\)\.$#'

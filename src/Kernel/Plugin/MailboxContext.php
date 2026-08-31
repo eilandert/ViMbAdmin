@@ -31,6 +31,9 @@ final class MailboxContext extends AbstractContext implements \ViMbAdmin_Plugin_
 
     public function getMailbox()
     {
-        return $this->mailbox;
+        /** @var \Entities\Mailbox $mailbox */
+        $mailbox = $this->mailbox;
+
+        return $mailbox;
     }
 }

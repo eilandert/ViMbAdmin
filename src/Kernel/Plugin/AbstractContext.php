@@ -52,17 +52,26 @@ abstract class AbstractContext implements \ViMbAdmin_Plugin_MutationContext
 
     public function getD2EM()
     {
-        return $this->em;
+        /** @var \Doctrine\ORM\EntityManagerInterface $entityManager */
+        $entityManager = $this->em;
+
+        return $entityManager;
     }
 
     public function getAdmin()
     {
-        return $this->admin;
+        /** @var \Entities\Admin $admin */
+        $admin = $this->admin;
+
+        return $admin;
     }
 
     public function getDomain()
     {
-        return $this->domain;
+        /** @var \Entities\Domain $domain */
+        $domain = $this->domain;
+
+        return $domain;
     }
 
     public function addMessage(mixed $message, ?string $class = null, ?int $type = null): void
