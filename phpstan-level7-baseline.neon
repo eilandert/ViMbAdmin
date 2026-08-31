@@ -1,18 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Call to function is_string\(\) with non\-empty\-string will always evaluate to true\.$#'
-			identifier: function.alreadyNarrowedType
-			count: 1
-			path: library/ViMbAdmin/Dovecot.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between ''S'' and ''S'' will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 1
-			path: library/ViMbAdmin/Dovecot.php
-
-		-
 			message: '#^Method ViMbAdmin_Plugin\:\:__construct\(\) has parameter \$classname with no type specified\.$#'
 			identifier: missingType.parameter
 			count: 1

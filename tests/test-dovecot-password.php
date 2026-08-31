@@ -1,6 +1,6 @@
 <?php
 /**
- * Unit test: ViMbAdmin_Dovecot::passwordVerify().
+ * Unit test: ViMbAdmin_Dovecot password generation and verification.
  *
  * Regression for the "cannot change / can't log in" bug: Dovecot stores hashes
  * with a leading {SCHEME} prefix (e.g. "{SHA512-CRYPT}$6$...") but the verifier
@@ -14,6 +14,7 @@
  * Pure logic — no framework, no DB. Exit 0 = all passed, 1 = a failure.
  */
 
+require __DIR__ . '/../library/ViMbAdmin/Exception.php';
 require __DIR__ . '/../library/ViMbAdmin/Dovecot.php';
 
 $failures = 0;
@@ -25,6 +26,25 @@ function check(string $label, bool $ok): void {
 // A password exercising the exact chars from the field report (17 chars, ! and &).
 $pw    = 'Ab1!cdef&ghij9012';
 $wrong = 'Ab1!cdef&ghij9013';
+
+// --- password generation: supported schemes return usable bare hashes ---
+foreach (['BLF-CRYPT' => '$2', 'SHA512-CRYPT' => '$6$', 'SHA256-CRYPT' => '$5$'] as $scheme => $prefix) {
+    $generated = ViMbAdmin_Dovecot::password($scheme, $pw, 'u');
+    check("{$scheme} generation returns the expected bare hash",
+        strncmp($generated, $prefix, strlen($prefix)) === 0);
+    check("{$scheme} generated hash verifies",
+        ViMbAdmin_Dovecot::passwordVerify($scheme, $generated, $pw, 'u') === true);
+    check("{$scheme} generated hash rejects a wrong password",
+        ViMbAdmin_Dovecot::passwordVerify($scheme, $generated, $wrong, 'u') === false);
+}
+
+$unsupportedRejected = false;
+try {
+    ViMbAdmin_Dovecot::password('PLAIN', $pw, 'u');
+} catch (ViMbAdmin_Exception $e) {
+    $unsupportedRejected = str_contains($e->getMessage(), 'Unsupported password scheme');
+}
+check('unsupported generation scheme retains its explicit error', $unsupportedRejected);
 
 // Deterministic $6$ salt so the crypt template is stable across runs.
 $sixCrypt = crypt($pw, '$6$0Z8YFxPS8T1Ac.0T');
@@ -68,6 +88,11 @@ $ssha256 = '{SSHA256}' . base64_encode(hash('sha256', $pw . $salt, true) . $salt
 check('{SSHA256} salted, correct pw',
     ViMbAdmin_Dovecot::passwordVerify('dovecot', $ssha256, $pw, 'u') === true);
 
+// Exact digest length is the zero-length-salt boundary for SSHA.
+$ssha256EmptySalt = '{SSHA256}' . base64_encode(hash('sha256', $pw, true));
+check('{SSHA256} zero-length salt boundary verifies',
+    ViMbAdmin_Dovecot::passwordVerify('dovecot', $ssha256EmptySalt, $pw, 'u') === true);
+
 // --- {BLF-CRYPT} bcrypt ---
 $blf = '{BLF-CRYPT}' . password_hash($pw, PASSWORD_BCRYPT);
 check('{BLF-CRYPT} bcrypt, correct pw',
@@ -86,6 +111,20 @@ check('empty stored hash → false',
     ViMbAdmin_Dovecot::passwordVerify('dovecot', '', $pw, 'u') === false);
 check('bad base64 in {SHA512} → false (not a crash)',
     ViMbAdmin_Dovecot::passwordVerify('dovecot', '{SHA512}!!!not-base64!!!', $pw, 'u') === false);
+check('truncated {SSHA256} digest → false (not a crash)',
+    ViMbAdmin_Dovecot::passwordVerify(
+        'dovecot',
+        '{SSHA256}' . base64_encode(substr(hash('sha256', $pw, true), 0, 31)),
+        $pw,
+        'u'
+    ) === false);
+check('oversized unsalted {SHA256} digest → false',
+    ViMbAdmin_Dovecot::passwordVerify(
+        'dovecot',
+        '{SHA256}' . base64_encode(hash('sha256', $pw, true) . "\x00"),
+        $pw,
+        'u'
+    ) === false);
 
 echo "\n" . ($failures === 0 ? "PASS" : "FAIL ({$failures})") . "\n";
 exit($failures === 0 ? 0 : 1);
