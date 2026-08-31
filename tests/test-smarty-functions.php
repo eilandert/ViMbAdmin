@@ -8,7 +8,7 @@ final class OSS_Utils_TestRecorder
     public static ?array $genUrlArguments = null;
 }
 
-final class OSS_Utils
+final class OSS_Utils_TestDouble
 {
 
     /**
@@ -24,6 +24,8 @@ final class OSS_Utils
         return '/generated';
     }
 }
+
+class_alias(OSS_Utils_TestDouble::class, 'OSS_Utils');
 
 require __DIR__ . '/../library/OSS/Smarty/functions/function.currency.php';
 require __DIR__ . '/../library/OSS/Smarty/functions/function.customdate.php';

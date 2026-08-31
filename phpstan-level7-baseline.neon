@@ -1,24 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Method OSS_Utils\:\:genUrl\(\) has parameter \$params with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Utils.php
-
-		-
-			message: '#^Method OSS_Utils\:\:parseXML\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: library/OSS/Utils.php
-
-		-
-			message: '#^Parameter \#3 \$pad_string of function str_pad expects string, int given\.$#'
-			identifier: argument.type
-			count: 1
-			path: library/OSS/Utils.php
-
-		-
 			message: '#^Call to function is_string\(\) with non\-empty\-string will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
 			count: 1

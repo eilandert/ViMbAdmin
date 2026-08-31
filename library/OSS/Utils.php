@@ -49,7 +49,7 @@ class OSS_Utils
      * Parses an XML using SimpleXML and returns with the result object, or false on error.
      *
      * @param string $XML
-     * @return array|bool|\SimpleXMLElement
+     * @return \SimpleXMLElement|false
      */
     public static function parseXML( $XML )
     {
@@ -128,7 +128,7 @@ class OSS_Utils
      * @param string|bool $controller default false The controller to call.
      * @param string|bool $action default false The action to call (controller must be set if setting action)
      * @param string|bool $module default false The module to use. Set to false to ignore.
-     * @param array $params default array() An array of key value pairs to add to the URL.
+     * @param array<int|string, mixed> $params default array() An array of key value pairs to add to the URL.
      * @param string $host Defaults to null. Hostname (including http[s]://) to override url with
      * @return string
      */
@@ -244,7 +244,7 @@ class OSS_Utils
      */
     public static function uniformDistHash( $id, $length = 3 )
     {
-        $tmpstr = strrev( str_pad( dechex( $id ), $length, 0, STR_PAD_LEFT ) );
+        $tmpstr = strrev( str_pad( dechex( $id ), $length, '0', STR_PAD_LEFT ) );
         $str = "";
         for( $i = 0; $i < $length; $i++ )
             $str .= $tmpstr[ $i ] . "/";
