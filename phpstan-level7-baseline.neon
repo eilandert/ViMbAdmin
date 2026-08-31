@@ -265,24 +265,6 @@ parameters:
 			path: library/OSS/Auth/Password.php
 
 		-
-			message: '#^Parameter \#1 \$value of static method OSS_Filter_FileSize\:\:unfilter\(\) expects int, string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: library/OSS/Filter/FileSize.php
-
-		-
-			message: '#^Property OSS_Filter_FileSize\:\:\$SIZE_MULTIPLIERS has no type specified\.$#'
-			identifier: missingType.property
-			count: 1
-			path: library/OSS/Filter/FileSize.php
-
-		-
-			message: '#^Property OSS_Filter_FileSize\:\:\$SIZE_PRECISION has no type specified\.$#'
-			identifier: missingType.property
-			count: 1
-			path: library/OSS/Filter/FileSize.php
-
-		-
 			message: '#^Function smarty_function_OSS_Message\(\) has parameter \$params with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1

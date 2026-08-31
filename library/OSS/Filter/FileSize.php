@@ -49,6 +49,7 @@ class OSS_Filter_FileSize
     const SIZE_MEGABYTES = "MB";
     const SIZE_GIGABYTES = "GB";
 
+    /** @var array<string,float> */
     public static $SIZE_MULTIPLIERS = [
         self::SIZE_BYTES     => 1.0,
         self::SIZE_KILOBYTES => 1024.0,
@@ -56,6 +57,7 @@ class OSS_Filter_FileSize
         self::SIZE_GIGABYTES => 1073741824.0
     ];
 
+    /** @var array<string,int> */
     public static $SIZE_PRECISION = [
         self::SIZE_BYTES     => 1,
         self::SIZE_KILOBYTES => 3,
@@ -76,7 +78,7 @@ class OSS_Filter_FileSize
      * Sets filter options
      * Valid multiplier options: B, KB, MB, GB. Where case is not sensitive.
      *
-     * @param string $multiplier Sets default multiplier it's not set in value.
+     * @param string|null $multiplier Sets default multiplier it's not set in value.
      * @return void
      * @throws OSS_Exception If multiplier is not one of $SIZE_MULTIPLIERS KEY.
      */
@@ -129,8 +131,8 @@ class OSS_Filter_FileSize
      *  20 will look for parameter defaults.quota.multiplier in application.ini and use as subfix.
      *     else it will return 20.
      *
-     * @param string $value String to parse size in bytes
-     * @return int|bool|string
+     * @param int|float|string $value Value to parse as a size in bytes
+     * @return int|float|string|false
      */
     public function filter( $value )
     {
@@ -147,7 +149,7 @@ class OSS_Filter_FileSize
             }
         }
         
-        $value = str_replace( " ", "", $value );
+        $value = str_replace( " ", "", (string) $value );
         
         if( substr_count( $value, "." ) > 1 )
             return false;
@@ -173,7 +175,7 @@ class OSS_Filter_FileSize
 
         
         if( isset( self::$SIZE_MULTIPLIERS[ $subfix ] ) )
-            $value = $numericValue * self::$SIZE_MULTIPLIERS[ $subfix ];
+            $value = (float) $numericValue * self::$SIZE_MULTIPLIERS[ $subfix ];
         else
             return false;
         
@@ -188,8 +190,8 @@ class OSS_Filter_FileSize
      *  943718 input will 0.90MB return .
      *  20 input will return 20B.
      *
-     * @param int $value String to parse size in bytes
-     * @return int|string
+     * @param int|float|numeric-string $value Size in bytes
+     * @return int|float|string
      */
     public static function unfilter( $value )
     {
