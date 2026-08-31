@@ -52,7 +52,9 @@
  * @package    OSS_Smarty
  * @subpackage Modifier
  *
- * @param string $string Strint to modify
+ * @param string $string   String to search
+ * @param string $haystack Needle to find
+ * @param int    $offset   Starting offset
  * @return int|false
  */
 function smarty_modifier_strpos($string,$haystack,$offset=0)

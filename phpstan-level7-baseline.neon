@@ -325,42 +325,6 @@ parameters:
 			path: library/OSS/Smarty/functions/modifier.regex_replace.php
 
 		-
-			message: '#^Function smarty_modifier_strpos\(\) has parameter \$haystack with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.strpos.php
-
-		-
-			message: '#^Function smarty_modifier_strpos\(\) has parameter \$offset with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.strpos.php
-
-		-
-			message: '#^Function smarty_modifier_strstr\(\) has parameter \$haystack with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.strstr.php
-
-		-
-			message: '#^Function smarty_modifier_strstr\(\) should return string but returns string\|false\.$#'
-			identifier: return.type
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.strstr.php
-
-		-
-			message: '#^Function smarty_modifier_substr\(\) has parameter \$length with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.substr.php
-
-		-
-			message: '#^Function smarty_modifier_substr\(\) has parameter \$offset with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.substr.php
-
-		-
 			message: '#^Method OSS_Utils\:\:genUrl\(\) has parameter \$params with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
