@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
+use Doctrine\ORM\EntityManager;
+use Entities\Admin;
+use LogicException;
+use Repositories\MailboxPreference as MailboxPreferenceRepository;
 use ViMbAdmin\Kernel\Http\Response;
 use ViMbAdmin\Kernel\Mvc\AbstractController;
 
@@ -41,10 +45,39 @@ final class AdditionalInfoController extends AbstractController
             return $this->json([]);
         }
 
-        $values = $this->em()
-            ->getRepository('\\Entities\\MailboxPreference')
+        $values = $this->mailboxPreferenceRepository()
             ->loadPrefrenceValuesByAttribute('xpiInfo.' . (string) $this->param('type', ''), $admin);
 
         return $this->json($values);
+    }
+
+    protected function em(): EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof EntityManager) {
+            throw new LogicException('Doctrine entity manager resource has an invalid type');
+        }
+
+        return $em;
+    }
+
+    protected function admin(): ?Admin
+    {
+        $admin = parent::admin();
+        if ($admin !== null && !$admin instanceof Admin) {
+            throw new LogicException('Authenticated admin has an invalid type');
+        }
+
+        return $admin;
+    }
+
+    private function mailboxPreferenceRepository(): MailboxPreferenceRepository
+    {
+        $repository = $this->em()->getRepository('\\Entities\\MailboxPreference');
+        if (!$repository instanceof MailboxPreferenceRepository) {
+            throw new LogicException('Mailbox preference repository has an invalid type');
+        }
+
+        return $repository;
     }
 }
