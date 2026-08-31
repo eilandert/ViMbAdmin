@@ -37,8 +37,33 @@ $check('a compatible existing $2a$ hash verifies', $bcrypt->verify('password', $
 
 $firstSalt = OSS_Crypt_Bcrypt::generateSalt();
 $secondSalt = OSS_Crypt_Bcrypt::generateSalt();
-$check('salt preserves the $2a$ format and configured cost', preg_match('/^\$2a\$04\$[A-Za-z0-9]{22}$/D', $firstSalt) === 1);
+$check('salt preserves the $2a$ format and configured cost', preg_match('/^\$2a\$04\$[.\/A-Za-z0-9]{21}[.Oeu]$/D', $firstSalt) === 1);
 $check('successive salts use fresh randomness', $firstSalt !== $secondSalt);
+
+$canonicalSalts = true;
+for ($i = 0; $i < 32; $i++) {
+    if (preg_match('/^\$2a\$04\$[.\/A-Za-z0-9]{21}[.Oeu]$/D', OSS_Crypt_Bcrypt::generateSalt()) !== 1) {
+        $canonicalSalts = false;
+        break;
+    }
+}
+$check('generated salts always use a canonical bcrypt final character', $canonicalSalts);
+
+$roundTripSalt = OSS_Crypt_Bcrypt::generateSalt();
+$roundTripHash = crypt('round-trip', $roundTripSalt);
+$check('crypt preserves the generated canonical salt', substr($roundTripHash, 0, 29) === $roundTripSalt);
+
+$costProperty = new ReflectionProperty(OSS_Crypt_Bcrypt::class, '_cost');
+$costProperty->setValue(null, 3);
+try {
+    OSS_Crypt_Bcrypt::hash('must fail');
+    $hashFailureRejected = false;
+} catch (OSS_Crypt_Exception $exception) {
+    $hashFailureRejected = $exception->getMessage() === 'Bcrypt hashing failed';
+} finally {
+    $costProperty->setValue(null, 4);
+}
+$check('crypt failure raises the bcrypt hashing exception', $hashFailureRejected);
 
 new OSS_Crypt_Bcrypt('04');
 $check('numeric configuration strings remain compatible', str_starts_with(OSS_Crypt_Bcrypt::generateSalt(), '$2a$04$'));

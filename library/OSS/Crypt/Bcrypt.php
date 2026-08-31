@@ -126,7 +126,10 @@ class OSS_Crypt_Bcrypt
      */
     public static function generateSalt()
     {
-        return sprintf( '$2a$%02d$%s', self::$_cost, OSS_String::random( 22, true, true, true, '', '' ) );
+        $salt = OSS_String::randomFromSet( './ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', 21 );
+        $salt .= OSS_String::randomFromSet( '.Oeu', 1 );
+
+        return sprintf( '$2a$%02d$%s', self::$_cost, $salt );
     }
 
 }
