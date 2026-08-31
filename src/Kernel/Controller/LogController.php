@@ -4,10 +4,18 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
+use Doctrine\ORM\EntityManager;
+use Entities\Admin;
+use Entities\Domain;
+use LogicException;
+use Repositories\Admin as AdminRepository;
+use Repositories\Domain as DomainRepository;
+use Repositories\Log as LogRepository;
 use ViMbAdmin\Kernel\DataTable\DataTableQuery;
 use ViMbAdmin\Kernel\DataTable\DataTableResult;
 use ViMbAdmin\Kernel\Http\Response;
 use ViMbAdmin\Kernel\Mvc\AbstractController;
+use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
 
 /**
  * Native port of `LogController::list` (Phase 3c, docs/ZF1-REMOVAL.md) — the
@@ -59,7 +67,7 @@ final class LogController extends AbstractController
         // ship the page without inlining every (unbounded) log row.
         $cfg     = $this->container->options()['defaults']['server_side']['pagination']['log'] ?? [];
         $logs    = empty($cfg['enable'])
-            ? $this->em()->getRepository('\\Entities\\Log')->loadForLogList($targetAdmin, $domain)
+            ? $this->logRepository()->loadForLogList($targetAdmin, $domain)
             : [];
 
         return $this->view('log/list.phtml', ['logs' => $logs]);
@@ -85,7 +93,7 @@ final class LogController extends AbstractController
         // column is not usefully sortable -> falls back to timestamp).
         $sortField = [0 => 'action', 2 => 'admin', 3 => 'domain', 4 => 'timestamp'][$q->sortColumn] ?? 'timestamp';
 
-        $r = $this->em()->getRepository('\\Entities\\Log')
+        $r = $this->logRepository()
             ->pagedForLogList($targetAdmin, $domain, $q->search, $sortField, $q->sortDir, $q->start, $q->length);
 
         // Array-hydrated datetime columns come back as DateTime objects; format
@@ -98,7 +106,7 @@ final class LogController extends AbstractController
         unset($row);
 
         return new Response(
-            DataTableResult::json($q, $r['total'], $r['filtered'], $r['rows']),
+            DataTableResult::json($q, $r['total'], $r['filtered'], array_values($r['rows'])),
             200,
             'application/json; charset=utf-8'
         );
@@ -112,7 +120,7 @@ final class LogController extends AbstractController
      * domain]` or a redirect {@see Response} when authentication / authorisation
      * fails — preserving the ZF1 `loadAdmin()` / `loadDomain()` side effects.
      *
-     * @return array{0: \Entities\Admin|false, 1: \Entities\Domain|null}|Response
+     * @return array{0: \Entities\Admin|null, 1: \Entities\Domain|null}|Response
      */
     private function resolveScope(): array|Response
     {
@@ -121,9 +129,9 @@ final class LogController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $targetAdmin = false;
+        $targetAdmin = null;
         if ($aid = $this->param('aid')) {
-            $targetAdmin = $this->em()->getRepository('\\Entities\\Admin')->find((int) $aid);
+            $targetAdmin = $this->adminRepository()->find((int) $aid);
             if (!$targetAdmin) {
                 return $this->redirect('admin/list');
             }
@@ -135,23 +143,72 @@ final class LogController extends AbstractController
             $targetAdmin = $admin;
         }
 
-        $session = $this->session();
+        $session = new MagicPropertyStorage($this->session());
         $domain  = null;
 
         if ($this->param('unset', false)) {
-            unset($session->domain);
-        } elseif (isset($session->domain) && $session->domain) {
-            $domain = $session->domain;
+            $session->remove('domain');
+        } elseif ($session->has('domain')) {
+            $storedDomain = $session->get('domain');
+            if ($storedDomain !== null && !$storedDomain instanceof Domain) {
+                throw new LogicException('Stored domain has an invalid type');
+            }
+            $domain = $storedDomain;
         } elseif ($did = $this->param('did')) {
-            $domain = $this->em()->getRepository('\\Entities\\Domain')->find((int) $did);
+            $domain = $this->domainRepository()->find((int) $did);
             if ($domain && !$admin->isSuper() && !$admin->canManageDomain($domain)) {
                 return $this->redirect('auth/login');
             }
             if ($domain) {
-                $session->domain = $domain;
+                $session->set('domain', $domain);
             }
         }
 
         return [$targetAdmin, $domain];
+    }
+
+    protected function em(): EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof EntityManager) {
+            throw new LogicException('Doctrine entity manager resource has an invalid type');
+        }
+        return $em;
+    }
+
+    protected function admin(): ?Admin
+    {
+        $admin = parent::admin();
+        if ($admin !== null && !$admin instanceof Admin) {
+            throw new LogicException('Authenticated admin has an invalid type');
+        }
+        return $admin;
+    }
+
+    private function logRepository(): LogRepository
+    {
+        $repository = $this->em()->getRepository('\\Entities\\Log');
+        if (!$repository instanceof LogRepository) {
+            throw new LogicException('Log repository has an invalid type');
+        }
+        return $repository;
+    }
+
+    private function adminRepository(): AdminRepository
+    {
+        $repository = $this->em()->getRepository('\\Entities\\Admin');
+        if (!$repository instanceof AdminRepository) {
+            throw new LogicException('Admin repository has an invalid type');
+        }
+        return $repository;
+    }
+
+    private function domainRepository(): DomainRepository
+    {
+        $repository = $this->em()->getRepository('\\Entities\\Domain');
+        if (!$repository instanceof DomainRepository) {
+            throw new LogicException('Domain repository has an invalid type');
+        }
+        return $repository;
     }
 }
