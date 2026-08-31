@@ -39,11 +39,12 @@ final class ArraySession implements SessionStorage
     public function remove(string $key): void { unset($this->data[$key]); }
 }
 
-/** Stand-in for \Entities\Admin (only getSuper()/getId() are used here). */
+/** Stand-in for \Entities\Admin at the strict Auth identity boundary. */
 final class AdminFake
 {
     public function __construct(private int $id, private bool $super) {}
     public function getId(): int { return $this->id; }
+    public function getUsername(): string { return "admin{$this->id}@example.test"; }
     public function getSuper(): bool { return $this->super; }
 }
 
