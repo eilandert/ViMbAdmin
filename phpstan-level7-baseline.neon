@@ -1,12 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Method ViMbAdmin_Schema\:\:__construct\(\) has parameter \$em with no type specified\.$#'
-			identifier: missingType.parameter
-			count: 1
-			path: library/ViMbAdmin/Schema.php
-
-		-
 			message: '#^Method ViMbAdmin_Service_Admin\:\:changePassword\(\) has parameter \$authOptions with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1

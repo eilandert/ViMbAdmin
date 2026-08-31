@@ -26,10 +26,10 @@
  */
 class ViMbAdmin_Schema
 {
-    /** @var \Doctrine\ORM\EntityManager */
+    /** @var \Doctrine\ORM\EntityManagerInterface */
     private $_em;
 
-    public function __construct( $em )
+    public function __construct( \Doctrine\ORM\EntityManagerInterface $em )
     {
         $this->_em = $em;
     }

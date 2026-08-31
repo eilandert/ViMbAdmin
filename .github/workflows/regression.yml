@@ -89,6 +89,9 @@ jobs:
       - name: Doctrine preference repositories
         run: php tests/test-repository-preferences.php
 
+      - name: ViMbAdmin_Schema constructor contract
+        run: php tests/test-schema-constructor.php
+
       - name: ViMbAdmin\Kernel\Router
         run: php tests/test-kernel-router.php
 

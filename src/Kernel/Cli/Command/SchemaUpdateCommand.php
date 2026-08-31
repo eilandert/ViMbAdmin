@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Cli\Command;
 
+use Doctrine\ORM\EntityManagerInterface;
+use ViMbAdmin_Schema;
 use ViMbAdmin\Kernel\Cli\CliCommand;
 use ViMbAdmin\Kernel\Container;
 
@@ -29,7 +31,9 @@ final class SchemaUpdateCommand implements CliCommand
         $verbose = array_key_exists('v', $args) || array_key_exists('verbose', $args);
 
         try {
-            $res = (new \ViMbAdmin_Schema($container->entityManager()))->migrate();
+            /** @var EntityManagerInterface $entityManager */
+            $entityManager = $container->entityManager();
+            $res = (new ViMbAdmin_Schema($entityManager))->migrate();
         } catch (\Throwable $e) {
             echo 'ERROR: schema update failed: ' . $e->getMessage() . "\n";
             return 1;
