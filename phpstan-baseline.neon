@@ -3967,42 +3967,6 @@ parameters:
 			path: tests/test-kernel-csrf.php
 
 		-
-			message: '#^Cannot access offset ''aaData'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: tests/test-kernel-datatable.php
-
-		-
-			message: '#^Cannot access offset ''iTotalDisplayRecords'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: tests/test-kernel-datatable.php
-
-		-
-			message: '#^Cannot access offset ''username'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: tests/test-kernel-datatable.php
-
-		-
-			message: '#^Cannot access offset 1 on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: tests/test-kernel-datatable.php
-
-		-
-			message: '#^Cannot use \+\+ on mixed\.$#'
-			identifier: postInc.type
-			count: 1
-			path: tests/test-kernel-datatable.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 2
-			path: tests/test-kernel-datatable.php
-
-		-
 			message: '#^Call to an undefined method object\:\:getId\(\)\.$#'
 			identifier: method.notFound
 			count: 1
