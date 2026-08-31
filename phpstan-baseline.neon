@@ -4393,30 +4393,6 @@ parameters:
 			path: tests/test-kernel-session-namespace.php
 
 		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: tests/test-kernel-smarty-view.php
-
-		-
-			message: '#^Cannot use \+\+ on mixed\.$#'
-			identifier: postInc.type
-			count: 1
-			path: tests/test-kernel-smarty-view.php
-
-		-
-			message: '#^Parameter \#2 \$ok of function check expects bool, Closure given\.$#'
-			identifier: argument.type
-			count: 8
-			path: tests/test-kernel-smarty-view.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between 0 and 0 will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 2
-			path: tests/test-kernel-smarty-view.php
-
-		-
 			message: '#^Cannot use \+\+ on mixed\.$#'
 			identifier: postInc.type
 			count: 1

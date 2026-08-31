@@ -52,16 +52,19 @@ file_put_contents($tmp . '/plugins-two/modifier.marker.php', <<<'PHP'
 function smarty_modifier_marker(string $value): string { return "[{$value}]"; }
 PHP);
 
-$failures = 0;
-function check(string $label, callable $fn): void {
-    global $failures;
+final class SmartyViewTestState
+{
+    public static int $failures = 0;
+}
+
+function smartyViewCheck(string $label, callable $fn): void {
     try { $fn(); echo "OK   $label\n"; }
-    catch (\Throwable $e) { $failures++; printf("FAIL %s :: %s: %s\n", $label, get_class($e), $e->getMessage()); }
+    catch (\Throwable $e) { SmartyViewTestState::$failures++; printf("FAIL %s :: %s: %s\n", $label, get_class($e), $e->getMessage()); }
 }
 
 $mk = fn() => new SmartyView(['templates' => $tmp . '/tpl', 'compiled' => $tmp . '/compile']);
 
-check('magic __set + render a template', function () use ($mk) {
+smartyViewCheck('magic __set + render a template', function () use ($mk) {
     $v = $mk();
     $v->__set('name', 'World');
     if (trim($v->render('hello.tpl')) !== 'Hello World!') {
@@ -69,7 +72,7 @@ check('magic __set + render a template', function () use ($mk) {
     }
 });
 
-check('auto HTML-escape on by default', function () use ($mk) {
+smartyViewCheck('auto HTML-escape on by default', function () use ($mk) {
     $v = $mk();
     $v->__set('html', '<b>x</b>');
     $out = $v->render('raw.tpl');
@@ -81,7 +84,7 @@ check('auto HTML-escape on by default', function () use ($mk) {
     }
 });
 
-check('compile dir is created when missing', function () use ($tmp) {
+smartyViewCheck('compile dir is created when missing', function () use ($tmp) {
     $dir = $tmp . '/compile-fresh';
     @rmdir($dir);
     new SmartyView(['templates' => $tmp . '/tpl', 'compiled' => $dir]);
@@ -90,7 +93,7 @@ check('compile dir is created when missing', function () use ($tmp) {
     }
 });
 
-check('default template used when no skin set', function () use ($mk) {
+smartyViewCheck('default template used when no skin set', function () use ($mk) {
     $v = $mk();
     $v->__set('name', 'Z');
     if (trim($v->render('skinned.tpl')) !== 'DEFAULT Z') {
@@ -98,7 +101,7 @@ check('default template used when no skin set', function () use ($mk) {
     }
 });
 
-check('skin override wins when skin set + file present', function () use ($mk) {
+smartyViewCheck('skin override wins when skin set + file present', function () use ($mk) {
     $v = $mk();
     $v->setSkin('myskin');
     if ($v->getSkin() !== 'myskin') {
@@ -113,7 +116,7 @@ check('skin override wins when skin set + file present', function () use ($mk) {
     }
 });
 
-check('skin fallback and tmplinclude compatibility', function () use ($mk, $tmp) {
+smartyViewCheck('skin fallback and tmplinclude compatibility', function () use ($mk, $tmp) {
     $v = $mk();
     $v->setSkin('myskin');
     // hello.tpl has no _skins/myskin copy -> default resolves.
@@ -145,7 +148,8 @@ check('skin fallback and tmplinclude compatibility', function () use ($mk, $tmp)
     if ($out !== '') {
         throw new RuntimeException('assigned include unexpectedly returned output');
     }
-    if (trim((string) $template->getTemplateVars('included')) !== 'DEFAULT INCLUDE template') {
+    $included = $template->getTemplateVars('included');
+    if (!is_string($included) || trim($included) !== 'DEFAULT INCLUDE template') {
         throw new RuntimeException('assigned output missing from template caller');
     }
 
@@ -186,7 +190,7 @@ check('skin fallback and tmplinclude compatibility', function () use ($mk, $tmp)
     }
 });
 
-check('unknown skin throws', function () use ($mk) {
+smartyViewCheck('unknown skin throws', function () use ($mk) {
     try {
         $mk()->setSkin('does-not-exist');
     } catch (\RuntimeException) {
@@ -195,7 +199,7 @@ check('unknown skin throws', function () use ($mk) {
     throw new RuntimeException('expected throw for unknown skin');
 });
 
-check('fromOptions preserves valid, missing, and malformed options', function () use ($tmp) {
+smartyViewCheck('fromOptions preserves valid, missing, and malformed options', function () use ($tmp) {
     $v = SmartyView::fromOptions(['resources' => ['smarty' => [
         'templates' => $tmp . '/tpl',
         'compiled'  => $tmp . '/compile',
@@ -243,5 +247,7 @@ array_map('unlink', glob($tmp . '/tpl/*.tpl') ?: []);
 array_map('unlink', glob($tmp . '/tpl/_skins/myskin/*.tpl') ?: []);
 
 echo 'PHP ' . PHP_VERSION . "\n";
-echo $failures === 0 ? "ALL PASSED\n" : "{$failures} FAILED\n";
-exit($failures === 0 ? 0 : 1);
+echo SmartyViewTestState::$failures === 0
+    ? "ALL PASSED\n"
+    : SmartyViewTestState::$failures . " FAILED\n";
+exit(SmartyViewTestState::$failures === 0 ? 0 : 1);
