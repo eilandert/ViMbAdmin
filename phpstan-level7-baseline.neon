@@ -289,18 +289,6 @@ parameters:
 			path: library/OSS/Smarty/functions/function.tmplinclude.php
 
 		-
-			message: '#^Parameter \#1 \$code of static method OSS_Date\:\:getPhpFormat\(\) expects int, int\<min, \-1\>\|int\<1, max\>\|string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.ossDate.php
-
-		-
-			message: '#^Parameter \#1 \$format of method DateTime\:\:format\(\) expects string, bool\|string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: library/OSS/Smarty/functions/modifier.ossDate.php
-
-		-
 			message: '#^Function smarty_modifier_regex_replace\(\) has parameter \$pattern with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1

@@ -62,7 +62,15 @@ function smarty_modifier_ossDate( $string, $format = "d/m/Y" )
     if( !$format )
         $format = "d/m/Y";
 
-    return is_numeric( $format ) ? $date->format( OSS_Date::getPhpFormat( $format ) ) : $date->format( $format );
+    if( !is_numeric( $format ) )
+        return $date->format( $format );
+
+    // Numeric strings are array keys in OSS_Date; only canonical integer
+    // strings (for example "3", but not "03" or "3.0") select a format code.
+    $formatCode = is_int( $format ) || (string)(int)$format === $format ? (int)$format : 0;
+    $phpFormat  = OSS_Date::getPhpFormat( $formatCode );
+
+    return $date->format( is_string( $phpFormat ) ? $phpFormat : "d/m/Y" );
 }
 
 ?>
