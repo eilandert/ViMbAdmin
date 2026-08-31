@@ -19,8 +19,8 @@
  */
 interface ViMbAdmin_Plugin_MutationContext
 {
-    /** @return array the merged application options (`getOptions()` on a controller). */
-    public function getOptions();
+    /** @return array<string, mixed> the merged application options (`getOptions()` on a controller). */
+    public function getOptions(): array;
 
     /** @return \Doctrine\ORM\EntityManagerInterface the Doctrine entity manager. */
     public function getD2EM();
@@ -32,5 +32,5 @@ interface ViMbAdmin_Plugin_MutationContext
     public function getDomain();
 
     /** Queue a user-facing message (same contract as the controller's addMessage). */
-    public function addMessage( $message, $class = null, $type = null );
+    public function addMessage(mixed $message, ?string $class = null, ?int $type = null): void;
 }

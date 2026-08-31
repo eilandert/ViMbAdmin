@@ -44,7 +44,8 @@ abstract class AbstractContext implements \ViMbAdmin_Plugin_MutationContext
     ) {
     }
 
-    public function getOptions()
+    /** @return array<string, mixed> */
+    public function getOptions(): array
     {
         return $this->options;
     }
@@ -64,8 +65,10 @@ abstract class AbstractContext implements \ViMbAdmin_Plugin_MutationContext
         return $this->domain;
     }
 
-    public function addMessage($message, $class = null, $type = null)
+    public function addMessage(mixed $message, ?string $class = null, ?int $type = null): void
     {
+        // Kept for the legacy contract; native flash messages have no type axis.
+        unset($type);
         $level = is_string($class) && $class !== '' ? $class : FlashMessages::SUCCESS;
         $this->flash->add((string) $message, $level);
     }
