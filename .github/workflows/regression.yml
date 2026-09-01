@@ -86,6 +86,12 @@ jobs:
       - name: Required mailbox username and queue boundary
         run: php tests/test-mailbox-required-username.php
 
+      - name: Required mailbox password and auth boundary
+        run: php tests/test-mailbox-required-password.php
+
+      - name: Mailbox password action boundary
+        run: php tests/test-auth-mailbox-password-boundary.php
+
       - name: ViMbAdmin_Service_Alias
         run: php tests/test-service-alias.php
 

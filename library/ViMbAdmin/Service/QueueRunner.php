@@ -285,7 +285,7 @@ class ViMbAdmin_Service_QueueRunner
                 'username'   => $mb->requiredUsername(),
                 'local_part' => $mb->getLocalPart(),
                 'name'       => $mb->getName(),
-                'password'   => $mb->getPassword(),
+                'password'   => $mb->requiredPassword(),
                 'quota'      => $mb->getQuota(),
                 'active'     => $mb->getActive(),
             ];

@@ -358,7 +358,7 @@ final class AuthController extends AbstractController
             ];
 
             if ($mailbox !== null
-                && \OSS_Auth_Password::verify((string) $v['current_password'], $mailbox->getPassword(), $pwOpts)) {
+                && self::mailboxPasswordMatches($mailbox, (string) $v['current_password'], $pwOpts)) {
                 $mailbox->setPassword(\OSS_Auth_Password::hash((string) $v['new_password'], $pwOpts));
                 $this->em()->flush();
                 $this->flash('You have successfully changed your password.');
@@ -372,6 +372,13 @@ final class AuthController extends AbstractController
         return $this->view('auth/native-change-password.phtml', [
             'formHtml' => (new FormRenderer())->render($form, '/auth/change-password', 'Change Password'),
         ]);
+    }
+
+    /** @param array<string, mixed> $options */
+    private static function mailboxPasswordMatches(\Entities\Mailbox $mailbox, string $plain, array $options): bool
+    {
+        $hash = $mailbox->getPassword();
+        return $hash !== null && \OSS_Auth_Password::verify($plain, $hash, $options);
     }
 
     /**

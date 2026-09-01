@@ -358,6 +358,26 @@ check('create username failure precedes entity and persistence mutation',
         && $invalidCreateDomain->getMailboxCount() === 4
         && $invalidCreateEm->persisted === [] && $invalidCreateEm->flushes === 0);
 
+$missingPasswordEm = new FakeObjectManager();
+$missingPassword = new \Entities\Mailbox();
+$missingPassword->setUsername('missing-password@example.com');
+$missingPasswordDomain = $mkDomain(5);
+$missingPasswordHooks = 0;
+check('create rejects a null password', mailboxUsernameError(static function () use ($missingPasswordEm, $missingPassword, $missingPasswordDomain, $actor, $createOptions, &$missingPasswordHooks): void {
+    (new ViMbAdmin_Service_Mailbox($missingPasswordEm))->create(
+        $missingPassword,
+        $missingPasswordDomain,
+        $actor,
+        $createOptions,
+        static function () use (&$missingPasswordHooks): void { $missingPasswordHooks++; },
+    );
+}) === 'Mailbox password cannot be null.');
+check('create password failure precedes entity and persistence mutation',
+    $missingPasswordHooks === 0 && $missingPassword->getDomain() === null
+        && $missingPassword->getActive() === null && $missingPassword->getCreated() === null
+        && $missingPasswordDomain->getMailboxCount() === 5
+        && $missingPasswordEm->persisted === [] && $missingPasswordEm->flushes === 0);
+
 $emC = new FakeObjectManager();
 $emC->aliasRepo = new FakeAliasRepo();        // findOneBy -> null (no clash)
 $domC = $mkDomain(7);
@@ -381,7 +401,7 @@ check('create normalizes mailbox active=1 to bool true',
     $mbC->activeInput === true && $mbC->getActive() === true);
 check('create cleared delete-pending',        (bool) $mbC->getDeletePending() === false);
 check('create hashed the password',           $mbC->getPassword() !== 's3cr3t-plaintext');
-check('create password verifies',             OSS_Auth_Password::verify('s3cr3t-plaintext', $mbC->getPassword(), ['pwhash' => 'crypt:sha512']) === true);
+check('create password verifies',             OSS_Auth_Password::verify('s3cr3t-plaintext', $mbC->requiredPassword(), ['pwhash' => 'crypt:sha512']) === true);
 check('create persisted the mailbox',         in_array($mbC, $emC->persisted, true));
 check('create bumped domain mailboxCount',    (int) $domC->getMailboxCount() === 8);
 check('create logged ACTION_MAILBOX_ADD',     $emC->lastLog()?->getAction() === \Entities\Log::ACTION_MAILBOX_ADD);

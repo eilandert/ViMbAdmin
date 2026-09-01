@@ -186,6 +186,7 @@ class ViMbAdmin_Service_Mailbox
         ?callable $postFlush = null
     ): \Entities\Mailbox {
         $username = $mailbox->requiredUsername();
+        $password = $mailbox->requiredPassword();
         $mb = $options['defaults']['mailbox'];
 
         $mailbox->setDomain($domain);
@@ -193,7 +194,7 @@ class ViMbAdmin_Service_Mailbox
         $mailbox->setDeletePending(false);
         $mailbox->setCreated(new \DateTime());
 
-        $mailbox->setPassword(\OSS_Auth_Password::hash($mailbox->getPassword(), [
+        $mailbox->setPassword(\OSS_Auth_Password::hash($password, [
             'pwhash'   => $mb['password_scheme'],
             'username' => $username,
         ]));

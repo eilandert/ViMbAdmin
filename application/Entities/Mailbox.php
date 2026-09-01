@@ -201,10 +201,20 @@ class Mailbox
     /**
      * Get password
      *
-     * @return string
+     * @return string|null
      */
     public function getPassword()
     {
+        return $this->password;
+    }
+
+    /** Return the credential for operations that require an initialized mailbox. */
+    public function requiredPassword(): string
+    {
+        if ($this->password === null) {
+            throw new \LogicException('Mailbox password cannot be null.');
+        }
+
         return $this->password;
     }
 
