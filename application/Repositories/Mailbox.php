@@ -167,7 +167,7 @@ class Mailbox extends EntityRepository
         }
         return $result;
     }
-    /** @return array{address:string,goto:string} */
+    /** @return array{address:string,goto:string,domain:\Entities\Domain} */
     private function requiredAliasIdentity(\Entities\Alias $alias): array
     {
         $address = $alias->getAddress();
@@ -180,7 +180,12 @@ class Mailbox extends EntityRepository
             throw new \LogicException('Alias goto cannot be null.');
         }
 
-        return ['address' => $address, 'goto' => $goto];
+        $domain = $alias->getDomain();
+        if ($domain === null) {
+            throw new \LogicException('Alias domain cannot be null.');
+        }
+
+        return ['address' => $address, 'goto' => $goto, 'domain' => $domain];
     }
 
     /**
@@ -439,10 +444,15 @@ class Mailbox extends EntityRepository
      */
     public function purgeMailbox( $mailbox, $admin, $removeMailbox = true )
     {
+        $domain = $mailbox->getDomain();
+        if ($domain === null) {
+            throw new \LogicException('Mailbox domain cannot be null.');
+        }
+
         // A null admin == trusted system context (CLI/queue runner): skip the
         // per-admin ownership check. A non-null admin must own the domain (or
         // be super) to purge.
-        if( $admin !== null && !$admin->isSuper() && !$mailbox->getDomain()->getAdmins()->contains( $admin ) )
+        if( $admin !== null && !$admin->isSuper() && !$domain->getAdmins()->contains( $admin ) )
             return false;
 
         $username = $mailbox->requiredUsername();
@@ -453,7 +463,7 @@ class Mailbox extends EntityRepository
         $aliases = $aliasRepository->loadForMailbox( $mailbox, $admin, true );
         $inAliases = $aliasRepository->loadWithMailbox( $mailbox, $admin );
 
-        /** @var array<int,array{address:string,goto:string}> $aliasIdentities */
+        /** @var array<int,array{address:string,goto:string,domain:\Entities\Domain}> $aliasIdentities */
         $aliasIdentities = [];
         foreach( $aliases as $alias )
             $aliasIdentities[ spl_object_id( $alias ) ] = $this->requiredAliasIdentity( $alias );
@@ -491,7 +501,7 @@ class Mailbox extends EntityRepository
         if( $removeMailbox )
             $this->getEntityManager()->remove( $mailbox );
         
-        $mailbox->getDomain()->decreaseMailboxCount();
+        $domain->decreaseMailboxCount();
 
         return true;
     }
@@ -503,7 +513,7 @@ class Mailbox extends EntityRepository
      * if alias goto field is not equal to alias address field.
      *
      * @param \Entities\Alias $alias Alias to remove.
-     * @param array{address:string,goto:string} $identity Validated alias identity.
+     * @param array{address:string,goto:string,domain:\Entities\Domain} $identity Validated alias identity.
      * @return bool
      */
     private function _removeAlias( $alias, array $identity )
@@ -514,7 +524,7 @@ class Mailbox extends EntityRepository
         $this->getEntityManager()->remove( $alias );
 
         if( $identity['goto'] != $identity['address'] )
-            $alias->getDomain()->decreaseAliasCount();
+            $identity['domain']->decreaseAliasCount();
 
         return true;
     }

@@ -73,36 +73,6 @@ parameters:
 			path: application/Entities/Mailbox.php
 
 		-
-			message: '#^Cannot call method decreaseAliasCount\(\) on Entities\\Domain\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Cannot call method decreaseMailboxCount\(\) on Entities\\Domain\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Cannot call method getAdmins\(\) on Entities\\Domain\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Parameter \#2 \$admin of method Repositories\\Alias\:\:loadForMailbox\(\) expects Entities\\Admin, Entities\\Admin\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Parameter \#2 \$admin of method Repositories\\Alias\:\:loadWithMailbox\(\) expects Entities\\Admin, Entities\\Admin\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
 			message: '#^Cannot access offset ''active'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
@@ -213,18 +183,6 @@ parameters:
 		-
 			message: '#^Cannot access offset ''window'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: application/controllers/McpController.php
-
-		-
-			message: '#^Cannot call method getMailboxCount\(\) on Entities\\Domain\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/controllers/McpController.php
-
-		-
-			message: '#^Cannot call method setMailboxCount\(\) on Entities\\Domain\|null\.$#'
-			identifier: method.nonObject
 			count: 1
 			path: application/controllers/McpController.php
 

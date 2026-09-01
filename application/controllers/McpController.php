@@ -292,9 +292,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     {
         $m = $this->_requireMailbox( $params );
         $username = $m->requiredUsername();
-        $domain   = $m->getDomain();
         $this->_mailboxRepository()->purgeMailbox( $m, null, true );
-        $domain->setMailboxCount( max( 0, $domain->getMailboxCount() - 1 ) );
         $this->em()->flush();
         return [ 'deleted' => true, 'username' => $username ];
     }

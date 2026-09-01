@@ -111,6 +111,8 @@ final class ControllerAliasIdentityAliasRepository extends \Repositories\Alias
 
 final class ControllerAliasIdentityMailboxRepository extends \Repositories\Mailbox
 {
+    public bool $purged = false;
+
     public function __construct(private readonly ?\Entities\Mailbox $mailbox) {}
 
     /** @SuppressWarnings("PHPMD.UnusedFormalParameter") */
@@ -128,6 +130,29 @@ final class ControllerAliasIdentityMailboxRepository extends \Repositories\Mailb
     public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
     {
         return $this->mailbox === null ? [] : [$this->mailbox];
+    }
+
+    /**
+     * @param array<string,mixed> $criteria
+     * @param array<string,string>|null $orderBy
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
+    public function findOneBy(array $criteria, ?array $orderBy = null): ?object
+    {
+        return $this->mailbox;
+    }
+
+    /** @SuppressWarnings("PHPMD.UnusedFormalParameter") */
+    public function purgeMailbox($mailbox, $admin, $removeMailbox = true)
+    {
+        $domain = $mailbox->getDomain();
+        if ($domain === null) {
+            throw new LogicException('Mailbox domain cannot be null.');
+        }
+
+        $this->purged = true;
+        $domain->decreaseMailboxCount();
+        return true;
     }
 }
 
@@ -236,6 +261,27 @@ function controllerAliasIdentityMcpMailboxes(McpController $controller, array $p
     return $typed;
 }
 
+/**
+ * @param array<string,mixed> $params
+ * @return array<string,mixed>
+ */
+function controllerAliasIdentityMcpDelete(McpController $controller, array $params): array
+{
+    $result = (new ReflectionMethod($controller, '_mailboxDelete'))->invoke($controller, $params);
+    if (!is_array($result)) {
+        throw new RuntimeException('MCP mailbox delete result is not an array');
+    }
+
+    $typed = [];
+    foreach ($result as $key => $value) {
+        if (!is_string($key)) {
+            throw new RuntimeException('MCP mailbox delete result has a non-string key');
+        }
+        $typed[$key] = $value;
+    }
+    return $typed;
+}
+
 final class ControllerAliasIdentityState
 {
     public static int $failures = 0;
@@ -332,6 +378,27 @@ controllerAliasIdentityCheck('MCP alias list emits required string identities',
             'active' => true,
         ]],
     ]);
+
+$deleteDomain = (new \Entities\Domain())->setDomain('delete.example.test')->setMailboxCount(3);
+$deleteMailbox = (new \Entities\Mailbox())
+    ->setUsername('user@delete.example.test')
+    ->setDomain($deleteDomain);
+$deleteRepository = new ControllerAliasIdentityMailboxRepository($deleteMailbox);
+$deleteEntityManager = controllerAliasIdentityEntityManager([
+    'Entities\\Mailbox' => $deleteRepository,
+]);
+$deleteMcp = new McpController(
+    new Container(
+        new ControllerAliasIdentityResources($deleteEntityManager, $mcpSession, $mcpView),
+        new Auth($mcpSession, static fn(int $id): null => null),
+    ),
+    new RouteMatch('mcp', 'index', McpController::class, 'indexAction', []),
+);
+$deleteResult = controllerAliasIdentityMcpDelete($deleteMcp, ['username' => 'user@delete.example.test']);
+controllerAliasIdentityCheck('MCP mailbox delete delegates the counter exactly once',
+    $deleteResult === ['deleted' => true, 'username' => 'user@delete.example.test']
+        && $deleteRepository->purged
+        && $deleteDomain->getMailboxCount() === 2);
 
 $malformedMcpAlias = (new \Entities\Alias())->setAddress('broken@example.test')->setDomain($domain);
 $malformedMcpEntityManager = controllerAliasIdentityEntityManager([

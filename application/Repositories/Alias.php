@@ -59,7 +59,7 @@ class Alias extends EntityRepository
      * is not super then it checks if admin is linked with the domain.
      *
      * @param \Entities\Mailbox $mailbox Mailbox for alias filtering.
-     * @param \Entities\Admin   $admin   Admin for checking privileges.
+     * @param \Entities\Admin|null $admin Admin for checking privileges, or null for a trusted system context.
      * @param bool              $ima     If set to true, then it include and where address equals to goto.
      * @return \Entities\Alias[]
      */
@@ -100,7 +100,7 @@ class Alias extends EntityRepository
      * then it checks if admin have have linked with domain.
      *
      * @param \Entities\Mailbox $mailbox Mailbox for alias filtering.
-     * @param \Entities\Admin   $admin   Admin for checking privileges.
+     * @param \Entities\Admin|null $admin Admin for checking privileges, or null for a trusted system context.
      * @return \Entities\Alias[]
      */
     public function loadWithMailbox( $mailbox, $admin )
