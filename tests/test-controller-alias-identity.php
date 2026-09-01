@@ -9,6 +9,7 @@ require_once __DIR__ . '/../application/Entities/Alias.php';
 require_once __DIR__ . '/../application/Entities/AliasPreference.php';
 require_once __DIR__ . '/../application/Entities/Log.php';
 require_once __DIR__ . '/../application/Entities/Mailbox.php';
+require_once __DIR__ . '/../application/Entities/MailboxTask.php';
 require_once __DIR__ . '/../application/Repositories/Alias.php';
 require_once __DIR__ . '/../application/Repositories/Domain.php';
 require_once __DIR__ . '/../application/Repositories/Mailbox.php';
@@ -207,14 +208,16 @@ function controllerAliasIdentityEntityManager(array $repositories): EntityManage
     return new EntityManager($connection, $configuration);
 }
 
+/** @param array<string,mixed> $options */
 function controllerAliasIdentityContainer(
     EntityManager $entityManager,
     ControllerAliasIdentitySession $session,
     ControllerAliasIdentityView $view,
+    array $options = [],
 ): Container {
     $admin = new ControllerAliasIdentityAdmin();
     return new Container(
-        new ControllerAliasIdentityResources($entityManager, $session, $view),
+        new ControllerAliasIdentityResources($entityManager, $session, $view, $options),
         new Auth($session, static fn(int $id): object => $admin),
     );
 }
@@ -349,6 +352,172 @@ controllerAliasIdentityCheck('mailbox delete rejects missing address before muta
         && $mailboxEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []
         && $mailboxEntityManager->getUnitOfWork()->getScheduledEntityDeletions() === []
         && $mailboxSession->values() === ['identity' => ['id' => 1], 'csrfToken' => 'test-token']);
+
+$invalidMidController = new MailboxController(
+    controllerAliasIdentityContainer($mailboxEntityManager, $mailboxSession, $mailboxView),
+    new RouteMatch('mailbox', 'add', MailboxController::class, 'addAction', ['mid' => '7junk']),
+);
+$invalidMidResponse = $invalidMidController->addAction();
+controllerAliasIdentityCheck('malformed add-with-mid fails closed before auth, lookup, or mutation',
+    $invalidMidResponse->status === 302
+        && ($invalidMidResponse->headers['Location'] ?? null) === '/mailbox/list'
+        && $mailboxEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $mailboxEntityManager->getUnitOfWork()->getScheduledEntityDeletions() === []
+        && $mailboxSession->values() === ['identity' => ['id' => 1], 'csrfToken' => 'test-token']);
+
+$orphanAlias = (new \Entities\Alias())
+    ->setAddress('orphan@example.test')
+    ->setGoto('user@example.test');
+$orphanSession = new ControllerAliasIdentitySession([
+    'identity' => ['id' => 1],
+    'csrfToken' => 'test-token',
+]);
+$orphanEntityManager = controllerAliasIdentityEntityManager([
+    'Entities\\Alias' => new ControllerAliasIdentityAliasRepository([$orphanAlias]),
+    'Entities\\Mailbox' => new ControllerAliasIdentityMailboxRepository($mailbox),
+]);
+$orphanController = new MailboxController(
+    controllerAliasIdentityContainer($orphanEntityManager, $orphanSession, new ControllerAliasIdentityView()),
+    new RouteMatch('mailbox', 'delete-alias', MailboxController::class, 'deleteAliasAction', [
+        'mid' => '3',
+        'alid' => '7',
+        'csrf' => 'test-token',
+    ]),
+);
+$orphanResponse = $orphanController->deleteAliasAction();
+controllerAliasIdentityCheck('mailbox delete fails closed on a missing alias domain before mutation',
+    $orphanResponse->status === 302
+        && ($orphanResponse->headers['Location'] ?? null) === '/mailbox/list'
+        && $orphanAlias->getGoto() === 'user@example.test'
+        && $domain->getAliasCount() === 4
+        && $orphanEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $orphanEntityManager->getUnitOfWork()->getScheduledEntityDeletions() === []
+        && $orphanSession->values() === ['identity' => ['id' => 1], 'csrfToken' => 'test-token']);
+
+// A persisted mailbox without its required domain must never reach
+// authorisation context construction or mutation.
+$orphanMailbox = (new \Entities\Mailbox())->setUsername('orphan@example.test');
+$wrongSession = new ControllerAliasIdentitySession([
+    'identity' => ['id' => 1],
+    'csrfToken' => 'test-token',
+]);
+$wrongView = new ControllerAliasIdentityView();
+$wrongEntityManager = controllerAliasIdentityEntityManager([
+    'Entities\\Mailbox' => new ControllerAliasIdentityMailboxRepository($orphanMailbox),
+]);
+$wrongContainer = controllerAliasIdentityContainer($wrongEntityManager, $wrongSession, $wrongView);
+$wrongActions = [
+    'ajax-toggle-active' => ['ajaxToggleActiveAction', [], 'ko'],
+    'purge' => ['purgeAction', ['csrf' => 'test-token'], '/mailbox/list'],
+    'password' => ['passwordAction', [], '/mailbox/list'],
+    'queue-repair' => ['queueRepairAction', ['csrf' => 'test-token'], '/mailbox/list'],
+    'email-settings' => ['emailSettingsAction', [], 'error'],
+];
+foreach ($wrongActions as $route => [$method, $extra, $expected]) {
+    $controller = new MailboxController(
+        $wrongContainer,
+        new RouteMatch('mailbox', $route, MailboxController::class, $method, ['mid' => '3'] + $extra),
+    );
+    $response = $controller->{$method}();
+    $actual = $response->status === 302 ? ($response->headers['Location'] ?? null) : $response->body;
+    controllerAliasIdentityCheck("{$route} rejects an orphan mailbox without writes",
+        $actual === $expected
+            && $wrongEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+            && $wrongEntityManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
+}
+
+$rememberedSession = new ControllerAliasIdentitySession([
+    'identity' => ['id' => 1],
+    'domain' => new stdClass(),
+]);
+$rememberedEntityManager = controllerAliasIdentityEntityManager([]);
+$rememberedController = new MailboxController(
+    controllerAliasIdentityContainer($rememberedEntityManager, $rememberedSession, new ControllerAliasIdentityView()),
+    new RouteMatch('mailbox', 'list', MailboxController::class, 'listAction', []),
+);
+$rememberedResponse = $rememberedController->listAction();
+controllerAliasIdentityCheck('list removes malformed remembered domain before fail-closed redirect',
+    $rememberedResponse->status === 302
+        && ($rememberedResponse->headers['Location'] ?? null) === '/auth/login'
+        && !$rememberedSession->has('domain'));
+
+$invalidDidSession = new ControllerAliasIdentitySession(['identity' => ['id' => 1]]);
+$invalidDidEntityManager = controllerAliasIdentityEntityManager([]);
+$invalidDidController = new MailboxController(
+    controllerAliasIdentityContainer($invalidDidEntityManager, $invalidDidSession, new ControllerAliasIdentityView()),
+    new RouteMatch('mailbox', 'list', MailboxController::class, 'listAction', ['did' => '7junk']),
+);
+$invalidDidResponse = $invalidDidController->listAction();
+controllerAliasIdentityCheck('present malformed list domain cannot widen into an unfiltered list',
+    $invalidDidResponse->status === 302
+        && ($invalidDidResponse->headers['Location'] ?? null) === '/auth/login'
+        && $invalidDidEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []);
+
+$oldGet = $_GET;
+$_GET = ['sEcho' => ['2']];
+$listDataController = new MailboxController(
+    $wrongContainer,
+    new RouteMatch('mailbox', 'list-data', MailboxController::class, 'listDataAction', []),
+);
+$listDataResponse = $listDataController->listDataAction();
+$_GET = $oldGet;
+controllerAliasIdentityCheck('DataTables container input returns ko before repository access',
+    $listDataResponse->body === 'ko'
+        && $wrongEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []);
+
+$mailbox->setAltEmail(null);
+$formSession = new ControllerAliasIdentitySession([
+    'identity' => ['id' => 1],
+    'csrfToken' => 'test-token',
+]);
+$formEntityManager = controllerAliasIdentityEntityManager([
+    'Entities\\Mailbox' => new ControllerAliasIdentityMailboxRepository($mailbox),
+]);
+$oldServer = $_SERVER;
+$oldPost = $_POST;
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_POST = ['csrf' => 'test-token', 'type' => ['username'], 'email' => ['attacker@example.test']];
+$formController = new MailboxController(
+    controllerAliasIdentityContainer($formEntityManager, $formSession, new ControllerAliasIdentityView()),
+    new RouteMatch('mailbox', 'email-settings', MailboxController::class, 'emailSettingsAction', [
+        'mid' => '3',
+        'send' => '1',
+    ]),
+);
+$formResponse = $formController->emailSettingsAction();
+$_SERVER = $oldServer;
+$_POST = $oldPost;
+controllerAliasIdentityCheck('email settings container input safely re-renders without Array disclosure or writes',
+    $formResponse->status === 200
+        && !str_contains($formResponse->body, 'Array')
+        && $formEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $formEntityManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
+
+$badQueueSession = new ControllerAliasIdentitySession([
+    'identity' => ['id' => 1],
+    'csrfToken' => 'test-token',
+]);
+$badQueueEntityManager = controllerAliasIdentityEntityManager([
+    'Entities\\Mailbox' => new ControllerAliasIdentityMailboxRepository($mailbox),
+]);
+$badQueueController = new MailboxController(
+    controllerAliasIdentityContainer(
+        $badQueueEntityManager,
+        $badQueueSession,
+        new ControllerAliasIdentityView(),
+        ['queue' => ['runner' => ['key' => ['bad']]]],
+    ),
+    new RouteMatch('mailbox', 'queue-repair', MailboxController::class, 'queueRepairAction', [
+        'mid' => '3',
+        'csrf' => 'test-token',
+    ]),
+);
+$badQueueResponse = $badQueueController->queueRepairAction();
+controllerAliasIdentityCheck('malformed present queue key is rejected before enqueue or flush',
+    $badQueueResponse->status === 302
+        && ($badQueueResponse->headers['Location'] ?? null) === '/mailbox/list'
+        && $badQueueEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $badQueueEntityManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
 
 $validAlias = (new \Entities\Alias())
     ->setAddress('sales@example.test')

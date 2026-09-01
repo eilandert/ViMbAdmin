@@ -50,6 +50,8 @@ mailboxUsernameCheck('required username rejects pre-hydration null',
 $initialized = (new \Entities\Mailbox())->setUsername('user@example.test');
 mailboxUsernameCheck('required username preserves initialized address',
     $initialized->requiredUsername() === 'user@example.test');
+mailboxUsernameCheck('nullable alternative email preserves the entity storage contract',
+    $initialized->setAltEmail(null)->getAltEmail() === null);
 
 $controllerReflection = new ReflectionClass(\ViMbAdmin\Kernel\Controller\MailboxController::class);
 $controller = $controllerReflection->newInstanceWithoutConstructor();

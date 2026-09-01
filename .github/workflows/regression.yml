@@ -86,6 +86,9 @@ jobs:
       - name: Required mailbox username and queue boundary
         run: php tests/test-mailbox-required-username.php
 
+      - name: Mailbox controller input shapes
+        run: php tests/test-mailbox-controller-shapes.php
+
       - name: Required mailbox password and auth boundary
         run: php tests/test-mailbox-required-password.php
 

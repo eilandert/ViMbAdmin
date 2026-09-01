@@ -41,7 +41,11 @@ final class Validators
         };
     }
 
-    /** A syntactically valid email address (empty passes — combine with required()). */
+    /**
+     * A syntactically valid email address (empty passes — combine with required()).
+     *
+     * @return callable(mixed):?string
+     */
     public static function email(string $message = 'Please enter a valid email address.'): callable
     {
         return static function (mixed $value) use ($message): ?string {

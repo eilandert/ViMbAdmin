@@ -54,6 +54,306 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  */
 final class MailboxController extends AbstractController
 {
+    private static function requiredString(mixed $value, string $name): string
+    {
+        if (!is_string($value)) {
+            throw new \LogicException("{$name} must be a string");
+        }
+
+        return $value;
+    }
+
+    private static function optionalString(mixed $value, string $name): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return self::requiredString($value, $name);
+    }
+
+    private static function stringOrDefault(mixed $value, string $default, string $name): string
+    {
+        return $value === null ? $default : self::requiredString($value, $name);
+    }
+
+    private static function renderStringOrDefault(mixed $value, string $default): string
+    {
+        return is_string($value) ? $value : $default;
+    }
+
+    private static function controlSafeString(string $value, string $name): string
+    {
+        if (preg_match('/[\x00-\x1F\x7F]/', $value) === 1) {
+            throw new \LogicException("{$name} contains control characters");
+        }
+
+        return $value;
+    }
+
+    private static function displaySettingString(mixed $value, string $name): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+        if (is_bool($value)) {
+            return $value ? '1' : '';
+        }
+
+        throw new \LogicException("{$name} must be a scalar display value");
+    }
+
+    private static function optionalServerPort(mixed $value): ?int
+    {
+        if ($value === null) {
+            return null;
+        }
+        if (is_int($value)) {
+            $port = $value;
+        } elseif (is_string($value) && preg_match('/^[0-9]+$/D', $value) === 1) {
+            $parsed = filter_var($value, FILTER_VALIDATE_INT);
+            $port = is_int($parsed) ? $parsed : 0;
+        } else {
+            $port = 0;
+        }
+        if ($port < 1 || $port > 65535) {
+            throw new \LogicException('Server port must be an integer from 1 through 65535');
+        }
+
+        return $port;
+    }
+
+    private static function positiveIntegerOrNull(mixed $value): ?int
+    {
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            return is_int($integer) ? $integer : null;
+        }
+
+        return null;
+    }
+
+    private function positiveIdParam(string $key): ?int
+    {
+        return self::positiveIntegerOrNull($this->param($key));
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string,mixed>
+     */
+    private static function stringKeyedArray(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new \LogicException("{$name} must be an array");
+        }
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                throw new \LogicException("{$name} must use string keys");
+            }
+            $result[$key] = $item;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<mixed> $value
+     * @return array<string,mixed>
+     */
+    private static function requestArray(array $value): array
+    {
+        $scalarKeys = [
+            'sEcho',
+            'iDisplayStart',
+            'iDisplayLength',
+            'sSearch',
+            'iSortCol_0',
+            'sSortDir_0',
+        ];
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (is_string($key)) {
+                if (in_array($key, $scalarKeys, true) && !is_string($item)) {
+                    throw new \LogicException("DataTables parameter {$key} must be a string");
+                }
+                $result[$key] = $item;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array{bool,mixed}
+     */
+    private static function option(array $options, string ...$path): array
+    {
+        $value = $options;
+        $walked = [];
+        foreach ($path as $key) {
+            $walked[] = $key;
+            $value = self::stringKeyedArray(
+                $value,
+                'Configuration ' . (count($walked) === 1 ? 'root' : implode('.', array_slice($walked, 0, -1))),
+            );
+            if (!array_key_exists($key, $value)) {
+                return [false, null];
+            }
+            $value = $value[$key];
+        }
+
+        return [true, $value];
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionString(array $options, string $default, string ...$path): string
+    {
+        [$found, $value] = self::option($options, ...$path);
+        return $found ? self::requiredString($value, 'Configuration ' . implode('.', $path)) : $default;
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionNullableString(array $options, string ...$path): ?string
+    {
+        [$found, $value] = self::option($options, ...$path);
+        return $found ? self::requiredString($value, 'Configuration ' . implode('.', $path)) : null;
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionInt(array $options, int $default, string ...$path): int
+    {
+        [$found, $value] = self::option($options, ...$path);
+        if (!$found) {
+            return $default;
+        }
+        if (is_int($value) && $value >= 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[0-9]+$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            if (is_int($integer)) {
+                return $integer;
+            }
+        }
+
+        throw new \LogicException('Configuration ' . implode('.', $path) . ' must be a non-negative integer');
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionBool(array $options, bool $default, string ...$path): bool
+    {
+        [$found, $value] = self::option($options, ...$path);
+        if (!$found) {
+            return $default;
+        }
+        if ($value === true || $value === 1 || $value === '1') {
+            return true;
+        }
+        if ($value === false || $value === 0 || $value === '0' || $value === '') {
+            return false;
+        }
+
+        throw new \LogicException('Configuration ' . implode('.', $path) . ' must be boolean');
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @param array<string,mixed> $default
+     * @return array<string,mixed>
+     */
+    private static function optionArray(array $options, array $default, string ...$path): array
+    {
+        [$found, $value] = self::option($options, ...$path);
+        return $found ? self::stringKeyedArray($value, 'Configuration ' . implode('.', $path)) : $default;
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function quotaMultiplier(array $options): string
+    {
+        $multiplier = strtoupper(self::optionString(
+            $options,
+            \OSS_Filter_FileSize::SIZE_KILOBYTES,
+            'defaults',
+            'quota',
+            'multiplier',
+        ));
+        if (!in_array($multiplier, [
+            \OSS_Filter_FileSize::SIZE_BYTES,
+            \OSS_Filter_FileSize::SIZE_KILOBYTES,
+            \OSS_Filter_FileSize::SIZE_MEGABYTES,
+            \OSS_Filter_FileSize::SIZE_GIGABYTES,
+        ], true)) {
+            throw new \LogicException('Configuration defaults.quota.multiplier must be B, KB, MB, or GB');
+        }
+
+        return $multiplier;
+    }
+
+    private static function sizeMultiplier(string $multiplier): float
+    {
+        return match ($multiplier) {
+            \OSS_Filter_FileSize::SIZE_BYTES => 1.0,
+            \OSS_Filter_FileSize::SIZE_KILOBYTES => 1024.0,
+            \OSS_Filter_FileSize::SIZE_MEGABYTES => 1048576.0,
+            \OSS_Filter_FileSize::SIZE_GIGABYTES => 1073741824.0,
+            default => throw new \LogicException('Unsupported file-size multiplier'),
+        };
+    }
+
+    private static function quotaBytes(string $value, string $multiplier): int
+    {
+        $filtered = (new \OSS_Filter_FileSize($multiplier))->filter($value);
+        if ((!is_int($filtered) && !is_float($filtered))
+            || !is_finite((float) $filtered)
+            || $filtered < 0
+            || $filtered > PHP_INT_MAX) {
+            throw new \LogicException('Mailbox quota produced an invalid byte value');
+        }
+
+        return (int) $filtered;
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function queueRunnerKey(array $options): string
+    {
+        return self::controlSafeString(
+            self::optionString($options, '', 'queue', 'runner', 'key'),
+            'Configuration queue.runner.key',
+        );
+    }
+
+    /** @return array{https:bool,host:string,sni:string,port:int} */
+    private static function queueEndpoint(mixed $httpsValue, mixed $hostValue, mixed $portValue): array
+    {
+        $httpsString = self::stringOrDefault($httpsValue, '', 'Server HTTPS value');
+        $reportedPort = self::optionalServerPort($portValue);
+        $https = ($httpsString !== '' && $httpsString !== '0' && strtolower($httpsString) !== 'off')
+            || $reportedPort === 443;
+        $host = self::controlSafeString(
+            self::stringOrDefault($hostValue, '127.0.0.1', 'Server HTTP_HOST'),
+            'Server HTTP_HOST',
+        );
+        if ($host === '' || strpbrk($host, " \t\r\n/\\") !== false) {
+            throw new \LogicException('Server HTTP_HOST has an invalid shape');
+        }
+
+        return [
+            'https' => $https,
+            'host' => $host,
+            'sni' => preg_replace('/:\d+$/', '', $host) ?: '127.0.0.1',
+            'port' => $reportedPort ?? ($https ? 443 : 80),
+        ];
+    }
+
     /**
      * GET /mailbox/list-data — DataTables server-side processing source.
      *
@@ -71,7 +371,14 @@ final class MailboxController extends AbstractController
         }
 
         $domain = $this->session()->domain ?? null;
-        $q      = DataTableQuery::fromArray($_GET);
+        if ($domain !== null && !$domain instanceof \Entities\Domain) {
+            return new Response('ko');
+        }
+        try {
+            $q = DataTableQuery::fromArray(self::requestArray($_GET));
+        } catch (\LogicException) {
+            return new Response('ko');
+        }
 
         // Column index -> sortable DB field (must match the JS column order;
         // computed columns — used quota, last login, controls — fall back).
@@ -116,22 +423,31 @@ final class MailboxController extends AbstractController
         if ($this->param('unset', false)) {
             $session->remove('domain');
         } elseif ($session->has('domain') && $session->get('domain')) {
-            $domain = $session->get('domain');
-        } elseif ($did = $this->param('did')) {
-            $domain = $this->em()->getRepository('\\Entities\\Domain')->find((int) $did);
-            // loadDomain() authorises a non-super admin against the domain.
-            if ($domain && !$admin->isSuper() && !$admin->canManageDomain($domain)) {
+            $remembered = $session->get('domain');
+            if (!$remembered instanceof \Entities\Domain) {
+                $session->remove('domain');
                 return $this->redirect('auth/login');
             }
-            if ($domain) {
-                $session->set('domain', $domain);
+            $domain = $remembered;
+        } elseif (($didValue = $this->param('did')) !== null) {
+            $did = self::positiveIntegerOrNull($didValue);
+            if ($did === null) {
+                return $this->redirect('auth/login');
             }
+            $domain = $this->em()->getRepository('\\Entities\\Domain')->find($did);
+            if (!$domain instanceof \Entities\Domain) {
+                return $this->redirect('auth/login');
+            }
+            // loadDomain() authorises a non-super admin against the domain.
+            if (!$admin->isSuper() && !$admin->canManageDomain($domain)) {
+                return $this->redirect('auth/login');
+            }
+            $session->set('domain', $domain);
         }
 
         $opts = $this->container->options();
 
-        $paginate = isset($opts['defaults']['server_side']['pagination']['enable'])
-            && $opts['defaults']['server_side']['pagination']['enable'];
+        $paginate = self::optionBool($opts, false, 'defaults', 'server_side', 'pagination', 'enable');
 
         $vars = [
             'mailboxes' => $paginate
@@ -139,14 +455,25 @@ final class MailboxController extends AbstractController
                 : $this->mailboxRepository()->loadForMailboxList($admin, $domain),
         ];
 
-        if (empty($opts['defaults']['list_size']['disabled'])) {
-            $key = (isset($opts['defaults']['list_size']['multiplier'])
-                && isset(\OSS_Filter_FileSize::$SIZE_MULTIPLIERS[$opts['defaults']['list_size']['multiplier']]))
-                ? $opts['defaults']['list_size']['multiplier']
-                : \OSS_Filter_FileSize::SIZE_KILOBYTES;
+        if (!self::optionBool($opts, false, 'defaults', 'list_size', 'disabled')) {
+            $key = strtoupper(self::optionString(
+                $opts,
+                \OSS_Filter_FileSize::SIZE_KILOBYTES,
+                'defaults',
+                'list_size',
+                'multiplier',
+            ));
+            if (!in_array($key, [
+                \OSS_Filter_FileSize::SIZE_BYTES,
+                \OSS_Filter_FileSize::SIZE_KILOBYTES,
+                \OSS_Filter_FileSize::SIZE_MEGABYTES,
+                \OSS_Filter_FileSize::SIZE_GIGABYTES,
+            ], true)) {
+                throw new \LogicException('Configuration defaults.list_size.multiplier must be B, KB, MB, or GB');
+            }
 
             $vars['size_multiplier'] = $key;
-            $vars['multiplier']      = \OSS_Filter_FileSize::$SIZE_MULTIPLIERS[$key];
+            $vars['multiplier']      = self::sizeMultiplier($key);
         }
 
         return $this->view('mailbox/list.phtml', $vars);
@@ -169,19 +496,23 @@ final class MailboxController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $mailbox = ($mid = $this->param('mid'))
-            ? $this->em()->getRepository('\\Entities\\Mailbox')->find((int) $mid)
+        $mailbox = ($mid = $this->positiveIdParam('mid')) !== null
+            ? $this->em()->getRepository('\\Entities\\Mailbox')->find($mid)
             : null;
 
         // loadMailbox() authorises a non-super admin against the mailbox's domain.
-        if (!$mailbox || (!$admin->isSuper() && !$admin->canManageDomain($mailbox->getDomain()))) {
+        if (!$mailbox instanceof \Entities\Mailbox) {
+            return new Response('ko');
+        }
+        $domain = $mailbox->getDomain();
+        if (!$domain instanceof \Entities\Domain || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
             return new Response('ko');
         }
 
         $context = new MailboxContext(
             $this->em(),
             $admin,
-            $mailbox->getDomain(),
+            $domain,
             $mailbox,
             $this->container->options(),
             new FlashMessages(new MagicPropertyStorage($this->session())),
@@ -230,12 +561,16 @@ final class MailboxController extends AbstractController
             return $this->redirect('mailbox/list');
         }
 
-        $mailbox = ($mid = $this->param('mid'))
-            ? $this->em()->getRepository('\\Entities\\Mailbox')->find((int) $mid)
+        $mailbox = ($mid = $this->positiveIdParam('mid')) !== null
+            ? $this->em()->getRepository('\\Entities\\Mailbox')->find($mid)
             : null;
 
         // loadMailbox() authorises a non-super admin against the mailbox's domain.
-        if (!$mailbox || (!$admin->isSuper() && !$admin->canManageDomain($mailbox->getDomain()))) {
+        if (!$mailbox instanceof \Entities\Mailbox) {
+            return $this->redirect('mailbox/list');
+        }
+        $domain = $mailbox->getDomain();
+        if (!$domain instanceof \Entities\Domain || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
             return $this->redirect('mailbox/list');
         }
 
@@ -251,7 +586,7 @@ final class MailboxController extends AbstractController
             $context = new MailboxContext(
                 $this->em(),
                 $admin,
-                $mailbox->getDomain(),
+                $domain,
                 $mailbox,
                 $this->container->options(),
                 new FlashMessages(new MagicPropertyStorage($this->session())),
@@ -316,8 +651,13 @@ final class MailboxController extends AbstractController
     {
         // Edit is served natively by editAction; redirect the legacy
         // add-with-mid alias there rather than punting to ZF1.
-        if ($mid = $this->param('mid')) {
-            return $this->redirect('mailbox/edit/mid/' . (int) $mid);
+        $midValue = $this->param('mid');
+        $mid = self::positiveIntegerOrNull($midValue);
+        if ($midValue !== null && $mid === null) {
+            return $this->redirect('mailbox/list');
+        }
+        if ($mid !== null) {
+            return $this->redirect('mailbox/edit/mid/' . $mid);
         }
 
         $admin = $this->admin();
@@ -327,8 +667,8 @@ final class MailboxController extends AbstractController
 
         $em      = $this->em();
         $options = $this->container->options();
-        $mult    = $options['defaults']['quota']['multiplier'] ?? \OSS_Filter_FileSize::SIZE_KILOBYTES;
-        $minPw   = (int) ($options['defaults']['mailbox']['min_password_length'] ?? 8);
+        $mult    = self::quotaMultiplier($options);
+        $minPw   = self::optionInt($options, 8, 'defaults', 'mailbox', 'min_password_length');
 
         // The domains this admin may add a mailbox to (id => name); super sees all.
         $choices = $this->domainRepository()->loadForAdminAsArray($admin, true);
@@ -339,24 +679,28 @@ final class MailboxController extends AbstractController
 
         // A preferred domain from `did` preselects the dropdown and seeds the quota.
         $preferred = null;
-        if ($did = $this->param('did')) {
-            $d = $em->getRepository('\\Entities\\Domain')->find((int) $did);
-            if ($d !== null && ($admin->isSuper() || $admin->canManageDomain($d))) {
+        if (($did = $this->positiveIdParam('did')) !== null) {
+            $d = $em->getRepository('\\Entities\\Domain')->find($did);
+            if ($d instanceof \Entities\Domain && ($admin->isSuper() || $admin->canManageDomain($d))) {
                 $preferred = $d;
             }
         }
 
         $formHost = new FormPluginHost($options);
-        $form     = $this->buildMailboxAddForm($choices, $preferred, $mult, $minPw, $formHost, $options);
+        $form     = $this->buildMailboxAddForm($choices, $preferred, $minPw, $formHost, $options);
 
         if ($this->isPost() && $form->isValid($this->postData())) {
             $v      = $form->values();
             $pErr   = $formHost->validate($v, $options);
-            $domain = $em->getRepository('\\Entities\\Domain')->find((int) $v['domain']);
+            $domainId = self::positiveIntegerOrNull($v['domain'] ?? null);
+            $domain = $domainId !== null
+                ? $em->getRepository('\\Entities\\Domain')->find($domainId)
+                : null;
 
             // The inArray rule already rejected a domain not offered; re-check
             // management server-side so a non-super admin cannot widen scope.
-            if ($domain === null || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
+            if (!$domain instanceof \Entities\Domain
+                || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
                 $this->flash('Please select a valid domain.', FlashMessages::ERROR);
             } elseif ($pErr !== null) {
                 $this->flash($pErr, FlashMessages::ERROR);
@@ -364,7 +708,7 @@ final class MailboxController extends AbstractController
                 && $domain->getMailboxCount() >= $domain->getMaxMailboxes()) {
                 $this->flash('You have used all of your allocated mailboxes.', FlashMessages::ERROR);
             } else {
-                $localPart = strtolower(trim((string) $v['local_part']));
+                $localPart = strtolower(trim(self::requiredString($v['local_part'] ?? null, 'Mailbox local part')));
                 $username  = sprintf('%s@%s', $localPart, $domain->requiredDomainName());
 
                 if (!$this->mailboxRepository()->isUnique($username)) {
@@ -373,10 +717,13 @@ final class MailboxController extends AbstractController
                     $mailbox = new \Entities\Mailbox();
                     $mailbox->setLocalPart($localPart);
                     $mailbox->setUsername($username);
-                    $mailbox->setName((string) $v['name']);
-                    $mailbox->setAltEmail(($v['alt_email'] ?? '') !== '' ? (string) $v['alt_email'] : null);
-                    $mailbox->setPassword((string) $v['password']); // plaintext; the service hashes it
-                    $mailbox->setQuota((int) (new \OSS_Filter_FileSize($mult))->filter((string) $v['quota']));
+                    $mailbox->setName(self::stringOrDefault($v['name'] ?? null, '', 'Mailbox name'));
+                    $mailbox->setAltEmail(self::optionalString($v['alt_email'] ?? null, 'Alternative email'));
+                    $mailbox->setPassword(self::requiredString($v['password'] ?? null, 'Mailbox password')); // plaintext; the service hashes it
+                    $mailbox->setQuota(self::quotaBytes(
+                        self::stringOrDefault($v['quota'] ?? null, '', 'Mailbox quota'),
+                        $mult,
+                    ));
 
                     // Clamp the quota to the domain's per-mailbox maximum.
                     if ($domain->getMaxQuota() != 0
@@ -455,20 +802,26 @@ final class MailboxController extends AbstractController
         }
 
         $em      = $this->em();
-        $mailbox = ($mid = $this->param('mid'))
-            ? $em->getRepository('\\Entities\\Mailbox')->find((int) $mid)
+        $mailbox = ($mid = $this->positiveIdParam('mid')) !== null
+            ? $em->getRepository('\\Entities\\Mailbox')->find($mid)
             : null;
 
         // loadMailbox() authorises a non-super admin against the mailbox's domain.
-        if (!$mailbox || (!$admin->isSuper() && !$admin->canManageDomain($mailbox->getDomain()))) {
+        if (!$mailbox instanceof \Entities\Mailbox) {
+            $this->flash('Mailbox not found.', FlashMessages::ERROR);
+            return $this->redirect('mailbox/list');
+        }
+        $mailboxDomain = $mailbox->getDomain();
+        if (!$mailboxDomain instanceof \Entities\Domain
+            || (!$admin->isSuper() && !$admin->canManageDomain($mailboxDomain))) {
             $this->flash('Mailbox not found.', FlashMessages::ERROR);
             return $this->redirect('mailbox/list');
         }
 
         $options  = $this->container->options();
-        $mult     = $options['defaults']['quota']['multiplier'] ?? \OSS_Filter_FileSize::SIZE_KILOBYTES;
+        $mult     = self::quotaMultiplier($options);
         $formHost = new FormPluginHost($options);
-        $form     = $this->buildMailboxEditForm($mailbox, $mult, $formHost, $options);
+        $form     = $this->buildMailboxEditForm($mailbox, $formHost, $options);
 
         if ($this->isPost() && $form->isValid($this->postData())) {
             $v    = $form->values();
@@ -482,9 +835,12 @@ final class MailboxController extends AbstractController
                     throw new \LogicException('Mailbox domain cannot be null.');
                 }
 
-                $mailbox->setName((string) $v['name']);
-                $mailbox->setAltEmail(($v['alt_email'] ?? '') !== '' ? (string) $v['alt_email'] : null);
-                $mailbox->setQuota((int) (new \OSS_Filter_FileSize($mult))->filter((string) $v['quota']));
+                $mailbox->setName(self::stringOrDefault($v['name'] ?? null, '', 'Mailbox name'));
+                $mailbox->setAltEmail(self::optionalString($v['alt_email'] ?? null, 'Alternative email'));
+                $mailbox->setQuota(self::quotaBytes(
+                    self::stringOrDefault($v['quota'] ?? null, '', 'Mailbox quota'),
+                    $mult,
+                ));
 
                 // Clamp the quota to the domain's per-mailbox maximum.
                 if ($domain->getMaxQuota() != 0
@@ -551,15 +907,20 @@ final class MailboxController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $mailbox = ($mid = $this->param('mid'))
-            ? $this->em()->getRepository('\\Entities\\Mailbox')->find((int) $mid)
+        $mailbox = ($mid = $this->positiveIdParam('mid')) !== null
+            ? $this->em()->getRepository('\\Entities\\Mailbox')->find($mid)
             : null;
 
-        if (!$mailbox || (!$admin->isSuper() && !$admin->canManageDomain($mailbox->getDomain()))) {
+        if (!$mailbox instanceof \Entities\Mailbox) {
+            return $this->redirect('mailbox/list');
+        }
+        $domain = $mailbox->getDomain();
+        if (!$domain instanceof \Entities\Domain || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
             return $this->redirect('mailbox/list');
         }
 
-        $ima       = (bool) (int) $this->param('ima', 0);
+        $imaValue = $this->param('ima', 0);
+        $ima = $imaValue === 1 || $imaValue === '1';
         $aliasRepo = $this->aliasRepository();
 
         return $this->view('mailbox/aliases.phtml', [
@@ -600,14 +961,18 @@ final class MailboxController extends AbstractController
         }
 
         $em      = $this->em();
-        $mailbox = ($mid = $this->param('mid'))
-            ? $em->getRepository('\\Entities\\Mailbox')->find((int) $mid)
+        $mailbox = ($mid = $this->positiveIdParam('mid')) !== null
+            ? $em->getRepository('\\Entities\\Mailbox')->find($mid)
             : null;
-        $alias = ($alid = $this->param('alid'))
-            ? $em->getRepository('\\Entities\\Alias')->find((int) $alid)
+        $alias = ($alid = $this->positiveIdParam('alid')) !== null
+            ? $em->getRepository('\\Entities\\Alias')->find($alid)
             : null;
 
-        if (!$mailbox || !$alias || (!$admin->isSuper() && !$admin->canManageDomain($alias->getDomain()))) {
+        if (!$mailbox instanceof \Entities\Mailbox || !$alias instanceof \Entities\Alias) {
+            return $this->redirect('mailbox/list');
+        }
+        $domain = $alias->getDomain();
+        if (!$domain instanceof \Entities\Domain || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
             return $this->redirect('mailbox/list');
         }
 
@@ -617,7 +982,7 @@ final class MailboxController extends AbstractController
         if ($user === $identity['goto']) {
             $em->remove($alias);
             $this->logAlias($admin, "removed alias {$identity['address']}");
-            $alias->getDomain()->setAliasCount($alias->getDomain()->getAliasCount() - 1);
+            $domain->setAliasCount($domain->getAliasCount() - 1);
             $this->flash('You have successfully removed the alias.');
         } else {
             $gotos = explode(',', $identity['goto']);
@@ -682,28 +1047,40 @@ final class MailboxController extends AbstractController
         }
 
         $em      = $this->em();
-        $mailbox = ($mid = $this->param('mid'))
-            ? $em->getRepository('\\Entities\\Mailbox')->find((int) $mid)
+        $mailbox = ($mid = $this->positiveIdParam('mid')) !== null
+            ? $em->getRepository('\\Entities\\Mailbox')->find($mid)
             : null;
 
-        if (!$mailbox || (!$admin->isSuper() && !$admin->canManageDomain($mailbox->getDomain()))) {
+        if (!$mailbox instanceof \Entities\Mailbox) {
+            $this->flash('No mailbox id passed.', FlashMessages::ERROR);
+            return $this->redirect('mailbox/list');
+        }
+        $domain = $mailbox->getDomain();
+        if (!$domain instanceof \Entities\Domain || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
             $this->flash('No mailbox id passed.', FlashMessages::ERROR);
             return $this->redirect('mailbox/list');
         }
 
         $options = $this->container->options();
-        $minPw   = (int) ($options['defaults']['mailbox']['min_password_length'] ?? 8);
+        $minPw   = self::optionInt($options, 8, 'defaults', 'mailbox', 'min_password_length');
 
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
-        $form->add(new Field('password', 'Password', 'text', [Validators::required(), Validators::minLength($minPw)]));
+        $form->add(new Field('password', 'Password', 'text', [
+            Validators::string(),
+            Validators::required(),
+            Validators::minLength($minPw),
+        ]));
 
         if ($this->isPost() && $form->isValid($this->postData())) {
             $username = $mailbox->requiredUsername();
             $pwOpts = [
-                'pwhash'   => $options['defaults']['mailbox']['password_scheme'] ?? null,
+                'pwhash'   => self::optionNullableString($options, 'defaults', 'mailbox', 'password_scheme'),
                 'username' => $username,
             ];
-            $mailbox->setPassword(\OSS_Auth_Password::hash((string) $form->values()['password'], $pwOpts));
+            $mailbox->setPassword(\OSS_Auth_Password::hash(
+                self::requiredString($form->values()['password'] ?? null, 'Mailbox password'),
+                $pwOpts,
+            ));
 
             $log = new \Entities\Log();
             $log->setAction(\Entities\Log::ACTION_MAILBOX_PW_CHANGE)
@@ -767,11 +1144,24 @@ final class MailboxController extends AbstractController
             return $this->redirect('mailbox/list');
         }
 
-        $mailbox = ($mid = $this->param('mid'))
-            ? $this->em()->getRepository('\\Entities\\Mailbox')->find((int) $mid)
+        // Validate a configured bearer key before enqueue/flush. An absent or
+        // empty key intentionally leaves the cron runner as the fallback.
+        try {
+            $queueRunnerKey = self::queueRunnerKey($this->container->options());
+        } catch (\LogicException $e) {
+            error_log('queue trigger configuration rejected: ' . $e->getMessage());
+            return $this->redirect('mailbox/list');
+        }
+
+        $mailbox = ($mid = $this->positiveIdParam('mid')) !== null
+            ? $this->em()->getRepository('\\Entities\\Mailbox')->find($mid)
             : null;
 
-        if (!$mailbox || (!$admin->isSuper() && !$admin->canManageDomain($mailbox->getDomain()))) {
+        if (!$mailbox instanceof \Entities\Mailbox) {
+            return $this->redirect('mailbox/list');
+        }
+        $domain = $mailbox->getDomain();
+        if (!$domain instanceof \Entities\Domain || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
             return $this->redirect('mailbox/list');
         }
 
@@ -804,7 +1194,7 @@ final class MailboxController extends AbstractController
         // session_start() until it finishes -> 504). No shell-out (Snuffleupagus
         // blocks exec), no fork. If the trigger is disabled (no queue.runner.key)
         // the call is a silent no-op and the */2-min cron drains the backlog.
-        $this->kickQueueAsync($this->container->options());
+        $this->kickQueueAsync($queueRunnerKey);
 
         return $this->redirect('mailbox/list');
     }
@@ -822,20 +1212,27 @@ final class MailboxController extends AbstractController
      * its own connection closes. Best-effort: any failure (endpoint disabled,
      * connect error) is swallowed; the cron runner remains the guaranteed path.
      *
-     * @param array<string,mixed> $options the merged application options
      */
-    private function kickQueueAsync(array $options): void
+    private function kickQueueAsync(string $key): void
     {
-        $key = (string) ($options['queue']['runner']['key'] ?? '');
         if ($key === '') {
             return; // remote trigger disabled — the */2-min cron will drain
         }
 
-        $https = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
-            || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
-        $host  = (string) ($_SERVER['HTTP_HOST'] ?? '127.0.0.1');
-        $sni   = preg_replace('/:\d+$/', '', $host) ?: '127.0.0.1';
-        $port  = (int) ($_SERVER['SERVER_PORT'] ?? ($https ? 443 : 80));
+        try {
+            $endpoint = self::queueEndpoint(
+                $_SERVER['HTTPS'] ?? null,
+                $_SERVER['HTTP_HOST'] ?? null,
+                $_SERVER['SERVER_PORT'] ?? null,
+            );
+        } catch (\LogicException $e) {
+            error_log('kickQueueAsync: invalid runtime endpoint (' . $e->getMessage() . ') — cron will drain');
+            return;
+        }
+        $https = $endpoint['https'];
+        $host = $endpoint['host'];
+        $sni = $endpoint['sni'];
+        $port = $endpoint['port'];
 
         $path = rtrim((string) \OSS_Runtime::baseUrl(), '/') . '/queue/trigger';
 
@@ -885,26 +1282,30 @@ final class MailboxController extends AbstractController
      */
     private function buildMailboxEditForm(
         \Entities\Mailbox $mailbox,
-        string $mult,
         FormPluginHost $formHost,
         array $options
     ): Form {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
 
-        $name = new Field('name', 'Name', 'text', [Validators::noControlChars()]);
+        $name = new Field('name', 'Name', 'text', [Validators::string(), Validators::noControlChars()]);
         $name->setValue((string) $mailbox->getName());
         $form->add($name);
 
-        $quota = new Field('quota', 'Quota', 'text', [Validators::nonNegativeNumber()]);
+        $quota = new Field('quota', 'Quota', 'text', [Validators::string(), Validators::nonNegativeNumber()]);
         $quota->setValue((string) \OSS_Filter_FileSize::unfilter((int) $mailbox->getQuota()));
         $form->add($quota);
 
         $altEmail = new Field('alt_email', 'Alternative Email', 'text', [
+            Validators::string(),
             static function (mixed $value): ?string {
                 if ($value === null || $value === '') {
                     return null; // optional
                 }
-                return Validators::email()($value);
+                $error = Validators::email()($value);
+                if ($error !== null && !is_string($error)) {
+                    throw new \LogicException('Email validator returned an invalid result');
+                }
+                return $error;
             },
         ]);
         $altEmail->setValue((string) $mailbox->getAltEmail());
@@ -928,7 +1329,6 @@ final class MailboxController extends AbstractController
     private function buildMailboxAddForm(
         array $choices,
         ?\Entities\Domain $preferred,
-        string $mult,
         int $minPw,
         FormPluginHost $formHost,
         array $options
@@ -936,12 +1336,14 @@ final class MailboxController extends AbstractController
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
 
         $form->add(new Field('local_part', 'Local Part', 'text', [
+            Validators::string(),
             Validators::required(),
             Validators::localPart(),
         ]));
 
         $domainKeys = array_map('strval', array_keys($choices));
         $domainField = new Field('domain', 'Domain', 'select', [
+            Validators::string(),
             Validators::required(),
             Validators::inArray($domainKeys),
         ]);
@@ -951,27 +1353,33 @@ final class MailboxController extends AbstractController
         }
         $form->add($domainField);
 
-        $form->add(new Field('name', 'Name', 'text', [Validators::noControlChars()]));
+        $form->add(new Field('name', 'Name', 'text', [Validators::string(), Validators::noControlChars()]));
 
         // ZF1 renders the password as a visible text field; keep that (type=text)
         // so the generated password stays readable on screen.
         $form->add(new Field('password', 'Password', 'text', [
+            Validators::string(),
             Validators::required(),
             Validators::minLength($minPw),
         ]));
 
-        $quota = new Field('quota', 'Quota', 'text', [Validators::nonNegativeNumber()]);
+        $quota = new Field('quota', 'Quota', 'text', [Validators::string(), Validators::nonNegativeNumber()]);
         $quota->setValue($preferred !== null
             ? (string) \OSS_Filter_FileSize::unfilter($preferred->requiredQuota())
             : '0');
         $form->add($quota);
 
         $form->add(new Field('alt_email', 'Alternative Email', 'text', [
+            Validators::string(),
             static function (mixed $value): ?string {
                 if ($value === null || $value === '') {
                     return null; // optional
                 }
-                return Validators::email()($value);
+                $error = Validators::email()($value);
+                if ($error !== null && !is_string($error)) {
+                    throw new \LogicException('Email validator returned an invalid result');
+                }
+                return $error;
             },
         ]));
 
@@ -1004,13 +1412,17 @@ final class MailboxController extends AbstractController
     public function emailSettingsAction(): Response
     {
         $admin   = $this->admin();
-        $mid     = (int) $this->param('mid', 0);
-        $mailbox = $mid > 0
+        $mid     = $this->positiveIdParam('mid');
+        $mailbox = $mid !== null
             ? $this->em()->getRepository('\\Entities\\Mailbox')->find($mid)
             : null;
 
         // loadMailbox() authorisation: a non-super admin must manage the domain.
-        if ($admin === null || !$mailbox || (!$admin->isSuper() && !$admin->canManageDomain($mailbox->getDomain()))) {
+        if ($admin === null || !$mailbox instanceof \Entities\Mailbox) {
+            return new Response('error');
+        }
+        $domain = $mailbox->getDomain();
+        if (!$domain instanceof \Entities\Domain || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
             return new Response('error');
         }
         $username = $mailbox->requiredUsername();
@@ -1028,10 +1440,11 @@ final class MailboxController extends AbstractController
 
             $form = new Form(new Csrf(new MagicPropertyStorage($this->session())));
             $form->add(new Field('type', 'Email', 'select', [
+                Validators::string(),
                 Validators::required(),
                 Validators::inArray(array_keys($typeOptions)),
             ]));
-            $form->add(new Field('email', 'Other Email(s)', 'text'));
+            $form->add(new Field('email', 'Other Email(s)', 'text', [Validators::string()]));
             $form->field('type')?->setOptions($typeOptions);
 
             $error      = null;
@@ -1040,10 +1453,10 @@ final class MailboxController extends AbstractController
             if (!$form->isValid($post)) {
                 $error = $form->errors()['_form'] ?? $form->errors()['type'] ?? 'Invalid submission.';
             } else {
-                $type = (string) $form->values()['type'];
+                $type = self::requiredString($form->values()['type'] ?? null, 'Email recipient type');
 
                 if ($type === 'other') {
-                    $raw = trim((string) ($post['email'] ?? ''));
+                    $raw = trim(self::stringOrDefault($post['email'] ?? null, '', 'Other email recipients'));
                     foreach (explode(',', $raw) as $em) {
                         $em = trim($em);
                         if ($em === '') {
@@ -1073,8 +1486,8 @@ final class MailboxController extends AbstractController
             return new Response($this->renderEmailSettingsModal(
                 $mailbox,
                 $typeOptions,
-                (string) ($post['type'] ?? 'username'),
-                (string) ($post['email'] ?? ''),
+                self::renderStringOrDefault($post['type'] ?? null, 'username'),
+                self::renderStringOrDefault($post['email'] ?? null, ''),
                 $error
             ));
         }
@@ -1123,10 +1536,19 @@ final class MailboxController extends AbstractController
         $domainName = $domain->requiredDomainName();
         $username = $mailbox->requiredUsername();
 
+        $senderAddress = self::controlSafeString(
+            self::optionString($options, 'support@localhost', 'server', 'email', 'address'),
+            'Configuration server.email.address',
+        );
+        $senderName = self::controlSafeString(
+            self::optionString($options, '', 'server', 'email', 'name'),
+            'Configuration server.email.name',
+        );
+
         $email = (new Email())
             ->from(new Address(
-                (string) ($options['server']['email']['address'] ?? 'support@localhost'),
-                (string) ($options['server']['email']['name'] ?? '')
+                $senderAddress,
+                $senderName,
             ))
             ->subject(sprintf('Settings for your mailbox on %s', $domainName));
 
@@ -1135,13 +1557,19 @@ final class MailboxController extends AbstractController
         }
 
         // Substitute %m/%d/%u in each server.* display value for this mailbox.
-        $settings = $options['server'] ?? [];
-        foreach ($settings as $tech => $params) {
+        $serverSettings = self::optionArray($options, [], 'server');
+        $settings = [];
+        foreach ($serverSettings as $tech => $params) {
             if (!is_array($params)) {
                 continue;
             }
-            foreach ($params as $k => $v) {
-                $settings[$tech][$k] = \Entities\Mailbox::substitute($username, (string) $v);
+            $typedParams = self::stringKeyedArray($params, "Configuration server.{$tech}");
+            $settings[$tech] = [];
+            foreach ($typedParams as $k => $v) {
+                $settings[$tech][$k] = \Entities\Mailbox::substitute(
+                    $username,
+                    self::displaySettingString($v, "Configuration server.{$tech}.{$k}"),
+                );
             }
         }
 

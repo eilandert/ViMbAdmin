@@ -84,7 +84,7 @@ class Mailbox
     private ?string $name = null;
 
     /**
-     * @var string $alt_email
+     * @var string|null $alt_email
      */
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $alt_email = null;
@@ -244,7 +244,7 @@ class Mailbox
     /**
      * Set alt_email
      *
-     * @param string $altEmail
+     * @param string|null $altEmail
      * @return Mailbox
      */
     public function setAltEmail($altEmail)
