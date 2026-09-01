@@ -125,6 +125,9 @@ jobs:
       - name: Mailbox task status-count hydration
         run: php tests/test-repository-mailbox-task-status-counts.php
 
+      - name: Domain usage hydration
+        run: php tests/test-repository-domain-usage.php
+
       - name: Nullable entity preference contracts
         run: php tests/test-entity-preferences.php
 

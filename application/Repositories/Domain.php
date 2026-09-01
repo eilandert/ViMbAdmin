@@ -14,6 +14,63 @@ use Doctrine\ORM\EntityRepository;
  */
 class Domain extends EntityRepository
 {
+    /** @return array<string,int|string> */
+    private static function requiredDomainUsageByDomain(mixed $rows): array
+    {
+        if (!is_array($rows)) {
+            throw new \UnexpectedValueException('Domain usage query result must be an array.');
+        }
+
+        $usage = [];
+        foreach ($rows as $key => $row) {
+            if (!is_int($key) || !is_array($row) || count($row) !== 2
+                || !isset($row['domain']) || !is_string($row['domain'])
+                || !array_key_exists('bytes', $row)) {
+                throw new \UnexpectedValueException('Domain usage query row has an invalid shape.');
+            }
+            $bytes = $row['bytes'];
+            if ((!is_int($bytes) || $bytes < 0)
+                && (!is_string($bytes) || preg_match('/^(0|[1-9][0-9]*)$/D', $bytes) !== 1)) {
+                throw new \UnexpectedValueException('Domain usage query row has invalid bytes.');
+            }
+            $domainKey = strtolower($row['domain']);
+            if (array_key_exists($domainKey, $usage)) {
+                throw new \UnexpectedValueException('Domain usage query returned a duplicate domain.');
+            }
+            $usage[$domainKey] = $bytes;
+        }
+        return $usage;
+    }
+
+    /**
+     * @param array<string,int|string> $usage
+     * @return array<int,array<string,mixed>>
+     */
+    private static function mergeDomainUsageRows(mixed $rows, array $usage): array
+    {
+        if (!is_array($rows)) {
+            throw new \UnexpectedValueException('Domain list rows must be an array.');
+        }
+
+        $result = [];
+        foreach ($rows as $key => $row) {
+            if (!is_int($key) || !is_array($row)
+                || !isset($row['name']) || !is_string($row['name'])) {
+                throw new \UnexpectedValueException('Domain list row has an invalid usage shape.');
+            }
+            $typedRow = [];
+            foreach ($row as $field => $value) {
+                if (!is_string($field)) {
+                    throw new \UnexpectedValueException('Domain list row has an invalid usage field.');
+                }
+                $typedRow[$field] = $value;
+            }
+            $typedRow['mailboxes_size'] = $usage[strtolower($row['name'])] ?? 0;
+            $result[$key] = $typedRow;
+        }
+        return $result;
+    }
+
     /** @return array<int,array<string,mixed>> */
     private static function requiredDomainListRows(mixed $rows): array
     {
@@ -235,15 +292,9 @@ class Domain extends EntityRepository
             ->enableResultCache( 60, 'vimb_domain_quota_sums' )
             ->getResult();
 
-        $byDomain = [];
-        foreach( $sums as $s )
-            $byDomain[ $s['domain'] ] = $s['bytes'];
+        $byDomain = self::requiredDomainUsageByDomain($sums);
 
-        foreach( $rows as &$row )
-            $row['mailboxes_size'] = isset( $byDomain[ $row['name'] ] ) ? $byDomain[ $row['name'] ] : 0;
-        unset( $row );
-
-        return $rows;
+        return self::mergeDomainUsageRows($rows, $byDomain);
     }
 
     /**

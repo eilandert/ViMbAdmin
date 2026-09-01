@@ -79,30 +79,6 @@ parameters:
 			path: application/Repositories/Alias.php
 
 		-
-			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
-			identifier: foreach.nonIterable
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Cannot access offset ''bytes'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Cannot access offset ''domain'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 3
-			path: application/Repositories/Domain.php
-
-		-
 			message: '#^Cannot access offset ''bytes'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1
