@@ -44,6 +44,24 @@ class Mailbox extends EntityRepository
         }
         return $result;
     }
+    /** @return array<int,array{id:int|string,username:string}> */
+    private static function requiredUsernameRows(mixed $rows): array
+    {
+        if (!is_array($rows)) {
+            throw new \UnexpectedValueException('Mailbox username query result must be an array.');
+        }
+        $result = [];
+        foreach ($rows as $key => $row) {
+            if (!is_int($key) || !is_array($row)
+                || !isset($row['id'])
+                || (!is_int($row['id']) && (!is_string($row['id']) || !ctype_digit($row['id'])))
+                || !isset($row['username']) || !is_string($row['username'])) {
+                throw new \UnexpectedValueException('Mailbox username query row has an invalid shape.');
+            }
+            $result[$key] = ['id' => $row['id'], 'username' => $row['username']];
+        }
+        return $result;
+    }
     /** @return array{address:string,goto:string} */
     private function requiredAliasIdentity(\Entities\Alias $alias): array
     {
@@ -246,11 +264,13 @@ class Mailbox extends EntityRepository
      *
      * @param \Entities\Admin       $admin  Admin for filtering mailboxes.
      * @param \Entities\Domain|null $domain Domain for filtering mailboxes.
-     * @return array<int,string>
+     * @return array<int|string,string>
      */
     public function loadUsernameList( $admin, $domain = null )
     {
-        return $this->indexUsernameRows( $this->usernameListQuery( $admin, $domain )->getQuery()->getArrayResult() );
+        return $this->indexUsernameRows(self::requiredUsernameRows(
+            $this->usernameListQuery( $admin, $domain )->getQuery()->getArrayResult()
+        ));
     }
 
     private function usernameListQuery( \Entities\Admin $admin, ?\Entities\Domain $domain ): QueryBuilder
@@ -273,8 +293,8 @@ class Mailbox extends EntityRepository
     }
 
     /**
-     * @param array<int,array{id:int,username:string}> $data
-     * @return array<int,string>
+     * @param array<int,array{id:int|string,username:string}> $data
+     * @return array<int|string,string>
      */
     private function indexUsernameRows( array $data ): array
     {

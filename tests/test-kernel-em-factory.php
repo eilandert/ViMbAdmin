@@ -287,6 +287,8 @@ function checkMailboxRepositoryQueryContract(mixed $entityManager): void
     $indexedRows = invokePrivateRepositoryMethod($repository, 'indexUsernameRows', [[
         ['id' => 7, 'username' => 'one@example.test'],
         ['id' => 11, 'username' => 'two@example.test'],
+        ['id' => 7, 'username' => 'replacement@example.test'],
+        ['id' => '9223372036854775808', 'username' => 'big@example.test'],
     ]]);
     $emptyRows = invokePrivateRepositoryMethod($repository, '_mergeQuotaUsage', [[]]);
 
@@ -300,8 +302,11 @@ function checkMailboxRepositoryQueryContract(mixed $entityManager): void
         mailboxUsernameQueryContract($usernameQuery->getDQL(), logQueryParameters($usernameQuery), $admin, $domain),
     );
     recordRepositoryCheck(
-        'mailbox username rows remain indexed by numeric mailbox id',
-        $indexedRows === [7 => 'one@example.test', 11 => 'two@example.test'],
+        'mailbox username rows preserve bigint keys and last duplicate wins',
+        $indexedRows === [
+            7 => 'replacement@example.test', 11 => 'two@example.test',
+            '9223372036854775808' => 'big@example.test',
+        ],
     );
     recordRepositoryCheck('empty mailbox hydration avoids quota queries', $emptyRows === []);
 }

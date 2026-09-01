@@ -14,6 +14,23 @@ use Doctrine\ORM\EntityRepository;
  */
 class MailboxPreference extends EntityRepository
 {
+    /** @return array<int,array{value:string}> */
+    private static function requiredPreferenceValueRows(mixed $rows): array
+    {
+        if (!is_array($rows)) {
+            throw new \UnexpectedValueException('Preference query result must be an array.');
+        }
+        $result = [];
+        foreach ($rows as $key => $row) {
+            if (!is_int($key) || !is_array($row) || count($row) !== 1
+                || !isset($row['value']) || !is_string($row['value'])) {
+                throw new \UnexpectedValueException('Preference query row has an invalid shape.');
+            }
+            $result[$key] = ['value' => $row['value']];
+        }
+        return $result;
+    }
+
     /**
      * Cache key for loadPrefrencesValuesByAttribyte() - defined so we can clear the cache if we add / edit / delete additional info
      * @var string Cache key for loadPrefrenceValuesByAttribute() - defined so we can clear the cache if we add / edit / delete additional info
@@ -28,7 +45,7 @@ class MailboxPreference extends EntityRepository
      *
      * @param string $attribute Attribute name
      * @param \Entities\Admin $admin Admin who request the list
-     * @return list<mixed>
+     * @return list<string>
      */
     public function loadPrefrenceValuesByAttribute( $attribute, $admin )
     {
@@ -38,7 +55,7 @@ class MailboxPreference extends EntityRepository
             ->enableResultCache( 3600, self::VALUES_CACHE_KEY . '_' . $admin->getId() . '_' . $attribute )
             ->getScalarResult();
 
-        return self::uniquePreferenceValues( $data );
+        return self::uniquePreferenceValues(self::requiredPreferenceValueRows($data));
     }
 
     private function preferenceValueQuery( string $attribute, \Entities\Admin $admin ): \Doctrine\ORM\QueryBuilder
@@ -65,8 +82,8 @@ class MailboxPreference extends EntityRepository
     }
 
     /**
-     * @param array<array<string,mixed>> $data
-     * @return list<mixed>
+     * @param array<int,array{value:string}> $data
+     * @return list<string>
      */
     private static function uniquePreferenceValues( array $data ): array
     {

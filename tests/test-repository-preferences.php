@@ -65,6 +65,7 @@ $queryMethod = new ReflectionMethod($repository, 'preferenceValueQuery');
 $query = invokePreferenceQuery($queryMethod, $repository, 'xpiInfo.department', $admin);
 $parameters = preferenceQueryParameters($query);
 $uniqueMethod = new ReflectionMethod($repository, 'uniquePreferenceValues');
+$requiredRowsMethod = new ReflectionMethod($repository, 'requiredPreferenceValueRows');
 $values = $uniqueMethod->invoke(null, [
     ['value' => 'alpha'],
     ['value' => 'beta'],
@@ -73,6 +74,31 @@ $values = $uniqueMethod->invoke(null, [
 
 echo "== preference repositories ==\n";
 $check('scalar preference values retain order and remove duplicates', $values === ['alpha', 'beta']);
+$preferenceRows = [3 => ['value' => 'preserved']];
+$check('preference row preserves integer key and string value',
+    $requiredRowsMethod->invoke(null, $preferenceRows) === $preferenceRows);
+$invalidPreferenceRows = static function (mixed $rows) use ($requiredRowsMethod): ?string {
+    try {
+        $requiredRowsMethod->invoke(null, $rows);
+    } catch (Throwable $exception) {
+        return $exception->getMessage();
+    }
+    return null;
+};
+$check('preference rows reject a scalar result',
+    $invalidPreferenceRows('invalid') === 'Preference query result must be an array.');
+$check('preference rows reject a scalar row',
+    $invalidPreferenceRows(['invalid']) === 'Preference query row has an invalid shape.');
+$check('preference rows reject a string outer key',
+    $invalidPreferenceRows(['row' => ['value' => 'x']]) === 'Preference query row has an invalid shape.');
+$check('preference rows reject a missing value key',
+    $invalidPreferenceRows([['other' => 'x']]) === 'Preference query row has an invalid shape.');
+$check('preference rows reject an extra field',
+    $invalidPreferenceRows([['value' => 'x', 'other' => 'y']]) === 'Preference query row has an invalid shape.');
+$check('preference rows reject a non-string value',
+    $invalidPreferenceRows([['value' => null]]) === 'Preference query row has an invalid shape.');
+$numericValues = $uniqueMethod->invoke(null, [['value' => '0'], ['value' => '00']]);
+$check('legacy loose duplicate comparison is preserved', $numericValues === ['0']);
 $check('attribute predicate is retained for a scoped admin', str_contains($query->getDQL(), 'mp.attribute = :attr'));
 $check('non-super admin joins mailbox and domain ownership', str_contains($query->getDQL(), 'JOIN mp.Mailbox m') && str_contains($query->getDQL(), 'JOIN d.Admins d2a'));
 $check('admin scope is appended instead of replacing the attribute predicate', str_contains($query->getDQL(), 'AND d2a = :admin'));

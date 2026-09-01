@@ -157,12 +157,6 @@ parameters:
 			path: application/Repositories/Mailbox.php
 
 		-
-			message: '#^Parameter \#1 \$data of method Repositories\\Mailbox\:\:indexUsernameRows\(\) expects array\<int, array\{id\: int, username\: string\}\>, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
 			message: '#^Parameter \#2 \$admin of method Repositories\\Alias\:\:loadForMailbox\(\) expects Entities\\Admin, Entities\\Admin\|null given\.$#'
 			identifier: argument.type
 			count: 1
@@ -179,12 +173,6 @@ parameters:
 			identifier: offsetAccess.invalidOffset
 			count: 2
 			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Parameter \#1 \$data of static method Repositories\\MailboxPreference\:\:uniquePreferenceValues\(\) expects array\<array\<string, mixed\>\>, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: application/Repositories/MailboxPreference.php
 
 		-
 			message: '#^Cannot access offset ''cnt'' on mixed\.$#'

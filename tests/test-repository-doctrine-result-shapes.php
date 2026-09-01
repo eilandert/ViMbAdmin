@@ -42,6 +42,7 @@ $archive = new ReflectionMethod(\Repositories\Archive::class, 'requiredArchiveLi
 $domain = new ReflectionMethod(\Repositories\Domain::class, 'requiredDomainListRows');
 $log = new ReflectionMethod(\Repositories\Log::class, 'requiredLogListRows');
 $mailbox = new ReflectionMethod(\Repositories\Mailbox::class, 'requiredMailboxHydrationRows');
+$username = new ReflectionMethod(\Repositories\Mailbox::class, 'requiredUsernameRows');
 
 $aliasRows = [[
     'id' => '17', 'address' => 'alias@example.test', 'goto' => 'user@example.test',
@@ -104,7 +105,28 @@ repositoryResultShapeCheck('Mailbox rejects a missing field',
 repositoryResultShapeCheck('Mailbox rejects a wrong field type',
     repositoryResultShapeFailure($mailbox, [array_replace($mailboxRows[0], ['quota' => false])]) === 'Mailbox query row has an invalid shape.');
 
-repositoryResultShapeCheck('fixed assertion count', RepositoryResultShapeState::$checks === 24);
+$usernameRows = [4 => ['id' => 7, 'username' => 'user@example.test']];
+repositoryResultShapeCheck('Mailbox username row preserves its integer key and values',
+    $username->invoke(null, $usernameRows) === $usernameRows);
+$bigIdRows = [['id' => '9223372036854775808', 'username' => 'big@example.test']];
+repositoryResultShapeCheck('Mailbox username preserves an oversized DBAL bigint string',
+    $username->invoke(null, $bigIdRows) === $bigIdRows);
+repositoryResultShapeCheck('Mailbox username rejects a scalar result',
+    repositoryResultShapeFailure($username, 'invalid') === 'Mailbox username query result must be an array.');
+repositoryResultShapeCheck('Mailbox username rejects a scalar row',
+    repositoryResultShapeFailure($username, ['invalid']) === 'Mailbox username query row has an invalid shape.');
+repositoryResultShapeCheck('Mailbox username rejects a string-keyed row',
+    repositoryResultShapeFailure($username, ['row' => $usernameRows[4]]) === 'Mailbox username query row has an invalid shape.');
+repositoryResultShapeCheck('Mailbox username rejects a missing id',
+    repositoryResultShapeFailure($username, [['username' => 'user@example.test']]) === 'Mailbox username query row has an invalid shape.');
+repositoryResultShapeCheck('Mailbox username rejects a missing username',
+    repositoryResultShapeFailure($username, [['id' => 7]]) === 'Mailbox username query row has an invalid shape.');
+repositoryResultShapeCheck('Mailbox username rejects a wrong id type',
+    repositoryResultShapeFailure($username, [['id' => 'not-an-id', 'username' => 'user@example.test']]) === 'Mailbox username query row has an invalid shape.');
+repositoryResultShapeCheck('Mailbox username rejects a wrong username type',
+    repositoryResultShapeFailure($username, [['id' => 7, 'username' => null]]) === 'Mailbox username query row has an invalid shape.');
+
+repositoryResultShapeCheck('fixed assertion count', RepositoryResultShapeState::$checks === 33);
 
 echo RepositoryResultShapeState::$failures === 0
     ? "ALL PASSED\n"
