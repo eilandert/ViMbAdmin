@@ -73,7 +73,7 @@ $(document).ready(function()
 }); // document onready
 
 function toggleActive( elid, id) {
-    ossToggle( $( '#' + elid ), "{genUrl controller='domain' action='ajax-toggle-active'}", { "did": id } );
+    ossToggle( $( '#' + elid ), "{genUrl controller='domain' action='ajax-toggle-active'}", { "did": id, "csrf": "{$csrfToken}" } );
 };
 
 
@@ -282,6 +282,5 @@ function formatControlls( id, name )
     
 }
 {/if}
-
 
 

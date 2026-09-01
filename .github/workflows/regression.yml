@@ -89,6 +89,9 @@ jobs:
       - name: Mailbox controller input shapes
         run: php tests/test-mailbox-controller-shapes.php
 
+      - name: Domain controller input shapes
+        run: php tests/test-domain-controller-shapes.php
+
       - name: Required mailbox password and auth boundary
         run: php tests/test-mailbox-required-password.php
 

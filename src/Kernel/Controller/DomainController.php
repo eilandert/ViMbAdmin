@@ -47,6 +47,241 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  */
 final class DomainController extends AbstractController
 {
+    private static function requiredString(mixed $value, string $name): string
+    {
+        if (!is_string($value)) {
+            throw new LogicException("{$name} must be a string");
+        }
+
+        return $value;
+    }
+
+    private static function stringOrDefault(mixed $value, string $default, string $name): string
+    {
+        return $value === null ? $default : self::requiredString($value, $name);
+    }
+
+    private static function positiveIntegerOrNull(mixed $value): ?int
+    {
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            return is_int($integer) ? $integer : null;
+        }
+
+        return null;
+    }
+
+    private function positiveIdParam(string $key): ?int
+    {
+        return self::positiveIntegerOrNull($this->param($key));
+    }
+
+    /**
+     * @param array<mixed> $value
+     * @return array<string,mixed>
+     */
+    private static function requestArray(array $value): array
+    {
+        $scalarKeys = ['sEcho', 'iDisplayStart', 'iDisplayLength', 'sSearch', 'iSortCol_0', 'sSortDir_0'];
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                continue;
+            }
+            if (in_array($key, $scalarKeys, true) && !is_string($item)) {
+                throw new LogicException("DataTables parameter {$key} must be a string");
+            }
+            $result[$key] = $item;
+        }
+
+        return $result;
+    }
+
+    /** @return array<string,mixed> */
+    private static function stringKeyedArray(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new LogicException("{$name} must be an array");
+        }
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                throw new LogicException("{$name} must use string keys");
+            }
+            $result[$key] = $item;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array{bool,mixed}
+     */
+    private static function option(array $options, string ...$path): array
+    {
+        $value = $options;
+        $walked = [];
+        foreach ($path as $key) {
+            $value = self::stringKeyedArray(
+                $value,
+                'Configuration ' . ($walked === [] ? 'root' : implode('.', $walked)),
+            );
+            $walked[] = $key;
+            if (!array_key_exists($key, $value)) {
+                return [false, null];
+            }
+            $value = $value[$key];
+        }
+
+        return [true, $value];
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionString(array $options, string $default, string ...$path): string
+    {
+        [$found, $value] = self::option($options, ...$path);
+        return $found ? self::requiredString($value, 'Configuration ' . implode('.', $path)) : $default;
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionBoolean(array $options, bool $default, string ...$path): bool
+    {
+        [$found, $value] = self::option($options, ...$path);
+        if (!$found) {
+            return $default;
+        }
+        if ($value === true || $value === 1 || $value === '1') {
+            return true;
+        }
+        if ($value === false || $value === 0 || $value === '0' || $value === '') {
+            return false;
+        }
+
+        throw new LogicException('Configuration ' . implode('.', $path) . ' must be boolean');
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @param array<string,mixed> $default
+     * @return array<string,mixed>
+     */
+    private static function optionArray(array $options, array $default, string ...$path): array
+    {
+        [$found, $value] = self::option($options, ...$path);
+        return $found ? self::stringKeyedArray($value, 'Configuration ' . implode('.', $path)) : $default;
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function quotaMultiplier(array $options): string
+    {
+        $multiplier = strtoupper(self::optionString(
+            $options,
+            \OSS_Filter_FileSize::SIZE_KILOBYTES,
+            'defaults',
+            'quota',
+            'multiplier',
+        ));
+        if (!array_key_exists($multiplier, \OSS_Filter_FileSize::$SIZE_MULTIPLIERS)) {
+            throw new LogicException('Configuration defaults.quota.multiplier is unsupported');
+        }
+
+        return $multiplier;
+    }
+
+    private static function checkboxBoolean(mixed $value, string $name): bool
+    {
+        if ($value === false || $value === 0 || $value === '0' || $value === '') {
+            return false;
+        }
+        if ($value === true || $value === 1 || $value === '1') {
+            return true;
+        }
+
+        throw new LogicException("{$name} must be boolean");
+    }
+
+    private static function nonNegativeInteger(mixed $value, string $name): int
+    {
+        if (is_int($value) && $value >= 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[0-9]+$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            if (is_int($integer)) {
+                return $integer;
+            }
+        }
+
+        throw new LogicException("{$name} must be a non-negative integer");
+    }
+
+    private static function nonNegativeIntegerOrDefault(mixed $value, int $default, string $name): int
+    {
+        return $value === null || $value === ''
+            ? $default
+            : self::nonNegativeInteger($value, $name);
+    }
+
+    private static function quotaBytes(mixed $value, \OSS_Filter_FileSize $filter, string $name): int
+    {
+        $filtered = $filter->filter(self::requiredString($value, $name));
+        if ((!is_int($filtered) && !is_float($filtered))
+            || !is_finite((float) $filtered)
+            || $filtered < 0
+            || $filtered > PHP_INT_MAX) {
+            throw new LogicException("{$name} produced an invalid byte value");
+        }
+
+        return (int) $filtered;
+    }
+
+    private static function nonNegativeIntegerDefault(mixed $value, string $name): string
+    {
+        return (string) self::nonNegativeInteger($value, $name);
+    }
+
+    private static function nonNegativeNumberDefault(mixed $value, string $name): string
+    {
+        if (is_int($value) && $value >= 0) {
+            return (string) $value;
+        }
+        if (is_float($value) && is_finite($value) && $value >= 0) {
+            return (string) $value;
+        }
+        if (is_string($value) && preg_match('/^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/D', $value) === 1) {
+            return $value;
+        }
+
+        throw new LogicException("{$name} must be a non-negative number");
+    }
+
+    private static function requiredField(Form $form, string $name): Field
+    {
+        $field = $form->field($name);
+        if ($field === null) {
+            throw new LogicException("Domain form field {$name} is missing");
+        }
+
+        return $field;
+    }
+
+    /**
+     * @param array<int|string,string|null> $values
+     * @return array<int|string,string>
+     */
+    private static function requiredStringMap(array $values, string $name): array
+    {
+        $result = [];
+        foreach ($values as $key => $value) {
+            $result[$key] = self::requiredString($value, "{$name} label");
+        }
+
+        return $result;
+    }
 
     /**
      * GET /domain and /domain/index — the auth-gated landing forwards to the list
@@ -73,8 +308,7 @@ final class DomainController extends AbstractController
 
         $opts = $this->container->options();
 
-        $paginate = isset($opts['defaults']['server_side']['pagination']['domain']['enable'])
-            && $opts['defaults']['server_side']['pagination']['domain']['enable'];
+        $paginate = self::optionBoolean($opts, false, 'defaults', 'server_side', 'pagination', 'domain', 'enable');
 
         $vars = [
             'domains' => $paginate
@@ -84,10 +318,16 @@ final class DomainController extends AbstractController
 
         // The size column is shown unless explicitly disabled; the template
         // divides by $multiplier, so always expose it when the column is on.
-        if (empty($opts['defaults']['list_size']['disabled'])) {
-            $key = (isset($opts['defaults']['list_size']['multiplier'])
-                && isset(\OSS_Filter_FileSize::$SIZE_MULTIPLIERS[$opts['defaults']['list_size']['multiplier']]))
-                ? $opts['defaults']['list_size']['multiplier']
+        if (!self::optionBoolean($opts, false, 'defaults', 'list_size', 'disabled')) {
+            $configured = self::optionString(
+                $opts,
+                \OSS_Filter_FileSize::SIZE_KILOBYTES,
+                'defaults',
+                'list_size',
+                'multiplier',
+            );
+            $key = array_key_exists($configured, \OSS_Filter_FileSize::$SIZE_MULTIPLIERS)
+                ? $configured
                 : \OSS_Filter_FileSize::SIZE_KILOBYTES;
 
             $vars['size_multiplier'] = $key;
@@ -110,7 +350,7 @@ final class DomainController extends AbstractController
             return new Response('ko');
         }
 
-        $q = DataTableQuery::fromArray($_GET);
+        $q = DataTableQuery::fromArray(self::requestArray($_GET));
         // Column index -> sortable field (matches JS column order; computed
         // "used" + controls fall back to domain).
         $sortField = [0 => 'domain', 1 => 'mailboxes', 2 => 'aliases', 4 => 'quota', 5 => 'active', 6 => 'transport', 8 => 'created'][$q->sortColumn] ?? 'domain';
@@ -144,10 +384,16 @@ final class DomainController extends AbstractController
      */
     public function addAction(): Response
     {
-        if ($did = $this->param('did')) {
+        $didValue = $this->param('did');
+        if ($didValue !== null && $didValue !== '') {
+            $did = self::positiveIntegerOrNull($didValue);
+            if ($did === null) {
+                $this->flash('Invalid domain id.', FlashMessages::ERROR);
+                return $this->redirect('domain/list');
+            }
             // The edit form is served natively by editAction; redirect the
             // legacy add-with-did alias there rather than punting to ZF1.
-            return $this->redirect('domain/edit/did/' . (int) $did);
+            return $this->redirect('domain/edit/did/' . $did);
         }
 
         $admin = $this->admin();
@@ -156,7 +402,7 @@ final class DomainController extends AbstractController
         }
 
         $options = $this->container->options();
-        $mult    = $options['defaults']['quota']['multiplier'] ?? \OSS_Filter_FileSize::SIZE_KILOBYTES;
+        $mult    = self::quotaMultiplier($options);
         $form    = $this->buildDomainAddForm($options);
 
         if ($this->isPost() && $form->isValid($this->postData())) {
@@ -167,7 +413,7 @@ final class DomainController extends AbstractController
             $domain->setAliasCount(0);
             $domain->setMailboxCount(0);
             $domain->setCreated(new \DateTime());
-            $domain->setDomain((string) $v['domain']);
+            $domain->setDomain(self::requiredString($v['domain'] ?? null, 'Domain name'));
             $this->applyFormFields($domain, $v, $filter);
 
             (new \ViMbAdmin_Service_Domain($this->em()))->save($domain, $admin, false);
@@ -201,9 +447,8 @@ final class DomainController extends AbstractController
         if ($admin === null || !$admin->isSuper()) {
             return $this->redirect('auth/login');
         }
-
-        $domain = ($did = $this->param('did'))
-            ? $this->domainRepository()->find((int) $did)
+        $domain = ($did = $this->positiveIdParam('did'))
+            ? $this->domainRepository()->find($did)
             : null;
 
         if ($domain === null) {
@@ -212,7 +457,7 @@ final class DomainController extends AbstractController
         }
 
         $options = $this->container->options();
-        $mult    = $options['defaults']['quota']['multiplier'] ?? \OSS_Filter_FileSize::SIZE_KILOBYTES;
+        $mult    = self::quotaMultiplier($options);
         $form    = $this->buildDomainEditForm();
 
         if ($this->isPost() && $form->isValid($this->postData())) {
@@ -261,8 +506,8 @@ final class DomainController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $domain = ($did = $this->param('did'))
-            ? $this->domainRepository()->find((int) $did)
+        $domain = ($did = $this->positiveIdParam('did'))
+            ? $this->domainRepository()->find($did)
             : null;
 
         if ($domain === null) {
@@ -287,9 +532,12 @@ final class DomainController extends AbstractController
         if ($admin === null || !$admin->isSuper()) {
             return $this->redirect('auth/login');
         }
-
-        $domain = ($did = $this->param('did'))
-            ? $this->domainRepository()->find((int) $did)
+        if (!$this->csrfValid()) {
+            $this->flash('Invalid or missing security token. Please retry from the administrators page.', FlashMessages::ERROR);
+            return $this->redirect('domain/list');
+        }
+        $domain = ($did = $this->positiveIdParam('did'))
+            ? $this->domainRepository()->find($did)
             : null;
 
         if ($domain === null) {
@@ -297,8 +545,8 @@ final class DomainController extends AbstractController
             return $this->redirect('domain/list');
         }
 
-        $target = ($aid = $this->param('aid'))
-            ? $this->adminRepository()->find((int) $aid)
+        $target = ($aid = $this->positiveIdParam('aid'))
+            ? $this->adminRepository()->find($aid)
             : null;
 
         if ($target === null) {
@@ -330,8 +578,8 @@ final class DomainController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $domain = ($did = $this->param('did'))
-            ? $this->domainRepository()->find((int) $did)
+        $domain = ($did = $this->positiveIdParam('did'))
+            ? $this->domainRepository()->find($did)
             : null;
 
         if ($domain === null) {
@@ -339,11 +587,18 @@ final class DomainController extends AbstractController
             return $this->redirect('domain/list');
         }
 
-        $remaining = $this->adminRepository()->getNotAssignedForDomain($domain);
+        $remaining = self::requiredStringMap(
+            $this->adminRepository()->getNotAssignedForDomain($domain),
+            'Assignable administrator',
+        );
         $form      = $this->buildAssignAdminForm($remaining);
 
         if ($this->isPost() && $form->isValid($this->postData())) {
-            $target = $this->adminRepository()->find((int) $form->values()['admin']);
+            $targetId = self::positiveIntegerOrNull($form->values()['admin'] ?? null);
+            if ($targetId === null) {
+                throw new LogicException('Selected administrator id must be a positive integer');
+            }
+            $target = $this->adminRepository()->find($targetId);
 
             if ($target !== null) {
                 try {
@@ -400,8 +655,8 @@ final class DomainController extends AbstractController
             return $this->redirect('domain/list');
         }
 
-        $domain = ($did = $this->param('did'))
-            ? $this->domainRepository()->find((int) $did)
+        $domain = ($did = $this->positiveIdParam('did'))
+            ? $this->domainRepository()->find($did)
             : null;
 
         if ($domain === null) {
@@ -423,6 +678,7 @@ final class DomainController extends AbstractController
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
         $form->add((new Field('admin', 'Administrator', 'select', [
+            Validators::string(),
             Validators::required(),
             Validators::inArray($remaining),
         ]))->setOptions($remaining));
@@ -439,14 +695,25 @@ final class DomainController extends AbstractController
      */
     private function applyFormFields(\Entities\Domain $domain, array $v, \OSS_Filter_FileSize $filter): void
     {
-        $domain->setDescription((string) $v['description']);
-        $domain->setTransport((string) $v['transport']);
-        $domain->setBackupmx((bool) $v['backupmx']);
-        $domain->setActive((bool) $v['active']);
-        $domain->setMaxAliases((int) $v['max_aliases']);
-        $domain->setMaxMailboxes((int) $v['max_mailboxes']);
-        $domain->setQuota((int) $filter->filter((string) $v['quota']));
-        $domain->setMaxQuota((int) $filter->filter((string) $v['max_quota']));
+        // Validate the complete request before mutating the managed entity. A
+        // malformed late field must not leave an in-memory partial update.
+        $description = self::stringOrDefault($v['description'] ?? null, '', 'Domain description');
+        $transport = self::requiredString($v['transport'] ?? null, 'Domain transport');
+        $backupmx = self::checkboxBoolean($v['backupmx'] ?? false, 'Backup MX');
+        $active = self::checkboxBoolean($v['active'] ?? false, 'Active');
+        $maxAliases = self::nonNegativeIntegerOrDefault($v['max_aliases'] ?? null, 0, 'Maximum aliases');
+        $maxMailboxes = self::nonNegativeIntegerOrDefault($v['max_mailboxes'] ?? null, 0, 'Maximum mailboxes');
+        $quota = self::quotaBytes($v['quota'] ?? '', $filter, 'Domain quota');
+        $maxQuota = self::quotaBytes($v['max_quota'] ?? '', $filter, 'Maximum mailbox quota');
+
+        $domain->setDescription($description);
+        $domain->setTransport($transport);
+        $domain->setBackupmx($backupmx);
+        $domain->setActive($active);
+        $domain->setMaxAliases($maxAliases);
+        $domain->setMaxMailboxes($maxMailboxes);
+        $domain->setQuota($quota);
+        $domain->setMaxQuota($maxQuota);
     }
 
     /**
@@ -459,14 +726,14 @@ final class DomainController extends AbstractController
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
         $form->add((new Field('domain', 'Domain', 'text'))->setReadonly());
-        $form->add(new Field('description', 'Description', 'textarea', [Validators::noControlChars()]));
-        $form->add(new Field('transport', 'Transport', 'text', [Validators::required(), Validators::noControlChars()]));
+        $form->add(new Field('description', 'Description', 'textarea', [Validators::string(), Validators::noControlChars()]));
+        $form->add(new Field('transport', 'Transport', 'text', [Validators::string(), Validators::required(), Validators::noControlChars()]));
         $form->add(new Field('backupmx', 'Backup MX', 'checkbox'));
         $form->add(new Field('active', 'Active', 'checkbox'));
-        $form->add(new Field('max_aliases', 'Max aliases', 'text', [Validators::regex('/^\d+$/', 'Must be a number.')]));
-        $form->add(new Field('max_mailboxes', 'Max mailboxes', 'text', [Validators::regex('/^\d+$/', 'Must be a number.')]));
-        $form->add(new Field('max_quota', 'Max quota', 'text', [Validators::nonNegativeNumber()]));
-        $form->add(new Field('quota', 'Quota', 'text', [Validators::nonNegativeNumber()]));
+        $form->add(new Field('max_aliases', 'Max aliases', 'text', [Validators::string(), Validators::regex('/^\d+$/', 'Must be a number.')]));
+        $form->add(new Field('max_mailboxes', 'Max mailboxes', 'text', [Validators::string(), Validators::regex('/^\d+$/', 'Must be a number.')]));
+        $form->add(new Field('max_quota', 'Max quota', 'text', [Validators::string(), Validators::nonNegativeNumber()]));
+        $form->add(new Field('quota', 'Quota', 'text', [Validators::string(), Validators::nonNegativeNumber()]));
 
         return $form;
     }
@@ -477,15 +744,17 @@ final class DomainController extends AbstractController
      */
     private function populateDomainForm(Form $form, \Entities\Domain $domain): void
     {
-        $form->field('domain')->setValue($domain->requiredDomainName());
-        $form->field('description')->setValue($domain->getDescription());
-        $form->field('transport')->setValue($domain->getTransport());
-        $form->field('backupmx')->setValue((bool) $domain->getBackupmx());
-        $form->field('active')->setValue((bool) $domain->getActive());
-        $form->field('max_aliases')->setValue((string) $domain->getMaxAliases());
-        $form->field('max_mailboxes')->setValue((string) $domain->getMaxMailboxes());
-        $form->field('max_quota')->setValue((string) \OSS_Filter_FileSize::unfilter((int) $domain->getMaxQuota()));
-        $form->field('quota')->setValue((string) \OSS_Filter_FileSize::unfilter($domain->requiredQuota()));
+        self::requiredField($form, 'domain')->setValue($domain->requiredDomainName());
+        self::requiredField($form, 'description')->setValue($domain->getDescription());
+        self::requiredField($form, 'transport')->setValue($domain->getTransport());
+        self::requiredField($form, 'backupmx')->setValue($domain->getBackupmx() === true);
+        self::requiredField($form, 'active')->setValue($domain->getActive() === true);
+        self::requiredField($form, 'max_aliases')->setValue((string) self::nonNegativeInteger($domain->getMaxAliases(), 'Maximum aliases'));
+        self::requiredField($form, 'max_mailboxes')->setValue((string) self::nonNegativeInteger($domain->getMaxMailboxes(), 'Maximum mailboxes'));
+        self::requiredField($form, 'max_quota')->setValue((string) \OSS_Filter_FileSize::unfilter(
+            self::nonNegativeInteger($domain->getMaxQuota(), 'Maximum mailbox quota'),
+        ));
+        self::requiredField($form, 'quota')->setValue((string) \OSS_Filter_FileSize::unfilter($domain->requiredQuota()));
     }
 
     /**
@@ -502,26 +771,35 @@ final class DomainController extends AbstractController
             if ($value === null || $value === '') {
                 return null;
             }
-            $existing = $this->domainRepository()->findOneBy(['domain' => (string) $value]);
+            $existing = $this->domainRepository()->findOneBy([
+                'domain' => self::requiredString($value, 'Domain name'),
+            ]);
             return $existing !== null ? 'A domain with that name already exists.' : null;
         };
 
-        $d = $options['defaults']['domain'] ?? [];
+        $d = self::optionArray($options, [], 'defaults', 'domain');
 
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
         $form->add((new Field('domain', 'Domain', 'text', [
                 Validators::required(),
+                Validators::string(),
                 Validators::hostname(),
                 $unique,
             ])));
-        $form->add(new Field('description', 'Description', 'textarea', [Validators::noControlChars()]));
-        $form->add($this->defaulted(new Field('transport', 'Transport', 'text', [Validators::required(), Validators::noControlChars()]), $d['transport'] ?? 'virtual'));
+        $form->add(new Field('description', 'Description', 'textarea', [Validators::string(), Validators::noControlChars()]));
+        $form->add($this->defaulted(
+            new Field('transport', 'Transport', 'text', [Validators::string(), Validators::required(), Validators::noControlChars()]),
+            self::requiredString(
+                array_key_exists('transport', $d) ? $d['transport'] : 'virtual',
+                'Configuration defaults.domain.transport',
+            ),
+        ));
         $form->add(new Field('backupmx', 'Backup MX', 'checkbox'));
         $form->add($this->checkedByDefault(new Field('active', 'Active', 'checkbox')));
-        $form->add($this->defaulted(new Field('max_aliases', 'Max aliases', 'text', [Validators::regex('/^\d+$/', 'Must be a number.')]), (string) ($d['aliases'] ?? 0)));
-        $form->add($this->defaulted(new Field('max_mailboxes', 'Max mailboxes', 'text', [Validators::regex('/^\d+$/', 'Must be a number.')]), (string) ($d['mailboxes'] ?? 0)));
-        $form->add($this->defaulted(new Field('max_quota', 'Max quota', 'text', [Validators::nonNegativeNumber()]), (string) ($d['maxquota'] ?? 0)));
-        $form->add($this->defaulted(new Field('quota', 'Quota', 'text', [Validators::nonNegativeNumber()]), (string) ($d['quota'] ?? 0)));
+        $form->add($this->defaulted(new Field('max_aliases', 'Max aliases', 'text', [Validators::string(), Validators::regex('/^\d+$/', 'Must be a number.')]), self::nonNegativeIntegerDefault(array_key_exists('aliases', $d) ? $d['aliases'] : 0, 'Configuration defaults.domain.aliases')));
+        $form->add($this->defaulted(new Field('max_mailboxes', 'Max mailboxes', 'text', [Validators::string(), Validators::regex('/^\d+$/', 'Must be a number.')]), self::nonNegativeIntegerDefault(array_key_exists('mailboxes', $d) ? $d['mailboxes'] : 0, 'Configuration defaults.domain.mailboxes')));
+        $form->add($this->defaulted(new Field('max_quota', 'Max quota', 'text', [Validators::string(), Validators::nonNegativeNumber()]), self::nonNegativeNumberDefault(array_key_exists('maxquota', $d) ? $d['maxquota'] : 0, 'Configuration defaults.domain.maxquota')));
+        $form->add($this->defaulted(new Field('quota', 'Quota', 'text', [Validators::string(), Validators::nonNegativeNumber()]), self::nonNegativeNumberDefault(array_key_exists('quota', $d) ? $d['quota'] : 0, 'Configuration defaults.domain.quota')));
 
         return $form;
     }
@@ -547,9 +825,12 @@ final class DomainController extends AbstractController
         if ($admin === null) {
             return $this->redirect('auth/login');
         }
+        if (!$this->csrfValid()) {
+            return new Response('ko');
+        }
 
-        $domain = ($did = $this->param('did'))
-            ? $this->domainRepository()->find((int) $did)
+        $domain = ($did = $this->positiveIdParam('did'))
+            ? $this->domainRepository()->find($did)
             : null;
 
         // loadDomain() authorises a non-super admin against the domain.
