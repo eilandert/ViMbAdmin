@@ -16,6 +16,34 @@ use Doctrine\ORM\QueryBuilder;
 class Log extends EntityRepository
 {
 	/**
+     * @return array<int,array{id:mixed,action:mixed,data:mixed,timestamp:mixed,admin:mixed,domain:mixed}>
+     */
+    private static function requiredLogListRows(mixed $rows): array
+    {
+        if (!is_array($rows)) {
+            throw new \UnexpectedValueException('Log query result must be an array.');
+        }
+
+        $result = [];
+        $fields = ['id', 'action', 'data', 'timestamp', 'admin', 'domain'];
+        foreach ($rows as $key => $row) {
+            if (!is_int($key) || !is_array($row)) {
+                throw new \UnexpectedValueException('Log query row has an invalid shape.');
+            }
+            foreach ($fields as $field) {
+                if (!array_key_exists($field, $row)) {
+                    throw new \UnexpectedValueException('Log query row has an invalid shape.');
+                }
+            }
+            $result[$key] = [
+                'id' => $row['id'], 'action' => $row['action'], 'data' => $row['data'],
+                'timestamp' => $row['timestamp'], 'admin' => $row['admin'], 'domain' => $row['domain'],
+            ];
+        }
+        return $result;
+    }
+
+	/**
      * Load logs for log list .
      *
      * @param \Entities\Admin|null $admin Admin for filtering mailboxes.
@@ -24,7 +52,9 @@ class Log extends EntityRepository
      */
     public function loadForLogList( $admin, $domain = null )
     {
-        return $this->logListQuery( $admin, $domain )->getQuery()->getArrayResult();
+        return self::requiredLogListRows(
+            $this->logListQuery( $admin, $domain )->getQuery()->getArrayResult()
+        );
     }
 
     private function logListQuery( ?\Entities\Admin $admin, ?\Entities\Domain $domain ): QueryBuilder
@@ -70,8 +100,10 @@ class Log extends EntityRepository
             ? $total
             : (int) $this->logCountQuery( $admin, $domain, $search )->getQuery()->getSingleScalarResult();
 
-        $rows = $this->pagedLogRowsQuery( $admin, $domain, $search, $sortField, $sortDir, $start, $length )
-            ->getQuery()->getArrayResult();
+        $rows = self::requiredLogListRows(
+            $this->pagedLogRowsQuery( $admin, $domain, $search, $sortField, $sortDir, $start, $length )
+                ->getQuery()->getArrayResult()
+        );
 
         return [ 'rows' => $rows, 'total' => $total, 'filtered' => $filtered ];
     }

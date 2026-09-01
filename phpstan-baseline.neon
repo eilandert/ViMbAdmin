@@ -103,18 +103,6 @@ parameters:
 			path: application/Repositories/Domain.php
 
 		-
-			message: '#^Method Repositories\\Log\:\:loadForLogList\(\) should return array\<int, array\{id\: mixed, action\: mixed, data\: mixed, timestamp\: mixed, admin\: mixed, domain\: mixed\}\> but returns array\<mixed\>\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Log.php
-
-		-
-			message: '#^Method Repositories\\Log\:\:pagedForLogList\(\) should return array\{rows\: array\<int, array\{id\: mixed, action\: mixed, data\: mixed, timestamp\: mixed, admin\: mixed, domain\: mixed\}\>, total\: int, filtered\: int\} but returns array\{rows\: array\<mixed\>, total\: int, filtered\: int\}\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Log.php
-
-		-
 			message: '#^Cannot access offset ''bytes'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1

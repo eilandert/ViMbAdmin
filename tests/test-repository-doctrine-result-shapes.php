@@ -6,6 +6,7 @@ require __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../application/Repositories/Alias.php';
 require_once __DIR__ . '/../application/Repositories/Archive.php';
 require_once __DIR__ . '/../application/Repositories/Domain.php';
+require_once __DIR__ . '/../application/Repositories/Log.php';
 require_once __DIR__ . '/../application/Repositories/Mailbox.php';
 
 final class RepositoryResultShapeState
@@ -39,6 +40,7 @@ echo "== Doctrine repository result shapes ==\n";
 $alias = new ReflectionMethod(\Repositories\Alias::class, 'requiredAliasListRows');
 $archive = new ReflectionMethod(\Repositories\Archive::class, 'requiredArchiveListRows');
 $domain = new ReflectionMethod(\Repositories\Domain::class, 'requiredDomainListRows');
+$log = new ReflectionMethod(\Repositories\Log::class, 'requiredLogListRows');
 $mailbox = new ReflectionMethod(\Repositories\Mailbox::class, 'requiredMailboxHydrationRows');
 
 $aliasRows = [[
@@ -70,6 +72,26 @@ repositoryResultShapeCheck('Domain rejects a scalar result',
 repositoryResultShapeCheck('Domain rejects a non-string row field',
     repositoryResultShapeFailure($domain, [[0 => 'invalid']]) === 'Domain query row has an invalid field.');
 
+$logRow = [
+    'id' => null, 'action' => false, 'data' => ['preserved'], 'timestamp' => new stdClass(),
+    'admin' => 7, 'domain' => null,
+];
+$logRows = [3 => $logRow];
+repositoryResultShapeCheck('Log declared mixed values and integer key are preserved exactly',
+    $log->invoke(null, $logRows) === $logRows);
+repositoryResultShapeCheck('Log rejects a scalar result',
+    repositoryResultShapeFailure($log, 'invalid') === 'Log query result must be an array.');
+repositoryResultShapeCheck('Log rejects a scalar row',
+    repositoryResultShapeFailure($log, ['invalid']) === 'Log query row has an invalid shape.');
+repositoryResultShapeCheck('Log rejects a string-keyed row',
+    repositoryResultShapeFailure($log, ['row' => $logRow]) === 'Log query row has an invalid shape.');
+foreach (array_keys($logRow) as $field) {
+    $missing = $logRow;
+    unset($missing[$field]);
+    repositoryResultShapeCheck('Log rejects a missing ' . $field . ' field',
+        repositoryResultShapeFailure($log, [$missing]) === 'Log query row has an invalid shape.');
+}
+
 $mailboxRows = [[
     'id' => 7, 'username' => 'user@example.test', 'name' => null, 'active' => true,
     'quota' => '1024', 'domain' => 'example.test', 'delete_pending' => null,
@@ -82,7 +104,7 @@ repositoryResultShapeCheck('Mailbox rejects a missing field',
 repositoryResultShapeCheck('Mailbox rejects a wrong field type',
     repositoryResultShapeFailure($mailbox, [array_replace($mailboxRows[0], ['quota' => false])]) === 'Mailbox query row has an invalid shape.');
 
-repositoryResultShapeCheck('fixed assertion count', RepositoryResultShapeState::$checks === 14);
+repositoryResultShapeCheck('fixed assertion count', RepositoryResultShapeState::$checks === 24);
 
 echo RepositoryResultShapeState::$failures === 0
     ? "ALL PASSED\n"
