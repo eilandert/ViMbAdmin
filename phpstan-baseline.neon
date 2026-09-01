@@ -73,80 +73,8 @@ parameters:
 			path: application/Entities/Mailbox.php
 
 		-
-			message: '#^Cannot call method andWhere\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Cannot call method getArrayResult\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Cannot call method getQuery\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Cannot call method getSingleScalarResult\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Cannot call method orderBy\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Cannot call method select\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Cannot call method setFirstResult\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Cannot call method setMaxResults\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Cannot call method setParameter\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Cannot cast mixed to int\.$#'
-			identifier: cast.int
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
 			message: '#^Cannot cast mixed to string\.$#'
 			identifier: cast.string
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Method Repositories\\Alias\:\:filterForAliasList\(\) should return array\<int, array\{id\: int\|string, address\: string, goto\: string, active\: bool, domain\: string\}\> but returns array\<mixed\>\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Method Repositories\\Alias\:\:loadForAliasList\(\) should return array\<int, array\{id\: int\|string, address\: string, goto\: string, active\: bool, domain\: string\}\> but returns array\<mixed\>\.$#'
-			identifier: return.type
 			count: 1
 			path: application/Repositories/Alias.php
 
@@ -163,85 +91,7 @@ parameters:
 			path: application/Repositories/Alias.php
 
 		-
-			message: '#^Method Repositories\\Alias\:\:pagedForAliasList\(\) should return array\{rows\: array\<int, array\{id\: int\|string, address\: string, goto\: string, active\: bool, domain\: string\}\>, total\: int, filtered\: int\} but returns array\{rows\: mixed, total\: int, filtered\: int\}\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Cannot call method andWhere\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Cannot call method getArrayResult\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Cannot call method getQuery\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Cannot call method getSingleScalarResult\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Cannot call method orderBy\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Cannot call method select\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Cannot call method setFirstResult\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Cannot call method setMaxResults\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Cannot call method setParameter\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Cannot cast mixed to int\.$#'
-			identifier: cast.int
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
 			message: '#^Method Repositories\\Archive\:\:findAutoprune\(\) should return array\<Entities\\Archive\> but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Method Repositories\\Archive\:\:loadForArchiveList\(\) should return array\<int, array\{id\: mixed, username\: mixed, status\: mixed, archived_at\: mixed, autoprune\: mixed, maildir_size\: mixed, domain\: mixed, user_exists\: mixed\}\> but returns array\<mixed\>\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
-			message: '#^Method Repositories\\Archive\:\:pagedForArchiveList\(\) should return array\{rows\: array\<int, array\{id\: mixed, username\: mixed, status\: mixed, archived_at\: mixed, autoprune\: mixed, maildir_size\: mixed, domain\: mixed, user_exists\: mixed\}\>, total\: int, filtered\: int\} but returns array\{rows\: mixed, total\: int, filtered\: int\}\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Repositories/Archive.php
@@ -261,66 +111,6 @@ parameters:
 		-
 			message: '#^Cannot access offset ''domain'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Cannot call method andWhere\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Cannot call method getArrayResult\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Cannot call method getQuery\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Cannot call method getSingleScalarResult\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Cannot call method orderBy\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Cannot call method select\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Cannot call method setFirstResult\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Cannot call method setMaxResults\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Cannot call method setParameter\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Cannot cast mixed to int\.$#'
-			identifier: cast.int
 			count: 1
 			path: application/Repositories/Domain.php
 
@@ -345,18 +135,6 @@ parameters:
 		-
 			message: '#^Method Repositories\\Domain\:\:purgeMailboxes\(\) should return int but returns mixed\.$#'
 			identifier: return.type
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Parameter \#1 \$rows of method Repositories\\Domain\:\:_mergeDomainUsage\(\) expects array\<int, array\<string, mixed\>\>, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Parameter \#1 \$rows of method Repositories\\Domain\:\:_mergeDomainUsage\(\) expects array\<int, array\<string, mixed\>\>, mixed given\.$#'
-			identifier: argument.type
 			count: 1
 			path: application/Repositories/Domain.php
 
@@ -403,12 +181,6 @@ parameters:
 			path: application/Repositories/Mailbox.php
 
 		-
-			message: '#^Cannot call method andWhere\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
 			message: '#^Cannot call method decreaseAliasCount\(\) on Entities\\Domain\|null\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -427,57 +199,9 @@ parameters:
 			path: application/Repositories/Mailbox.php
 
 		-
-			message: '#^Cannot call method getArrayResult\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Cannot call method getQuery\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Cannot call method getSingleScalarResult\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Cannot call method orderBy\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Cannot call method select\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Cannot call method setFirstResult\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Cannot call method setMaxResults\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Cannot call method setParameter\(\) on mixed\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
 			message: '#^Cannot cast mixed to int\.$#'
 			identifier: cast.int
-			count: 2
+			count: 1
 			path: application/Repositories/Mailbox.php
 
 		-
@@ -500,18 +224,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$data of method Repositories\\Mailbox\:\:indexUsernameRows\(\) expects array\<int, array\{id\: int, username\: string\}\>, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Parameter \#1 \$rows of method Repositories\\Mailbox\:\:_mergeQuotaUsage\(\) expects array\<int, array\{id\: int, username\: string, name\: string\|null, active\: bool, quota\: int\|string, domain\: string, delete_pending\: bool\|null\}\>, array\<mixed\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Parameter \#1 \$rows of method Repositories\\Mailbox\:\:_mergeQuotaUsage\(\) expects array\<int, array\{id\: int, username\: string, name\: string\|null, active\: bool, quota\: int\|string, domain\: string, delete_pending\: bool\|null\}\>, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: application/Repositories/Mailbox.php

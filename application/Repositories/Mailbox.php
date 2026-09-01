@@ -17,6 +17,33 @@ use Doctrine\ORM\QueryBuilder;
  */
 class Mailbox extends EntityRepository
 {
+    /** @return array<int,MailboxHydrationRow> */
+    private static function requiredMailboxHydrationRows(mixed $rows): array
+    {
+        if (!is_array($rows)) {
+            throw new \UnexpectedValueException('Mailbox query result must be an array.');
+        }
+        $result = [];
+        foreach ($rows as $key => $row) {
+            if (!is_int($key) || !is_array($row)
+                || !isset($row['id']) || !is_int($row['id'])
+                || !isset($row['username']) || !is_string($row['username'])
+                || !array_key_exists('name', $row) || (!is_string($row['name']) && $row['name'] !== null)
+                || !array_key_exists('active', $row) || !is_bool($row['active'])
+                || !isset($row['quota']) || (!is_int($row['quota']) && !is_string($row['quota']))
+                || !isset($row['domain']) || !is_string($row['domain'])
+                || !array_key_exists('delete_pending', $row)
+                || (!is_bool($row['delete_pending']) && $row['delete_pending'] !== null)) {
+                throw new \UnexpectedValueException('Mailbox query row has an invalid shape.');
+            }
+            $result[$key] = [
+                'id' => $row['id'], 'username' => $row['username'], 'name' => $row['name'],
+                'active' => $row['active'], 'quota' => $row['quota'], 'domain' => $row['domain'],
+                'delete_pending' => $row['delete_pending'],
+            ];
+        }
+        return $result;
+    }
     /** @return array{address:string,goto:string} */
     private function requiredAliasIdentity(\Entities\Alias $alias): array
     {
@@ -67,7 +94,9 @@ class Mailbox extends EntityRepository
      */
     public function loadForMailboxList( $admin, $domain = null )
     {
-        return $this->_mergeQuotaUsage( $this->mailboxListQuery( $admin, $domain )->getQuery()->getArrayResult() );
+        return $this->_mergeQuotaUsage(self::requiredMailboxHydrationRows(
+            $this->mailboxListQuery( $admin, $domain )->getQuery()->getArrayResult()
+        ));
     }
 
     private function mailboxListQuery( \Entities\Admin $admin, ?\Entities\Domain $domain ): QueryBuilder
@@ -107,7 +136,7 @@ class Mailbox extends EntityRepository
      */
     public function pagedForMailboxList( $admin, $domain, string $search, string $sortField, string $sortDir, int $start, int $length )
     {
-        $base = function() use ( $admin, $domain ) {
+        $base = function() use ( $admin, $domain ): \Doctrine\ORM\QueryBuilder {
             $qb = $this->getEntityManager()->createQueryBuilder()
                 ->from( '\\Entities\\Mailbox', 'm' )
                 ->where( 'm.delete_pending = FALSE' )
@@ -122,7 +151,7 @@ class Mailbox extends EntityRepository
             return $qb;
         };
 
-        $applySearch = function( $qb ) use ( $search ) {
+        $applySearch = function( \Doctrine\ORM\QueryBuilder $qb ) use ( $search ): \Doctrine\ORM\QueryBuilder {
             if( $search !== '' )
                 $qb->andWhere( '( m.username LIKE :s OR m.name LIKE :s OR d.domain LIKE :s )' )
                    ->setParameter( 's', '%' . addcslashes( $search, '%_\\' ) . '%' );
@@ -149,7 +178,7 @@ class Mailbox extends EntityRepository
             ->setMaxResults( max( 1, $length ) )
             ->getQuery()->getArrayResult();
 
-        return [ 'rows' => array_values( $this->_mergeQuotaUsage( $rows ) ), 'total' => $total, 'filtered' => $filtered ];
+        return [ 'rows' => array_values($this->_mergeQuotaUsage(self::requiredMailboxHydrationRows($rows))), 'total' => $total, 'filtered' => $filtered ];
     }
 
     /**

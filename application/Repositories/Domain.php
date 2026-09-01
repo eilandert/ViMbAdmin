@@ -14,6 +14,28 @@ use Doctrine\ORM\EntityRepository;
  */
 class Domain extends EntityRepository
 {
+    /** @return array<int,array<string,mixed>> */
+    private static function requiredDomainListRows(mixed $rows): array
+    {
+        if (!is_array($rows)) {
+            throw new \UnexpectedValueException('Domain query result must be an array.');
+        }
+        $result = [];
+        foreach ($rows as $key => $row) {
+            if (!is_int($key) || !is_array($row)) {
+                throw new \UnexpectedValueException('Domain query row has an invalid shape.');
+            }
+            $typedRow = [];
+            foreach ($row as $field => $value) {
+                if (!is_string($field)) {
+                    throw new \UnexpectedValueException('Domain query row has an invalid field.');
+                }
+                $typedRow[$field] = $value;
+            }
+            $result[$key] = $typedRow;
+        }
+        return $result;
+    }
     /**
      * Load for admin
      *
@@ -116,7 +138,7 @@ class Domain extends EntityRepository
         if( !$admin->isSuper() )
             $q->setParameter( 1, $admin );
 
-        return $this->_mergeDomainUsage( $q->getArrayResult() );
+        return $this->_mergeDomainUsage(self::requiredDomainListRows($q->getArrayResult()));
     }
 
     /**
@@ -132,7 +154,7 @@ class Domain extends EntityRepository
      */
     public function pagedForDomainList( $admin, string $search, string $sortField, string $sortDir, int $start, int $length )
     {
-        $base = function() use ( $admin ) {
+        $base = function() use ( $admin ): \Doctrine\ORM\QueryBuilder {
             $qb = $this->getEntityManager()->createQueryBuilder()
                 ->from( '\\Entities\\Domain', 'd' );
 
@@ -142,7 +164,7 @@ class Domain extends EntityRepository
             return $qb;
         };
 
-        $applySearch = function( $qb ) use ( $search ) {
+        $applySearch = function( \Doctrine\ORM\QueryBuilder $qb ) use ( $search ): \Doctrine\ORM\QueryBuilder {
             if( $search !== '' )
                 $qb->andWhere( '( d.domain LIKE :s OR d.description LIKE :s OR d.transport LIKE :s )' )
                    ->setParameter( 's', '%' . addcslashes( $search, '%_\\' ) . '%' );
@@ -173,7 +195,7 @@ class Domain extends EntityRepository
             ->setMaxResults( max( 1, $length ) )
             ->getQuery()->getArrayResult();
 
-        return [ 'rows' => $this->_mergeDomainUsage( $rows ), 'total' => $total, 'filtered' => $filtered ];
+        return [ 'rows' => $this->_mergeDomainUsage(self::requiredDomainListRows($rows)), 'total' => $total, 'filtered' => $filtered ];
     }
 
     /**

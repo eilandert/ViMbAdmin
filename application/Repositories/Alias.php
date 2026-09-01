@@ -14,6 +14,33 @@ use Doctrine\ORM\EntityRepository;
  */
 class Alias extends EntityRepository
 {
+    /**
+     * @param mixed $rows
+     * @return array<int,array{id:int|string,address:string,goto:string,active:bool,domain:string}>
+     */
+    private static function requiredAliasListRows(mixed $rows): array
+    {
+        if (!is_array($rows)) {
+            throw new \UnexpectedValueException('Alias query result must be an array.');
+        }
+
+        $result = [];
+        foreach ($rows as $key => $row) {
+            if (!is_int($key) || !is_array($row)
+                || !array_key_exists('id', $row) || (!is_int($row['id']) && !is_string($row['id']))
+                || !isset($row['address']) || !is_string($row['address'])
+                || !isset($row['goto']) || !is_string($row['goto'])
+                || !array_key_exists('active', $row) || !is_bool($row['active'])
+                || !isset($row['domain']) || !is_string($row['domain'])) {
+                throw new \UnexpectedValueException('Alias query row has an invalid shape.');
+            }
+            $result[$key] = [
+                'id' => $row['id'], 'address' => $row['address'], 'goto' => $row['goto'],
+                'active' => $row['active'], 'domain' => $row['domain'],
+            ];
+        }
+        return $result;
+    }
 
     /**
      * Loads aliases for mailbox.
@@ -113,7 +140,9 @@ class Alias extends EntityRepository
      */
     public function loadForAliasList( $admin, $domain = null, $ima = false )
     {
-        return $this->aliasListQuery( $admin, $domain, $ima )->getQuery()->getArrayResult();
+        return self::requiredAliasListRows(
+            $this->aliasListQuery( $admin, $domain, $ima )->getQuery()->getArrayResult()
+        );
     }
 
     private function aliasListQuery( \Entities\Admin $admin, \Entities\Domain|int|null $domain, bool $ima ): \Doctrine\ORM\QueryBuilder
@@ -152,7 +181,7 @@ class Alias extends EntityRepository
      */
     public function pagedForAliasList( $admin, $domain, bool $ima, string $search, string $sortField, string $sortDir, int $start, int $length )
     {
-        $base = function() use ( $admin, $domain, $ima ) {
+        $base = function() use ( $admin, $domain, $ima ): \Doctrine\ORM\QueryBuilder {
             $qb = $this->getEntityManager()->createQueryBuilder()
                 ->from( '\\Entities\\Alias', 'a' )
                 ->join( 'a.Domain', 'd' );
@@ -169,7 +198,7 @@ class Alias extends EntityRepository
             return $qb;
         };
 
-        $applySearch = function( $qb ) use ( $search ) {
+        $applySearch = function( \Doctrine\ORM\QueryBuilder $qb ) use ( $search ): \Doctrine\ORM\QueryBuilder {
             if( $search !== '' )
                 $qb->andWhere( '( a.address LIKE :s OR a.goto LIKE :s OR d.domain LIKE :s )' )
                    ->setParameter( 's', '%' . addcslashes( $search, '%_\\' ) . '%' );
@@ -187,12 +216,12 @@ class Alias extends EntityRepository
         $sortMap = [ 'address' => 'a.address', 'domain' => 'd.domain', 'active' => 'a.active', 'goto' => 'a.goto' ];
         $orderBy = $sortMap[ $sortField ] ?? 'a.address';
 
-        $rows = $applySearch( $base() )
+        $rows = self::requiredAliasListRows($applySearch( $base() )
             ->select( 'a.id as id, a.address as address, a.goto as goto, a.active as active, d.domain as domain' )
             ->orderBy( $orderBy, $sortDir === 'DESC' ? 'DESC' : 'ASC' )
             ->setFirstResult( max( 0, $start ) )
             ->setMaxResults( max( 1, $length ) )
-            ->getQuery()->getArrayResult();
+            ->getQuery()->getArrayResult());
 
         return [ 'rows' => $rows, 'total' => $total, 'filtered' => $filtered ];
     }
@@ -213,7 +242,9 @@ class Alias extends EntityRepository
      */
     public function filterForAliasList( $filter, $admin, $domain = null, $ima = false )
     {
-        return $this->filteredAliasListQuery( $filter, $admin, $domain, $ima )->getQuery()->getArrayResult();
+        return self::requiredAliasListRows(
+            $this->filteredAliasListQuery( $filter, $admin, $domain, $ima )->getQuery()->getArrayResult()
+        );
     }
 
     private function filteredAliasListQuery( mixed $filter, \Entities\Admin $admin, \Entities\Domain|int|null $domain, bool $ima ): \Doctrine\ORM\QueryBuilder
