@@ -110,11 +110,16 @@ final class InMemoryAdminRepository extends \Repositories\Admin
     }
 }
 
-$failures = 0;
+final class TestServiceAdminHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestServiceAdminHarnessState::$count;
 function check(string $label, bool $ok): void {
-    global $failures;
+
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestServiceAdminHarnessState::$count++; }
 }
 
 function makeAdminForService(string $username, bool $hydrateCollections = false): \Entities\Admin {

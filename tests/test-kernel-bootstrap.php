@@ -57,10 +57,15 @@ final class BootstrapObjectManager
     }
 }
 
-$failures = 0;
+final class TestKernelBootstrapHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelBootstrapHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelBootstrapHarnessState::$count++; }
 }
 
 echo "== native bootstrap (pure pieces) ==\n";

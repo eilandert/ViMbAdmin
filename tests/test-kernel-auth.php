@@ -32,10 +32,15 @@ final class AdminFake
     public function getSuper(): bool { return $this->super; }
 }
 
-$failures = 0;
+final class TestKernelAuthHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelAuthHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelAuthHarnessState::$count++; }
 }
 
 /** Loader over a small id->admin table; records how many times it ran. */

@@ -156,11 +156,16 @@ final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager
     }
 }
 
-$failures = 0;
+final class TestServiceMailboxHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestServiceMailboxHarnessState::$count;
 function check(string $label, bool $ok): void {
-    global $failures;
+
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $failures++; }
+    if (!$ok) { TestServiceMailboxHarnessState::$count++; }
 }
 
 function mailboxIdentical(mixed $actual, mixed $expected): bool {

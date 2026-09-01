@@ -26,10 +26,15 @@ final class MagicNamespaceFake
     public function __unset(string $k): void { unset($this->d[$k]); }
 }
 
-$failures = 0;
+final class TestKernelSessionAdapterHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelSessionAdapterHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelSessionAdapterHarnessState::$count++; }
 }
 
 echo "== ViMbAdmin\\Kernel\\Session\\MagicPropertyStorage ==\n";

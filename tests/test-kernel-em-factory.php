@@ -71,14 +71,19 @@ $options = [
     ],
 ];
 
-$failures = 0;
+final class TestKernelEmFactoryHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelEmFactoryHarnessState::$count;
 function check(string $label, callable $fn): void {
-    global $failures;
+
     try {
         $fn();
         echo "OK   $label\n";
     } catch (\Throwable $e) {
-        $failures++;
+        TestKernelEmFactoryHarnessState::$count++;
         printf("FAIL %s :: %s: %s\n", $label, get_class($e), $e->getMessage());
     }
 }
@@ -88,11 +93,11 @@ function check(string $label, callable $fn): void {
 EntityManagerFactory::registerEntityAutoloaders($options);
 
 function checkDirectoryEntryRepositoryContract(mixed $entityManager): void {
-    global $failures;
+
 
     if (!$entityManager instanceof EntityManagerInterface) {
         echo "FAIL DirectoryEntry metadata resolves its entity-specific repository\n";
-        $failures++;
+        TestKernelEmFactoryHarnessState::$count++;
         return;
     }
     $metadata = $entityManager->getClassMetadata(DirectoryEntryEntity::class);
@@ -103,7 +108,7 @@ function checkDirectoryEntryRepositoryContract(mixed $entityManager): void {
     echo ($ok ? 'OK   ' : 'FAIL ')
         . "DirectoryEntry metadata resolves its entity-specific repository\n";
     if (!$ok) {
-        $failures++;
+        TestKernelEmFactoryHarnessState::$count++;
     }
 }
 
@@ -135,10 +140,10 @@ function invokeRepositoryQuery(object $repository, string $method, array $argume
 
 function recordRepositoryCheck(string $label, bool $ok): void
 {
-    global $failures;
+
     echo ($ok ? 'OK   ' : 'FAIL ') . $label . "\n";
     if (!$ok) {
-        $failures++;
+        TestKernelEmFactoryHarnessState::$count++;
     }
 }
 
@@ -192,11 +197,11 @@ function logFallbackPageContract(QueryBuilder $query): bool
 
 function checkLogRepositoryQueryContract(mixed $entityManager): void
 {
-    global $failures;
+
 
     if (!$entityManager instanceof EntityManagerInterface) {
         echo "FAIL Log repository query contract has an entity manager\n";
-        $failures++;
+        TestKernelEmFactoryHarnessState::$count++;
         return;
     }
 
@@ -205,7 +210,7 @@ function checkLogRepositoryQueryContract(mixed $entityManager): void
     $repository = $entityManager->getRepository(LogEntity::class);
     if (!$repository instanceof LogRepository) {
         echo "FAIL Log metadata resolves its entity-specific repository\n";
-        $failures++;
+        TestKernelEmFactoryHarnessState::$count++;
         return;
     }
 
@@ -255,18 +260,18 @@ function mailboxUsernameQueryContract(string $dql, array $parameters, AdminEntit
 
 function checkMailboxRepositoryQueryContract(mixed $entityManager): void
 {
-    global $failures;
+
 
     if (!$entityManager instanceof EntityManagerInterface) {
         echo "FAIL Mailbox repository query contract has an entity manager\n";
-        $failures++;
+        TestKernelEmFactoryHarnessState::$count++;
         return;
     }
 
     $repository = $entityManager->getRepository(MailboxEntity::class);
     if (!$repository instanceof MailboxRepository) {
         echo "FAIL Mailbox metadata resolves its entity-specific repository\n";
-        $failures++;
+        TestKernelEmFactoryHarnessState::$count++;
         return;
     }
 
@@ -311,11 +316,11 @@ function mailboxTaskPendingQueryContract(QueryBuilder $query): bool
 
 function checkMailboxTaskRepositoryContract(mixed $entityManager): void
 {
-    global $failures;
+
 
     if (!$entityManager instanceof EntityManagerInterface) {
         echo "FAIL MailboxTask repository contract has an entity manager\n";
-        $failures++;
+        TestKernelEmFactoryHarnessState::$count++;
         return;
     }
 
@@ -323,7 +328,7 @@ function checkMailboxTaskRepositoryContract(mixed $entityManager): void
     $repository = $entityManager->getRepository(MailboxTaskEntity::class);
     if (!$repository instanceof MailboxTaskRepository) {
         echo "FAIL MailboxTask metadata resolves its entity-specific repository\n";
-        $failures++;
+        TestKernelEmFactoryHarnessState::$count++;
         return;
     }
 
@@ -358,11 +363,11 @@ final class McpTokenLookupRepositoryProbe extends McpTokenRepository
 
 function checkMcpTokenRepositoryContract(mixed $entityManager): void
 {
-    global $failures;
+
 
     if (!$entityManager instanceof EntityManagerInterface) {
         echo "FAIL McpToken repository contract has an entity manager\n";
-        $failures++;
+        TestKernelEmFactoryHarnessState::$count++;
         return;
     }
 
@@ -370,7 +375,7 @@ function checkMcpTokenRepositoryContract(mixed $entityManager): void
     $repository = $entityManager->getRepository(McpTokenEntity::class);
     if (!$repository instanceof McpTokenRepository) {
         echo "FAIL McpToken metadata resolves its entity-specific repository\n";
-        $failures++;
+        TestKernelEmFactoryHarnessState::$count++;
         return;
     }
 

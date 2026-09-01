@@ -16,10 +16,15 @@ require __DIR__ . '/../src/Kernel/Plugin/PluginHost.php';
 
 use ViMbAdmin\Kernel\Plugin\PluginHost;
 
-$failures = 0;
+final class TestKernelPluginHostHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelPluginHostHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelPluginHostHarnessState::$count++; }
 }
 
 // --- a fixture plugin directory ----------------------------------------- //

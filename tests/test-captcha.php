@@ -2,10 +2,15 @@
 
 require __DIR__ . '/../vendor/autoload.php';
 
-$failures = 0;
+final class TestCaptchaHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestCaptchaHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestCaptchaHarnessState::$count++; }
 }
 
 $root = sys_get_temp_dir() . '/vimbadmin-captcha-test-' . bin2hex(random_bytes(6));

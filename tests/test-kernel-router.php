@@ -18,10 +18,15 @@ require __DIR__ . '/../src/Kernel/Router.php';
 
 use ViMbAdmin\Kernel\Router;
 
-$failures = 0;
+final class TestKernelRouterHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelRouterHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelRouterHarnessState::$count++; }
 }
 
 echo "== ViMbAdmin\\Kernel\\Router::parse ==\n";

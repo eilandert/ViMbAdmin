@@ -31,10 +31,15 @@ final class ArraySession implements SessionStorage
     public function remove(string $key): void { unset($this->data[$key]); }
 }
 
-$failures = 0;
+final class TestKernelFormHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelFormHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelFormHarnessState::$count++; }
 }
 
 echo "== native form core ==\n";

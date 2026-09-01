@@ -78,14 +78,19 @@ final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager
     }
 }
 
-$failures = 0;
+final class TestServiceDomainHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestServiceDomainHarnessState::$count;
 function check(string $label, bool $ok): void {
-    global $failures;
+
     if ($ok) {
         echo "  ok   $label\n";
     } else {
         echo "  FAIL $label\n";
-        $failures++;
+        TestServiceDomainHarnessState::$count++;
     }
 }
 

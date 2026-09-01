@@ -57,10 +57,15 @@ final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager
     }
 }
 
-$failures = 0;
+final class TestServiceArchiveHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestServiceArchiveHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestServiceArchiveHarnessState::$count++; }
 }
 
 echo "== ViMbAdmin_Service_Archive ==\n";

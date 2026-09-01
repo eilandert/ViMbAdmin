@@ -26,10 +26,15 @@ final class ArraySession implements SessionStorage
     public function remove(string $key): void { unset($this->data[$key]); }
 }
 
-$failures = 0;
+final class TestKernelCsrfHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelCsrfHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelCsrfHarnessState::$count++; }
 }
 
 echo "== ViMbAdmin\\Kernel\\Security\\Csrf ==\n";

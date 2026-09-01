@@ -33,14 +33,19 @@ use Doctrine\ORM\Configuration;
 use Doctrine\ORM\EntityManager;
 use Doctrine\DBAL\DriverManager;
 
-$failures = 0;
+final class TestCacheBootstrapHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestCacheBootstrapHarnessState::$count;
 function check(string $label, callable $fn): void {
-    global $failures;
+
     try {
         $fn();
         echo "OK   $label\n";
     } catch (\Throwable $e) {
-        $failures++;
+        TestCacheBootstrapHarnessState::$count++;
         printf("FAIL %s :: %s: %s\n", $label, get_class($e), $e->getMessage());
     }
 }

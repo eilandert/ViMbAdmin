@@ -39,10 +39,15 @@ function runWithoutApplicationDirectory(): array
     return [$status, implode("\n", $output)];
 }
 
-$failures = 0;
+final class TestNativeEntrypointHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestNativeEntrypointHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestNativeEntrypointHarnessState::$count++; }
 }
 
 echo "== native entry point ==\n";

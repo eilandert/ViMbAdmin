@@ -81,10 +81,15 @@ final class InvalidAliasHookState
     public static function ran(): bool { return self::$ran; }
 }
 
-$failures = 0;
+final class TestServiceAliasHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestServiceAliasHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestServiceAliasHarnessState::$count++; }
 }
 
 function aliasOperationThrows(string $message, \Closure $operation): bool {

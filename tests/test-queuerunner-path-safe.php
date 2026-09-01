@@ -16,12 +16,17 @@ require_once __DIR__ . '/../application/Entities/MailboxTask.php';
 $m = new ReflectionMethod('ViMbAdmin_Service_QueueRunner', 'assertPathSafe');
 $m->setAccessible(true);
 
-$fail = 0;
+final class TestQueuerunnerPathSafeHarnessState
+{
+    public static int $count = 0;
+}
+
+$fail =& TestQueuerunnerPathSafeHarnessState::$count;
 function check(string $name, bool $ok): void
 {
-    global $fail;
+
     echo ($ok ? '  ok   ' : '  FAIL ') . $name . "\n";
-    if (!$ok) { $fail++; }
+    if (!$ok) { TestQueuerunnerPathSafeHarnessState::$count++; }
 }
 
 $rejects = static function (string $v) use ($m): bool {

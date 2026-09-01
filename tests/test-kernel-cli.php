@@ -380,10 +380,15 @@ function runResetTotp(object $entityManager, array $args): array
     }
 }
 
-$failures = 0;
+final class TestKernelCliHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelCliHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelCliHarnessState::$count++; }
 }
 
 echo "== native CLI dispatcher ==\n";

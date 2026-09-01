@@ -138,10 +138,15 @@ final class ProbeController extends AbstractController
 
 // --- harness ----------------------------------------------------------- //
 
-$failures = 0;
+final class TestKernelDispatchHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelDispatchHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelDispatchHarnessState::$count++; }
 }
 
 echo "== Phase 3 native dispatch (Container + Dispatcher + AbstractController) ==\n";

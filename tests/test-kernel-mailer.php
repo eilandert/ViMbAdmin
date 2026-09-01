@@ -16,10 +16,15 @@ use Symfony\Component\Mailer\Transport\SendmailTransport;
 use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
 use ViMbAdmin\Kernel\Mail\Mailer;
 
-$failures = 0;
+final class TestKernelMailerHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelMailerHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelMailerHarnessState::$count++; }
 }
 
 echo "== native mailer ==\n";

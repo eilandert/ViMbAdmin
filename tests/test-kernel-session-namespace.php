@@ -17,11 +17,16 @@ require __DIR__ . '/../src/Kernel/Session/SessionNamespace.php';
 use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
 use ViMbAdmin\Kernel\Session\SessionNamespace;
 
-$failures = 0;
+final class TestKernelSessionNamespaceHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelSessionNamespaceHarnessState::$count;
 function check(string $label, bool $ok): void {
-    global $failures;
+
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $failures++; }
+    if (!$ok) { TestKernelSessionNamespaceHarnessState::$count++; }
 }
 
 function sessionValue(string $namespace, string $key): mixed {

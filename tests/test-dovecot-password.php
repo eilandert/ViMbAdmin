@@ -17,10 +17,15 @@
 require __DIR__ . '/../library/ViMbAdmin/Exception.php';
 require __DIR__ . '/../library/ViMbAdmin/Dovecot.php';
 
-$failures = 0;
+final class TestDovecotPasswordHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestDovecotPasswordHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestDovecotPasswordHarnessState::$count++; }
 }
 
 // A password exercising the exact chars from the field report (17 chars, ! and &).

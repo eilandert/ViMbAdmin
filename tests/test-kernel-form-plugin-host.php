@@ -29,10 +29,15 @@ require __DIR__ . '/../library/ViMbAdmin/Plugin/MailboxFormExtension.php';
 use ViMbAdmin\Kernel\Form\Field;
 use ViMbAdmin\Kernel\Plugin\FormPluginHost;
 
-$failures = 0;
+final class TestKernelFormPluginHostHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelFormPluginHostHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelFormPluginHostHarnessState::$count++; }
 }
 
 // ===================== Part A: FormPluginHost ========================== //

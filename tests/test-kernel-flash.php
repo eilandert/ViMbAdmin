@@ -25,11 +25,16 @@ final class ArraySession implements SessionStorage
     public function remove(string $key): void { unset($this->data[$key]); }
 }
 
-$failures = 0;
+final class TestKernelFlashHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelFlashHarnessState::$count;
 function check(string $label, bool $ok): void {
-    global $failures;
+
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $failures++; }
+    if (!$ok) { TestKernelFlashHarnessState::$count++; }
 }
 
 function identical(mixed $actual, mixed $expected): bool {
