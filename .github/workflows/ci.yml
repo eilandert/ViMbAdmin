@@ -45,6 +45,9 @@ jobs:
       - name: Assert workflow runtime contract
         run: bash .github/scripts/assert-workflow-runtime.sh
 
+      - name: Workflow runtime contract self-test
+        run: bash tests/test-assert-workflow-runtime.sh
+
       - name: Validate composer.json / composer.lock
         run: composer validate --strict
 

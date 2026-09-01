@@ -24,21 +24,69 @@ jobs:
     runs-on: [self-hosted, builder02, docker]
     # CodeQL has no PHP support; Semgrep is the SAST engine for this codebase.
     container:
-      image: semgrep/semgrep
+      image: >-
+        semgrep/semgrep@sha256:b94b53d02fd4a022f9eac4e2af1380f5c3c4c21400e79d3336bdff1d1db5e796
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Test Semgrep baseline event policy
+        run: bash tests/test-semgrep-baseline.sh
+
+      - name: Verify Semgrep findings fail the job (negative control)
+        run: |
+          fixture=$(mktemp --suffix=.php)
+          result=$(mktemp --suffix=.json)
+          printf '%s\n' "<?php system(\$_GET[\"code\"]);" > "$fixture"
+          set +e
+          semgrep scan \
+            --config p/php \
+            --config p/security-audit \
+            --config p/secrets \
+            --json --output "$result" --error "$fixture"
+          status=$?
+          set -e
+          if [[ $status -ne 1 ]]; then
+            echo "::error::Semgrep negative control returned $status."
+            echo '::error::Expected finding status 1.'
+            rm -f "$fixture"
+            rm -f "$result"
+            exit 1
+          fi
+          if ! grep -q '"check_id"' "$result"; then
+            echo '::error::Semgrep negative control produced no finding.'
+            rm -f "$fixture"
+            rm -f "$result"
+            exit 1
+          fi
+          rm -f "$fixture"
+          rm -f "$result"
 
       - name: Run Semgrep
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
         run: |
+          baseline=$(bash .github/scripts/select-semgrep-baseline.sh \
+            "$EVENT_NAME" "$PR_BASE_SHA" "$BEFORE_SHA" "$HEAD_SHA")
+          baseline_args=()
+          if [[ -n $baseline ]]; then
+            baseline_args=(--baseline-commit "$baseline")
+          fi
           semgrep scan \
             --config p/php \
             --config p/security-audit \
             --config p/secrets \
             --sarif --output semgrep.sarif \
-            --error || true
+            "${baseline_args[@]}" \
+            --error
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938  # yamllint disable-line rule:line-length
         if: always()
         with:
           sarif_file: semgrep.sarif
