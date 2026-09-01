@@ -236,6 +236,7 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
      */
     public function nativeMailboxApply( \Entities\Mailbox $mailbox, array $values, array $options, ?object $em = null ): void
     {
+        $username = $mailbox->requiredUsername();
         // The DirectoryEntry is the inverse side of the relation, so a NEW one must
         // be persisted explicitly (it is not cascade-persisted via the mailbox).
         $dentry = $mailbox->getDirectoryEntry();
@@ -273,7 +274,7 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
 
         // `mail` always tracks the mailbox address — set it AFTER the attribute
         // loop so the (possibly empty) submitted Mail field never clobbers it.
-        $dentry->setMail( $mailbox->getUsername() );
+        $dentry->setMail( $username );
         $dentry->setVimbUpdate( new \DateTime() );
     }
 }

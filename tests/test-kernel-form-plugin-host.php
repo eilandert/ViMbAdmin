@@ -362,6 +362,20 @@ check('DE apply: GivenName written',          $dent->getGivenName() === 'Ada');
 check('DE apply: JpegPhoto keeps scalar bytes', $dent->getJpegPhoto() === 'jpeg-binary');
 check('DE apply: Sn written',                 $dent->getSn() === 'Lovelace');
 
+$unnamedDirectoryMailbox = new \Entities\Mailbox();
+$unnamedDirectoryEm = new DirectoryEntryEntityManagerDouble();
+$unnamedDirectoryError = null;
+try {
+    $de->nativeMailboxApply($unnamedDirectoryMailbox, [], $deOpts, $unnamedDirectoryEm);
+} catch (\LogicException $e) {
+    $unnamedDirectoryError = $e->getMessage();
+}
+check('DE apply rejects a null mailbox username',
+    $unnamedDirectoryError === 'Mailbox username cannot be null.');
+check('DE username failure precedes entity linking and persistence',
+    $unnamedDirectoryMailbox->getDirectoryEntry() === null
+        && $unnamedDirectoryEm->persisted === []);
+
 $editFields = [];
 foreach ($de->nativeMailboxFields($mbD, $deOpts) as $f) { $editFields[$f->name] = $f; }
 check('DE edit: JpegPhoto prefilled from scalar bytes', $editFields['plugin_directoryEntry_JpegPhoto']->value() === 'jpeg-binary');

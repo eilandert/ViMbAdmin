@@ -278,6 +278,19 @@ class ViMbAdmin_Service_QueueRunner
         $user = $task->getUsername();
         $now  = new \DateTime();
 
+        $mbData = null;
+        $mb = $em->getRepository('\\Entities\\Mailbox')->findOneBy(['username' => $user]);
+        if ($mb) {
+            $mbData = [
+                'username'   => $mb->requiredUsername(),
+                'local_part' => $mb->getLocalPart(),
+                'name'       => $mb->getName(),
+                'password'   => $mb->getPassword(),
+                'quota'      => $mb->getQuota(),
+                'active'     => $mb->getActive(),
+            ];
+        }
+
         $archive = $em->getRepository('\\Entities\\Archive')->findOneBy(['username' => $user]);
         if (!$archive) {
             $archive = new \Entities\Archive();
@@ -296,19 +309,6 @@ class ViMbAdmin_Service_QueueRunner
         }
 
         $size = $origSize;
-
-        $mbData = null;
-        $mb = $em->getRepository('\\Entities\\Mailbox')->findOneBy(['username' => $user]);
-        if ($mb) {
-            $mbData = [
-                'username'   => $mb->getUsername(),
-                'local_part' => $mb->getLocalPart(),
-                'name'       => $mb->getName(),
-                'password'   => $mb->getPassword(),
-                'quota'      => $mb->getQuota(),
-                'active'     => $mb->getActive(),
-            ];
-        }
 
         $archive->setStatus(\Entities\Archive::STATUS_ARCHIVED)
                 ->setArchivedAt($now)

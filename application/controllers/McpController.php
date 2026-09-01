@@ -135,14 +135,15 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $domain = $this->_requireDomain( $params );
         $domainName = $domain->requiredDomainName();
         $out = [];
-        foreach( $this->em()->getRepository( '\\Entities\\Mailbox' )->findBy( [ 'Domain' => $domain ] ) as $m )
+        foreach( $this->em()->getRepository( '\\Entities\\Mailbox' )->findBy( [ 'Domain' => $domain ] ) as $m ) {
             $out[] = [
-                'username'   => $m->getUsername(),
+                'username'   => $m->requiredUsername(),
                 'name'       => $m->getName(),
                 'active'     => (bool) $m->getActive(),
                 'quota'      => $m->getQuota(),
                 'local_part' => $m->getLocalPart(),
             ];
+        }
         return [ 'domain' => $domainName, 'mailboxes' => $out ];
     }
 
@@ -290,7 +291,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     private function _mailboxDelete( array $params ): array
     {
         $m = $this->_requireMailbox( $params );
-        $username = $m->getUsername();
+        $username = $m->requiredUsername();
         $domain   = $m->getDomain();
         $this->_mailboxRepository()->purgeMailbox( $m, null, true );
         $domain->setMailboxCount( max( 0, $domain->getMailboxCount() - 1 ) );
@@ -364,7 +365,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     {
         $m  = $this->_requireMailbox( $params );
         $em = $this->em();
-        $username = $m->getUsername();
+        $username = $m->requiredUsername();
 
         // Queue a real ARCHIVE task (doveadm backup -> empty store, keep
         // account), exactly like the panel button. The runner records the

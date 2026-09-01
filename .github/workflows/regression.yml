@@ -83,6 +83,9 @@ jobs:
       - name: ViMbAdmin_Service_Mailbox
         run: php tests/test-service-mailbox.php
 
+      - name: Required mailbox username and queue boundary
+        run: php tests/test-mailbox-required-username.php
+
       - name: ViMbAdmin_Service_Alias
         run: php tests/test-service-alias.php
 

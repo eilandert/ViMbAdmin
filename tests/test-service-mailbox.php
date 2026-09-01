@@ -167,6 +167,16 @@ function mailboxIdentical(mixed $actual, mixed $expected): bool {
     return $actual === $expected;
 }
 
+/** @return string|null */
+function mailboxUsernameError(callable $operation): ?string {
+    try {
+        $operation();
+    } catch (\LogicException $e) {
+        return $e->getMessage();
+    }
+    return null;
+}
+
 echo "== ViMbAdmin_Service_Mailbox ==\n";
 
 $actor = new \Entities\Admin();
@@ -178,6 +188,48 @@ $mkMailbox = static function (bool $active): \Entities\Mailbox {
     $mb->setActive($active);
     return $mb;
 };
+
+$preHydrationMailbox = new \Entities\Mailbox();
+check('pre-hydration username getter preserves null', $preHydrationMailbox->getUsername() === null);
+check('required username rejects a pre-hydration mailbox',
+    mailboxUsernameError($preHydrationMailbox->requiredUsername(...)) === 'Mailbox username cannot be null.');
+check('required username preserves an initialized address',
+    $mkMailbox(true)->requiredUsername() === 'user@example.com');
+
+// Every service entry point must reject an unnamed mailbox before hooks,
+// entity changes, repository work, persistence, logging, or flushing.
+$invalidToggleEm = new FakeObjectManager();
+$invalidToggle = new \Entities\Mailbox();
+$invalidToggle->setActive(true);
+$invalidToggleHooks = 0;
+check('toggle rejects a null username', mailboxUsernameError(static function () use ($invalidToggleEm, $invalidToggle, $actor, &$invalidToggleHooks): void {
+    (new ViMbAdmin_Service_Mailbox($invalidToggleEm))->toggleActive(
+        $invalidToggle,
+        $actor,
+        static function () use (&$invalidToggleHooks): bool { $invalidToggleHooks++; return true; },
+    );
+}) === 'Mailbox username cannot be null.');
+check('toggle username failure precedes hooks and mutation',
+    $invalidToggleHooks === 0 && $invalidToggle->getActive() === true
+        && $invalidToggle->getModified() === null && $invalidToggleEm->persisted === []
+        && $invalidToggleEm->flushes === 0);
+
+$invalidPurgeEm = new FakeObjectManager();
+$invalidPurgeEm->mailboxRepo = new FakeMailboxRepo();
+$invalidPurge = new \Entities\Mailbox();
+$invalidPurgeHooks = 0;
+check('purge rejects a null username', mailboxUsernameError(static function () use ($invalidPurgeEm, $invalidPurge, $actor, &$invalidPurgeHooks): void {
+    (new ViMbAdmin_Service_Mailbox($invalidPurgeEm))->purge(
+        $invalidPurge,
+        $actor,
+        false,
+        static function () use (&$invalidPurgeHooks): bool { $invalidPurgeHooks++; return true; },
+    );
+}) === 'Mailbox username cannot be null.');
+check('purge username failure precedes hooks and repository mutation',
+    $invalidPurgeHooks === 0 && $invalidPurgeEm->mailboxRepo->purges === []
+        && $invalidPurgeEm->persisted === [] && $invalidPurgeEm->removed === []
+        && $invalidPurgeEm->flushes === 0);
 
 // --- happy path: activate, hooks fire in order, one flush -------------- //
 $em  = new FakeObjectManager();
@@ -284,6 +336,27 @@ $createOptions = [
         'password_scheme' => 'crypt:sha512',
     ]],
 ];
+
+$invalidCreateEm = new FakeObjectManager();
+$invalidCreateEm->aliasRepo = new FakeAliasRepo();
+$invalidCreate = new \Entities\Mailbox();
+$invalidCreate->setPassword('unchanged-plaintext');
+$invalidCreateDomain = $mkDomain(4);
+$invalidCreateHooks = 0;
+check('create rejects a null username', mailboxUsernameError(static function () use ($invalidCreateEm, $invalidCreate, $invalidCreateDomain, $actor, $createOptions, &$invalidCreateHooks): void {
+    (new ViMbAdmin_Service_Mailbox($invalidCreateEm))->create(
+        $invalidCreate,
+        $invalidCreateDomain,
+        $actor,
+        $createOptions,
+        static function () use (&$invalidCreateHooks): void { $invalidCreateHooks++; },
+    );
+}) === 'Mailbox username cannot be null.');
+check('create username failure precedes entity and persistence mutation',
+    $invalidCreateHooks === 0 && $invalidCreate->getDomain() === null
+        && $invalidCreate->getPassword() === 'unchanged-plaintext'
+        && $invalidCreateDomain->getMailboxCount() === 4
+        && $invalidCreateEm->persisted === [] && $invalidCreateEm->flushes === 0);
 
 $emC = new FakeObjectManager();
 $emC->aliasRepo = new FakeAliasRepo();        // findOneBy -> null (no clash)
@@ -422,6 +495,20 @@ check('alias lookup errors propagate after mailbox persist but before log and fl
         && $emAliasError->flushes === 0);
 
 // --- update: stamp modified, log EDIT, single flush, hooks around flush -- //
+$invalidUpdateEm = new FakeObjectManager();
+$invalidUpdate = new \Entities\Mailbox();
+$invalidUpdateHooks = 0;
+check('update rejects a null username', mailboxUsernameError(static function () use ($invalidUpdateEm, $invalidUpdate, $actor, &$invalidUpdateHooks): void {
+    (new ViMbAdmin_Service_Mailbox($invalidUpdateEm))->update(
+        $invalidUpdate,
+        $actor,
+        static function () use (&$invalidUpdateHooks): void { $invalidUpdateHooks++; },
+    );
+}) === 'Mailbox username cannot be null.');
+check('update username failure precedes hooks and mutation',
+    $invalidUpdateHooks === 0 && $invalidUpdate->getModified() === null
+        && $invalidUpdateEm->persisted === [] && $invalidUpdateEm->flushes === 0);
+
 $emU = new FakeObjectManager();
 $mbU = new \Entities\Mailbox();
 $mbU->setUsername('edit@example.com');

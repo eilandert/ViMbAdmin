@@ -156,9 +156,12 @@ function automaticAliasDomain(bool $initialized = true, bool $named = true): \En
     return $domain;
 }
 
-function makeContext(AutomaticAliasRepository $repository, bool $initialized = true, bool $named = true): AutomaticAliasMailboxContext {
+function makeContext(AutomaticAliasRepository $repository, bool $initialized = true, bool $named = true, bool $mailboxNamed = true): AutomaticAliasMailboxContext {
     $domain = automaticAliasDomain($initialized, $named);
-    $mailbox = (new \Entities\Mailbox())->setUsername('user@example.test');
+    $mailbox = new \Entities\Mailbox();
+    if ($mailboxNamed) {
+        $mailbox->setUsername('user@example.test');
+    }
     return new AutomaticAliasMailboxContext(
         ['vimbadmin_plugins' => ['MailboxAutomaticAliases' => [
             'defaultAliases' => ['postmaster'],
@@ -232,6 +235,24 @@ $failures += checkAutomaticAlias(
     $unnamedContext->getD2EM()->persisted === []
         && $unnamedContext->getD2EM()->flushes === 0
         && $unnamedContext->messages === [],
+);
+
+$unnamedMailboxContext = makeContext(new AutomaticAliasRepository(), true, true, false);
+$failures += checkAutomaticAlias(
+    'automatic alias construction rejects a null mailbox username',
+    automaticAliasThrows(
+        'Mailbox username cannot be null.',
+        static function () use ($unnamedMailboxContext): void {
+            (new ViMbAdminPlugin_MailboxAutomaticAliases($unnamedMailboxContext))
+                ->mailbox_add_addPostflush($unnamedMailboxContext, ['options' => []]);
+        },
+    ),
+);
+$failures += checkAutomaticAlias(
+    'null mailbox username fails before alias persistence or flush',
+    $unnamedMailboxContext->getD2EM()->persisted === []
+        && $unnamedMailboxContext->getD2EM()->flushes === 0
+        && $unnamedMailboxContext->messages === [],
 );
 
 $repository = new AutomaticAliasRepository();

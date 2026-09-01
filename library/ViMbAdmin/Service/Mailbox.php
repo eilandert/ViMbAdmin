@@ -59,6 +59,7 @@ class ViMbAdmin_Service_Mailbox
         ?callable $preFlush = null,
         ?callable $postFlush = null
     ): ?bool {
+        $username = $mailbox->requiredUsername();
         if ($preToggle !== null && $preToggle() === false) {
             return null;
         }
@@ -71,7 +72,7 @@ class ViMbAdmin_Service_Mailbox
         $this->log(
             $actor,
             $active ? \Entities\Log::ACTION_MAILBOX_ACTIVATE : \Entities\Log::ACTION_MAILBOX_DEACTIVATE,
-            "{$actor->getFormattedName()} " . ($active ? 'activated' : 'deactivated') . " mailbox {$mailbox->getUsername()}"
+            "{$actor->getFormattedName()} " . ($active ? 'activated' : 'deactivated') . " mailbox {$username}"
         );
 
         if ($preFlush !== null) {
@@ -116,6 +117,7 @@ class ViMbAdmin_Service_Mailbox
         ?callable $preFlush = null,
         ?callable $postFlush = null
     ): bool {
+        $username = $mailbox->requiredUsername();
         if ($preRemove !== null && $preRemove() === false) {
             return false;
         }
@@ -129,7 +131,7 @@ class ViMbAdmin_Service_Mailbox
         $this->log(
             $actor,
             \Entities\Log::ACTION_MAILBOX_PURGE,
-            "{$actor->getFormattedName()} purged mailbox {$mailbox->getUsername()}"
+            "{$actor->getFormattedName()} purged mailbox {$username}"
         );
 
         if ($preFlush !== null) {
@@ -183,6 +185,7 @@ class ViMbAdmin_Service_Mailbox
         ?callable $preFlush = null,
         ?callable $postFlush = null
     ): \Entities\Mailbox {
+        $username = $mailbox->requiredUsername();
         $mb = $options['defaults']['mailbox'];
 
         $mailbox->setDomain($domain);
@@ -192,7 +195,7 @@ class ViMbAdmin_Service_Mailbox
 
         $mailbox->setPassword(\OSS_Auth_Password::hash($mailbox->getPassword(), [
             'pwhash'   => $mb['password_scheme'],
-            'username' => $mailbox->getUsername(),
+            'username' => $username,
         ]));
 
         $this->em->persist($mailbox);
@@ -202,11 +205,11 @@ class ViMbAdmin_Service_Mailbox
         // — inserting a duplicate violates the unique key and rolls the create
         // back.
         if (!empty($options['mailboxAliases']) && (int) $options['mailboxAliases'] === 1
-            && $this->em->getRepository('\\Entities\\Alias')->findOneBy(['address' => $mailbox->getUsername()]) === null
+            && $this->em->getRepository('\\Entities\\Alias')->findOneBy(['address' => $username]) === null
         ) {
             $alias = new \Entities\Alias();
-            $alias->setAddress($mailbox->getUsername());
-            $alias->setGoto($mailbox->getUsername());
+            $alias->setAddress($username);
+            $alias->setGoto($username);
             $alias->setDomain($domain);
             $alias->setActive(true);
             $alias->setCreated(new \DateTime());
@@ -218,7 +221,7 @@ class ViMbAdmin_Service_Mailbox
         $this->log(
             $actor,
             \Entities\Log::ACTION_MAILBOX_ADD,
-            "{$actor->getFormattedName()} added mailbox {$mailbox->getUsername()}"
+            "{$actor->getFormattedName()} added mailbox {$username}"
         );
 
         if ($preFlush !== null) {
@@ -255,12 +258,13 @@ class ViMbAdmin_Service_Mailbox
         ?callable $preFlush = null,
         ?callable $postFlush = null
     ): \Entities\Mailbox {
+        $username = $mailbox->requiredUsername();
         $mailbox->setModified(new \DateTime());
 
         $this->log(
             $actor,
             \Entities\Log::ACTION_MAILBOX_EDIT,
-            "{$actor->getFormattedName()} edited mailbox {$mailbox->getUsername()}"
+            "{$actor->getFormattedName()} edited mailbox {$username}"
         );
 
         if ($preFlush !== null) {

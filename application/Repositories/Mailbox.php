@@ -302,6 +302,8 @@ class Mailbox extends EntityRepository
         if( $admin !== null && !$admin->isSuper() && !$mailbox->getDomain()->getAdmins()->contains( $admin ) )
             return false;
 
+        $username = $mailbox->requiredUsername();
+
         $aliasRepository = $this->getEntityManager()->getRepository( "\\Entities\\Alias" );
         if( !$aliasRepository instanceof \Repositories\Alias )
             throw new \LogicException( 'Alias entity must use Repositories\\Alias.' );
@@ -333,7 +335,7 @@ class Mailbox extends EntityRepository
             {
                 $gotos[ $key ] = $goto = trim( $goto );
 
-                if( ( $goto == $mailbox->getUsername() ) || ( $goto == '' ) )
+                if( ( $goto == $username ) || ( $goto == '' ) )
                     unset( $gotos[ $key ] );
             }
 

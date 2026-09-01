@@ -118,7 +118,7 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
     public function mailbox_add_addPostflush( ViMbAdmin_Plugin_MailboxContext $controller, $options )
     {
         $domain = $controller->getDomain()->requiredDomainName();
-        $mailbox = $controller->getMailbox()->getUsername();
+        $mailbox = $controller->getMailbox()->requiredUsername();
 
         if( $this->defaultAliases ) {
             // no default aliases are required to exist if the whole domain is aliased

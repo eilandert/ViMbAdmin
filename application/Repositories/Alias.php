@@ -30,11 +30,12 @@ class Alias extends EntityRepository
      */
     public function loadForMailbox( $mailbox, $admin, $ima = false )
     {
+        $username = $mailbox->requiredUsername();
         $qb = $this->getEntityManager()->createQueryBuilder()
                 ->select( 'a' )
                 ->from( '\\Entities\\Alias', 'a' )
                 ->where( 'a.goto = ?1' )
-                ->setParameter( 1, $mailbox->getUsername() );
+                ->setParameter( 1, $username );
 
         if( !$ima )
             $qb->andWhere( 'a.address != a.goto' );
@@ -67,6 +68,7 @@ class Alias extends EntityRepository
      */
     public function loadWithMailbox( $mailbox, $admin )
     {
+        $username = $mailbox->requiredUsername();
         $qb = $this->getEntityManager()->createQueryBuilder();
         $qb->select( 'a' )
             ->from( '\\Entities\\Alias', 'a' )
@@ -79,10 +81,10 @@ class Alias extends EntityRepository
                     'a.goto like ?4'
                 )
             ))
-            ->setParameter( 1, $mailbox->getUsername() )
-            ->setParameter( 2, '%,' . $mailbox->getUsername() . ',%')
-            ->setParameter( 3, '%,' . $mailbox->getUsername())
-            ->setParameter( 4, $mailbox->getUsername() . ',%');
+            ->setParameter( 1, $username )
+            ->setParameter( 2, '%,' . $username . ',%')
+            ->setParameter( 3, '%,' . $username)
+            ->setParameter( 4, $username . ',%');
 
         // null admin = trusted system context (queue runner); no scoping.
         if( $admin !== null && !$admin->isSuper() )

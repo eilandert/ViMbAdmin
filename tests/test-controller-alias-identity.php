@@ -118,6 +118,17 @@ final class ControllerAliasIdentityMailboxRepository extends \Repositories\Mailb
     {
         return $this->mailbox;
     }
+
+    /**
+     * @param array<string,mixed> $criteria
+     * @param array<string,string>|null $orderBy
+     * @return list<\Entities\Mailbox>
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
+    public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
+    {
+        return $this->mailbox === null ? [] : [$this->mailbox];
+    }
 }
 
 final class ControllerAliasIdentityDomainRepository extends \Repositories\Domain
@@ -198,6 +209,27 @@ function controllerAliasIdentityMcpAliases(McpController $controller, array $par
     foreach ($result as $key => $value) {
         if (!is_string($key)) {
             throw new RuntimeException('MCP aliases result has a non-string key');
+        }
+        $typed[$key] = $value;
+    }
+    return $typed;
+}
+
+/**
+ * @param array<string,mixed> $params
+ * @return array<string,mixed>
+ */
+function controllerAliasIdentityMcpMailboxes(McpController $controller, array $params): array
+{
+    $method = new ReflectionMethod($controller, '_mailboxesList');
+    $result = $method->invoke($controller, $params);
+    if (!is_array($result)) {
+        throw new RuntimeException('MCP mailboxes result is not an array');
+    }
+    $typed = [];
+    foreach ($result as $key => $value) {
+        if (!is_string($key)) {
+            throw new RuntimeException('MCP mailboxes result has a non-string key');
         }
         $typed[$key] = $value;
     }
@@ -349,6 +381,53 @@ controllerAliasIdentityCheck('MCP rejects a null domain name without output or m
         && $unnamedDomainOutput === ''
         && $unnamedDomainEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []
         && $unnamedDomainEntityManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
+
+$unnamedMailbox = (new \Entities\Mailbox())->setDomain($domain);
+$unnamedMailboxEntityManager = controllerAliasIdentityEntityManager([
+    'Entities\\Domain' => new ControllerAliasIdentityDomainRepository($domain),
+    'Entities\\Mailbox' => new ControllerAliasIdentityMailboxRepository($unnamedMailbox),
+]);
+$unnamedMailboxMcp = new McpController(
+    new Container(
+        new ControllerAliasIdentityResources($unnamedMailboxEntityManager, $mcpSession, $mcpView),
+        new Auth($mcpSession, static fn(int $id): null => null),
+    ),
+    new RouteMatch('mcp', 'index', McpController::class, 'indexAction', []),
+);
+$unnamedMailboxError = null;
+ob_start();
+try {
+    controllerAliasIdentityMcpMailboxes($unnamedMailboxMcp, ['domain' => 'example.test']);
+} catch (LogicException $e) {
+    $unnamedMailboxError = $e->getMessage();
+}
+$unnamedMailboxOutput = ob_get_clean();
+controllerAliasIdentityCheck('MCP rejects a null mailbox username without output or mutation',
+    $unnamedMailboxError === 'Mailbox username cannot be null.'
+        && $unnamedMailboxOutput === ''
+        && $unnamedMailboxEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $unnamedMailboxEntityManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
+
+$emailSession = new ControllerAliasIdentitySession(['identity' => ['id' => 1]]);
+$emailView = new ControllerAliasIdentityView();
+$emailEntityManager = controllerAliasIdentityEntityManager([
+    'Entities\\Mailbox' => new ControllerAliasIdentityMailboxRepository($unnamedMailbox),
+]);
+$emailController = new MailboxController(
+    controllerAliasIdentityContainer($emailEntityManager, $emailSession, $emailView),
+    new RouteMatch('mailbox', 'email-settings', MailboxController::class, 'emailSettingsAction', ['mid' => '3']),
+);
+$emailError = null;
+try {
+    $emailController->emailSettingsAction();
+} catch (LogicException $e) {
+    $emailError = $e->getMessage();
+}
+controllerAliasIdentityCheck('mail settings reject a null username before render or mutation',
+    $emailError === 'Mailbox username cannot be null.'
+        && $emailView->renders === 0
+        && $emailEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $emailEntityManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
 
 echo ControllerAliasIdentityState::$failures === 0
     ? "\nALL PASSED\n"

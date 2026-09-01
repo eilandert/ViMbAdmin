@@ -522,8 +522,18 @@ final class MailboxController extends AbstractController
 
         return $this->view('mailbox/native-add.phtml', [
             'formHtml'  => (new FormRenderer())->render($form, '/mailbox/edit/mid/' . $mailbox->getId(), 'Save'),
-            'pageTitle' => 'Edit Mailbox: ' . $mailbox->getUsername(),
+            'pageTitle' => $this->mailboxPageTitle($mailbox),
         ]);
+    }
+
+    /** Preserve the legitimate pre-hydration add form without inventing an identity. */
+    private function mailboxPageTitle(\Entities\Mailbox $mailbox): string
+    {
+        $username = $mailbox->getUsername();
+        if ($username === null && $mailbox->getId() === null) {
+            return 'Add Mailbox';
+        }
+        return 'Edit Mailbox: ' . $mailbox->requiredUsername();
     }
 
     /**
@@ -602,7 +612,7 @@ final class MailboxController extends AbstractController
         }
 
         $identity = $this->requiredAliasIdentity($alias);
-        $user     = $mailbox->getUsername();
+        $user     = $mailbox->requiredUsername();
 
         if ($user === $identity['goto']) {
             $em->remove($alias);
@@ -688,15 +698,16 @@ final class MailboxController extends AbstractController
         $form->add(new Field('password', 'Password', 'text', [Validators::required(), Validators::minLength($minPw)]));
 
         if ($this->isPost() && $form->isValid($this->postData())) {
+            $username = $mailbox->requiredUsername();
             $pwOpts = [
                 'pwhash'   => $options['defaults']['mailbox']['password_scheme'] ?? null,
-                'username' => $mailbox->getUsername(),
+                'username' => $username,
             ];
             $mailbox->setPassword(\OSS_Auth_Password::hash((string) $form->values()['password'], $pwOpts));
 
             $log = new \Entities\Log();
             $log->setAction(\Entities\Log::ACTION_MAILBOX_PW_CHANGE)
-                ->setData("{$admin->getFormattedName()} changed password for mailbox {$mailbox->getUsername()}")
+                ->setData("{$admin->getFormattedName()} changed password for mailbox {$username}")
                 ->setAdmin($admin)
                 ->setTimestamp(new \DateTime());
             $em->persist($log);
@@ -764,7 +775,7 @@ final class MailboxController extends AbstractController
             return $this->redirect('mailbox/list');
         }
 
-        $username = $mailbox->getUsername();
+        $username = $mailbox->requiredUsername();
         $task     = \ViMbAdmin_MailboxQueue::enqueue($this->em(), $mailbox, $type, $admin);
         $this->em()->flush();
 
@@ -1002,10 +1013,11 @@ final class MailboxController extends AbstractController
         if ($admin === null || !$mailbox || (!$admin->isSuper() && !$admin->canManageDomain($mailbox->getDomain()))) {
             return new Response('error');
         }
+        $username = $mailbox->requiredUsername();
 
         // The recipient choices: the mailbox itself, its alternative email (if
         // set), and a free-text "other".
-        $typeOptions = ['username' => $mailbox->getUsername()];
+        $typeOptions = ['username' => $username];
         if ($mailbox->getAltEmail()) {
             $typeOptions['alt_email'] = $mailbox->getAltEmail();
         }
@@ -1049,7 +1061,7 @@ final class MailboxController extends AbstractController
                 } elseif ($type === 'alt_email') {
                     $recipients[] = (string) $mailbox->getAltEmail();
                 } else {
-                    $recipients[] = (string) $mailbox->getUsername();
+                    $recipients[] = $username;
                 }
             }
 
@@ -1109,6 +1121,7 @@ final class MailboxController extends AbstractController
             throw new \LogicException('Mailbox domain cannot be null.');
         }
         $domainName = $domain->requiredDomainName();
+        $username = $mailbox->requiredUsername();
 
         $email = (new Email())
             ->from(new Address(
@@ -1128,7 +1141,7 @@ final class MailboxController extends AbstractController
                 continue;
             }
             foreach ($params as $k => $v) {
-                $settings[$tech][$k] = \Entities\Mailbox::substitute($mailbox->getUsername(), (string) $v);
+                $settings[$tech][$k] = \Entities\Mailbox::substitute($username, (string) $v);
             }
         }
 

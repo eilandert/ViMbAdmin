@@ -168,10 +168,20 @@ class Mailbox
     /**
      * Get username
      *
-     * @return string
+     * @return string|null
      */
     public function getUsername()
     {
+        return $this->username;
+    }
+
+    /** Return the address for operations that require an initialized mailbox. */
+    public function requiredUsername(): string
+    {
+        if ($this->username === null) {
+            throw new \LogicException('Mailbox username cannot be null.');
+        }
+
         return $this->username;
     }
 
