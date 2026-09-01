@@ -16,10 +16,15 @@ require __DIR__ . '/../src/Kernel/Plugin/PluginHost.php';
 
 use ViMbAdmin\Kernel\Plugin\PluginHost;
 
-$failures = 0;
+final class TestKernelPluginHostHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelPluginHostHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelPluginHostHarnessState::$count++; }
 }
 
 // --- a fixture plugin directory ----------------------------------------- //
@@ -66,11 +71,13 @@ PHP);
 
 // Context double: only getOptions() is needed at construction time.
 $context = new class {
+    /** @return array<string,mixed> */
     public function getOptions(): array
     {
         // Opt-in: only Recorder + Veto are enabled; Disabled is left off.
         return ['vimbadmin_plugins' => [
-            'Recorder' => ['enabled' => true],
+            // PHP's NORMAL INI scanner represents `enabled = true` as '1'.
+            'Recorder' => ['enabled' => '1'],
             'Veto'     => ['enabled' => true],
             'Disabled' => ['enabled' => false],
         ]];
@@ -88,7 +95,7 @@ check('context passed to plugin ctor',         ($GLOBALS['rec_ctx'] ?? null) ===
 // notify dispatches to every observer, in order; returns true when none veto
 $ok = $host->notify('alias', 'toggleActive', 'preToggle', $context, ['active' => 1]);
 check('notify returns true when no veto',      $ok === true);
-check('notify reached the recorder',           in_array('alias_toggleActive_preToggle', $GLOBALS['rec_calls'], true));
+check('notify reached the recorder',           serialize($GLOBALS['rec_calls']) === serialize(['alias_toggleActive_preToggle']));
 check('notify forwarded the params',           ($GLOBALS['rec_last_params'] ?? null) === ['active' => 1]);
 
 // the veto plugin refuses a mailbox preToggle → notify short-circuits to false
@@ -99,11 +106,61 @@ check('notify returns false on veto',          $vetoed === false);
 $passed = $host->notify('mailbox', 'toggleActive', 'postflush', $context);
 check('notify true for a non-vetoed hook',     $passed === true);
 
+$badOptionsContext = new class {
+    public function getOptions(): mixed { return ['vimbadmin_plugins' => null]; }
+};
+$badOptionsRejected = false;
+try {
+    new PluginHost($badOptionsContext, $dir);
+} catch (TypeError) {
+    $badOptionsRejected = true;
+}
+check('malformed plugin configuration fails before loading', $badOptionsRejected);
+
+// A legacy plugin class without update() is still discovered and only fails
+// when dispatch reaches it, matching the historical dynamic-call boundary.
+$malformedDir = $dir . '-malformed';
+@mkdir($malformedDir, 0700, true);
+file_put_contents("$malformedDir/Malformed.php", <<<'PHP'
+<?php
+class ViMbAdminPlugin_Malformed
+{
+    public function __construct($context) { $GLOBALS['malformed_ctx'] = $context; }
+}
+PHP);
+$malformedContext = new class {
+    /** @return array<string,mixed> */
+    public function getOptions(): array
+    {
+        return ['vimbadmin_plugins' => [
+            'Malformed' => ['enabled' => true],
+            'Missing' => ['enabled' => true],
+        ]];
+    }
+};
+$malformedHost = new PluginHost($malformedContext, $malformedDir);
+check('malformed plugin is discovered', $malformedHost->observerCount() === 1);
+try {
+    $malformedHost->notify('mailbox', 'add', 'preflush', $malformedContext);
+    check('malformed plugin fails at dispatch', false);
+} catch (Error $e) {
+    check('malformed plugin fails at dispatch', str_contains($e->getMessage(), 'update'));
+}
+check('malformed plugin received context', ($GLOBALS['malformed_ctx'] ?? null) === $malformedContext);
+
+// A file without the conventional class is ignored rather than instantiated.
+file_put_contents("$malformedDir/Missing.php", "<?php\nclass UnrelatedPlugin {}\n");
+$missingHost = new PluginHost($malformedContext, $malformedDir);
+check('missing conventional class is ignored', $missingHost->observerCount() === 1);
+
 // --- cleanup ------------------------------------------------------------- //
 @unlink("$dir/Recorder.php");
 @unlink("$dir/Veto.php");
 @unlink("$dir/Disabled.php");
 @rmdir($dir);
+@unlink("$malformedDir/Malformed.php");
+@unlink("$malformedDir/Missing.php");
+@rmdir($malformedDir);
 
 echo "\n";
 if ($failures === 0) {

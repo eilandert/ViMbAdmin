@@ -68,15 +68,20 @@ class Log
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    protected function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
+
     /**
-     * @var Entities\Admin
+     * @var \Entities\Admin|null
      */
     #[ORM\ManyToOne(targetEntity: \Entities\Admin::class, inversedBy: 'Logs')]
     #[ORM\JoinColumn(name: 'Admin_id', referencedColumnName: 'id')]
     private ?\Entities\Admin $Admin = null;
 
     /**
-     * @var Entities\Domain
+     * @var \Entities\Domain|null
      */
     #[ORM\ManyToOne(targetEntity: \Entities\Domain::class, inversedBy: 'Logs')]
     #[ORM\JoinColumn(name: 'Domain_id', referencedColumnName: 'id')]
@@ -99,7 +104,7 @@ class Log
     /**
      * Get action
      *
-     * @return string
+     * @return string|null
      */
     public function getAction()
     {
@@ -122,7 +127,7 @@ class Log
     /**
      * Get data
      *
-     * @return string
+     * @return string|null
      */
     public function getData()
     {
@@ -145,7 +150,7 @@ class Log
     /**
      * Get timestamp
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getTimestamp()
     {
@@ -155,7 +160,7 @@ class Log
     /**
      * Get id
      *
-     * @return integer
+     * @return integer|null
      */
     public function getId()
     {
@@ -165,7 +170,7 @@ class Log
     /**
      * Set Admin
      *
-     * @param Entities\Admin $admin
+     * @param \Entities\Admin|null $admin
      * @return Log
      */
     public function setAdmin(?\Entities\Admin $admin = null)
@@ -178,7 +183,7 @@ class Log
     /**
      * Get Admin
      *
-     * @return Entities\Admin
+     * @return \Entities\Admin|null
      */
     public function getAdmin()
     {
@@ -188,7 +193,7 @@ class Log
     /**
      * Set Domain
      *
-     * @param Entities\Domain $domain
+     * @param \Entities\Domain|null $domain
      * @return Log
      */
     public function setDomain(?\Entities\Domain $domain = null)
@@ -201,7 +206,7 @@ class Log
     /**
      * Get Domain
      *
-     * @return Entities\Domain
+     * @return \Entities\Domain|null
      */
     public function getDomain()
     {

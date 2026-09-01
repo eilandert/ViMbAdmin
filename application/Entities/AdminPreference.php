@@ -50,8 +50,13 @@ class AdminPreference
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    protected function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
+
     /**
-     * @var Entities\Admin
+     * @var \Entities\Admin|null
      */
     private $Preferences;
 
@@ -72,7 +77,7 @@ class AdminPreference
     /**
      * Get attribute
      *
-     * @return string 
+     * @return string|null
      */
     public function getAttribute()
     {
@@ -95,7 +100,7 @@ class AdminPreference
     /**
      * Get ix
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getIx()
     {
@@ -118,7 +123,7 @@ class AdminPreference
     /**
      * Get op
      *
-     * @return string 
+     * @return string|null
      */
     public function getOp()
     {
@@ -141,7 +146,7 @@ class AdminPreference
     /**
      * Get value
      *
-     * @return string 
+     * @return string|null
      */
     public function getValue()
     {
@@ -164,7 +169,7 @@ class AdminPreference
     /**
      * Get expire
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getExpire()
     {
@@ -174,7 +179,7 @@ class AdminPreference
     /**
      * Get id
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getId()
     {
@@ -184,7 +189,7 @@ class AdminPreference
     /**
      * Set Preferences
      *
-     * @param Entities\Admin $preferences
+     * @param \Entities\Admin|null $preferences
      * @return AdminPreference
      */
     public function setPreferences(?\Entities\Admin $preferences = null)
@@ -197,14 +202,14 @@ class AdminPreference
     /**
      * Get Preferences
      *
-     * @return Entities\Admin 
+     * @return \Entities\Admin|null
      */
     public function getPreferences()
     {
         return $this->Preferences;
     }
     /**
-     * @var Entities\Admin
+     * @var \Entities\Admin|null
      */
     #[ORM\ManyToOne(targetEntity: \Entities\Admin::class, inversedBy: 'Preferences')]
     #[ORM\JoinColumn(name: 'Admin_id', referencedColumnName: 'id')]
@@ -214,7 +219,7 @@ class AdminPreference
     /**
      * Set Admin
      *
-     * @param Entities\Admin $admin
+     * @param \Entities\Admin|null $admin
      * @return AdminPreference
      */
     public function setAdmin(?\Entities\Admin $admin = null)
@@ -227,7 +232,7 @@ class AdminPreference
     /**
      * Get Admin
      *
-     * @return Entities\Admin 
+     * @return \Entities\Admin|null
      */
     public function getAdmin()
     {

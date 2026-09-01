@@ -31,11 +31,11 @@ use Doctrine\ORM\Mapping as ORM;
 class Quota
 {
     /**
-     * @var string $username
+     * @var string|null $username
      */
     #[ORM\Id]
     #[ORM\Column(type: 'string')]
-    private ?int $username = null;
+    private ?string $username = null;
 
     /**
      * @var integer $bytes
@@ -55,6 +55,11 @@ class Quota
     #[ORM\Column(type: 'datetime', columnDefinition: 'timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()')]
     private ?\DateTime $updated_at = null;
 
+    protected function assignUpdatedAt(\DateTime $updatedAt): void
+    {
+        $this->updated_at = $updatedAt;
+    }
+
     /**
      * Set username
      *
@@ -71,7 +76,7 @@ class Quota
     /**
      * Get username
      *
-     * @return string
+     * @return string|null
      */
     public function getUsername()
     {
@@ -127,7 +132,7 @@ class Quota
     /**
      * Get updated_at (when Dovecot last wrote this row)
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getUpdatedAt()
     {

@@ -3,7 +3,7 @@
        <h3>Email Settings</h3>
 </div>
 <div class="modal-body" id="esbody">
-    <p>Email settings for '<em>{$mailbox->getUsername()}</em>'.</p>
+    <p>Email settings for '<em>{$mailbox->requiredUsername()}</em>'.</p>
 
 {if isset( $esError ) && $esError}
     <div class="alert alert-error">{$esError|escape}</div>

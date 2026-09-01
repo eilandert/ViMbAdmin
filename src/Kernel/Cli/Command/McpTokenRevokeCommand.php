@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Cli\Command;
 
+use Doctrine\Persistence\ObjectRepository;
+use Entities\McpToken;
+use LogicException;
 use ViMbAdmin\Kernel\Cli\CliCommand;
 use ViMbAdmin\Kernel\Container;
 
@@ -25,14 +28,19 @@ final class McpTokenRevokeCommand implements CliCommand
 
     public function run(Container $container, array $args): int
     {
-        $em   = $container->entityManager();
-        $repo = $em->getRepository('\\Entities\\McpToken');
+        $entityManager = $container->entityManager();
+        if (!method_exists($entityManager, 'getRepository') || !method_exists($entityManager, 'flush')) {
+            throw new LogicException('MCP token revocation requires a Doctrine object manager.');
+        }
 
-        $id   = (isset($args['id']) && is_string($args['id']) && $args['id'] !== '') ? $args['id'] : null;
-        $name = (isset($args['name']) && is_string($args['name']) && $args['name'] !== '') ? $args['name'] : null;
+        /** @var ObjectRepository<McpToken> $repository */
+        $repository = $entityManager->getRepository('\\Entities\\McpToken');
 
-        $tok = $id !== null ? $repo->find((int) $id)
-            : ($name !== null ? $repo->findByName($name) : null);
+        $id = self::option($args, 'id');
+        $name = self::option($args, 'name');
+
+        $tok = $id !== null ? $repository->find((int) $id)
+            : ($name !== null ? $repository->findOneBy(['name' => $name]) : null);
 
         if (!$tok) {
             echo "ERROR: token not found (use --name or --id; see mcp.cli-token-list)\n";
@@ -40,9 +48,16 @@ final class McpTokenRevokeCommand implements CliCommand
         }
 
         $tok->setRevoked(true);
-        $em->flush();
+        $entityManager->flush();
         echo "Revoked MCP token '{$tok->getName()}' (id {$tok->getId()}).\n";
 
         return 0;
+    }
+
+    /** @param array<string,mixed> $args */
+    private static function option(array $args, string $name): ?string
+    {
+        $value = $args[$name] ?? null;
+        return is_string($value) && $value !== '' ? $value : null;
     }
 }

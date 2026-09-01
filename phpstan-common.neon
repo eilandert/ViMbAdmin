@@ -1,0 +1,19 @@
+parameters:
+    paths:
+        - application
+        - bin
+        - library
+        - public
+        - src
+        - tests
+        - preload.php
+    excludePaths:
+        # Generated Doctrine proxies (built at image time, gitignored). They
+        # mirror the entities; analysing them only re-reports entity findings.
+        - application/Proxies/__CG__*.php
+    bootstrapFiles:
+        - vendor/autoload.php
+    # Fixed debt must be removed from the matching baseline in the same change;
+    # stale suppressions are errors rather than reusable hiding places.
+    reportUnmatchedIgnoredErrors: true
+    treatPhpDocTypesAsCertain: false

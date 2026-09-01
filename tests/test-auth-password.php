@@ -1,0 +1,90 @@
+<?php
+
+require __DIR__ . '/../library/OSS/Exception.php';
+require __DIR__ . '/../library/OSS/Crypt/Exception.php';
+require __DIR__ . '/../library/OSS/String.php';
+require __DIR__ . '/../library/OSS/Crypt/Bcrypt.php';
+require __DIR__ . '/../library/ViMbAdmin/Exception.php';
+require __DIR__ . '/../library/ViMbAdmin/Dovecot.php';
+require __DIR__ . '/../library/OSS/Auth/Password.php';
+
+$failures = 0;
+$check = static function (string $label, bool $ok) use (&$failures): void {
+    echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
+    if (!$ok) { $failures++; }
+};
+$throwsOss = static function (callable $operation, string $message): bool {
+    try {
+        $operation();
+    } catch (OSS_Exception $exception) {
+        return $exception->getMessage() === $message;
+    }
+
+    return false;
+};
+
+echo "== OSS auth password ==\n";
+
+foreach ([OSS_Auth_Password::HASH_PLAIN, OSS_Auth_Password::HASH_PLAINTEXT] as $mode) {
+    $hash = OSS_Auth_Password::hash('plain-secret', $mode);
+    $check("{$mode} string configuration hashes unchanged", $hash === 'plain-secret');
+    $check("{$mode} string configuration verifies", OSS_Auth_Password::verify('plain-secret', $hash, $mode));
+    $check("{$mode} string configuration rejects a wrong password", !OSS_Auth_Password::verify('wrong', $hash, $mode));
+}
+
+$bcryptHash = OSS_Auth_Password::hash('bcrypt-secret', ['pwhash' => 'bcrypt', 'hash_cost' => '04']);
+$check('bcrypt array configuration retains numeric-string cost', str_starts_with($bcryptHash, '$2a$04$'));
+$check('bcrypt array configuration verifies', OSS_Auth_Password::verify('bcrypt-secret', $bcryptHash, ['pwhash' => 'bcrypt', 'hash_cost' => 4]));
+$check('bcrypt verification uses the stored hash cost, not generation policy', OSS_Auth_Password::verify('bcrypt-secret', $bcryptHash, ['pwhash' => 'bcrypt', 'hash_cost' => 31]));
+$check('bcrypt rejects a wrong password', !OSS_Auth_Password::verify('wrong', $bcryptHash, ['pwhash' => 'bcrypt', 'hash_cost' => 4]));
+
+$defaultBcryptHash = OSS_Auth_Password::hash('default-cost', OSS_Auth_Password::HASH_BCRYPT);
+$check('bcrypt string configuration retains default cost 12', str_starts_with($defaultBcryptHash, '$2a$12$'));
+$check('bcrypt string configuration verifies', OSS_Auth_Password::verify('default-cost', $defaultBcryptHash, OSS_Auth_Password::HASH_BCRYPT));
+$defaultArrayBcryptHash = OSS_Auth_Password::hash('default-array-cost', ['pwhash' => 'bcrypt']);
+$check('bcrypt array configuration retains default cost 12', str_starts_with($defaultArrayBcryptHash, '$2a$12$'));
+$check('bcrypt rejects malformed cost instead of coercing it', $throwsOss(
+    static fn(): string => OSS_Auth_Password::hash('malformed-cost', ['pwhash' => 'bcrypt', 'hash_cost' => '5junk']),
+    'Bcrypt cost must be an integer between 4 and 16'
+));
+$check('bcrypt rejects operationally excessive cost before hashing', $throwsOss(
+    static fn(): string => OSS_Auth_Password::hash('excessive-cost', ['pwhash' => 'bcrypt', 'hash_cost' => 17]),
+    'Bcrypt cost must be an integer between 4 and 16'
+));
+
+foreach (['crypt:md5' => '$1$', 'crypt:blowfish' => '$2a$12$', 'crypt:sha256' => '$5$', 'crypt:sha512' => '$6$'] as $mode => $prefix) {
+    $hash = OSS_Auth_Password::hash('crypt-secret', $mode);
+    $check("{$mode} retains its hash format", str_starts_with($hash, $prefix));
+    $check("{$mode} verifies", OSS_Auth_Password::verify('crypt-secret', $hash, $mode));
+    $check("{$mode} rejects a wrong password", !OSS_Auth_Password::verify('wrong', $hash, $mode));
+}
+
+$dovecotConfig = ['pwhash' => 'dovecot:sha256-crypt', 'username' => 'user@example.test'];
+$dovecotHash = OSS_Auth_Password::hash('dovecot-secret', $dovecotConfig);
+$check('dovecot configuration preserves its scheme', str_starts_with($dovecotHash, '$5$'));
+$check('dovecot configuration verifies', OSS_Auth_Password::verify('dovecot-secret', $dovecotHash, $dovecotConfig));
+$check('dovecot configuration rejects a wrong password', !OSS_Auth_Password::verify('wrong', $dovecotHash, $dovecotConfig));
+
+$check('missing array hash method still throws', $throwsOss(
+    static fn(): mixed => (new ReflectionMethod(OSS_Auth_Password::class, 'hash'))->invoke(null, 'secret', []),
+    'Cannot hash password without a hash method'
+));
+$check('missing verify hash method still throws', $throwsOss(
+    static fn(): mixed => (new ReflectionMethod(OSS_Auth_Password::class, 'verify'))->invoke(null, 'secret', 'hash', []),
+    'Cannot verify password without a hash method'
+));
+$check('unknown string hash method still throws', $throwsOss(
+    static fn(): string => OSS_Auth_Password::hash('secret', 'unknown'),
+    'Unknown password hashing method'
+));
+$check('unknown crypt method still throws', $throwsOss(
+    static fn(): string => OSS_Auth_Password::hash('secret', 'crypt:unknown'),
+    'Unknown crypt password hashing method'
+));
+
+echo "\n";
+$exitCode = $failures === 0 ? 0 : 1;
+echo $exitCode === 0
+    ? "OK: all OSS_Auth_Password assertions passed (PHP " . PHP_VERSION . ")\n"
+    : "FAIL: {$failures} assertion(s) failed\n";
+exit($exitCode);

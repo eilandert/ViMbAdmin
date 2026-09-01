@@ -59,6 +59,7 @@ class ViMbAdmin_Service_Mailbox
         ?callable $preFlush = null,
         ?callable $postFlush = null
     ): ?bool {
+        $username = $mailbox->requiredUsername();
         if ($preToggle !== null && $preToggle() === false) {
             return null;
         }
@@ -71,7 +72,7 @@ class ViMbAdmin_Service_Mailbox
         $this->log(
             $actor,
             $active ? \Entities\Log::ACTION_MAILBOX_ACTIVATE : \Entities\Log::ACTION_MAILBOX_DEACTIVATE,
-            "{$actor->getFormattedName()} " . ($active ? 'activated' : 'deactivated') . " mailbox {$mailbox->getUsername()}"
+            "{$actor->getFormattedName()} " . ($active ? 'activated' : 'deactivated') . " mailbox {$username}"
         );
 
         if ($preFlush !== null) {
@@ -116,16 +117,21 @@ class ViMbAdmin_Service_Mailbox
         ?callable $preFlush = null,
         ?callable $postFlush = null
     ): bool {
+        $username = $mailbox->requiredUsername();
         if ($preRemove !== null && $preRemove() === false) {
             return false;
         }
 
-        $this->em->getRepository('\\Entities\\Mailbox')->purgeMailbox($mailbox, $actor, !$deleteFiles);
+        $repository = $this->em->getRepository('\\Entities\\Mailbox');
+        if (!method_exists($repository, 'purgeMailbox')) {
+            throw new \LogicException('Mailbox repository must implement purgeMailbox().');
+        }
+        $repository->purgeMailbox($mailbox, $actor, !$deleteFiles);
 
         $this->log(
             $actor,
             \Entities\Log::ACTION_MAILBOX_PURGE,
-            "{$actor->getFormattedName()} purged mailbox {$mailbox->getUsername()}"
+            "{$actor->getFormattedName()} purged mailbox {$username}"
         );
 
         if ($preFlush !== null) {
@@ -165,7 +171,7 @@ class ViMbAdmin_Service_Mailbox
      * notify). Like {@see toggleActive}/{@see purge} the hooks are optional
      * callables so either dispatch path can thread its plugin notify in.
      *
-     * @param array $options the merged application options (needs
+     * @param array<string,mixed> $options the merged application options (needs
      *        `defaults.mailbox.password_scheme`
      *        and the top-level `mailboxAliases` switch)
      * @param callable():void|null $preFlush  fires after the log, before flush
@@ -179,16 +185,33 @@ class ViMbAdmin_Service_Mailbox
         ?callable $preFlush = null,
         ?callable $postFlush = null
     ): \Entities\Mailbox {
+        $username = $mailbox->requiredUsername();
+        $password = $mailbox->requiredPassword();
+        if (!array_key_exists('defaults', $options) || !is_array($options['defaults']))
+            throw new \TypeError('defaults options must be an array');
+        if (!array_key_exists('mailbox', $options['defaults']) || !is_array($options['defaults']['mailbox']))
+            throw new \TypeError('defaults.mailbox options must be an array');
         $mb = $options['defaults']['mailbox'];
+        if (!array_key_exists('password_scheme', $mb))
+            throw new \TypeError('mailbox password scheme must be a string');
+        if ($mb['password_scheme'] === null)
+            throw new \OSS_Exception('Cannot hash password without a hash method');
+        if (!is_string($mb['password_scheme']))
+            throw new \TypeError('mailbox password scheme must be a string');
+        $mailboxAliases = array_key_exists('mailboxAliases', $options) ? $options['mailboxAliases'] : false;
+        if (!is_bool($mailboxAliases) && !($mailboxAliases === 0 || $mailboxAliases === 1)
+            && !($mailboxAliases === '0' || $mailboxAliases === '1'))
+            throw new \TypeError('mailboxAliases must be boolean');
+        $mailboxAliases = $mailboxAliases === true || $mailboxAliases === 1 || $mailboxAliases === '1';
 
         $mailbox->setDomain($domain);
-        $mailbox->setActive(1);
+        $mailbox->setActive(true);
         $mailbox->setDeletePending(false);
         $mailbox->setCreated(new \DateTime());
 
-        $mailbox->setPassword(\OSS_Auth_Password::hash($mailbox->getPassword(), [
+        $mailbox->setPassword(\OSS_Auth_Password::hash($password, [
             'pwhash'   => $mb['password_scheme'],
-            'username' => $mailbox->getUsername(),
+            'username' => $username,
         ]));
 
         $this->em->persist($mailbox);
@@ -197,14 +220,14 @@ class ViMbAdmin_Service_Mailbox
         // address already exists (e.g. an orphan from an earlier failed attempt)
         // — inserting a duplicate violates the unique key and rolls the create
         // back.
-        if (!empty($options['mailboxAliases']) && (int) $options['mailboxAliases'] === 1
-            && $this->em->getRepository('\\Entities\\Alias')->findOneBy(['address' => $mailbox->getUsername()]) === null
+        if ($mailboxAliases
+            && $this->em->getRepository('\\Entities\\Alias')->findOneBy(['address' => $username]) === null
         ) {
             $alias = new \Entities\Alias();
-            $alias->setAddress($mailbox->getUsername());
-            $alias->setGoto($mailbox->getUsername());
+            $alias->setAddress($username);
+            $alias->setGoto($username);
             $alias->setDomain($domain);
-            $alias->setActive(1);
+            $alias->setActive(true);
             $alias->setCreated(new \DateTime());
             $this->em->persist($alias);
         }
@@ -214,7 +237,7 @@ class ViMbAdmin_Service_Mailbox
         $this->log(
             $actor,
             \Entities\Log::ACTION_MAILBOX_ADD,
-            "{$actor->getFormattedName()} added mailbox {$mailbox->getUsername()}"
+            "{$actor->getFormattedName()} added mailbox {$username}"
         );
 
         if ($preFlush !== null) {
@@ -251,12 +274,13 @@ class ViMbAdmin_Service_Mailbox
         ?callable $preFlush = null,
         ?callable $postFlush = null
     ): \Entities\Mailbox {
+        $username = $mailbox->requiredUsername();
         $mailbox->setModified(new \DateTime());
 
         $this->log(
             $actor,
             \Entities\Log::ACTION_MAILBOX_EDIT,
-            "{$actor->getFormattedName()} edited mailbox {$mailbox->getUsername()}"
+            "{$actor->getFormattedName()} edited mailbox {$username}"
         );
 
         if ($preFlush !== null) {

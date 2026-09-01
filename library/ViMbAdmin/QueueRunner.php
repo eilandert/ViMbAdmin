@@ -17,6 +17,15 @@
  * is below the cap. Stale leases (the process died without releasing) are reaped
  * after LEASE_TTL seconds so a slot is never lost forever.
  */
+/**
+ * @phpstan-type QueueRunnerOptions array{
+ *     queue?: array{
+ *         runner?: array{max_concurrent?: mixed, ...<string, mixed>},
+ *         ...<string, mixed>
+ *     },
+ *     ...<string, mixed>
+ * }
+ */
 class ViMbAdmin_QueueRunner
 {
     /** Seconds after which a lease with no heartbeat is considered dead. */
@@ -27,15 +36,16 @@ class ViMbAdmin_QueueRunner
      * Reaps stale leases first so a crashed runner doesn't pin a slot.
      *
      * @param \Doctrine\ORM\EntityManager $em
-     * @param array $options
+     * @param QueueRunnerOptions $options
      * @return bool
      */
     public static function slotAvailable( $em, array $options )
     {
+        $max = self::maxConcurrent($options);
         self::reapStale( $em );
-        $max    = max( 1, (int) ( $options['queue']['runner']['max_concurrent'] ?? 1 ) );
-        $active = (int) $em->createQuery(
+        $activeValue = $em->createQuery(
             'SELECT COUNT(r.id) FROM \Entities\QueueRunner r' )->getSingleScalarResult();
+        $active = self::nonNegativeInt($activeValue, 'active runner count');
         return $active < $max;
     }
 
@@ -46,7 +56,7 @@ class ViMbAdmin_QueueRunner
      * out if we overshot the cap — cheap and correct for the small N here.
      *
      * @param \Doctrine\ORM\EntityManager $em
-     * @param array $options
+     * @param QueueRunnerOptions $options
      * @return \Entities\QueueRunner|null
      */
     public static function acquireLease( $em, array $options )
@@ -65,11 +75,20 @@ class ViMbAdmin_QueueRunner
 
         // Race back-off: if our insert pushed the active count over the cap and
         // we are not among the oldest <max> leases, yield our slot.
-        $max = max( 1, (int) ( $options['queue']['runner']['max_concurrent'] ?? 1 ) );
+        $max = self::maxConcurrent($options);
         $ids = $em->createQuery(
             'SELECT r.id FROM \Entities\QueueRunner r ORDER BY r.id ASC' )
             ->setMaxResults( $max )->getResult();
-        $keep = array_map( function( $r ) { return (int) $r['id']; }, $ids );
+        if (!is_array($ids) || !array_is_list($ids)) {
+            throw new \UnexpectedValueException('Runner lease query result is malformed');
+        }
+        $keep = [];
+        foreach ($ids as $row) {
+            if (!is_array($row) || !array_key_exists('id', $row)) {
+                throw new \UnexpectedValueException('Runner lease row is malformed');
+            }
+            $keep[] = self::positiveInt($row['id'], 'runner lease id');
+        }
         if( !in_array( (int) $lease->getId(), $keep, true ) )
         {
             $em->remove( $lease );
@@ -127,9 +146,38 @@ class ViMbAdmin_QueueRunner
     public static function reapStale( $em )
     {
         $cutoff = ( new \DateTime() )->modify( '-' . self::LEASE_TTL . ' seconds' );
-        return (int) $em->createQuery(
+        $reaped = $em->createQuery(
             'DELETE FROM \Entities\QueueRunner r WHERE r.heartbeat_at < :cutoff' )
             ->setParameter( 'cutoff', $cutoff )
             ->execute();
+        return self::nonNegativeInt($reaped, 'reaped runner count');
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function maxConcurrent(array $options): int
+    {
+        if (!array_key_exists('queue', $options)) return 1;
+        if (!is_array($options['queue'])) throw new \TypeError('queue options must be an array');
+        if (!array_key_exists('runner', $options['queue'])) return 1;
+        if (!is_array($options['queue']['runner'])) throw new \TypeError('queue.runner options must be an array');
+        if (!array_key_exists('max_concurrent', $options['queue']['runner'])) return 1;
+        return max(1, self::nonNegativeInt($options['queue']['runner']['max_concurrent'], 'max_concurrent'));
+    }
+
+    private static function nonNegativeInt(mixed $value, string $name): int
+    {
+        if (is_int($value) && $value >= 0) return $value;
+        if (is_string($value) && preg_match('/^(?:0|[1-9][0-9]*)$/D', $value) === 1) {
+            $parsed = filter_var($value, FILTER_VALIDATE_INT);
+            if ($parsed !== false && $parsed >= 0) return $parsed;
+        }
+        throw new \TypeError($name . ' must be a non-negative integer');
+    }
+
+    private static function positiveInt(mixed $value, string $name): int
+    {
+        $parsed = self::nonNegativeInt($value, $name);
+        if ($parsed > 0) return $parsed;
+        throw new \TypeError($name . ' must be positive');
     }
 }

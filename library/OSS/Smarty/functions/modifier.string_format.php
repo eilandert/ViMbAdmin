@@ -59,8 +59,8 @@
  * @package    OSS_Smarty
  * @subpackage Modifier
  *
- * @param string
- * @param string
+ * @param string $string
+ * @param string $format
  * @return string
  */
 function smarty_modifier_string_format( $string, $format )

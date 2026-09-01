@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
+use Doctrine\ORM\EntityManager;
+use Entities\Admin;
+use LogicException;
+use Repositories\Archive as ArchiveRepository;
+use Repositories\Domain as DomainRepository;
 use ViMbAdmin\Kernel\DataTable\DataTableQuery;
 use ViMbAdmin\Kernel\DataTable\DataTableResult;
 use ViMbAdmin\Kernel\Flash\FlashMessages;
 use ViMbAdmin\Kernel\Http\Response;
 use ViMbAdmin\Kernel\Mvc\AbstractController;
+use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
 
 /**
  * Native port of `ArchiveController::list` + `toggleAutoprune`
@@ -31,6 +37,146 @@ use ViMbAdmin\Kernel\Mvc\AbstractController;
  */
 final class ArchiveController extends AbstractController
 {
+    private static function positiveIntegerOrNull(mixed $value): ?int
+    {
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            return is_int($integer) ? $integer : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<array-key,mixed> $value
+     * @return array<string,mixed>
+     */
+    private static function requestArray(array $value): array
+    {
+        $scalarKeys = ['sEcho', 'iDisplayStart', 'iDisplayLength', 'sSearch', 'iSortCol_0', 'sSortDir_0'];
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                continue;
+            }
+            if (in_array($key, $scalarKeys, true) && !is_string($item)) {
+                throw new LogicException("DataTables parameter {$key} must be a string");
+            }
+            $result[$key] = $item;
+        }
+
+        return $result;
+    }
+
+    /** @return array<string,mixed> */
+    private static function stringKeyedArray(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new LogicException("{$name} must be an array");
+        }
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                throw new LogicException("{$name} must use string keys");
+            }
+            $result[$key] = $item;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array{bool,mixed}
+     */
+    private static function option(array $options, string ...$path): array
+    {
+        $value = $options;
+        $walked = [];
+        foreach ($path as $key) {
+            $value = self::stringKeyedArray(
+                $value,
+                'Configuration ' . ($walked === [] ? 'root' : implode('.', $walked)),
+            );
+            $walked[] = $key;
+            if (!array_key_exists($key, $value)) {
+                return [false, null];
+            }
+            $value = $value[$key];
+        }
+
+        return [true, $value];
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionBoolean(array $options, bool $default, string ...$path): bool
+    {
+        [$found, $value] = self::option($options, ...$path);
+        if (!$found) {
+            return $default;
+        }
+        if ($value === true || $value === 1 || $value === '1') {
+            return true;
+        }
+        if ($value === false || $value === 0 || $value === '0' || $value === '') {
+            return false;
+        }
+
+        throw new LogicException('Configuration ' . implode('.', $path) . ' must be boolean');
+    }
+
+    private static function nonNegativeInteger(mixed $value, string $name): int
+    {
+        if (is_int($value) && $value >= 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[0-9]+$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            if (is_int($integer)) {
+                return $integer;
+            }
+        }
+
+        throw new LogicException("{$name} must be a non-negative integer");
+    }
+
+    /** @return array{username:string,local_part:string,name:?string,password:string,quota:int,active:bool} */
+    private static function mailboxSnapshot(mixed $value): array
+    {
+        $snapshot = self::stringKeyedArray($value, 'Archive mailbox snapshot');
+        foreach (['username', 'local_part', 'name', 'password', 'quota', 'active'] as $key) {
+            if (!array_key_exists($key, $snapshot)) {
+                throw new LogicException("Archive mailbox snapshot missing {$key}");
+            }
+        }
+        if (!is_string($snapshot['username']) || $snapshot['username'] === '') {
+            throw new LogicException('Archive mailbox snapshot username must be a non-empty string');
+        }
+        if (!is_string($snapshot['local_part']) || $snapshot['local_part'] === '') {
+            throw new LogicException('Archive mailbox snapshot local_part must be a non-empty string');
+        }
+        if ($snapshot['name'] !== null && !is_string($snapshot['name'])) {
+            throw new LogicException('Archive mailbox snapshot name must be a string or null');
+        }
+        if (!is_string($snapshot['password']) || $snapshot['password'] === '') {
+            throw new LogicException('Archive mailbox snapshot password must be a non-empty string');
+        }
+        if (!is_bool($snapshot['active'])) {
+            throw new LogicException('Archive mailbox snapshot active must be boolean');
+        }
+
+        return [
+            'username' => $snapshot['username'],
+            'local_part' => $snapshot['local_part'],
+            'name' => $snapshot['name'],
+            'password' => $snapshot['password'],
+            'quota' => self::nonNegativeInteger($snapshot['quota'], 'Archive mailbox snapshot quota'),
+            'active' => $snapshot['active'],
+        ];
+    }
 
     /**
      * GET /archive and /archive/index — the auth-gated landing forwards to the list
@@ -52,26 +198,37 @@ final class ArchiveController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $session = $this->session();
+        $session = new MagicPropertyStorage($this->session());
         $domain  = null;
+        $unset   = $this->param('unset', false);
 
-        if ($this->param('unset', false)) {
-            unset($session->domain);
-        } elseif (isset($session->domain) && $session->domain) {
-            $domain = $session->domain;
-        } elseif ($did = $this->param('did')) {
-            $domain = $this->em()->getRepository('\\Entities\\Domain')->find((int) $did);
-            if ($domain && !$admin->isSuper() && !$admin->canManageDomain($domain)) {
-                return $this->redirect('auth/login');
+        if ($unset) {
+            $session->remove('domain');
+        }
+
+        if (!$unset) {
+            $storedDomain = $session->get('domain');
+            if ($storedDomain instanceof \Entities\Domain) {
+                $domain = $storedDomain;
             }
-            if ($domain) {
-                $session->domain = $domain;
+
+            if (!($storedDomain instanceof \Entities\Domain)) {
+                $did = self::positiveIntegerOrNull($this->param('did'));
+                if ($did !== null) {
+                    $domain = $this->domainRepository()->find($did);
+                    if ($domain && !$admin->isSuper() && !$admin->canManageDomain($domain)) {
+                        return $this->redirect('auth/login');
+                    }
+                    if ($domain) {
+                        $session->set('domain', $domain);
+                    }
+                }
             }
         }
 
-        $cfg      = $this->container->options()['defaults']['server_side']['pagination']['archive'] ?? [];
-        $archives = empty($cfg['enable'])
-            ? $this->em()->getRepository('\\Entities\\Archive')->loadForArchiveList($admin, $domain)
+        $paginate = self::optionBoolean($this->container->options(), false, 'defaults', 'server_side', 'pagination', 'archive', 'enable');
+        $archives = !$paginate
+            ? $this->archiveRepository()->loadForArchiveList($admin, $domain)
             : [];
 
         return $this->view('archive/list.phtml', [
@@ -96,15 +253,16 @@ final class ArchiveController extends AbstractController
             return new Response('ko');
         }
 
-        $session = $this->session();
-        $domain  = (isset($session->domain) && $session->domain) ? $session->domain : null;
+        $session = new MagicPropertyStorage($this->session());
+        $storedDomain = $session->get('domain');
+        $domain = $storedDomain instanceof \Entities\Domain ? $storedDomain : null;
 
-        $q = DataTableQuery::fromArray($_GET);
+        $q = DataTableQuery::fromArray(self::requestArray($_GET));
         // Column index -> sortable field (matches JS column order; size / user-exists
         // / autoprune / controls fall back to archived date).
         $sortField = [0 => 'username', 1 => 'status', 2 => 'domain', 4 => 'archived_at'][$q->sortColumn] ?? 'archived_at';
 
-        $r = $this->em()->getRepository('\\Entities\\Archive')
+        $r = $this->archiveRepository()
             ->pagedForArchiveList($admin, $domain, $q->search, $sortField, $q->sortDir, $q->start, $q->length);
 
         foreach ($r['rows'] as &$row) {
@@ -115,7 +273,7 @@ final class ArchiveController extends AbstractController
         unset($row);
 
         return new Response(
-            DataTableResult::json($q, $r['total'], $r['filtered'], $r['rows']),
+            DataTableResult::json($q, $r['total'], $r['filtered'], array_values($r['rows'])),
             200,
             'application/json; charset=utf-8'
         );
@@ -146,20 +304,22 @@ final class ArchiveController extends AbstractController
             return $this->redirect('archive/list');
         }
 
-        $archive = ($arid = $this->param('arid'))
-            ? $this->em()->getRepository('\\Entities\\Archive')->find((int) $arid)
-            : null;
+        $archive = $this->archiveFromParameter('arid');
 
         // loadArchive() authorises a non-super admin against the archive's domain.
-        if (!$archive || (!$admin->isSuper() && !$admin->canManageDomain($archive->getDomain()))) {
+        if (!$archive) {
+            return $this->redirect('archive/list');
+        }
+        if (!$admin->isSuper() && !$admin->canManageDomain($archive->requiredDomain())) {
             return $this->redirect('archive/list');
         }
 
+        $username = $archive->requiredUsername();
         $enabled = (new \ViMbAdmin_Service_Archive($this->em()))->toggleAutoprune($archive, $admin);
 
         $this->flash($enabled
-            ? sprintf('Autoprune enabled for %s; the prune window restarts from now.', $archive->getUsername())
-            : sprintf('Autoprune disabled for %s.', $archive->getUsername()));
+            ? sprintf('Autoprune enabled for %s; the prune window restarts from now.', $username)
+            : sprintf('Autoprune disabled for %s.', $username));
 
         return $this->redirect('archive/list');
     }
@@ -185,15 +345,16 @@ final class ArchiveController extends AbstractController
             return $this->redirect('archive/list');
         }
 
-        $archive = ($arid = $this->param('arid'))
-            ? $this->em()->getRepository('\\Entities\\Archive')->find((int) $arid)
-            : null;
+        $archive = $this->archiveFromParameter('arid');
 
-        if (!$archive || (!$admin->isSuper() && !$admin->canManageDomain($archive->getDomain()))) {
+        if (!$archive) {
+            return $this->redirect('archive/list');
+        }
+        if (!$admin->isSuper() && !$admin->canManageDomain($archive->requiredDomain())) {
             return $this->redirect('archive/list');
         }
 
-        $user = $archive->getUsername();
+        $user = $archive->requiredUsername();
         $dest = $archive->getMaildirFile();
 
         // Remove the backup files first; abort (keeping the row) if doveadm fails.
@@ -240,11 +401,12 @@ final class ArchiveController extends AbstractController
         }
 
         $em      = $this->em();
-        $archive = ($arid = $this->param('arid'))
-            ? $em->getRepository('\\Entities\\Archive')->find((int) $arid)
-            : null;
+        $archive = $this->archiveFromParameter('arid');
 
-        if (!$archive || (!$admin->isSuper() && !$admin->canManageDomain($archive->getDomain()))) {
+        if (!$archive) {
+            return $this->redirect('archive/list');
+        }
+        if (!$admin->isSuper() && !$admin->canManageDomain($archive->requiredDomain())) {
             return $this->redirect('archive/list');
         }
 
@@ -253,30 +415,43 @@ final class ArchiveController extends AbstractController
             return $this->redirect('archive/list');
         }
 
-        $user    = $archive->getUsername();
+        $user    = $archive->requiredUsername();
         $dest    = $archive->getMaildirFile();
         $options = $this->container->options();
 
         // 1) Recreate the mailbox if it's gone (a DELETE'd account).
         $mailbox = $em->getRepository('\\Entities\\Mailbox')->findOneBy(['username' => $user]);
         if (!$mailbox) {
-            $snap = json_decode((string) $archive->getData(), true);
-            $m    = (is_array($snap) && isset($snap['mailbox'])) ? $snap['mailbox'] : null;
-            if (!$m) {
+            $domain = $archive->requiredDomain();
+            $data = $archive->getData();
+            $snap = is_string($data) ? json_decode($data, true) : null;
+            try {
+                $m = is_array($snap) && array_key_exists('mailbox', $snap)
+                    ? self::mailboxSnapshot($snap['mailbox']) : null;
+            } catch (\LogicException $e) {
+                $m = null;
+            }
+            if ($m === null) {
                 $this->flash(sprintf('Cannot restore %s: no mailbox snapshot stored with the archive.', $user), FlashMessages::ERROR);
+                return $this->redirect('archive/list');
+            }
+            $expectedSnapshotUsername = $m['local_part'] . '@' . $domain->requiredDomainName();
+            if ($m['username'] !== $user || $m['username'] !== $expectedSnapshotUsername) {
+                $this->flash(sprintf('Cannot restore %s: mailbox snapshot identity does not match the archive.', $user), FlashMessages::ERROR);
                 return $this->redirect('archive/list');
             }
 
             $mailbox = new \Entities\Mailbox();
-            $mailbox->setUsername($m['username'])
-                    ->setLocalPart($m['local_part'])
-                    ->setName($m['name'])
-                    ->setPassword($m['password'])   // original hash — password preserved
+            $mailbox->setUsername($m['username'])->setLocalPart($m['local_part']);
+            if ($m['name'] !== null) {
+                $mailbox->setName($m['name']);
+            }
+            $mailbox->setPassword($m['password'])   // original hash — password preserved
                     ->setQuota($m['quota'])
                     ->setActive($m['active'])
-                    ->setDomain($archive->getDomain())
+                    ->setDomain($domain)
                     ->setCreated(new \DateTime());
-            $archive->getDomain()->increaseMailboxCount();
+            $domain->increaseMailboxCount();
             $em->persist($mailbox);
             $em->flush();   // userdb must see the account before doveadm sync
         }
@@ -307,15 +482,13 @@ final class ArchiveController extends AbstractController
         // 4) Queue a background REPAIR (force-resync + index + quota recalc) so the
         //    restored account is fully consistent. Non-blocking.
         $repairQueued = false;
-        if ($mailbox) {
-            try {
-                if (\ViMbAdmin_MailboxQueue::enqueue($em, $mailbox, \Entities\MailboxTask::TYPE_REPAIR, $admin)) {
-                    $em->flush();
-                    $repairQueued = true;
-                }
-            } catch (\Throwable $e) {
-                error_log("ArchiveController::restoreAction enqueue repair {$user}: " . $e->getMessage());
+        try {
+            if (\ViMbAdmin_MailboxQueue::enqueue($em, $mailbox, \Entities\MailboxTask::TYPE_REPAIR, $admin)) {
+                $em->flush();
+                $repairQueued = true;
             }
+        } catch (\Throwable $e) {
+            error_log("ArchiveController::restoreAction enqueue repair {$user}: " . $e->getMessage());
         }
 
         (new \ViMbAdmin_Service_Archive($em))->logRestore($admin, $user, $repairQueued);
@@ -326,5 +499,56 @@ final class ArchiveController extends AbstractController
             $repairQueued ? ' A repair/optimize was queued and will run in the background.' : ''
         ));
         return $this->redirect('archive/list');
+    }
+
+    protected function em(): EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof EntityManager) {
+            throw new LogicException('Doctrine entity manager resource has an invalid type');
+        }
+
+        return $em;
+    }
+
+    protected function admin(): ?Admin
+    {
+        $admin = parent::admin();
+        if ($admin !== null && !$admin instanceof Admin) {
+            throw new LogicException('Authenticated admin has an invalid type');
+        }
+
+        return $admin;
+    }
+
+    private function archiveRepository(): ArchiveRepository
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Archive');
+        if (!$repo instanceof ArchiveRepository) {
+            throw new LogicException('Archive repository has an invalid type');
+        }
+
+        return $repo;
+    }
+
+    private function archiveFromParameter(string $parameter): ?\Entities\Archive
+    {
+        $id = self::positiveIntegerOrNull($this->param($parameter));
+        if ($id === null) {
+            return null;
+        }
+
+        $archive = $this->archiveRepository()->find($id);
+        return $archive instanceof \Entities\Archive ? $archive : null;
+    }
+
+    private function domainRepository(): DomainRepository
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Domain');
+        if (!$repo instanceof DomainRepository) {
+            throw new LogicException('Domain repository has an invalid type');
+        }
+
+        return $repo;
     }
 }

@@ -21,39 +21,41 @@
  *
  * All reads are null-safe: with no [demo] section the helper is inert and the
  * panel behaves normally.
+ *
+ * @phpstan-type DemoOptions array{demo?: mixed, ...<string, mixed>}
  */
 class ViMbAdmin_Demo
 {
     /**
      * The configured demo account address, or null if the demo lock is off.
      *
-     * @param array $options  merged application.ini options
+     * @param DemoOptions $options  merged application.ini options
      * @return string|null
      */
     public static function account( array $options )
     {
-        $acct = isset( $options['demo']['account'] ) ? trim( (string) $options['demo']['account'] ) : '';
+        $acct = trim( self::optionValue( $options, 'account' ) ?? '' );
         return $acct !== '' ? $acct : null;
     }
 
     /**
      * The advertised demo password (shown on the login page), or null.
      *
-     * @param array $options
+     * @param DemoOptions $options
      * @return string|null
      */
     public static function password( array $options )
     {
         if( self::account( $options ) === null )
             return null;
-        $pw = isset( $options['demo']['password'] ) ? (string) $options['demo']['password'] : '';
+        $pw = self::optionValue( $options, 'password' ) ?? '';
         return $pw !== '' ? $pw : null;
     }
 
     /**
      * Is the demo lock active at all?
      *
-     * @param array $options
+     * @param DemoOptions $options
      * @return bool
      */
     public static function enabled( array $options )
@@ -65,8 +67,8 @@ class ViMbAdmin_Demo
      * Is $username the locked demo account? Case-insensitive. False when the
      * demo lock is off or $username is empty.
      *
-     * @param array  $options
-     * @param string $username
+     * @param DemoOptions $options
+     * @param string|null $username
      * @return bool
      */
     public static function isLocked( array $options, $username )
@@ -75,5 +77,24 @@ class ViMbAdmin_Demo
         if( $acct === null || $username === null || $username === '' )
             return false;
         return strcasecmp( $acct, (string) $username ) === 0;
+    }
+
+    /**
+     * Read a scalar or stringable demo option without trusting the parsed
+     * configuration shape.
+     *
+     * @param DemoOptions $options
+     */
+    private static function optionValue( array $options, string $key ): ?string
+    {
+        $demo = $options['demo'] ?? null;
+        if( !is_array( $demo ) )
+            return null;
+
+        $value = $demo[$key] ?? null;
+        if( !is_scalar( $value ) && !$value instanceof Stringable )
+            return null;
+
+        return (string) $value;
     }
 }

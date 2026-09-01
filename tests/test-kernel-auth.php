@@ -32,13 +32,32 @@ final class AdminFake
     public function getSuper(): bool { return $this->super; }
 }
 
-$failures = 0;
-function check(string $label, bool $ok): void {
-    echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+final class NullUsernameAdminFake
+{
+    public function getId(): int { return 13; }
+    public function getUsername(): null { return null; }
+    public function getSuper(): bool { return false; }
 }
 
-/** Loader over a small id->admin table; records how many times it ran. */
+final class EmptyUsernameAdminFake
+{
+    public function getId(): int { return 14; }
+    public function getUsername(): string { return ''; }
+    public function getSuper(): bool { return false; }
+}
+
+final class TestKernelAuthHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelAuthHarnessState::$count;
+function check(string $label, bool $ok): void {
+    echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
+    if (!$ok) { TestKernelAuthHarnessState::$count++; }
+}
+
+/** @param array<int,object> $table */
 function loaderFor(array $table, int &$calls): callable {
     return function (int $id) use ($table, &$calls): ?object { $calls++; return $table[$id] ?? null; };
 }
@@ -85,6 +104,32 @@ check('stale: isAuthorised false',      $x->isAuthorised() === false);
 // --- malformed identity (no id) --------------------------------------- //
 $m = new Auth(new ArraySession(['identity' => ['username' => 'no-id']]), loaderFor([5 => $normal], $calls));
 check('no id -> not authenticated',     $m->isAuthenticated() === false);
+$malformedCalls = 0;
+$malformed = new Auth(new ArraySession(['identity' => 'not-an-array']), loaderFor([5 => $normal], $malformedCalls));
+check('malformed identity -> null',      $malformed->identity() === null);
+check('malformed identity is rejected before loading',
+    $malformed->isAuthenticated() === false && $malformed->admin() === null && $malformedCalls === 0);
+$badIdCalls = 0;
+$badId = new Auth(new ArraySession(['identity' => ['id' => ['5']]]), loaderFor([5 => $normal], $badIdCalls));
+check('malformed identity id is rejected before loading',
+    $badId->isAuthenticated() === false && $badId->admin() === null && $badIdCalls === 0);
+$stringIdCalls = 0;
+$stringId = new Auth(new ArraySession(['identity' => ['id' => '5']]), loaderFor([5 => $normal], $stringIdCalls));
+check('numeric-string identity id remains compatible',
+    $stringId->isAuthenticated() === true && $stringId->admin() === $normal && $stringIdCalls === 1);
+
+// --- repository returns the wrong object ------------------------------ //
+$wrongCalls = 0;
+$wrong = new Auth(new ArraySession(['identity' => ['id' => 5]]), loaderFor([5 => new stdClass()], $wrongCalls));
+$wrongObjectRejected = false;
+try {
+    $wrong->admin();
+} catch (Throwable $e) {
+    $wrongObjectRejected = $e instanceof LogicException
+        && $e->getMessage() === 'Authenticated admin has an invalid type';
+}
+check('wrong repository object fails at the authentication boundary',
+    $wrongObjectRejected && $wrongCalls === 1);
 
 // --- custom identity key ---------------------------------------------- //
 $c = new Auth(new ArraySession(['Zend_Auth' => ['id' => 5]]), loaderFor([5 => $normal], $calls), 'Zend_Auth');
@@ -101,6 +146,42 @@ check('establish -> admin() resolves',  $e->admin() === $normal);
 $e->clear();
 check('clear removes the identity',     $sess->get('identity') === null);
 check('clear -> anonymous',             $e->isAuthenticated() === false && $e->admin() === null);
+
+$invalidSession = new ArraySession([]);
+$invalidEstablish = new Auth($invalidSession, loaderFor([], $calls));
+$invalidEstablishRejected = false;
+try {
+    $invalidEstablish->establish(new stdClass());
+} catch (Throwable $e) {
+    $invalidEstablishRejected = $e instanceof LogicException
+        && $e->getMessage() === 'Authenticated admin has an invalid type';
+}
+check('wrong login object fails before writing identity',
+    $invalidEstablishRejected && $invalidSession->get('identity') === null);
+
+$nullUsernameSession = new ArraySession([]);
+$nullUsernameEstablish = new Auth($nullUsernameSession, loaderFor([], $calls));
+$nullUsernameRejected = false;
+try {
+    $nullUsernameEstablish->establish(new NullUsernameAdminFake());
+} catch (Throwable $e) {
+    $nullUsernameRejected = $e instanceof LogicException
+        && $e->getMessage() === 'Authenticated admin username is required';
+}
+check('null admin username fails before writing identity',
+    $nullUsernameRejected && $nullUsernameSession->get('identity') === null);
+
+$emptyUsernameSession = new ArraySession([]);
+$emptyUsernameEstablish = new Auth($emptyUsernameSession, loaderFor([], $calls));
+$emptyUsernameRejected = false;
+try {
+    $emptyUsernameEstablish->establish(new EmptyUsernameAdminFake());
+} catch (Throwable $e) {
+    $emptyUsernameRejected = $e instanceof LogicException
+        && $e->getMessage() === 'Authenticated admin username is required';
+}
+check('empty admin username fails before writing identity',
+    $emptyUsernameRejected && $emptyUsernameSession->get('identity') === null);
 
 echo "\n";
 if ($failures === 0) {

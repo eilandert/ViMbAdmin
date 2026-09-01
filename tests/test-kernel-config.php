@@ -16,18 +16,38 @@ require __DIR__ . '/../src/Kernel/Config/IniConfig.php';
 
 use ViMbAdmin\Kernel\Config\IniConfig;
 
-$failures = 0;
-function check(string $label, bool $ok): void {
+final class IniConfigTestState
+{
+    public static int $failures = 0;
+}
+
+function configCheck(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { IniConfigTestState::$failures++; }
+}
+
+/**
+ * @param array<string,mixed> $config
+ * @param non-empty-list<string> $path
+ */
+function configValue(array $config, array $path): mixed {
+    $value = $config;
+    foreach ($path as $segment) {
+        if (!is_array($value) || !array_key_exists($segment, $value)) {
+            return null;
+        }
+        $value = $value[$segment];
+    }
+
+    return $value;
 }
 
 echo "== native INI config loader ==\n";
 
 // --- dotted-key nesting -----------------------------------------------------
 $cfg = IniConfig::parse("[user]\nresources.doctrine2.connection.options.driver = 'pdo_mysql'\n", 'user');
-check('dotted keys nest into arrays',
-    ($cfg['resources']['doctrine2']['connection']['options']['driver'] ?? null) === 'pdo_mysql');
+configCheck('dotted keys nest into arrays',
+    configValue($cfg, ['resources', 'doctrine2', 'connection', 'options', 'driver']) === 'pdo_mysql');
 
 // --- section inheritance (child overrides parent, parent keys retained) -----
 $ini = <<<INI
@@ -40,14 +60,14 @@ a.y = 9
 only.prod = yes
 INI;
 $prod = IniConfig::parse($ini, 'production');
-check('inherited parent key retained', ($prod['a']['x'] ?? null) === '1');
-check('child overrides parent key',    ($prod['a']['y'] ?? null) === '9');
-check('parent scalar inherited',       ($prod['shared'] ?? null) === 'base');
-check('child-only key present',        ($prod['only']['prod'] ?? null) === '1'); // 'yes'->'1' (NORMAL)
+configCheck('inherited parent key retained', configValue($prod, ['a', 'x']) === '1');
+configCheck('child overrides parent key',    configValue($prod, ['a', 'y']) === '9');
+configCheck('parent scalar inherited',       ($prod['shared'] ?? null) === 'base');
+configCheck('child-only key present',        configValue($prod, ['only', 'prod']) === '1'); // 'yes'->'1' (NORMAL)
 
 $base = IniConfig::parse($ini, 'user');
-check('base section has no child-only key', !isset($base['only']));
-check('base section keeps own value',       ($base['a']['y'] ?? null) === '2');
+configCheck('base section has no child-only key', !isset($base['only']));
+configCheck('base section keeps own value',       configValue($base, ['a', 'y']) === '2');
 
 // --- transitive inheritance chain (development : production : user) ---------
 $chain = <<<INI
@@ -59,56 +79,58 @@ level = production
 note = dev
 INI;
 $dev = IniConfig::parse($chain, 'development');
-check('transitive: nearest ancestor wins', ($dev['level'] ?? null) === 'production');
-check('transitive: own key present',        ($dev['note'] ?? null) === 'dev');
+configCheck('transitive: nearest ancestor wins', ($dev['level'] ?? null) === 'production');
+configCheck('transitive: own key present',        ($dev['note'] ?? null) === 'dev');
 
 // --- constant concatenation (APPLICATION_PATH "/x") -------------------------
 $cc = IniConfig::parse("[user]\nincludePaths.library = APPLICATION_PATH \"/../library\"\n", 'user');
-check('constant + quoted string concatenated',
-    ($cc['includePaths']['library'] ?? null) === '/app/../library');
+configCheck('constant + quoted string concatenated',
+    configValue($cc, ['includePaths', 'library']) === '/app/../library');
 
 // --- boolean coercion mirrors Zend (true->'1', false->'') -------------------
 $bools = IniConfig::parse("[user]\nf.on = true\nf.off = false\n", 'user');
-check('true coerces to "1"',  ($bools['f']['on'] ?? null) === '1');
-check('false coerces to ""',  ($bools['f']['off'] ?? null) === '');
+configCheck('true coerces to "1"',  configValue($bools, ['f', 'on']) === '1');
+configCheck('false coerces to ""',  configValue($bools, ['f', 'off']) === '');
 
 // --- error cases ------------------------------------------------------------
 $threw = false;
 try { IniConfig::parse("[user]\nx=1\n", 'missing'); } catch (\RuntimeException) { $threw = true; }
-check('unknown requested section throws', $threw);
+configCheck('unknown requested section throws', $threw);
 
 $threw = false;
 try { IniConfig::parse("[child : ghost]\nx=1\n", 'child'); } catch (\RuntimeException) { $threw = true; }
-check('extending an unknown section throws', $threw);
+configCheck('extending an unknown section throws', $threw);
 
 $threw = false;
 try { IniConfig::parse("[a : b : c]\nx=1\n", 'a'); } catch (\RuntimeException) { $threw = true; }
-check('more than one parent throws', $threw);
+configCheck('more than one parent throws', $threw);
 
 // --- section-less base layer (flattened config) ----------------------------
 $flat = "a.b = 1\nshared = base\nlist[] = x\nlist[] = y\n";
 $g1 = IniConfig::parse($flat, 'production'); // no such section -> base only
-check('flat file loads under any env',        ($g1['a']['b'] ?? null) === '1');
-check('flat file: scalar global present',     ($g1['shared'] ?? null) === 'base');
-check('flat file: key[] append nests as list',($g1['list'] ?? null) === ['x', 'y']);
+configCheck('flat file loads under any env',        configValue($g1, ['a', 'b']) === '1');
+configCheck('flat file: scalar global present',     ($g1['shared'] ?? null) === 'base');
+configCheck('flat file: key[] append nests as list',($g1['list'] ?? null) === ['x', 'y']);
 
 $mixed = "base.k = G\nshared = global\n[docker : production]\nshared = docker\n[production]\nshared = prod\n";
 $d = IniConfig::parse($mixed, 'docker');
-check('globals form the base under a section', ($d['base']['k'] ?? null) === 'G');
-check('section overrides a global key',        ($d['shared'] ?? null) === 'docker');
+configCheck('globals form the base under a section', configValue($d, ['base', 'k']) === 'G');
+configCheck('section overrides a global key',        ($d['shared'] ?? null) === 'docker');
 
 // --- smoke test against the real shipped dist file --------------------------
 $distPath = __DIR__ . '/../application/configs/application.ini.dist';
 $dist = IniConfig::load($distPath, 'production');
-check('flat dist is env-independent (docker == production)',
+configCheck('flat dist is env-independent (docker == production)',
     IniConfig::load($distPath, 'docker') === $dist);
-check('dist: doctrine2 driver resolved',
-    ($dist['resources']['doctrine2']['connection']['options']['driver'] ?? null) === 'pdo_mysql');
-check('dist: APPLICATION_PATH expanded in a path key',
+configCheck('dist: doctrine2 driver resolved',
+    configValue($dist, ['resources', 'doctrine2', 'connection', 'options', 'driver']) === 'pdo_mysql');
+configCheck('dist: APPLICATION_PATH expanded in a path key',
     is_string($dist['temporary_directory'] ?? null)
         && str_starts_with((string) $dist['temporary_directory'], '/app/'));
-check('dist: removed legacy bootstrap config stays absent',
+configCheck('dist: removed legacy bootstrap config stays absent',
     !isset($dist['bootstrap']));
 
-echo $failures === 0 ? "\nALL PASSED\n" : "\n{$failures} FAILED\n";
-exit($failures === 0 ? 0 : 1);
+echo IniConfigTestState::$failures === 0
+    ? "\nALL PASSED\n"
+    : "\n" . IniConfigTestState::$failures . " FAILED\n";
+exit(IniConfigTestState::$failures === 0 ? 0 : 1);

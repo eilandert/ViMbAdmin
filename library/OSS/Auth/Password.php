@@ -46,6 +46,21 @@
  */
 class OSS_Auth_Password
 {
+    private static function stringValue( mixed $value, string $name ): string
+    {
+        if( !is_string( $value ) )
+            throw new OSS_Exception( $name . ' must be a string' );
+        return $value;
+    }
+
+    private static function costValue( mixed $value ): int
+    {
+        if( is_string( $value ) && preg_match( '/^[0-9]+$/D', $value ) )
+            $value = (int) $value;
+        if( !is_int( $value ) || $value < 4 || $value > 16 )
+            throw new OSS_Exception( 'Bcrypt cost must be an integer between 4 and 16' );
+        return $value;
+    }
     const HASH_PLAINTEXT    = 'plaintext';
     const HASH_PLAIN        = 'plain';
     const HASH_BCRYPT       = 'bcrypt';
@@ -59,10 +74,11 @@ class OSS_Auth_Password
      * The parameters expected in `$config` are:
      *
      * * `pwhash`      - a hashing method from the `HASH_` constants in this class
-     * * `hash_cost`   - a *cost* parameter for certain hashing functions - e.g. bcrypt (defaults to 9)
+     * * `hash_cost`   - a *cost* parameter for certain hashing functions - e.g. bcrypt (defaults to 12)
      *
      * @param string $pw The plaintext password to hash
-     * @param array $config The resources.auth.oss array from `application.ini`
+     * @param array<string, mixed>|string $config
+     *     The resources.auth.oss array from `application.ini`, or a hash method
      * @throws OSS_Exception
      * @return string The hashed password
      */
@@ -75,14 +91,17 @@ class OSS_Auth_Password
             if( !isset( $config['pwhash'] ) )
                 throw new OSS_Exception( 'Cannot hash password without a hash method' );
 
-            $hash = $config['pwhash'];
+            $hash = self::stringValue( $config['pwhash'], 'Password hash method' );
         }
         else
-            $hash = $config;
+            $hash = self::stringValue( $config, 'Password hash method' );
+
+        $username = is_array( $config ) && array_key_exists( 'username', $config )
+            ? self::stringValue( $config['username'], 'Password username' ) : '';
 
         if( substr( $hash, 0, 8 ) == 'dovecot:' )
         {
-            return ViMbAdmin_Dovecot::password( substr( $hash, 8 ), $pw, ( is_array( $config ) && isset( $config['username'] ) ) ? $config['username'] : '' );
+            return ViMbAdmin_Dovecot::password( substr( $hash, 8 ), $pw, $username );
         }
         else if ( substr( $hash, 0, 6) == 'crypt:' )
         {
@@ -118,15 +137,12 @@ class OSS_Auth_Password
                 case self::HASH_PLAINTEXT:
                 case self::HASH_PLAIN:
                     return $pw;
-                    break;
 
                 case self::HASH_BCRYPT:
-                    if( !isset( $config['hash_cost'] ) )
-                        $config['hash_cost'] = 12;
-
-                    $bcrypt = new OSS_Crypt_Bcrypt( $config['hash_cost'] );
+                    $cost = is_array( $config ) && array_key_exists( 'hash_cost', $config )
+                        ? self::costValue( $config['hash_cost'] ) : 12;
+                    $bcrypt = new OSS_Crypt_Bcrypt( $cost );
                     return $bcrypt->hash( $pw );
-                    break;
 
                 // UPDATE PHPDOC ABOVE WHEN ADDING NEW METHODS!
 
@@ -143,7 +159,8 @@ class OSS_Auth_Password
      *
      * @param string $pwplain The plaintext password
      * @param string $pwhash The hashed password to use for verification
-     * @param array $config The resources.auth.oss array from `application.ini`
+     * @param array<string, mixed>|string $config
+     *     The resources.auth.oss array from `application.ini`, or a hash method
      * @throws OSS_Exception
      * @return bool True if the passwords match
      */
@@ -156,27 +173,25 @@ class OSS_Auth_Password
             if( !isset( $config['pwhash'] ) )
                 throw new OSS_Exception( 'Cannot verify password without a hash method' );
 
-            $hash = $config['pwhash'];
+            $hash = self::stringValue( $config['pwhash'], 'Password hash method' );
         }
         else
-            $hash = $config;
+            $hash = self::stringValue( $config, 'Password hash method' );
 
-        switch( $config['pwhash'] )
+        $username = is_array( $config ) && array_key_exists( 'username', $config )
+            ? self::stringValue( $config['username'], 'Password username' ) : '';
+
+        switch( $hash )
         {
             case self::HASH_BCRYPT:
-                if( !isset( $config['hash_cost'] ) )
-                    $config['hash_cost'] = 12;
-
-                $bcrypt = new OSS_Crypt_Bcrypt( $config['hash_cost'] );
-                return $bcrypt->verify( $pwplain, $pwhash );
-                break;
+                return OSS_Crypt_Bcrypt::verify( $pwplain, $pwhash );
         }
 
         if( substr( $hash, 0, 6) == 'crypt:' )
             return hash_equals( $pwhash, crypt( $pwplain, $pwhash ) );
 
         if( substr( $hash, 0, 8 ) == 'dovecot:' )
-            return ViMbAdmin_Dovecot::passwordVerify( substr( $hash, 8 ), $pwhash, $pwplain, ( is_array( $config ) && isset( $config['username'] ) ) ? $config['username'] : '' );
+            return ViMbAdmin_Dovecot::passwordVerify( substr( $hash, 8 ), $pwhash, $pwplain, $username );
 
 
         // Constant-time comparison to avoid leaking the hash via timing.

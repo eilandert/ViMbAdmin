@@ -61,7 +61,7 @@
  * @subpackage Modifier
  *
  * @param string $string
- * @param html|htmlall|url|quotes|hex|hexentity|javascript $esc_type
+ * @param string $esc_type
  * @param string $char_set
  * @return string
  */
@@ -82,7 +82,7 @@ function smarty_modifier_escape($string, $esc_type = 'html', $char_set = 'ISO-88
             
         case 'quotes':
             // escape unescaped single quotes
-            return preg_replace("%(?<!\\\\)'%", "\\'", $string);
+            return preg_replace("%(?<!\\\\)'%", "\\'", $string) ?? '';
 
         case 'hex':
             // escape every character into hex

@@ -162,11 +162,23 @@ final class ViMbAdmin_Version
         return null;
     }
 
-    /** Short (12-char) form of the build commit, or null. */
+    /**
+     * Short (12-char) form of the build commit, or null.
+     *
+     * @return string|null
+     */
     public static function gitCommitShort()
     {
-        $c = self::gitCommit();
-        return $c ? substr( $c, 0, 12 ) : null;
+        return self::_shortCommit( self::gitCommit() );
+    }
+
+    /**
+     * @param string|null $commit
+     * @return string|null
+     */
+    private static function _shortCommit( $commit )
+    {
+        return $commit ? substr( $commit, 0, 12 ) : null;
     }
 
     /**
@@ -175,7 +187,7 @@ final class ViMbAdmin_Version
      * convenience, never load-bearing.
      *
      * @param string $path  e.g. "releases/latest"
-     * @return array|null
+     * @return array<array-key, mixed>|null
      */
     private static function _github( $path )
     {
@@ -199,20 +211,39 @@ final class ViMbAdmin_Version
             if( $body === false )
                 continue;
 
-            // Only accept a 2xx response; a 403 (rate limit) / 5xx is retried.
-            $ok = false;
-            if( isset( $http_response_header[0] )
-                && preg_match( '#\s(\d{3})\s#', $http_response_header[0], $m ) )
-                $ok = ( (int) $m[1] >= 200 && (int) $m[1] < 300 );
-            if( !$ok )
-                continue;
-
-            $json = json_decode( $body, true );
-            if( is_array( $json ) )
+            $json = self::_decodeGithubResponse(
+                $body,
+                $http_response_header
+            );
+            if( $json !== null )
                 return $json;
         }
 
         return null;
+    }
+
+    /**
+     * Decode a successful GitHub response without flattening its object/list
+     * structure. Non-2xx and malformed responses remain retryable failures.
+     *
+     * @param string $body
+     * @param list<string> $headers
+     * @return array<array-key, mixed>|null
+     */
+    private static function _decodeGithubResponse( $body, array $headers )
+    {
+        if( !isset( $headers[0] )
+            || !preg_match( '#\s(\d{3})\s#', $headers[0], $m )
+            || (int) $m[1] < 200 || (int) $m[1] >= 300 )
+            return null;
+
+        $json = json_decode( $body, true );
+        return is_array( $json ) ? $json : null;
+    }
+
+    private static function _nonEmptyString( mixed $value ): ?string
+    {
+        return is_string( $value ) && $value !== '' ? $value : null;
     }
 
     /**
@@ -224,12 +255,18 @@ final class ViMbAdmin_Version
     public static function latestRelease()
     {
         $rel = self::_github( 'releases/latest' );
-        if( is_array( $rel ) && !empty( $rel['tag_name'] ) )
-            return (string) $rel['tag_name'];
+        if( is_array( $rel ) ) {
+            $tag = self::_nonEmptyString( $rel['tag_name'] ?? null );
+            if( $tag !== null )
+                return $tag;
+        }
 
         $tags = self::_github( 'tags' );
-        if( is_array( $tags ) && isset( $tags[0]['name'] ) )
-            return (string) $tags[0]['name'];
+        if( is_array( $tags ) && isset( $tags[0] ) && is_array( $tags[0] ) ) {
+            $tag = self::_nonEmptyString( $tags[0]['name'] ?? null );
+            if( $tag !== null )
+                return $tag;
+        }
 
         return null;
     }
@@ -242,8 +279,11 @@ final class ViMbAdmin_Version
     public static function latestCommit()
     {
         $c = self::_github( 'commits/' . self::GITHUB_BRANCH );
-        if( is_array( $c ) && !empty( $c['sha'] ) )
-            return (string) $c['sha'];
+        if( is_array( $c ) ) {
+            $sha = self::_nonEmptyString( $c['sha'] ?? null );
+            if( $sha !== null )
+                return $sha;
+        }
         return null;
     }
 

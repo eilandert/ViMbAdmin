@@ -44,29 +44,45 @@ abstract class AbstractContext implements \ViMbAdmin_Plugin_MutationContext
     ) {
     }
 
-    public function getOptions()
+    /** @return array<string, mixed> */
+    public function getOptions(): array
     {
         return $this->options;
     }
 
     public function getD2EM()
     {
-        return $this->em;
+        /** @var \Doctrine\ORM\EntityManagerInterface $entityManager */
+        $entityManager = $this->em;
+
+        return $entityManager;
     }
 
     public function getAdmin()
     {
-        return $this->admin;
+        /** @var \Entities\Admin $admin */
+        $admin = $this->admin;
+
+        return $admin;
     }
 
     public function getDomain()
     {
-        return $this->domain;
+        /** @var \Entities\Domain $domain */
+        $domain = $this->domain;
+
+        return $domain;
     }
 
-    public function addMessage($message, $class = null, $type = null)
+    public function addMessage(mixed $message, ?string $class = null, ?int $type = null): void
     {
+        // Kept for the legacy contract; native flash messages have no type axis.
+        unset($type);
+        if (!is_string($message)) {
+            throw new \TypeError('Plugin messages must be strings.');
+        }
+
         $level = is_string($class) && $class !== '' ? $class : FlashMessages::SUCCESS;
-        $this->flash->add((string) $message, $level);
+        $this->flash->add($message, $level);
     }
 }

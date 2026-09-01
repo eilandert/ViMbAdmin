@@ -14,12 +14,17 @@ require __DIR__ . '/../src/Kernel/Form/Validators.php';
 
 use ViMbAdmin\Kernel\Form\Validators;
 
-$fail = 0;
+final class TestMcpInputValidationHarnessState
+{
+    public static int $count = 0;
+}
+
+$fail =& TestMcpInputValidationHarnessState::$count;
 function check(string $name, bool $ok): void
 {
-    global $fail;
+
     echo ($ok ? '  ok   ' : '  FAIL ') . $name . "\n";
-    if (!$ok) { $fail++; }
+    if (!$ok) { TestMcpInputValidationHarnessState::$count++; }
 }
 
 $lp = Validators::localPart();

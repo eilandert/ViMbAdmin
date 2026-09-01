@@ -53,63 +53,121 @@
  * @package    OSS_Smarty
  * @subpackage Functions
  *
- * @param int $timestamp
+ * @param array{file?: string, assign?: string, ...<string, mixed>} $params
+ * @param \Smarty\Smarty|\Smarty\Template $smarty
  * @return string
  */
 function smarty_function_tmplinclude( $params, $smarty )
 {
-    if( !isset( $params['file'] ) )
+    if( !is_array( $params ) )
+        throw new \Smarty\CompilerException( "tmplinclude parameters must be an array" );
+    foreach( $params as $arg => $_value )
+        if( !is_string( $arg ) )
+            throw new \Smarty\CompilerException( "tmplinclude parameter names must be strings" );
+
+    if( !array_key_exists( 'file', $params ) )
         throw new \Smarty\CompilerException( "Missing 'file' attribute in tmplinclude tag" );
+    if( !is_string( $params['file'] ) )
+        throw new \Smarty\CompilerException( "tmplinclude 'file' attribute must be a string" );
+    if( array_key_exists( 'assign', $params ) && !is_string( $params['assign'] ) )
+        throw new \Smarty\CompilerException( "tmplinclude 'assign' attribute must be a string" );
 
     // Smarty 5 passes a \Smarty\Template (not the engine) to function plugins;
     // templateExists()/fetch() live on the engine, so resolve it.
-    $engine = method_exists( $smarty, 'getSmarty' ) ? $smarty->getSmarty() : $smarty;
+    if( !( $smarty instanceof \Smarty\Smarty ) && !( $smarty instanceof \Smarty\Template ) )
+        throw new \Smarty\CompilerException( "tmplinclude requires a Smarty engine or template" );
+    $engine = $smarty instanceof \Smarty\Template ? $smarty->getSmarty() : $smarty;
+    $templateRoots = $engine->getTemplateDir();
+    if( !is_array( $templateRoots ) )
+        $templateRoots = [ $templateRoots ];
+    $containedTemplate = static function( string $name ) use ( $templateRoots ): bool {
+        $candidate = null;
+        foreach( $templateRoots as $root ) {
+            if( !is_string( $root ) )
+                continue;
+            $rootReal = realpath( $root );
+            $candidateReal = realpath( $root . '/' . $name );
+            if( is_string( $rootReal ) && is_string( $candidateReal ) ) {
+                $candidate = [ $rootReal, $candidateReal ];
+                break;
+            }
+        }
+        return $candidate !== null
+            && ( $candidate[1] === $candidate[0] || str_starts_with( $candidate[1], $candidate[0] . '/' ) );
+    };
+
+    $resolveTemplateName = static function( mixed $value ): string {
+        if( !is_string( $value ) )
+            throw new \Smarty\CompilerException( "tmplinclude template name must be a string" );
+        if( $value === '' || str_contains( $value, "\0" ) || str_contains( $value, '\\' ) || str_contains( $value, ':' ) || $value[0] === '/' )
+            throw new \Smarty\CompilerException( "tmplinclude template name must be a safe relative path" );
+        foreach( explode( '/', $value ) as $part )
+            if( $part === '' || $part === '.' || $part === '..' )
+                throw new \Smarty\CompilerException( "tmplinclude template name must be a safe relative path" );
+        return $value;
+    };
 
     $original_values = [];
     
+    if( substr( $params['file'], 0, 24 ) == '$_smarty_tpl->tpl_vars[\'' )
+    {
+        $params['file'] = substr( $params['file'], 24 );
+        $end = strpos( $params['file'], '\'' );
+        $params['file'] = substr( $params['file'], 0, $end === false ? 0 : $end );
+        $params['file'] = $smarty->getTemplateVars( $params['file'] );
+    }
+    elseif( substr( $params['file'], 0, 24 ) == '($_smarty_tpl->tpl_vars[' )
+    {
+        $params['file'] = substr( $params['file'], 24 );
+        $end = strpos( $params['file'], ']' );
+        $params['file'] = substr( $params['file'], 0, $end === false ? 0 : $end );
+        $params['file'] = $smarty->getTemplateVars( $params['file'] );
+    }
+    elseif( substr( $params['file'], 0, 23 ) == '$_smarty_tpl->tpl_vars[' )
+    {
+        $params['file'] = substr( $params['file'], 23 );
+        $end = strpos( $params['file'], ']' );
+        $params['file'] = substr( $params['file'], 0, $end === false ? 0 : $end );
+        $params['file'] = $smarty->getTemplateVars( $params['file'] );
+    }
+    else
+        $params['file'] = str_replace( [ '\'', '"' ], '', $params['file'] );
+
+    $params['file'] = $resolveTemplateName( $params['file'] );
+
+    if( $smarty->getTemplateVars( '___SKIN' ) )
+        $skin = $smarty->getTemplateVars( '___SKIN' );
+    else
+        $skin = false;
+    if( $skin !== false ) {
+        if( !is_string( $skin ) )
+            throw new \Smarty\CompilerException( "tmplinclude skin must be a string" );
+        if( str_contains( $skin, "\0" ) || str_contains( $skin, '/' ) || str_contains( $skin, '\\' ) || $skin === '.' || $skin === '..' )
+            throw new \Smarty\CompilerException( "tmplinclude skin must be a safe directory name" );
+    }
+    
+    if( $skin && $engine->templateExists( '_skins/' . $skin . '/' . $params['file'] ) ) {
+        $skinFile = '_skins/' . $skin . '/' . $params['file'];
+        if( !$containedTemplate( $skinFile ) )
+            throw new \Smarty\CompilerException( "Template file is outside configured template roots - [{$skinFile}]" );
+        $params['file'] = $skinFile;
+    }
+    elseif( !$engine->templateExists( $params['file'] ) )
+        throw new \Smarty\CompilerException( "Template file does not exist - [{$params['file']}]" );
+    elseif( !$containedTemplate( $params['file'] ) )
+        throw new \Smarty\CompilerException( "Template file is outside configured template roots - [{$params['file']}]" );
+
     foreach( $params as $arg => $value )
     {
         if( is_bool( $value ) )
             $params[ $arg ] = $value ? 'true' : 'false';
-        
+
         if( !in_array( $arg, [ 'file', 'assign' ] ) )
         {
             $original_values[ $arg ] = $value;
             $smarty->assign( $arg, $value );
         }
     }
-    
-    if( substr( $params['file'], 0, 24 ) == '$_smarty_tpl->tpl_vars[\'' )
-    {
-        $params['file'] = substr( $params['file'], 24 );
-        $params['file'] = substr( $params['file'], 0, strpos( $params['file'], '\'' ) );
-        $params['file'] = $smarty->getTemplateVars( $params['file'] );
-    }
-    elseif( substr( $params['file'], 0, 24 ) == '($_smarty_tpl->tpl_vars[' )
-    {
-        $params['file'] = substr( $params['file'], 24 );
-        $params['file'] = substr( $params['file'], 0, strpos( $params['file'], ']' ) );
-        $params['file'] = $smarty->getTemplateVars( $params['file'] );
-    }
-    elseif( substr( $params['file'], 0, 23 ) == '$_smarty_tpl->tpl_vars[' )
-    {
-        $params['file'] = substr( $params['file'], 23 );
-        $params['file'] = substr( $params['file'], 0, strpos( $params['file'], ']' ) );
-        $params['file'] = $smarty->getTemplateVars( $params['file'] );
-    }
-    else
-        $params['file'] = str_replace( [ '\'', '"' ], '', $params['file'] );
-
-    if( $smarty->getTemplateVars( '___SKIN' ) )
-        $skin = $smarty->getTemplateVars( '___SKIN' );
-    else
-        $skin = false;
-    
-    if( $skin && $engine->templateExists( '_skins/' . $skin . '/' . $params['file'] ) )
-        $params['file'] = '_skins/' . $skin . '/' . $params['file'];
-    elseif( !$engine->templateExists( $params['file'] ) )
-        throw new \Smarty\CompilerException( "Template file does not exist - [{$params['file']}]" );
-
 
     $output = '';
     if( isset( $params['assign'] ) )

@@ -31,15 +31,31 @@ final class ArraySession implements SessionStorage
     public function remove(string $key): void { unset($this->data[$key]); }
 }
 
-$failures = 0;
+final class TestKernelFormHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelFormHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelFormHarnessState::$count++; }
 }
 
 echo "== native form core ==\n";
 
 // --- validators ------------------------------------------------------- //
+$string = Validators::string();
+check('string: value -> ok',        $string('x') === null);
+check('string: empty -> ok',        $string('') === null);
+check('string: container -> error', $string(['x']) !== null);
+
+$invalidStringForm = new Form();
+$invalidStringForm->add(new Field('value', 'Value', 'text', [Validators::string()]));
+check('string: container form is invalid', !$invalidStringForm->isValid(['value' => ['x']]));
+check('string: renderer never stringifies a rejected container',
+    !str_contains((new FormRenderer())->render($invalidStringForm, '/test'), 'Array'));
+
 $req = Validators::required();
 check('required: empty -> error',   $req('') !== null);
 check('required: spaces -> error',  $req('   ') !== null);
@@ -204,7 +220,9 @@ $roform->add(new Field('other', 'Other', 'text'));
 $roout = $renderer->render($roform, '/domain/edit/did/1');
 check('field: setReadonly is reported',       (new Field('x'))->setReadonly()->isReadonly());
 check('render: readonly attr on readonly field', preg_match('/name="domain"[^>]*readonly="readonly"/', $roout) === 1);
-check('render: non-readonly field has no readonly', !str_contains(substr($roout, strpos($roout, 'name="other"'), 80), 'readonly'));
+$otherOffset = strpos($roout, 'name="other"');
+check('render: non-readonly field has no readonly', $otherOffset !== false
+    && !str_contains(substr($roout, $otherOffset, 80), 'readonly'));
 
 echo "\n";
 if ($failures === 0) {

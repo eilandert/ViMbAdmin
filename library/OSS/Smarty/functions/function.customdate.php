@@ -57,16 +57,17 @@
      * @package    OSS_Smarty
      * @subpackage Functions
      *
-     * @param array $params 
-     * @param Smarty $smarty A reference to the Smarty template object
+     * @param array{format?: string, offset?: string, now?: int|numeric-string} $params
+     * @param \Smarty\Smarty $smarty A reference to the Smarty template object
      * @return string
      */
     function smarty_function_customdate( $params, &$smarty )
     {
         $format = isset( $params['format'] ) ? $params['format'] : 'Y-m-d';
         $offset = isset( $params['offset'] ) ? $params['offset'] : 'now';
-        $now = isset( $params['now'] ) ? $params['now'] : time();
+        $now = isset( $params['now'] ) ? (int)$params['now'] : time();
         
-        return date( $format, strtotime( $offset, $now ) );
-    }
+        $timestamp = strtotime( $offset, $now );
 
+        return date( $format, $timestamp === false ? 0 : $timestamp );
+    }

@@ -13,7 +13,57 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'IX_Domain_1', columns: ['domain'])]
 class Domain
 {
+    /** @use \OSS_Doctrine2_WithPreferences<\Entities\DomainPreference> */
     use \OSS_Doctrine2_WithPreferences;
+
+    /** @return class-string<\Entities\DomainPreference> */
+    protected function _getPreferenceEntityClassname()
+    {
+        return \Entities\DomainPreference::class;
+    }
+
+    protected function _getPreferenceEntityManager(): \Doctrine\ORM\EntityManagerInterface
+    {
+        $entityManager = \OSS_Runtime::entityManager();
+        if (!$entityManager instanceof \Doctrine\ORM\EntityManagerInterface) {
+            throw new \UnexpectedValueException('Runtime entity manager does not implement Doctrine ORM EntityManagerInterface');
+        }
+
+        return $entityManager;
+    }
+
+    /**
+     * @param string $attribute
+     * @param bool $withIndex
+     * @param bool $ignoreExpired
+     * @return array<int, mixed>|false
+     */
+    public function getIndexedPreference($attribute, $withIndex = false, $ignoreExpired = true)
+    {
+        return $this->_getIndexedPreference($attribute, $withIndex, $ignoreExpired);
+    }
+
+    /**
+     * @param string $attribute
+     * @param int|null $index
+     * @param bool $ignoreExpired
+     * @return array<int|string, mixed>|false
+     */
+    public function getAssocPreference($attribute, $index = null, $ignoreExpired = true)
+    {
+        return $this->_getAssocPreference($attribute, $index, $ignoreExpired);
+    }
+
+    /**
+     * @param array<int|string, mixed> $config
+     * @param string $key
+     * @param string $value
+     * @return array<int|string, mixed>
+     */
+    private function _processKey($config, $key, $value)
+    {
+        return $this->_processPreferenceKey($config, $key, $value);
+    }
 
     /**
      * @var string $domain
@@ -95,6 +145,11 @@ class Domain
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    private function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
+
     /**
      * @var integer $max_quota
      */
@@ -114,37 +169,37 @@ class Domain
     private ?int $max_mailboxes = null;
 
     /**
-     * @var bigint $alias_count
+     * @var int|null $alias_count
      */
     #[ORM\Column(type: 'bigint', options: ['default' => 0])]
     private ?int $alias_count = null;
 
     /**
-     * @var bigint $mailbox_count
+     * @var int|null $mailbox_count
      */
     #[ORM\Column(type: 'bigint', options: ['default' => 0])]
     private ?int $mailbox_count = null;
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\Mailbox>
      */
     #[ORM\OneToMany(targetEntity: \Entities\Mailbox::class, mappedBy: 'Domain')]
     private $Mailboxes;
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\Alias>
      */
     #[ORM\OneToMany(targetEntity: \Entities\Alias::class, mappedBy: 'Domain')]
     private $Aliases;
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\Log>
      */
     #[ORM\OneToMany(targetEntity: \Entities\Log::class, mappedBy: 'Domain')]
     private $Logs;
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\Admin>
      */
     #[ORM\ManyToMany(targetEntity: \Entities\Admin::class, mappedBy: 'Domains')]
     private $Admins;
@@ -178,10 +233,20 @@ class Domain
     /**
      * Get domain
      *
-     * @return string 
+     * @return string|null
      */
     public function getDomain()
     {
+        return $this->domain;
+    }
+
+    /** Return the name for operations that require an initialized domain. */
+    public function requiredDomainName(): string
+    {
+        if ($this->domain === null) {
+            throw new \LogicException('Domain name cannot be null.');
+        }
+
         return $this->domain;
     }
 
@@ -201,7 +266,7 @@ class Domain
     /**
      * Get description
      *
-     * @return string 
+     * @return string|null
      */
     public function getDescription()
     {
@@ -211,7 +276,7 @@ class Domain
     /**
      * Get aliases
      *
-     * @return integer 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Alias>
      */
     public function getAliases()
     {
@@ -221,7 +286,7 @@ class Domain
     /**
      * Get mailboxes
      *
-     * @return integer 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Mailbox>
      */
     public function getMailboxes()
     {
@@ -244,10 +309,20 @@ class Domain
     /**
      * Get quota
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getQuota()
     {
+        return $this->quota;
+    }
+
+    /** Return the configured quota for operations that require an initialized domain. */
+    public function requiredQuota(): int
+    {
+        if ($this->quota === null) {
+            throw new \LogicException('Domain quota cannot be null.');
+        }
+
         return $this->quota;
     }
 
@@ -267,7 +342,7 @@ class Domain
     /**
      * Get transport
      *
-     * @return string 
+     * @return string|null
      */
     public function getTransport()
     {
@@ -290,7 +365,7 @@ class Domain
     /**
      * Get backupmx
      *
-     * @return boolean 
+     * @return boolean|null
      */
     public function getBackupmx()
     {
@@ -313,7 +388,7 @@ class Domain
     /**
      * Get active
      *
-     * @return boolean 
+     * @return boolean|null
      */
     public function getActive()
     {
@@ -336,7 +411,7 @@ class Domain
     /**
      * Get homedir
      *
-     * @return string 
+     * @return string|null
      */
     public function getHomedir()
     {
@@ -359,7 +434,7 @@ class Domain
     /**
      * Get maildir
      *
-     * @return string 
+     * @return string|null
      */
     public function getMaildir()
     {
@@ -382,7 +457,7 @@ class Domain
     /**
      * Get uid
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getUid()
     {
@@ -405,7 +480,7 @@ class Domain
     /**
      * Get gid
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getGid()
     {
@@ -428,7 +503,7 @@ class Domain
     /**
      * Get created
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getCreated()
     {
@@ -451,7 +526,7 @@ class Domain
     /**
      * Get modified
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getModified()
     {
@@ -461,17 +536,27 @@ class Domain
     /**
      * Get id
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getId()
     {
         return $this->id;
     }
 
+    /** Return the persistence identity for operations that require a stored domain. */
+    public function requiredId(): int
+    {
+        if ($this->id === null) {
+            throw new \LogicException('Domain id cannot be null.');
+        }
+
+        return $this->id;
+    }
+
     /**
      * Add Mailboxes
      *
-     * @param Entities\Mailbox $mailboxes
+     * @param \Entities\Mailbox $mailboxes
      * @return Domain
      */
     public function addMailbox(\Entities\Mailbox $mailboxes)
@@ -484,7 +569,8 @@ class Domain
     /**
      * Remove Mailboxes
      *
-     * @param Entities\Mailbox $mailboxes
+     * @param \Entities\Mailbox $mailboxes
+     * @return void
      */
     public function removeMailbox(\Entities\Mailbox $mailboxes)
     {
@@ -494,7 +580,7 @@ class Domain
     /**
      * Add Aliases
      *
-     * @param Entities\Alias $aliases
+     * @param \Entities\Alias $aliases
      * @return Domain
      */
     public function addAlias(\Entities\Alias $aliases)
@@ -507,7 +593,8 @@ class Domain
     /**
      * Remove Aliases
      *
-     * @param Entities\Alias $aliases
+     * @param \Entities\Alias $aliases
+     * @return void
      */
     public function removeAlias(\Entities\Alias $aliases)
     {
@@ -517,7 +604,7 @@ class Domain
     /**
      * Add Logs
      *
-     * @param Entities\Log $logs
+     * @param \Entities\Log $logs
      * @return Domain
      */
     public function addLog(\Entities\Log $logs)
@@ -530,7 +617,8 @@ class Domain
     /**
      * Remove Logs
      *
-     * @param Entities\Log $logs
+     * @param \Entities\Log $logs
+     * @return void
      */
     public function removeLog(\Entities\Log $logs)
     {
@@ -540,7 +628,7 @@ class Domain
     /**
      * Get Logs
      *
-     * @return Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Log>
      */
     public function getLogs()
     {
@@ -550,7 +638,7 @@ class Domain
     /**
      * Add Admins
      *
-     * @param Entities\Admin $admins
+     * @param \Entities\Admin $admins
      * @return Domain
      */
     public function addAdmin(\Entities\Admin $admins)
@@ -563,7 +651,8 @@ class Domain
     /**
      * Remove Admins
      *
-     * @param Entities\Admin $admins
+     * @param \Entities\Admin $admins
+     * @return void
      */
     public function removeAdmin(\Entities\Admin $admins)
     {
@@ -573,7 +662,7 @@ class Domain
     /**
      * Get Admins
      *
-     * @return Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Admin>
      */
     public function getAdmins()
     {
@@ -598,7 +687,7 @@ class Domain
     /**
      * Get max_aliases
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getMaxAliases()
     {
@@ -621,7 +710,7 @@ class Domain
     /**
      * Get max_mailboxes
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getMaxMailboxes()
     {
@@ -646,7 +735,7 @@ class Domain
     /**
      * Get max_quota
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getMaxQuota()
     {
@@ -658,7 +747,7 @@ class Domain
     /**
      * Set alias_count
      *
-     * @param bigint $aliasCount
+     * @param int|null $aliasCount
      * @return Domain
      */
     public function setAliasCount($aliasCount)
@@ -670,7 +759,7 @@ class Domain
     /**
      * Get alias_count
      *
-     * @return bigint
+     * @return int|null
      */
     public function getAliasCount()
     {
@@ -703,7 +792,7 @@ class Domain
     /**
      * Set mailbox_count
      *
-     * @param bigint $mailboxCount
+     * @param int|null $mailboxCount
      * @return Domain
      */
     public function setMailboxCount($mailboxCount)
@@ -715,7 +804,7 @@ class Domain
     /**
      * Get mailbox_count
      *
-     * @return bigint 
+     * @return int|null
      */
     public function getMailboxCount()
     {
@@ -760,6 +849,7 @@ class Domain
      * Remove Mailboxes
      *
      * @param \Entities\Mailbox $mailboxes
+     * @return void
      */
     public function removeMailboxe(\Entities\Mailbox $mailboxes)
     {
@@ -783,13 +873,14 @@ class Domain
      * Remove Aliases
      *
      * @param \Entities\Alias $aliases
+     * @return void
      */
     public function removeAliase(\Entities\Alias $aliases)
     {
         $this->Aliases->removeElement($aliases);
     }
     /**
-     * @var \Doctrine\Common\Collections\Collection
+     * @var \Doctrine\Common\Collections\Collection<int, \Entities\DomainPreference>
      */
     #[ORM\OneToMany(targetEntity: \Entities\DomainPreference::class, mappedBy: 'Domain')]
     private $Preferences;
@@ -812,6 +903,7 @@ class Domain
      * Remove Preferences
      *
      * @param \Entities\DomainPreference $preferences
+     * @return void
      */
     public function removePreference(\Entities\DomainPreference $preferences)
     {
@@ -821,14 +913,14 @@ class Domain
     /**
      * Get Preferences
      *
-     * @return \Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\DomainPreference>
      */
     public function getPreferences()
     {
         return $this->Preferences;
     }
     /**
-     * @var \Doctrine\Common\Collections\Collection
+     * @var \Doctrine\Common\Collections\Collection<int, \Entities\Archive>
      */
     #[ORM\OneToMany(targetEntity: \Entities\Archive::class, mappedBy: 'Domain')]
     private $Archives;
@@ -851,6 +943,7 @@ class Domain
      * Remove Archives
      *
      * @param \Entities\Archive $archives
+     * @return void
      */
     public function removeArchive(\Entities\Archive $archives)
     {
@@ -860,7 +953,7 @@ class Domain
     /**
      * Get Archives
      *
-     * @return \Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Archive>
      */
     public function getArchives()
     {

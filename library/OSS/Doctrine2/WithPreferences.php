@@ -46,10 +46,47 @@ use Doctrine\ORM\Mapping as ORM;
  * @package    OSS_Doctrine2
  * @copyright  Copyright (c) 2007 - 2012, Open Source Solutions Limited, Dublin, Ireland
  * @license    http://www.opensolutions.ie/licenses/new-bsd New BSD License
+ * @template TPreference of object
  */
 trait OSS_Doctrine2_WithPreferences
 {
+    private function _requiredPreferenceAttribute(?string $attribute): string
+    {
+        if ($attribute === null) {
+            throw new \LogicException('Preference attribute cannot be null.');
+        }
 
+        return $attribute;
+    }
+
+    private function _requiredPreferenceIndex(?int $index): int
+    {
+        if ($index === null) {
+            throw new \LogicException('Preference index cannot be null.');
+        }
+
+        return $index;
+    }
+
+    private function _requiredPreferenceValue(?string $value): string
+    {
+        if ($value === null) {
+            throw new \LogicException('Preference value cannot be null.');
+        }
+
+        return $value;
+    }
+
+    protected function _getPreferenceEntityManager(): object
+    {
+        return \OSS_Runtime::entityManager();
+    }
+
+    /** @return class-string<object> */
+    protected function _getPreferenceEntityClassname()
+    {
+        return $this->_getFullClassname() . 'Preference';
+    }
     /**
      * The name of the class. Set with get_class( $this )
      * @var string
@@ -82,13 +119,14 @@ trait OSS_Doctrine2_WithPreferences
      * @param string $attribute The named attribute / preference to check for
      * @param int $index default 0 If an indexed preference, get a specific index (default: 0)
      * @param boolean $includeExpired default false If true, include preferences even if they have expired. Default: false
-     * @return WithPreference If the named preference is not defined, returns FALSE; otherwise it returns the Doctrine_Record
+     * @return TPreference|false If the named preference is not defined, returns FALSE; otherwise it returns the preference entity
      */
     public function loadPreference( $attribute, $index = 0, $includeExpired = false )
     {
         foreach( $this->_getPreferences() as $pref )
         {
-            if( $pref->getAttribute() == $attribute && $pref->getIx() == $index )
+            if( $this->_requiredPreferenceAttribute($pref->getAttribute()) == $attribute
+                && $this->_requiredPreferenceIndex($pref->getIx()) == $index )
             {
                 if( !$includeExpired )
                 {
@@ -139,12 +177,13 @@ trait OSS_Doctrine2_WithPreferences
     {
         foreach( $this->_getPreferences() as $pref )
         {
-            if( $pref->getAttribute() == $attribute && $pref->getIx() == $index )
+            if( $this->_requiredPreferenceAttribute($pref->getAttribute()) == $attribute
+                && $this->_requiredPreferenceIndex($pref->getIx()) == $index )
             {
                 if( !$includeExpired && $pref->getExpire() != 0 && $pref->getExpire() < time() )
                     return false;
 
-                return $pref->getValue();
+                return $this->_requiredPreferenceValue($pref->getValue());
             }
         }
 
@@ -156,10 +195,10 @@ trait OSS_Doctrine2_WithPreferences
      *
      * @param string $attribute The preference name
      * @param string $value The value to assign to the preference
-     * @param string $op default '=' The operand (e.g. = (default), <, <=, :=, =, += etc)
+     * @param string $operator default '=' The operand (e.g. = (default), <, <=, :=, =, += etc)
      * @param int $expires default 0 The expiry as a UNIX timestamp. Default 0 which means never.
      * @param int $index default 0 If an indexed preference, set a specific index number. Default 0.
-     * @return OSS_Doctrine_Record_WithPreferences An instance of this object for fluid interfaces.
+     * @return $this An instance of this object for fluid interfaces.
      */
     public function setPreference( $attribute, $value, $operator = '=', $expires = 0, $index = 0 )
     {
@@ -182,7 +221,7 @@ trait OSS_Doctrine2_WithPreferences
         $pref->setExpire( $expires );
         $pref->setIx( $index );
 
-        $em = \OSS_Runtime::entityManager();
+        $em = $this->_getPreferenceEntityManager();
         $em->persist( $pref );
         return $this;
     }
@@ -264,7 +303,7 @@ trait OSS_Doctrine2_WithPreferences
      * @param string $operator default '=' The operand (e.g. = (default), <, <=, :=, =, += etc)
      * @param int $expires default 0 The expiry as a UNIX timestamp. Default 0 which means never.
      * @param int $max The maximum index allowed. Defaults to 0 meaning no limit.
-     * @return OSS_Doctrine_Record_WithPreferences An instance of this object for fluid interfaces.
+     * @return $this An instance of this object for fluid interfaces.
      * @throws OSS_Doctrine2_WithPreferences_IndexLimitException If $max is set and limit exceeded
      */
     public function addIndexedPreference( $attribute, $value, $operator = '=', $expires = 0, $max = 0 )
@@ -274,18 +313,20 @@ trait OSS_Doctrine2_WithPreferences
 
         foreach( $this->getPreferences() as $pref )
         {
-            if( $pref->getAttribute() == $attribute && $pref->getOp() == $operator )
+            $preferenceAttribute = $this->_requiredPreferenceAttribute($pref->getAttribute());
+            if( $preferenceAttribute == $attribute && $pref->getOp() == $operator )
             {
                 ++$count;
-                if( $pref->getIx() > $highest )
-                    $highest = $pref->getIx();
+                $preferenceIndex = $this->_requiredPreferenceIndex($pref->getIx());
+                if( $preferenceIndex > $highest )
+                    $highest = $preferenceIndex;
             }
         }
 
         if( $max != 0 && $count >= $max )
             throw new \OSS_Doctrine2_WithPreferences_IndexLimitException( 'Requested maximum number of indexed preferences reached' );
 
-        $em = \OSS_Runtime::entityManager();
+        $em = $this->_getPreferenceEntityManager();
         if( is_array( $value ) )
         {
             foreach( $value as $v )
@@ -334,10 +375,11 @@ trait OSS_Doctrine2_WithPreferences
         if( $asOf === null )
             $asOf = time();
 
-        $em = \OSS_Runtime::entityManager();
+        $em = $this->_getPreferenceEntityManager();
         foreach( $this->_getPreferences() as $pref )
         {
-            if( $attribute !== null && $pref->getAttribute() != $attribute )
+            if( $attribute !== null
+                && $this->_requiredPreferenceAttribute($pref->getAttribute()) != $attribute )
                 continue;
 
             if( $pref->getExpire() != 0 && $pref->getExpire() < $asOf )
@@ -364,12 +406,12 @@ trait OSS_Doctrine2_WithPreferences
     {
         $count = 0;
 
-        $em = \OSS_Runtime::entityManager();
+        $em = $this->_getPreferenceEntityManager();
         foreach( $this->_getPreferences() as $pref )
         {
-            if( $pref->getAttribute() == $attribute )
+            if( $this->_requiredPreferenceAttribute($pref->getAttribute()) == $attribute )
             {
-                if( $index === null || $pref->getIx() == $index )
+                if( $index === null || $this->_requiredPreferenceIndex($pref->getIx()) == $index )
                 {
                     $count++;
                     $this->getPreferences()->removeElement( $pref );
@@ -389,11 +431,14 @@ trait OSS_Doctrine2_WithPreferences
      */
     public function expungePreferences()
     {
-        $em = \OSS_Runtime::entityManager();
+        $em = $this->_getPreferenceEntityManager();
 
-        return $em->createQuery( "DELETE \\Entities\\UserPreference up WHERE up.User = ?1" )
+        $count = $em->createQuery( "DELETE \\Entities\\UserPreference up WHERE up.User = ?1" )
             ->setParameter( 1, $this )
             ->execute();
+        if( !is_int( $count ) )
+            throw new \UnexpectedValueException( 'Preference deletion count is malformed' );
+        return $count;
     }
 
 
@@ -420,19 +465,36 @@ trait OSS_Doctrine2_WithPreferences
      */
     public function getIndexedPreference( $attribute, $withIndex = false, $ignoreExpired = true )
     {
+        return $this->_getIndexedPreference($attribute, $withIndex, $ignoreExpired);
+    }
+
+    /**
+     * @param string $attribute
+     * @param bool $withIndex
+     * @param bool $ignoreExpired
+     * @return array<int, mixed>|false
+     */
+    protected function _getIndexedPreference($attribute, $withIndex, $ignoreExpired)
+    {
         $values = [];
 
         foreach( $this->getPreferences() as $pref )
         {
-            if( $pref->getAttribute() == $attribute )
+            $preferenceAttribute = $this->_requiredPreferenceAttribute($pref->getAttribute());
+            if( $preferenceAttribute == $attribute )
             {
                 if( !$ignoreExpired && $pref->getExpire() != 0 && $pref->getExpire() < time() )
                     continue;
 
+                $preferenceIndex = $this->_requiredPreferenceIndex($pref->getIx());
+                $preferenceValue = $this->_requiredPreferenceValue($pref->getValue());
                 if( $withIndex )
-                    $values[ $pref->getIx() ] = [ 'p_index' => $pref->getIx(), 'p_value' => $pref->getValue() ];
+                    $values[ $preferenceIndex ] = [
+                        'p_index' => $preferenceIndex,
+                        'p_value' => $preferenceValue,
+                    ];
                 else
-                    $values[ $pref->getIx() ] = $pref->getValue();
+                    $values[ $preferenceIndex ] = $preferenceValue;
             }
         }
 
@@ -482,28 +544,46 @@ trait OSS_Doctrine2_WithPreferences
      */
     public function getAssocPreference( $attribute, $index = null, $ignoreExpired = true )
     {
+        return $this->_getAssocPreference($attribute, $index, $ignoreExpired);
+    }
+
+    /**
+     * @param string $attribute
+     * @param int|null $index
+     * @param bool $ignoreExpired
+     * @return array<int|string, mixed>|false
+     */
+    protected function _getAssocPreference($attribute, $index, $ignoreExpired)
+    {
         $values = [];
 
         foreach( $this->_getPreferences() as $pref )
         {
-            if( strpos( $pref->getAttribute(), $attribute ) === 0 )
+            $preferenceAttribute = $this->_requiredPreferenceAttribute($pref->getAttribute());
+            if( strpos( $preferenceAttribute, $attribute ) === 0 )
             {
-                if( $index == null || $pref->getIx() == $index )
+                $preferenceIndex = $this->_requiredPreferenceIndex($pref->getIx());
+                if( $index === null || $preferenceIndex == $index )
                 {
                     if( !$ignoreExpired && $pref->getExpire() != 0 && $pref->getExpire() < time() )
                         continue;
 
                     $key = null;
-                    if( strpos( $pref->getAttribute(), "." ) !== false )
-                        $key = substr( $pref->getAttribute(), strlen( $attribute )+1 );
+                    if( strpos( $preferenceAttribute, "." ) !== false )
+                        $key = substr( $preferenceAttribute, strlen( $attribute )+1 );
 
+                    $preferenceValue = $this->_requiredPreferenceValue($pref->getValue());
                     if( $key )
                     {
-                        $key = "{$pref->getIx()}.{$key}";
-                        $values = $this->_processKey( $values, $key, $pref->getValue() );
+                        $key = "{$preferenceIndex}.{$key}";
+                        $values = $this->_processKey(
+                            $values,
+                            $key,
+                            $preferenceValue
+                        );
                     }
                     else
-                        $values[ $pref->getIx() ] = $pref->getValue();
+                        $values[ $preferenceIndex ] = $preferenceValue;
                 }
             }
         }
@@ -527,12 +607,14 @@ trait OSS_Doctrine2_WithPreferences
     {
         $cnt = 0;
 
-        $em = \OSS_Runtime::entityManager();
+        $em = $this->_getPreferenceEntityManager();
         foreach( $this->_getPreferences() as $pref )
         {
-            if( strpos( $pref->getAttribute(), $attribute ) === 0 )
+            $preferenceAttribute = $this->_requiredPreferenceAttribute($pref->getAttribute());
+            if( strpos( $preferenceAttribute, $attribute ) === 0 )
             {
-                if( $index == null || $pref->getIx() == $index)
+                $preferenceIndex = $this->_requiredPreferenceIndex($pref->getIx());
+                if( $index === null || $preferenceIndex == $index)
                 {
                     $this->getPreferences()->removeElement( $pref );
                     $em->remove( $pref );
@@ -580,11 +662,13 @@ trait OSS_Doctrine2_WithPreferences
      * \Entities\Customer functionality then our preference object will be
      * \Entities\CustomerPreference.
      *
-     * @return object
+     * @param $this|null $owner
+     * @return TPreference
      */
     private function _createPreferenceEntity( $owner = null )
     {
-        $prefClass = $this->_getFullClassname() . 'Preference';
+        $this->_getFullClassname();
+        $prefClass = $this->_getPreferenceEntityClassname();
         $pref = new $prefClass();
 
         if( $owner != null )
@@ -604,7 +688,7 @@ trait OSS_Doctrine2_WithPreferences
      * NOTICE: Function required due to `$this->getPreferences()` iteration failure.
      * FIXME This should not be necessary
      *
-     * @return \Doctrine\Common\Collections\ArrayCollection
+     * @return list<TPreference>
      */
     public function _getPreferences()
     {
@@ -613,19 +697,32 @@ trait OSS_Doctrine2_WithPreferences
             $this->_getFullClassname(), $this->_getShortClassname(), $this->getId()
         );
 
-        return \OSS_Runtime::entityManager()->createQuery( $query )->getResult();
+        return $this->_validatedPreferenceResults(
+            $this->_getPreferenceEntityManager()->createQuery( $query )->getResult()
+        );
     }
 
     /**
      * Assign the key's value to the property list. Handles the
      * nest separator for sub-properties.
      *
-     * @param  array  $config
+     * @param  array<int|string, mixed> $config
      * @param  string $key
      * @param  string $value
      * @return array
      */
-    private function _processKey($config, $key, $value)
+    private function _processKey(array $config, string $key, string $value): array
+    {
+        return $this->_processPreferenceKey($config, $key, $value);
+    }
+
+    /**
+     * @param array<int|string, mixed> $config
+     * @param string $key
+     * @param string $value
+     * @return array<int|string, mixed>
+     */
+    protected function _processPreferenceKey($config, $key, $value)
     {
         if( strpos( $key, "." ) !== false)
         {
@@ -640,10 +737,11 @@ trait OSS_Doctrine2_WithPreferences
                         $config[ $pieces[0] ] = [];
                 }
                 elseif( !is_array( $config[$pieces[0]] ) )
-                {
-                    //die("Cannot create sub-key for '{$pieces[0]}' as key already exists");
-                }
-                $config[ $pieces[0] ] = $this->_processKey( $config[ $pieces[0] ], $pieces[1], $value );
+                    throw new \UnexpectedValueException( "Cannot create preference sub-key '{$pieces[0]}' over a scalar" );
+                $nested = $config[ $pieces[0] ];
+                if( !is_array( $nested ) )
+                    throw new \UnexpectedValueException( "Cannot create preference sub-key '{$pieces[0]}' over a scalar" );
+                $config[ $pieces[0] ] = $this->_processKey( $nested, $pieces[1], $value );
             }
             else
             {
@@ -655,6 +753,20 @@ trait OSS_Doctrine2_WithPreferences
             $config[$key] = $value;
         }
         return $config;
+    }
+
+    /** @return list<TPreference> */
+    private function _validatedPreferenceResults( mixed $result ): array
+    {
+        if( !is_array( $result ) || !array_is_list( $result ) )
+            throw new \UnexpectedValueException( 'Preference query result is malformed' );
+        $expected = $this->_getPreferenceEntityClassname();
+        foreach( $result as $preference )
+        {
+            if( !is_object( $preference ) || !is_a( $preference, $expected ) )
+                throw new \UnexpectedValueException( 'Preference query result contains an invalid entity' );
+        }
+        return $result;
     }
 
 }

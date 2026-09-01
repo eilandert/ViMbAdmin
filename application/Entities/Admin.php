@@ -12,7 +12,57 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'IX_Username_admin', columns: ['username'])]
 class Admin
 {
+    /** @use \OSS_Doctrine2_WithPreferences<\Entities\AdminPreference> */
     use \OSS_Doctrine2_WithPreferences;
+
+    /** @return class-string<\Entities\AdminPreference> */
+    protected function _getPreferenceEntityClassname()
+    {
+        return \Entities\AdminPreference::class;
+    }
+
+    protected function _getPreferenceEntityManager(): \Doctrine\ORM\EntityManagerInterface
+    {
+        $entityManager = \OSS_Runtime::entityManager();
+        if (!$entityManager instanceof \Doctrine\ORM\EntityManagerInterface) {
+            throw new \UnexpectedValueException('Runtime entity manager does not implement Doctrine ORM EntityManagerInterface');
+        }
+
+        return $entityManager;
+    }
+
+    /**
+     * @param string $attribute
+     * @param bool $withIndex
+     * @param bool $ignoreExpired
+     * @return array<int, mixed>|false
+     */
+    public function getIndexedPreference($attribute, $withIndex = false, $ignoreExpired = true)
+    {
+        return $this->_getIndexedPreference($attribute, $withIndex, $ignoreExpired);
+    }
+
+    /**
+     * @param string $attribute
+     * @param int|null $index
+     * @param bool $ignoreExpired
+     * @return array<int|string, mixed>|false
+     */
+    public function getAssocPreference($attribute, $index = null, $ignoreExpired = true)
+    {
+        return $this->_getAssocPreference($attribute, $index, $ignoreExpired);
+    }
+
+    /**
+     * @param array<int|string, mixed> $config
+     * @param string $key
+     * @param string $value
+     * @return array<int|string, mixed>
+     */
+    private function _processKey($config, $key, $value)
+    {
+        return $this->_processPreferenceKey($config, $key, $value);
+    }
 
     /**
      * @var string $username
@@ -64,19 +114,24 @@ class Admin
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    private function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
+
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\AdminPreference>
      */
     private $Admin;
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\Log>
      */
     #[ORM\OneToMany(targetEntity: \Entities\Log::class, mappedBy: 'Admin')]
     private $Logs;
 
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\Domain>
      */
     #[ORM\ManyToMany(targetEntity: \Entities\Domain::class, inversedBy: 'Admins')]
     #[ORM\JoinTable(name: 'domain_admins')]
@@ -113,10 +168,20 @@ class Admin
     /**
      * Get username
      *
-     * @return string
+     * @return string|null
      */
     public function getUsername()
     {
+        return $this->username;
+    }
+
+    /** Return the identity for operations that require an initialized admin. */
+    public function requiredUsername(): string
+    {
+        if ($this->username === null) {
+            throw new \LogicException('Admin username cannot be null.');
+        }
+
         return $this->username;
     }
     
@@ -127,7 +192,7 @@ class Admin
      */
     public function getEmail()
     {
-        return $this->getUsername();
+        return $this->requiredUsername();
     }
                                    
     /**
@@ -137,7 +202,7 @@ class Admin
      */
     public function getFormattedName()
     {
-        return $this->getUsername();
+        return $this->requiredUsername();
     }
                                    
                                    
@@ -158,10 +223,20 @@ class Admin
     /**
      * Get password
      *
-     * @return string
+     * @return string|null
      */
     public function getPassword()
     {
+        return $this->password;
+    }
+
+    /** Return the credential for operations that require an initialized admin. */
+    public function requiredPassword(): string
+    {
+        if ($this->password === null) {
+            throw new \LogicException('Admin password cannot be null.');
+        }
+
         return $this->password;
     }
 
@@ -181,7 +256,7 @@ class Admin
     /**
      * Get super
      *
-     * @return boolean
+     * @return boolean|null
      */
     public function getSuper()
     {
@@ -189,13 +264,13 @@ class Admin
     }
 
     /**
-     * Alias fot getSuper
+     * Alias for getSuper
      *
      * @return boolean
      */
     public function isSuper()
     {
-        return $this->getSuper();
+        return (bool) $this->getSuper();
     }
 
     /**
@@ -214,7 +289,7 @@ class Admin
     /**
      * Get active
      *
-     * @return boolean
+     * @return boolean|null
      */
     public function getActive()
     {
@@ -237,7 +312,7 @@ class Admin
     /**
      * Get created
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getCreated()
     {
@@ -260,7 +335,7 @@ class Admin
     /**
      * Get modified
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getModified()
     {
@@ -283,7 +358,7 @@ class Admin
     /**
      * Get last_login
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getLastLogin()
     {
@@ -293,7 +368,7 @@ class Admin
     /**
      * Get id
      *
-     * @return integer
+     * @return integer|null
      */
     public function getId()
     {
@@ -303,7 +378,7 @@ class Admin
     /**
      * Add Admin
      *
-     * @param Entities\AdminPreference $admin
+     * @param \Entities\AdminPreference $admin
      * @return Admin
      */
     public function addAdmin(\Entities\AdminPreference $admin)
@@ -316,7 +391,8 @@ class Admin
     /**
      * Remove Admin
      *
-     * @param Entities\AdminPreference $admin
+     * @param \Entities\AdminPreference $admin
+     * @return void
      */
     public function removeAdmin(\Entities\AdminPreference $admin)
     {
@@ -326,7 +402,7 @@ class Admin
     /**
      * Get Admin
      *
-     * @return Doctrine\Common\Collections\Collection
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\AdminPreference>
      */
     public function getAdmin()
     {
@@ -336,7 +412,7 @@ class Admin
     /**
      * Add Logs
      *
-     * @param Entities\Log $logs
+     * @param \Entities\Log $logs
      * @return Admin
      */
     public function addLog(\Entities\Log $logs)
@@ -349,7 +425,8 @@ class Admin
     /**
      * Remove Logs
      *
-     * @param Entities\Log $logs
+     * @param \Entities\Log $logs
+     * @return void
      */
     public function removeLog(\Entities\Log $logs)
     {
@@ -359,7 +436,7 @@ class Admin
     /**
      * Get Logs
      *
-     * @return Doctrine\Common\Collections\Collection
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Log>
      */
     public function getLogs()
     {
@@ -369,7 +446,7 @@ class Admin
     /**
      * Add Domains
      *
-     * @param Entities\Domain $domains
+     * @param \Entities\Domain $domains
      * @return Admin
      */
     public function addDomain(\Entities\Domain $domains)
@@ -382,7 +459,8 @@ class Admin
     /**
      * Remove Domains
      *
-     * @param Entities\Domain $domains
+     * @param \Entities\Domain $domains
+     * @return void
      */
     public function removeDomain(\Entities\Domain $domains)
     {
@@ -392,14 +470,14 @@ class Admin
     /**
      * Get Domains
      *
-     * @return Doctrine\Common\Collections\Collection
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Domain>
      */
     public function getDomains()
     {
         return $this->Domains;
     }
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\AdminPreference>
      */
     #[ORM\OneToMany(targetEntity: \Entities\AdminPreference::class, mappedBy: 'Admin')]
     private $Preferences;
@@ -408,7 +486,7 @@ class Admin
     /**
      * Add Preferences
      *
-     * @param Entities\AdminPreference $preferences
+     * @param \Entities\AdminPreference $preferences
      * @return Admin
      */
     public function addPreference(\Entities\AdminPreference $preferences)
@@ -421,7 +499,8 @@ class Admin
     /**
      * Remove Preferences
      *
-     * @param Entities\AdminPreference $preferences
+     * @param \Entities\AdminPreference $preferences
+     * @return void
      */
     public function removePreference(\Entities\AdminPreference $preferences)
     {
@@ -431,7 +510,7 @@ class Admin
     /**
      * Get Preferences
      *
-     * @return Doctrine\Common\Collections\Collection
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\AdminPreference>
      */
     public function getPreferences()
     {
@@ -454,7 +533,7 @@ class Admin
     public function canManageDomain( $domain )
     {
         foreach( $this->getDomains() as $d )
-            if( $domain->getId() == $d->getId() )
+            if( $domain->requiredId() == $d->requiredId() )
                 return true;
         
         return false;
@@ -464,7 +543,7 @@ class Admin
     /**
      * Add Preferences
      *
-     * @param Entities\AdminPreference $preferences
+     * @param \Entities\AdminPreference $preferences
      * @return Admin
      */
     public function addAdminPreference(\Entities\AdminPreference $preferences)
@@ -473,7 +552,7 @@ class Admin
         return $this;
     }
     /**
-     * @var \Doctrine\Common\Collections\Collection
+     * @var \Doctrine\Common\Collections\Collection<int, \Entities\RememberMe>
      */
     #[ORM\OneToMany(targetEntity: \Entities\RememberMe::class, mappedBy: 'User')]
     private $RememberMes;
@@ -496,6 +575,7 @@ class Admin
      * Remove RememberMes
      *
      * @param \Entities\RememberMe $rememberMes
+     * @return void
      */
     public function removeRememberMe(\Entities\RememberMe $rememberMes)
     {
@@ -505,14 +585,14 @@ class Admin
     /**
      * Get RememberMes
      *
-     * @return \Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\RememberMe>
      */
     public function getRememberMes()
     {
         return $this->RememberMes;
     }
     /**
-     * @var \Doctrine\Common\Collections\Collection
+     * @var \Doctrine\Common\Collections\Collection<int, \Entities\Archive>
      */
     #[ORM\OneToMany(targetEntity: \Entities\Archive::class, mappedBy: 'ArchivedBy')]
     private $Archives;
@@ -535,6 +615,7 @@ class Admin
      * Remove Archives
      *
      * @param \Entities\Archive $archives
+     * @return void
      */
     public function removeArchive(\Entities\Archive $archives)
     {
@@ -544,7 +625,7 @@ class Admin
     /**
      * Get Archives
      *
-     * @return \Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\Archive>
      */
     public function getArchives()
     {

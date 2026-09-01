@@ -1,0 +1,6 @@
+includes:
+    - phpstan-common.neon
+
+parameters:
+    # Applied only to newly added PHP files, without a baseline.
+    level: 10

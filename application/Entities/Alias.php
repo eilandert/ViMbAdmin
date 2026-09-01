@@ -13,7 +13,57 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'IX_Address_1', columns: ['address'])]
 class Alias
 {
+    /** @use \OSS_Doctrine2_WithPreferences<\Entities\AliasPreference> */
     use \OSS_Doctrine2_WithPreferences;
+
+    /** @return class-string<\Entities\AliasPreference> */
+    protected function _getPreferenceEntityClassname()
+    {
+        return \Entities\AliasPreference::class;
+    }
+
+    protected function _getPreferenceEntityManager(): \Doctrine\ORM\EntityManagerInterface
+    {
+        $entityManager = \OSS_Runtime::entityManager();
+        if (!$entityManager instanceof \Doctrine\ORM\EntityManagerInterface) {
+            throw new \UnexpectedValueException('Runtime entity manager does not implement Doctrine ORM EntityManagerInterface');
+        }
+
+        return $entityManager;
+    }
+
+    /**
+     * @param string $attribute
+     * @param bool $withIndex
+     * @param bool $ignoreExpired
+     * @return array<int, mixed>|false
+     */
+    public function getIndexedPreference($attribute, $withIndex = false, $ignoreExpired = true)
+    {
+        return $this->_getIndexedPreference($attribute, $withIndex, $ignoreExpired);
+    }
+
+    /**
+     * @param string $attribute
+     * @param int|null $index
+     * @param bool $ignoreExpired
+     * @return array<int|string, mixed>|false
+     */
+    public function getAssocPreference($attribute, $index = null, $ignoreExpired = true)
+    {
+        return $this->_getAssocPreference($attribute, $index, $ignoreExpired);
+    }
+
+    /**
+     * @param array<int|string, mixed> $config
+     * @param string $key
+     * @param string $value
+     * @return array<int|string, mixed>
+     */
+    private function _processKey($config, $key, $value)
+    {
+        return $this->_processPreferenceKey($config, $key, $value);
+    }
 
     /**
      * @var string $address
@@ -53,8 +103,13 @@ class Alias
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    private function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
+
     /**
-     * @var Entities\Domain
+     * @var \Entities\Domain|null
      */
     #[ORM\ManyToOne(targetEntity: \Entities\Domain::class, inversedBy: 'Aliases')]
     #[ORM\JoinColumn(name: 'Domain_id', referencedColumnName: 'id')]
@@ -77,7 +132,7 @@ class Alias
     /**
      * Get address
      *
-     * @return string 
+     * @return string|null
      */
     public function getAddress()
     {
@@ -100,7 +155,7 @@ class Alias
     /**
      * Get goto
      *
-     * @return string 
+     * @return string|null
      */
     public function getGoto()
     {
@@ -123,7 +178,7 @@ class Alias
     /**
      * Get active
      *
-     * @return boolean 
+     * @return boolean|null
      */
     public function getActive()
     {
@@ -146,7 +201,7 @@ class Alias
     /**
      * Get created
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getCreated()
     {
@@ -169,7 +224,7 @@ class Alias
     /**
      * Get modified
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getModified()
     {
@@ -179,7 +234,7 @@ class Alias
     /**
      * Get id
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getId()
     {
@@ -189,7 +244,7 @@ class Alias
     /**
      * Set Domain
      *
-     * @param Entities\Domain $domain
+     * @param \Entities\Domain|null $domain
      * @return Alias
      */
     public function setDomain(?\Entities\Domain $domain = null)
@@ -202,15 +257,13 @@ class Alias
     /**
      * Get Domain
      *
-     * @return Entities\Domain 
+     * @return \Entities\Domain|null
      */
     public function getDomain()
     {
         return $this->Domain;
     }
-    /**
-     * @var \Doctrine\Common\Collections\Collection
-     */
+    /** @var \Doctrine\Common\Collections\Collection<int, \Entities\AliasPreference> */
     #[ORM\OneToMany(targetEntity: \Entities\AliasPreference::class, mappedBy: 'Alias')]
     private $Preferences;
 
@@ -240,7 +293,7 @@ class Alias
      *
      * @param \Entities\AliasPreference $preferences
      */
-    public function removePreference(\Entities\AliasPreference $preferences)
+    public function removePreference(\Entities\AliasPreference $preferences): void
     {
         $this->Preferences->removeElement($preferences);
     }
@@ -248,7 +301,7 @@ class Alias
     /**
      * Get Preferences
      *
-     * @return \Doctrine\Common\Collections\Collection 
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\AliasPreference>
      */
     public function getPreferences()
     {

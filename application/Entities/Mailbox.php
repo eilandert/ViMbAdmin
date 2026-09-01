@@ -13,7 +13,57 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'IX_Username_mailbox', columns: ['username'])]
 class Mailbox
 {
+    /** @use \OSS_Doctrine2_WithPreferences<\Entities\MailboxPreference> */
     use \OSS_Doctrine2_WithPreferences;
+
+    /** @return class-string<\Entities\MailboxPreference> */
+    protected function _getPreferenceEntityClassname()
+    {
+        return \Entities\MailboxPreference::class;
+    }
+
+    protected function _getPreferenceEntityManager(): \Doctrine\ORM\EntityManagerInterface
+    {
+        $entityManager = \OSS_Runtime::entityManager();
+        if (!$entityManager instanceof \Doctrine\ORM\EntityManagerInterface) {
+            throw new \UnexpectedValueException('Runtime entity manager does not implement Doctrine ORM EntityManagerInterface');
+        }
+
+        return $entityManager;
+    }
+
+    /**
+     * @param string $attribute
+     * @param bool $withIndex
+     * @param bool $ignoreExpired
+     * @return array<int, mixed>|false
+     */
+    public function getIndexedPreference($attribute, $withIndex = false, $ignoreExpired = true)
+    {
+        return $this->_getIndexedPreference($attribute, $withIndex, $ignoreExpired);
+    }
+
+    /**
+     * @param string $attribute
+     * @param int|null $index
+     * @param bool $ignoreExpired
+     * @return array<int|string, mixed>|false
+     */
+    public function getAssocPreference($attribute, $index = null, $ignoreExpired = true)
+    {
+        return $this->_getAssocPreference($attribute, $index, $ignoreExpired);
+    }
+
+    /**
+     * @param array<int|string, mixed> $config
+     * @param string $key
+     * @param string $value
+     * @return array<int|string, mixed>
+     */
+    private function _processKey($config, $key, $value)
+    {
+        return $this->_processPreferenceKey($config, $key, $value);
+    }
 
     /**
      * @var string $username
@@ -34,7 +84,7 @@ class Mailbox
     private ?string $name = null;
 
     /**
-     * @var string $alt_email
+     * @var string|null $alt_email
      */
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $alt_email = null;
@@ -83,8 +133,13 @@ class Mailbox
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    protected function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
+
     /**
-     * @var \Doctrine\Common\Collections\ArrayCollection
+     * @var \Doctrine\Common\Collections\ArrayCollection<int, \Entities\MailboxPreference>
      */
     #[ORM\OneToMany(targetEntity: \Entities\MailboxPreference::class, mappedBy: 'Mailbox')]
     private $Preferences;
@@ -113,10 +168,20 @@ class Mailbox
     /**
      * Get username
      *
-     * @return string
+     * @return string|null
      */
     public function getUsername()
     {
+        return $this->username;
+    }
+
+    /** Return the address for operations that require an initialized mailbox. */
+    public function requiredUsername(): string
+    {
+        if ($this->username === null) {
+            throw new \LogicException('Mailbox username cannot be null.');
+        }
+
         return $this->username;
     }
 
@@ -136,10 +201,20 @@ class Mailbox
     /**
      * Get password
      *
-     * @return string
+     * @return string|null
      */
     public function getPassword()
     {
+        return $this->password;
+    }
+
+    /** Return the credential for operations that require an initialized mailbox. */
+    public function requiredPassword(): string
+    {
+        if ($this->password === null) {
+            throw new \LogicException('Mailbox password cannot be null.');
+        }
+
         return $this->password;
     }
 
@@ -159,7 +234,7 @@ class Mailbox
     /**
      * Get name
      *
-     * @return string
+     * @return string|null
      */
     public function getName()
     {
@@ -169,7 +244,7 @@ class Mailbox
     /**
      * Set alt_email
      *
-     * @param string $altEmail
+     * @param string|null $altEmail
      * @return Mailbox
      */
     public function setAltEmail($altEmail)
@@ -182,7 +257,7 @@ class Mailbox
     /**
      * Get alt_email
      *
-     * @return string
+     * @return string|null
      */
     public function getAltEmail()
     {
@@ -205,7 +280,7 @@ class Mailbox
     /**
      * Get quota
      *
-     * @return integer
+     * @return integer|null
      */
     public function getQuota()
     {
@@ -228,7 +303,7 @@ class Mailbox
     /**
      * Get local_part
      *
-     * @return string
+     * @return string|null
      */
     public function getLocalPart()
     {
@@ -251,7 +326,7 @@ class Mailbox
     /**
      * Get active
      *
-     * @return boolean
+     * @return boolean|null
      */
     public function getActive()
     {
@@ -297,7 +372,7 @@ class Mailbox
     /**
      * Get created
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getCreated()
     {
@@ -320,7 +395,7 @@ class Mailbox
     /**
      * Get modified
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getModified()
     {
@@ -330,7 +405,7 @@ class Mailbox
     /**
      * Get id
      *
-     * @return integer
+     * @return integer|null
      */
     public function getId()
     {
@@ -340,7 +415,7 @@ class Mailbox
     /**
      * Add Preferences
      *
-     * @param Entities\MailboxPreference $preferences
+     * @param \Entities\MailboxPreference $preferences
      * @return Mailbox
      */
     public function addPreference(\Entities\MailboxPreference $preferences)
@@ -353,9 +428,9 @@ class Mailbox
     /**
      * Remove Preferences
      *
-     * @param Entities\MailboxPreference $preferences
+     * @param \Entities\MailboxPreference $preferences
      */
-    public function removePreference(\Entities\MailboxPreference $preferences)
+    public function removePreference(\Entities\MailboxPreference $preferences): void
     {
         $this->Preferences->removeElement($preferences);
     }
@@ -363,7 +438,7 @@ class Mailbox
     /**
      * Get Preferences
      *
-     * @return Doctrine\Common\Collections\Collection
+     * @return \Doctrine\Common\Collections\Collection<int, \Entities\MailboxPreference>
      */
     public function getPreferences()
     {
@@ -371,7 +446,7 @@ class Mailbox
     }
 
     /**
-     * @var Entities\Domain
+     * @var \Entities\Domain|null
      */
     #[ORM\ManyToOne(targetEntity: \Entities\Domain::class, inversedBy: 'Mailboxes')]
     #[ORM\JoinColumn(name: 'Domain_id', referencedColumnName: 'id')]
@@ -381,7 +456,7 @@ class Mailbox
     /**
      * Set Domain
      *
-     * @param Entities\Domain $domain
+     * @param \Entities\Domain|null $domain
      * @return Mailbox
      */
     public function setDomain(?\Entities\Domain $domain = null)
@@ -394,7 +469,7 @@ class Mailbox
     /**
      * Get Domain
      *
-     * @return Entities\Domain
+     * @return \Entities\Domain|null
      */
     public function getDomain()
     {
@@ -404,7 +479,7 @@ class Mailbox
     /**
      * Add Preferences
      *
-     * @param Entities\MailboxPreference $preferences
+     * @param \Entities\MailboxPreference $preferences
      * @return Mailbox
      */
     public function addMailboxPreference(\Entities\MailboxPreference $preferences)
@@ -459,7 +534,7 @@ class Mailbox
     /**
      * Get DirectoryEntry
      *
-     * @return \Entities\DirectoryEntry
+     * @return \Entities\DirectoryEntry|null
      */
     public function getDirectoryEntry()
     {
@@ -489,7 +564,7 @@ class Mailbox
     /**
      * Get delete_pending
      *
-     * @return boolean
+     * @return boolean|null
      */
     public function getDeletePending()
     {

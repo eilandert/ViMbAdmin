@@ -57,6 +57,6 @@
  */
 function smarty_modifier_mobile($string)
 {
-    return preg_replace("/(353)(\d{2})(\d{3})(\d{4})/", "0$2 $3 $4", preg_replace("/\D/", '', $string));
+    $digits = preg_replace("/\D/", '', $string) ?? '';
+    return preg_replace("/(353)(\d{2})(\d{3})(\d{4})/", "0$2 $3 $4", $digits) ?? '';
 }
-

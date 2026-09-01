@@ -61,10 +61,45 @@ final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager
     }
 }
 
-$failures = 0;
+final class RecordingAlias extends \Entities\Alias
+{
+    public mixed $lastActiveArgument = null;
+
+    public function setActive($active)
+    {
+        $this->lastActiveArgument = $active;
+        return parent::setActive($active);
+    }
+}
+
+final class InvalidAliasHookState
+{
+    private static bool $ran = false;
+
+    public static function reset(): void { self::$ran = false; }
+    public static function markRan(): void { self::$ran = true; }
+    public static function ran(): bool { return self::$ran; }
+}
+
+final class TestServiceAliasHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestServiceAliasHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestServiceAliasHarnessState::$count++; }
+}
+
+function aliasOperationThrows(string $message, \Closure $operation): bool {
+    try {
+        $operation();
+    } catch (\LogicException $exception) {
+        return $exception->getMessage() === $message;
+    }
+
+    return false;
 }
 
 echo "== ViMbAdmin_Service_Alias ==\n";
@@ -75,7 +110,8 @@ $actor->setUsername('admin@example.com');
 $mkAlias = static function (bool $active): \Entities\Alias {
     $al = new \Entities\Alias();
     $al->setAddress("alias@example.com");
-    $al->setActive($active ? 1 : 0);
+    $al->setGoto("target@example.com");
+    $al->setActive($active);
     return $al;
 };
 
@@ -98,9 +134,9 @@ check('alias is now active',                (bool) $al->getActive() === true);
 check('exactly one flush',                    $em->flushes === 1);
 check('a Log row was persisted',              $em->lastLog() instanceof \Entities\Log);
 check('log action is ACTIVATE',               $em->lastLog()?->getAction() === \Entities\Log::ACTION_ALIAS_ACTIVATE);
-check('preToggle saw pre-toggle state (0)',   $order[0] === 'preToggle:0');
-check('preFlush saw post-toggle state (1)',   $order[1] === 'preFlush:1');
-check('postFlush saw post-toggle state (1)',  $order[2] === 'postFlush:1');
+check('preToggle saw pre-toggle state (0)',   implode('|', $order) === 'preToggle:0|preFlush:1|postFlush:1');
+check('preFlush saw post-toggle state (1)',   implode('|', $order) === 'preToggle:0|preFlush:1|postFlush:1');
+check('postFlush saw post-toggle state (1)',  implode('|', $order) === 'preToggle:0|preFlush:1|postFlush:1');
 check('hook order preToggle<preFlush<postFlush', $order === ['preToggle:0', 'preFlush:1', 'postFlush:1']);
 
 // --- deactivate path -------------------------------------------------- //
@@ -125,6 +161,35 @@ check('veto leaves alias unchanged',        (bool) $al3->getActive() === true);
 check('veto does NOT flush',                  $em3->flushes === 0);
 check('veto writes no log',                   $em3->lastLog() === null);
 
+// --- required identity fails before hooks or mutations --------------- //
+$emInvalidToggle = new FakeObjectManager();
+$invalidToggle = new \Entities\Alias();
+$invalidToggle->setGoto('target@example.com');
+$invalidToggle->setActive(false);
+InvalidAliasHookState::reset();
+check(
+    'toggle rejects a null alias address',
+    aliasOperationThrows(
+        'Alias address cannot be null.',
+        static fn (): mixed => (new ViMbAdmin_Service_Alias($emInvalidToggle))->toggleActive(
+            $invalidToggle,
+            $actor,
+            static function (): bool {
+                InvalidAliasHookState::markRan();
+                return true;
+            },
+        ),
+    ),
+);
+check(
+    'toggle identity failure has no side effects',
+    $invalidToggle->getActive() === false
+        && $invalidToggle->getModified() === null
+        && !InvalidAliasHookState::ran()
+        && $emInvalidToggle->persisted === []
+        && $emInvalidToggle->flushes === 0,
+);
+
 $mkDomain = static function (int $count): \Entities\Domain {
     $d = new \Entities\Domain();
     $d->setDomain('example.com');
@@ -132,10 +197,32 @@ $mkDomain = static function (int $count): \Entities\Domain {
     return $d;
 };
 
+$emInvalidCreate = new FakeObjectManager();
+$invalidCreateDomain = $mkDomain(6);
+$invalidCreate = (new \Entities\Alias())->setAddress('invalid@example.com');
+check(
+    'create rejects a null alias goto',
+    aliasOperationThrows(
+        'Alias goto cannot be null.',
+        static fn (): mixed => (new ViMbAdmin_Service_Alias($emInvalidCreate))->create(
+            $invalidCreate,
+            $invalidCreateDomain,
+            $actor,
+        ),
+    ),
+);
+check(
+    'create identity failure has no side effects',
+    $emInvalidCreate->persisted === []
+        && $emInvalidCreate->flushes === 0
+        && $invalidCreateDomain->getAliasCount() === 6
+        && $invalidCreate->getDomain() === null,
+);
+
 // --- create: forwarding alias (address != goto) bumps the count ------- //
 $emC = new FakeObjectManager();
 $domC = $mkDomain(4);
-$alC  = new \Entities\Alias();
+$alC  = new RecordingAlias();
 $alC->setAddress('info@example.com');
 $alC->setGoto('boss@example.com');
 $orderC = [];
@@ -146,13 +233,37 @@ $created = (new ViMbAdmin_Service_Alias($emC))->create(
 );
 check('create returns the alias',             $created === $alC);
 check('create set the domain',                $alC->getDomain() === $domC);
-check('create set active',                    (bool) $alC->getActive() === true);
+check('create passes a boolean active value', $alC->lastActiveArgument === true);
+check('create set active',                    $alC->getActive() === true);
 check('create stamped created',               $alC->getCreated() instanceof \DateTime);
 check('create persisted the alias',           in_array($alC, $emC->persisted, true));
 check('create bumped aliasCount (addr!=goto)', (int) $domC->getAliasCount() === 5);
 check('create logged ACTION_ALIAS_ADD',       $emC->lastLog()?->getAction() === \Entities\Log::ACTION_ALIAS_ADD);
 check('create flushed once',                  $emC->flushes === 1);
 check('create hook order around flush',       $orderC === ['preFlush:0', 'postFlush:1']);
+
+// --- create: preFlush failure stops flush and postFlush -------------- //
+$emE = new FakeObjectManager();
+$domE = $mkDomain(2);
+$alE = new \Entities\Alias();
+$alE->setAddress('error@example.com');
+$alE->setGoto('target@example.com');
+$postFlushRan = false;
+try {
+    (new ViMbAdmin_Service_Alias($emE))->create(
+        $alE,
+        $domE,
+        $actor,
+        static function (): void { throw new \RuntimeException('preFlush failure'); },
+        static function () use (&$postFlushRan): void { $postFlushRan = true; },
+    );
+    check('create propagates preFlush failure', false);
+} catch (\RuntimeException $e) {
+    check('create propagates preFlush failure', $e->getMessage() === 'preFlush failure');
+}
+check('create preFlush failure prevents flush', $emE->flushes === 0);
+check('create preFlush failure skips postFlush', $postFlushRan === false);
+check('create accounts allowance before preFlush', (int) $domE->getAliasCount() === 3);
 
 // --- create: self-alias (address == goto) does NOT bump the count ----- //
 $emS = new FakeObjectManager();
@@ -185,6 +296,25 @@ check('update did NOT touch aliasCount',      (int) $domU->getAliasCount() === 9
 check('update did NOT persist (edit only)',   $emU->countPersisted(\Entities\Alias::class) === 0);
 check('update hook order around flush',       $orderU === ['preFlush:0', 'postFlush:1']);
 
+$emInvalidUpdate = new FakeObjectManager();
+$invalidUpdate = (new \Entities\Alias())->setGoto('target@example.com');
+check(
+    'update rejects a null alias address',
+    aliasOperationThrows(
+        'Alias address cannot be null.',
+        static fn (): mixed => (new ViMbAdmin_Service_Alias($emInvalidUpdate))->update(
+            $invalidUpdate,
+            $actor,
+        ),
+    ),
+);
+check(
+    'update identity failure has no side effects',
+    $invalidUpdate->getModified() === null
+        && $emInvalidUpdate->persisted === []
+        && $emInvalidUpdate->flushes === 0,
+);
+
 // --- delete: forwarding alias, hooks fire, count decrements ----------- //
 $emD = new FakeObjectManager();
 $domD = $mkDomain(5);
@@ -205,6 +335,49 @@ check('delete decremented aliasCount',        (int) $domD->getAliasCount() === 4
 check('delete logged ACTION_ALIAS_DELETE',    $emD->lastLog()?->getAction() === \Entities\Log::ACTION_ALIAS_DELETE);
 check('delete flushed once',                  $emD->flushes === 1);
 check('delete hook order',                    $orderD === ['preRemove', 'preFlush', 'postFlush']);
+
+$emInvalidDelete = new FakeObjectManager();
+$invalidDeleteDomain = $mkDomain(8);
+$invalidDelete = (new \Entities\Alias())
+    ->setAddress('invalid@example.com')
+    ->setDomain($invalidDeleteDomain);
+$invalidDelete->addPreference(new \Entities\AliasPreference());
+check(
+    'delete rejects a null alias goto',
+    aliasOperationThrows(
+        'Alias goto cannot be null.',
+        static fn (): mixed => (new ViMbAdmin_Service_Alias($emInvalidDelete))->delete(
+            $invalidDelete,
+            $actor,
+        ),
+    ),
+);
+check(
+    'delete identity failure has no side effects',
+    $emInvalidDelete->removed === []
+        && $emInvalidDelete->persisted === []
+        && $emInvalidDelete->flushes === 0
+        && $invalidDeleteDomain->getAliasCount() === 8,
+);
+
+$emOrphanDelete = new FakeObjectManager();
+$orphanDelete = (new \Entities\Alias())
+    ->setAddress('orphan@example.com')
+    ->setGoto('target@example.net');
+$orphanDelete->addPreference(new \Entities\AliasPreference());
+check(
+    'delete rejects a null alias domain before preference removal',
+    aliasOperationThrows(
+        'Alias domain cannot be null.',
+        static fn (): mixed => (new ViMbAdmin_Service_Alias($emOrphanDelete))->delete($orphanDelete, $actor),
+    ),
+);
+check(
+    'delete relation failure has no side effects',
+    $emOrphanDelete->removed === []
+        && $emOrphanDelete->persisted === []
+        && $emOrphanDelete->flushes === 0,
+);
 
 // --- delete: self-alias does NOT touch the count ---------------------- //
 $emDS = new FakeObjectManager();
@@ -234,6 +407,87 @@ check('delete veto did NOT remove the alias', !in_array($alV, $emV->removed, tru
 check('delete veto did NOT flush',            $emV->flushes === 0);
 check('delete veto wrote no log',             $emV->lastLog() === null);
 check('delete veto left aliasCount',          (int) $domV->getAliasCount() === 5);
+
+// --- repository list query contracts --------------------------------- //
+$configuration = \Doctrine\ORM\ORMSetup::createAttributeMetadataConfiguration([
+    __DIR__ . '/../application/Entities',
+]);
+$configuration->enableNativeLazyObjects(true);
+$connection = \Doctrine\DBAL\DriverManager::getConnection([
+    'driver' => 'pdo_mysql',
+    'host' => '127.0.0.1',
+    'dbname' => 'unused',
+], $configuration);
+$entityManager = new \Doctrine\ORM\EntityManager($connection, $configuration);
+$metadata = new \Doctrine\ORM\Mapping\ClassMetadata(\Entities\Alias::class);
+$aliasRepository = new \Repositories\Alias($entityManager, $metadata);
+
+$invokeAliasQuery = static function (
+    ReflectionMethod $method,
+    \Repositories\Alias $repository,
+    mixed ...$arguments,
+): \Doctrine\ORM\QueryBuilder {
+    $query = $method->invoke($repository, ...$arguments);
+    if (!$query instanceof \Doctrine\ORM\QueryBuilder) {
+        throw new RuntimeException('repository query factory did not return a QueryBuilder');
+    }
+    return $query;
+};
+$queryParameters = static function (\Doctrine\ORM\QueryBuilder $query): array {
+    $parameters = [];
+    foreach ($query->getParameters() as $parameter) {
+        $parameters[$parameter->getName()] = $parameter->getValue();
+    }
+    return $parameters;
+};
+
+$scopedAdmin = new \Entities\Admin();
+$scopedAdmin->setSuper(false);
+$repositoryDomain = new \Entities\Domain();
+$repositoryDomain->setDomain('repository.example');
+$listMethod = new ReflectionMethod($aliasRepository, 'aliasListQuery');
+$listQuery = $invokeAliasQuery($listMethod, $aliasRepository, $scopedAdmin, $repositoryDomain, false);
+$listDql = $listQuery->getDQL();
+$listParameters = $queryParameters($listQuery);
+check('alias list keeps the selected hydration columns', str_contains($listDql, 'a.id as id') && str_contains($listDql, 'd.domain as domain'));
+check('alias list scopes a non-super admin', str_contains($listDql, 'JOIN d.Admins d2a') && str_contains($listDql, 'd2a = ?1'));
+check('alias list retains domain and non-mailbox filters', str_contains($listDql, 'a.Domain = ?2') && str_contains($listDql, 'a.address != a.goto'));
+check('alias list preserves positional query parameters', ($listParameters[1] ?? null) === $scopedAdmin && ($listParameters[2] ?? null) === $repositoryDomain);
+
+$superAdmin = new \Entities\Admin();
+$superAdmin->setSuper(true);
+$unscopedQuery = $invokeAliasQuery($listMethod, $aliasRepository, $superAdmin, null, true);
+check('super-admin include-mailbox boundary adds no filters', !str_contains($unscopedQuery->getDQL(), 'WHERE') && count($unscopedQuery->getParameters()) === 0);
+
+$filterMethod = new ReflectionMethod($aliasRepository, 'filteredAliasListQuery');
+$filterQuery = $invokeAliasQuery($filterMethod, $aliasRepository, '*sales_%', $scopedAdmin, 17, false);
+$filterDql = $filterQuery->getDQL();
+$filterParameters = $queryParameters($filterQuery);
+check('filtered list retains search when admin scoping is appended', str_contains($filterDql, 'a.goto LIKE :s') && str_contains($filterDql, 'AND d2a = :admin'));
+check('filtered list escapes wildcard data in contains mode', ($filterParameters['s'] ?? null) === '%sales\_\%%');
+check('filtered list accepts the legacy numeric domain id', ($filterParameters['domain'] ?? null) === 17);
+check('filtered list preserves mailbox-alias exclusion', str_contains($filterDql, 'a.address != a.goto'));
+
+$quotedFilterQuery = $invokeAliasQuery($filterMethod, $aliasRepository, "o'hare", $superAdmin, null, true);
+$quotedParameters = $queryParameters($quotedFilterQuery);
+check('filtered list strips quotes and uses prefix mode', ($quotedParameters['s'] ?? null) === 'ohare%');
+check('super-admin filtered boundary omits ownership and mailbox filters', !str_contains($quotedFilterQuery->getDQL(), 'd2a') && !str_contains($quotedFilterQuery->getDQL(), 'a.address != a.goto'));
+
+$zeroFilterQuery = $invokeAliasQuery($filterMethod, $aliasRepository, '0', $superAdmin, null, true);
+$emptyFilterQuery = $invokeAliasQuery($filterMethod, $aliasRepository, '', $superAdmin, null, true);
+check('filtered list preserves the string zero', ($queryParameters($zeroFilterQuery)['s'] ?? null) === '0%');
+check('filtered list preserves the empty-string legacy wildcard', ($queryParameters($emptyFilterQuery)['s'] ?? null) === '%');
+
+foreach ([null, false, 1, 1.5, [], new \stdClass()] as $invalidFilter) {
+    $message = null;
+    try {
+        $invokeAliasQuery($filterMethod, $aliasRepository, $invalidFilter, $superAdmin, null, true);
+    } catch (\Throwable $exception) {
+        $message = $exception->getMessage();
+    }
+    check('filtered list rejects non-string input: ' . get_debug_type($invalidFilter),
+        $message === 'Alias filter must be a string.');
+}
 
 echo "\n";
 if ($failures === 0) {

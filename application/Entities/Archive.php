@@ -21,6 +21,7 @@ class Archive
     const STATUS_DELETING        = "DELETING";
     const STATUS_DELETED         = "DELETED";
 
+    /** @var array<string, string> */
     public static $ARCHIVE_STATUS = [
         self::STATUS_PENDING_ARCHIVE  => "Pending Archive",
         self::STATUS_ARCHIVING        => "Archiving",
@@ -126,6 +127,11 @@ class Archive
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    protected function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
+
     /**
      * @var \Entities\Domain
      */
@@ -157,11 +163,22 @@ class Archive
     /**
      * Get username
      *
-     * @return string 
+     * @return string|null
      */
     public function getUsername()
     {
         return $this->username;
+    }
+
+    /**
+     * Get the persisted archive identity required by operational paths.
+     *
+     * @throws \LogicException when the archive has not been initialized
+     */
+    public function requiredUsername(): string
+    {
+        return $this->username
+            ?? throw new \LogicException('Archive username cannot be null.');
     }
 
     /**
@@ -180,7 +197,7 @@ class Archive
     /**
      * Get status
      *
-     * @return string 
+     * @return string|null
      */
     public function getStatus()
     {
@@ -203,7 +220,7 @@ class Archive
     /**
      * Get archived_at
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getArchivedAt()
     {
@@ -226,7 +243,7 @@ class Archive
     /**
      * Get status_changed_at
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getStatusChangedAt()
     {
@@ -249,7 +266,7 @@ class Archive
     /**
      * Get homedir_server
      *
-     * @return string 
+     * @return string|null
      */
     public function getHomedirServer()
     {
@@ -272,7 +289,7 @@ class Archive
     /**
      * Get homedir_file
      *
-     * @return string 
+     * @return string|null
      */
     public function getHomedirFile()
     {
@@ -295,7 +312,7 @@ class Archive
     /**
      * Get homedir_orig_size
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getHomedirOrigSize()
     {
@@ -318,7 +335,7 @@ class Archive
     /**
      * Get homedir_size
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getHomedirSize()
     {
@@ -341,7 +358,7 @@ class Archive
     /**
      * Get maildir_server
      *
-     * @return string 
+     * @return string|null
      */
     public function getMaildirServer()
     {
@@ -364,7 +381,7 @@ class Archive
     /**
      * Get maildir_file
      *
-     * @return string 
+     * @return string|null
      */
     public function getMaildirFile()
     {
@@ -387,7 +404,7 @@ class Archive
     /**
      * Get maildir_orig_size
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getMaildirOrigSize()
     {
@@ -410,7 +427,7 @@ class Archive
     /**
      * Get maildir_size
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getMaildirSize()
     {
@@ -433,7 +450,7 @@ class Archive
     /**
      * Get data
      *
-     * @return string 
+     * @return string|null
      */
     public function getData()
     {
@@ -466,7 +483,7 @@ class Archive
     /**
      * Get id
      *
-     * @return integer
+     * @return integer|null
      */
     public function getId()
     {
@@ -489,11 +506,22 @@ class Archive
     /**
      * Get Domain
      *
-     * @return \Entities\Domain 
+     * @return \Entities\Domain|null
      */
     public function getDomain()
     {
         return $this->Domain;
+    }
+
+    /**
+     * Get the persisted domain required by authorization and restore paths.
+     *
+     * @throws \LogicException when the archive has no domain
+     */
+    public function requiredDomain(): \Entities\Domain
+    {
+        return $this->Domain
+            ?? throw new \LogicException('Archive domain cannot be null.');
     }
 
     /**
@@ -512,7 +540,7 @@ class Archive
     /**
      * Get ArchivedBy
      *
-     * @return \Entities\Admin 
+     * @return \Entities\Admin|null
      */
     public function getArchivedBy()
     {

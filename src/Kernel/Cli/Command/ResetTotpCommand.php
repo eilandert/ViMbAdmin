@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Cli\Command;
 
+use Doctrine\Persistence\ObjectManager;
+use Doctrine\Persistence\ObjectRepository;
+use Entities\Admin;
+use LogicException;
 use ViMbAdmin\Kernel\Cli\CliCommand;
 use ViMbAdmin\Kernel\Container;
 
@@ -36,9 +40,18 @@ final class ResetTotpCommand implements CliCommand
         }
 
         $options = $container->options();
-        $tfa     = new \ViMbAdmin_TwoFactor('ViMbAdmin', (string) ($options['securitysalt'] ?? ''));
-        $em      = $container->entityManager();
-        $repo    = $em->getRepository('\\Entities\\Admin');
+        $salt = $options['securitysalt'] ?? '';
+        if( !is_string( $salt ) )
+            throw new \TypeError( 'TOTP security salt must be a string.' );
+
+        $tfa = new \ViMbAdmin_TwoFactor('ViMbAdmin', $salt);
+        $entityManager = $container->entityManager();
+        if (!$entityManager instanceof ObjectManager) {
+            throw new LogicException('TOTP reset requires a Doctrine object manager.');
+        }
+
+        /** @var ObjectRepository<Admin> $repo */
+        $repo = $entityManager->getRepository('\\Entities\\Admin');
 
         $admins = $all ? $repo->findAll() : $repo->findBy(['username' => $username]);
         if (!$admins) {
@@ -54,7 +67,7 @@ final class ResetTotpCommand implements CliCommand
                 $n++;
             }
         }
-        $em->flush();
+        $entityManager->flush();
         echo "Done. {$n} admin(s) had 2FA disabled.\n";
 
         return 0;

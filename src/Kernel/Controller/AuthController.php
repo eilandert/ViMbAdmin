@@ -20,7 +20,7 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  * Native login / logout (docs/ZF1-REMOVAL.md) — the framework-free replacement
  * for the ZF1 framework-auth login, the deepest auth coupling.
  *
- * SECURITY: this re-uses the same vetted password and 2FA primitives rather
+ * SECURITY: this reuses the same vetted password and 2FA primitives rather
  * than re-implementing any of them — password verification
  * ({@see \OSS_Auth_Password::verify}), the brute-force gate
  * ({@see \ViMbAdmin_BruteForce}), and the two-factor gate
@@ -30,8 +30,8 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  *   1. already authenticated → bounce home;
  *   2. zero admins → first-run setup;
  *   3. brute-force: refuse a locked source (429 + exit), count this attempt;
- *   4. verify the credentials; a miss increments the admin's failed-login
- *      counter exactly as the ZF1 adapter did;
+ *   4. verify the credentials; a miss stays indistinguishable from an unknown
+ *      account while the source brute-force counter remains authoritative;
  *   5. on success, BEFORE granting a session: the 2FA gate — an enabled or
  *      force-enrolled admin is parked (`totp_pending_admin_id`) and redirected to
  *      the native `auth/totp` / `auth/totp-setup` flow, so 2FA is never bypassed;
@@ -52,9 +52,200 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  */
 final class AuthController extends AbstractController
 {
+    private static function requiredString(mixed $value, string $name): string
+    {
+        if (!is_string($value)) {
+            throw new \LogicException("{$name} must be a string");
+        }
+
+        return $value;
+    }
+
+    private static function stringOrDefault(mixed $value, string $default, string $name): string
+    {
+        if ($value === null) {
+            return $default;
+        }
+
+        return self::requiredString($value, $name);
+    }
+
+    private static function applicationPathOrDefault(mixed $value, string $default): string
+    {
+        if ($value === null) {
+            return $default;
+        }
+        if (!is_string($value)
+            || preg_match('/[\x00-\x1F\x7F]/', $value) === 1
+            || str_starts_with($value, '//')
+            || preg_match('/^[A-Za-z][A-Za-z0-9+.-]*:/', $value) === 1) {
+            return $default;
+        }
+
+        return $value;
+    }
+
+    private static function integerOrNull(mixed $value): ?int
+    {
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            return is_int($integer) ? $integer : null;
+        }
+
+        return null;
+    }
+
+    /** @return array<string,mixed> */
+    private static function stringKeyedArray(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new \LogicException("{$name} must be an array");
+        }
+        foreach ($value as $key => $_) {
+            if (!is_string($key)) {
+                throw new \LogicException("{$name} must use string keys");
+            }
+        }
+
+        return $value;
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function option(array $options, string ...$path): mixed
+    {
+        $value = $options;
+        $walked = [];
+        $last = array_key_last($path);
+        foreach ($path as $index => $key) {
+            $walked[] = $key;
+            if (!is_array($value)) {
+                throw new \LogicException('Configuration ' . implode('.', array_slice($walked, 0, -1)) . ' must be an array');
+            }
+            $value = self::stringKeyedArray(
+                $value,
+                'Configuration ' . ($index === 0 ? 'root' : implode('.', array_slice($walked, 0, -1))),
+            );
+            if (!array_key_exists($key, $value)) {
+                return null;
+            }
+            $value = $value[$key];
+            if ($index !== $last && !is_array($value)) {
+                throw new \LogicException('Configuration ' . implode('.', $walked) . ' must be an array');
+            }
+        }
+
+        return $value;
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionString(array $options, string $default, string ...$path): string
+    {
+        return self::stringOrDefault(
+            self::option($options, ...$path),
+            $default,
+            'Configuration ' . implode('.', $path),
+        );
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionNullableString(array $options, string ...$path): ?string
+    {
+        $value = self::option($options, ...$path);
+        return $value === null
+            ? null
+            : self::requiredString($value, 'Configuration ' . implode('.', $path));
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @param array<string,mixed> $default
+     * @return array<string,mixed>
+     */
+    private static function optionArray(array $options, array $default, string ...$path): array
+    {
+        $value = self::option($options, ...$path);
+        return $value === null
+            ? $default
+            : self::stringKeyedArray($value, 'Configuration ' . implode('.', $path));
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionInt(array $options, int $default, string ...$path): int
+    {
+        $value = self::option($options, ...$path);
+        if ($value === null) {
+            return $default;
+        }
+        if (is_int($value) && $value >= 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[0-9]+$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            if (is_int($integer)) {
+                return $integer;
+            }
+        }
+
+        throw new \LogicException('Configuration ' . implode('.', $path) . ' must be a non-negative integer');
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionBool(array $options, bool $default, string ...$path): bool
+    {
+        $value = self::option($options, ...$path);
+        if ($value === null) {
+            return $default;
+        }
+        if ($value === true || $value === 1 || $value === '1') {
+            return true;
+        }
+        if ($value === false || $value === 0 || $value === '0' || $value === '') {
+            return false;
+        }
+
+        throw new \LogicException('Configuration ' . implode('.', $path) . ' must be boolean');
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array<string,mixed>|string
+     */
+    private static function passwordOptions(array $options): array|string
+    {
+        $value = self::option($options, 'resources', 'auth', 'oss');
+        if (is_string($value)) {
+            return $value;
+        }
+
+        return self::stringKeyedArray($value, 'Configuration resources.auth.oss');
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function validateAuthEmailOptions(array $options): void
+    {
+        $values = [
+            self::optionString($options, '', 'identity', 'sitename'),
+            self::optionString($options, 'do-not-reply@localhost', 'identity', 'mailer', 'email'),
+            self::optionString($options, '', 'identity', 'mailer', 'name'),
+        ];
+        foreach ($values as $value) {
+            if (preg_match('/[\x00-\x1F\x7F]/', $value) === 1) {
+                throw new \LogicException('Authentication email configuration contains control characters');
+            }
+        }
+
+        $format = self::optionString($options, 'both', 'resources', 'auth', 'oss', 'email_format');
+        if (!in_array($format, ['html', 'plaintext', 'both'], true)) {
+            throw new \LogicException('Configuration resources.auth.oss.email_format is invalid');
+        }
+    }
+
     public function captchaImageAction(): Response
     {
-        $path = \OSS_Captcha_Image::path((string) $this->param('id', ''));
+        $path = \OSS_Captcha_Image::path(self::stringOrDefault($this->param('id'), '', 'Captcha id'));
         if ($path === null) {
             return Response::text('Not found', 404);
         }
@@ -76,7 +267,7 @@ final class AuthController extends AbstractController
             return $this->redirect('');
         }
 
-        if ((int) $this->em()->getRepository('\\Entities\\Admin')->getCount() === 0) {
+        if ((int) $this->adminRepository()->getCount() === 0) {
             return $this->redirect('auth/setup');
         }
 
@@ -90,22 +281,20 @@ final class AuthController extends AbstractController
 
         if ($this->isPost()) {
             $post = $this->postData();
-            $bf->record((string) ($post['username'] ?? ''), null);
+            $bf->record(self::stringOrDefault($post['username'] ?? null, '', 'Login username'), null);
 
             if ($form->isValid($post)) {
                 $values   = $form->values();
-                $username = (string) $values['username'];
-                $admin    = $this->em()->getRepository('\\Entities\\Admin')->findOneBy(['username' => $username]);
-                $authOpts = $options['resources']['auth']['oss'];
+                $username = self::requiredString($values['username'] ?? null, 'Login username');
+                $admin    = $this->adminRepository()->findOneBy(['username' => $username]);
+                $authOpts = self::option($options, 'resources', 'auth', 'oss');
 
-                if ($admin !== null && \OSS_Auth_Password::verify((string) $values['password'], $admin->getPassword(), $authOpts)) {
+                if ($admin !== null && self::adminPasswordMatches(
+                    $admin,
+                    self::requiredString($values['password'] ?? null, 'Login password'),
+                    $authOpts,
+                )) {
                     return $this->completeLogin($admin, $bf, $options);
-                }
-
-                // Credential miss: mirror the ZF1 adapter's failed-login count.
-                if ($admin !== null && method_exists($admin, 'setFailedLogins')) {
-                    $admin->setFailedLogins($admin->getFailedLogins() + 1);
-                    $this->em()->flush();
                 }
 
                 $this->flash('Invalid username or password. Please try again.', FlashMessages::ERROR);
@@ -138,9 +327,9 @@ final class AuthController extends AbstractController
      * through `Service_Admin::create`. The welcome email is dropped (no mailer in
      * the native kernel, consistent with the native login).
      */
-    public function setupAction(): ?Response
+    public function setupAction(): Response
     {
-        if ((int) $this->em()->getRepository('\\Entities\\Admin')->getCount() !== 0) {
+        if ((int) $this->adminRepository()->getCount() !== 0) {
             $this->flash('Admins already exist in the system.', FlashMessages::INFO);
             return $this->redirect('auth/login');
         }
@@ -151,7 +340,7 @@ final class AuthController extends AbstractController
         }
 
         $options = $this->container->options();
-        $salt    = (string) ($options['securitysalt'] ?? '');
+        $salt    = self::optionString($options, '', 'securitysalt');
 
         // Salt not configured yet (fresh install before the [user] section is
         // filled in): render the first-run "set your security salts" screen
@@ -168,15 +357,18 @@ final class AuthController extends AbstractController
         if ($this->isPost() && $form->isValid($this->postData())) {
             $values = $form->values();
 
-            if (!hash_equals($salt, (string) $values['salt'])) {
+            if (!hash_equals($salt, self::requiredString($values['salt'] ?? null, 'Setup salt'))) {
                 $this->flash('Incorrect security salt provided. Please copy and paste it from the application.ini file.', FlashMessages::INFO);
                 return $this->redirect('auth/login');
             }
 
             $admin = new \Entities\Admin();
-            $admin->setUsername((string) $values['username']);
+            $admin->setUsername(self::requiredString($values['username'] ?? null, 'Setup username'));
             $admin->setPassword(
-                \OSS_Auth_Password::hash((string) $values['password'], $options['resources']['auth']['oss'])
+                \OSS_Auth_Password::hash(
+                    self::requiredString($values['password'] ?? null, 'Setup password'),
+                    self::passwordOptions($options),
+                )
             );
             $admin->setSuper(true);
             $admin->setActive(true);
@@ -210,9 +402,9 @@ final class AuthController extends AbstractController
      * redirected here; the identity is granted only once a valid TOTP (or a
      * one-time backup) code is supplied. Both the verification and the secret
      * handling go through the already-framework-free `ViMbAdmin_TwoFactor`
-     * (robthree/twofactorauth + libsodium), so there is no ZF1 dependency. No CSRF
-     * (pre-auth, gated by the unforgeable pending-session id — same rationale as
-     * the login form). A wrong code is counted against the brute-force gate.
+     * (robthree/twofactorauth + libsodium), so there is no ZF1 dependency. The
+     * rendered form's CSRF token is validated before a code reaches either TOTP
+     * primitive. A wrong verified-form code is counted against the brute-force gate.
      */
     public function totpAction(): Response
     {
@@ -220,37 +412,42 @@ final class AuthController extends AbstractController
             return $this->redirect('');
         }
 
-        $session   = $this->session();
-        $pendingId = $session->totp_pending_admin_id ?? null;
-        if (!$pendingId) {
+        $session   = new MagicPropertyStorage($this->session());
+        $pendingId = self::integerOrNull($session->get('totp_pending_admin_id'));
+        if ($pendingId === null) {
+            $session->remove('totp_pending_admin_id');
             return $this->redirect('auth/login');
         }
 
-        $admin = $this->em()->getRepository('\\Entities\\Admin')->find((int) $pendingId);
+        $admin = $this->adminRepository()->find($pendingId);
         if (!$admin) {
-            unset($session->totp_pending_admin_id);
+            $session->remove('totp_pending_admin_id');
             return $this->redirect('auth/login');
         }
 
         $options = $this->container->options();
+        $form = $this->buildTotpForm();
 
         if ($this->isPost()) {
-            $tfa  = new \ViMbAdmin_TwoFactor('ViMbAdmin', (string) ($options['securitysalt'] ?? ''));
-            $code = trim((string) ($this->postData()['code'] ?? ''));
-            $bf   = $this->bruteForce($options);
+            $post = $this->postData();
+            if ($form->isValid($post)) {
+                $tfa  = new \ViMbAdmin_TwoFactor('ViMbAdmin', self::optionString($options, '', 'securitysalt'));
+                $code = self::requiredString($form->values()['code'] ?? null, 'Authentication code');
+                $bf   = $this->bruteForce($options);
 
-            if ($tfa->verifyForAdmin($admin, $code) || $tfa->consumeBackupCode($admin, $code)) {
-                $bf->clear($admin->getUsername(), null);
-                return $this->grantPendingLogin($admin, $session);
+                if ($tfa->verifyForAdmin($admin, $code) || $tfa->consumeBackupCode($admin, $code)) {
+                    $bf->clear($admin->getUsername(), null);
+                    return $this->grantPendingLogin($admin, $session);
+                }
+
+                $bf->record($admin->getUsername(), null);
+                $this->em()->flush();
+                $this->flash('Invalid authentication code. Please try again.', FlashMessages::ERROR);
             }
-
-            $bf->record($admin->getUsername(), null);
-            $this->em()->flush();
-            $this->flash('Invalid authentication code. Please try again.', FlashMessages::ERROR);
         }
 
         return $this->view('auth/native-totp.phtml', [
-            'formHtml' => (new FormRenderer())->render($this->buildTotpForm(), '/auth/totp', 'Verify'),
+            'formHtml' => (new FormRenderer())->render($form, '/auth/totp', 'Verify'),
         ]);
     }
 
@@ -269,40 +466,42 @@ final class AuthController extends AbstractController
             return $this->redirect('');
         }
 
-        $session   = $this->session();
-        $pendingId = $session->totp_pending_admin_id ?? null;
-        if (!$pendingId) {
+        $session   = new MagicPropertyStorage($this->session());
+        $pendingId = self::integerOrNull($session->get('totp_pending_admin_id'));
+        if ($pendingId === null) {
+            $session->remove('totp_pending_admin_id');
             return $this->redirect('auth/login');
         }
 
-        $admin = $this->em()->getRepository('\\Entities\\Admin')->find((int) $pendingId);
+        $admin = $this->adminRepository()->find($pendingId);
         if (!$admin) {
-            unset($session->totp_pending_admin_id);
+            $session->remove('totp_pending_admin_id');
             return $this->redirect('auth/login');
         }
 
         $options = $this->container->options();
 
         if (\ViMbAdmin_Demo::isLocked($options, $admin->getUsername())) {
-            unset($session->totp_pending_admin_id);
+            $session->remove('totp_pending_admin_id');
             $this->flash('Two-factor enrolment is disabled for the demo account.', FlashMessages::INFO);
             return $this->redirect('auth/login');
         }
 
-        $tfa = new \ViMbAdmin_TwoFactor('ViMbAdmin', (string) ($options['securitysalt'] ?? ''));
+        $tfa = new \ViMbAdmin_TwoFactor('ViMbAdmin', self::optionString($options, '', 'securitysalt'));
 
-        $secret = $session->totp_setup_secret ?? null;
-        if (!$secret) {
+        $secret = $session->get('totp_setup_secret');
+        if (!is_string($secret) || $secret === '') {
             $secret = $tfa->createSecret();
-            $session->totp_setup_secret = $secret;
+            $session->set('totp_setup_secret', $secret);
         }
 
-        if ($this->isPost() && trim((string) ($this->postData()['code'] ?? '')) !== '') {
-            if ($tfa->verifyCode($secret, trim((string) $this->postData()['code']))) {
+        $code = self::stringOrDefault($this->postData()['code'] ?? null, '', 'Authentication code');
+        if ($this->isPost() && trim($code) !== '') {
+            if ($tfa->verifyCode($secret, trim($code))) {
                 $backup = $tfa->enable($admin, $secret);
                 $tfa->clearForce($admin);
                 $this->em()->flush();
-                unset($session->totp_setup_secret);
+                $session->remove('totp_setup_secret');
 
                 $this->bruteForce($options)->clear($admin->getUsername(), null);
                 // Grant the identity, but render the one-time backup codes first.
@@ -319,8 +518,19 @@ final class AuthController extends AbstractController
 
         return $this->view('auth/totp-setup.phtml', [
             'secret'    => $secret,
-            'qrDataUri' => $tfa->getQrDataUri($admin->getUsername(), $secret),
+            'qrDataUri' => $tfa->getQrDataUri($admin->requiredUsername(), $secret),
         ]);
+    }
+
+    private static function adminPasswordMatches(\Entities\Admin $admin, string $plain, mixed $options): bool
+    {
+        $hash = $admin->getPassword();
+        if ($hash === null || (!is_string($options) && !is_array($options))) {
+            return false;
+        }
+
+        /** @var array<string, mixed>|string $options */
+        return \OSS_Auth_Password::verify($plain, $hash, $options);
     }
 
     /**
@@ -340,26 +550,37 @@ final class AuthController extends AbstractController
     {
         $options = $this->container->options();
 
-        if ($this->isPost() && \ViMbAdmin_Demo::isLocked($options, (string) ($this->postData()['username'] ?? ''))) {
+        if ($this->isPost() && \ViMbAdmin_Demo::isLocked(
+            $options,
+            self::stringOrDefault($this->postData()['username'] ?? null, '', 'Mailbox username'),
+        )) {
             $this->flash('Password changes are disabled for the demo account.', FlashMessages::ERROR);
             return $this->redirect('auth/change-password');
         }
 
-        $minPw = (int) ($options['defaults']['mailbox']['min_password_length'] ?? 8);
+        $minPw = self::optionInt($options, 8, 'defaults', 'mailbox', 'min_password_length');
         $form  = $this->buildChangePasswordForm($minPw);
 
         if ($this->isPost() && $form->isValid($this->postData())) {
             $v       = $form->values();
-            $mailbox = $this->em()->getRepository('\\Entities\\Mailbox')->findOneBy(['username' => $v['username']]);
+            $username = self::requiredString($v['username'] ?? null, 'Mailbox username');
+            $mailbox = $this->mailboxRepository()->findOneBy(['username' => $username]);
 
             $pwOpts = [
-                'pwhash'   => $options['defaults']['mailbox']['password_scheme'] ?? null,
-                'username' => (string) $v['username'],
+                'pwhash'   => self::optionNullableString($options, 'defaults', 'mailbox', 'password_scheme'),
+                'username' => $username,
             ];
 
             if ($mailbox !== null
-                && \OSS_Auth_Password::verify((string) $v['current_password'], $mailbox->getPassword(), $pwOpts)) {
-                $mailbox->setPassword(\OSS_Auth_Password::hash((string) $v['new_password'], $pwOpts));
+                && self::mailboxPasswordMatches(
+                    $mailbox,
+                    self::requiredString($v['current_password'] ?? null, 'Current mailbox password'),
+                    $pwOpts,
+                )) {
+                $mailbox->setPassword(\OSS_Auth_Password::hash(
+                    self::requiredString($v['new_password'] ?? null, 'New mailbox password'),
+                    $pwOpts,
+                ));
                 $this->em()->flush();
                 $this->flash('You have successfully changed your password.');
                 return $this->redirect('auth/change-password');
@@ -372,6 +593,13 @@ final class AuthController extends AbstractController
         return $this->view('auth/native-change-password.phtml', [
             'formHtml' => (new FormRenderer())->render($form, '/auth/change-password', 'Change Password'),
         ]);
+    }
+
+    /** @param array<string, mixed> $options */
+    private static function mailboxPasswordMatches(\Entities\Mailbox $mailbox, string $plain, array $options): bool
+    {
+        $hash = $mailbox->getPassword();
+        return $hash !== null && \OSS_Auth_Password::verify($plain, $hash, $options);
     }
 
     /**
@@ -415,11 +643,22 @@ final class AuthController extends AbstractController
     public function lostPasswordAction(): Response
     {
         $options     = $this->container->options();
-        $useCaptcha  = !empty($options['resources']['auth']['oss']['lost_password']['use_captcha']);
-        $entityClass = $options['resources']['auth']['oss']['entity'] ?? '\\Entities\\Admin';
+        self::validateAuthEmailOptions($options);
+        $useCaptcha  = self::optionBool(
+            $options,
+            false,
+            'resources',
+            'auth',
+            'oss',
+            'lost_password',
+            'use_captcha',
+        );
+        $entityClass = $this->authEntityClass($options);
 
         $form = $this->buildLostPasswordForm($useCaptcha);
-        $form->field('username')?->setValue((string) $this->param('username', ''));
+        $form->field('username')?->setValue(
+            self::stringOrDefault($this->param('username'), '', 'Password-reset username'),
+        );
 
         // A fresh captcha for THIS render. Validation (below) checks the captcha
         // id the user actually SAW (submitted), not this freshly minted one —
@@ -432,12 +671,17 @@ final class AuthController extends AbstractController
             // "click image for a new one": re-render with a fresh captcha, keep
             // the typed username, do NOT validate yet.
             if ($useCaptcha && !empty($post['requestnewimage'])) {
-                $form->field('username')?->setValue((string) ($post['username'] ?? ''));
+                $form->field('username')?->setValue(
+                    self::stringOrDefault($post['username'] ?? null, '', 'Password-reset username'),
+                );
                 return $this->renderLostPassword($form, $useCaptcha, $captchaId);
             }
 
             if ($form->isValid($post)) {
-                $username = (string) $form->values()['username'];
+                $username = self::requiredString(
+                    $form->values()['username'] ?? null,
+                    'Password-reset username',
+                );
                 $user     = $this->em()->getRepository($entityClass)->findOneBy(['username' => $username]);
 
                 // Anti-enumeration: identical response whether or not the user exists.
@@ -468,7 +712,7 @@ final class AuthController extends AbstractController
 
                 $this->sendAuthEmail(
                     'lost-password',
-                    ($options['identity']['sitename'] ?? '') . ' - Password Reset Information',
+                    self::optionString($options, '', 'identity', 'sitename') . ' - Password Reset Information',
                     $user,
                     ['token' => $token]
                 );
@@ -499,12 +743,15 @@ final class AuthController extends AbstractController
     public function resetPasswordAction(): Response
     {
         $options     = $this->container->options();
-        $entityClass = $options['resources']['auth']['oss']['entity'] ?? '\\Entities\\Admin';
+        self::validateAuthEmailOptions($options);
+        $entityClass = $this->authEntityClass($options);
         $form        = $this->buildResetPasswordForm();
 
         if ($this->isPost() && $form->isValid($this->postData())) {
             $v    = $form->values();
-            $user = $this->em()->getRepository($entityClass)->findOneBy(['username' => $v['username']]);
+            $username = self::requiredString($v['username'] ?? null, 'Password-reset username');
+            $token = self::requiredString($v['token'] ?? null, 'Password-reset token');
+            $user = $this->em()->getRepository($entityClass)->findOneBy(['username' => $username]);
 
             if ($user === null) {
                 $this->flash('Invalid username / token combination. Please check your details and try again.', FlashMessages::ERROR);
@@ -515,10 +762,13 @@ final class AuthController extends AbstractController
 
                 $tokens = $user->getIndexedPreference('tokens.password_reset');
 
-                if (!is_array($tokens) || !in_array($v['token'], $tokens)) {
+                if (!is_array($tokens) || !in_array($token, $tokens, true)) {
                     $this->flash('Invalid username / token combination. Please check your details and try again.', FlashMessages::ERROR);
                 } else {
-                    $user->setPassword(\OSS_Auth_Password::hash((string) $v['password'], $options['resources']['auth']['oss']));
+                    $user->setPassword(\OSS_Auth_Password::hash(
+                        self::requiredString($v['password'] ?? null, 'New admin password'),
+                        self::passwordOptions($options),
+                    ));
                     $user->deletePreference('tokens.password_reset');
 
                     if (method_exists($user, 'setFailedLogins')) {
@@ -529,7 +779,7 @@ final class AuthController extends AbstractController
 
                     $this->sendAuthEmail(
                         'reset-password',
-                        ($options['identity']['sitename'] ?? '') . ' - Your Password Has Been Reset',
+                        self::optionString($options, '', 'identity', 'sitename') . ' - Your Password Has Been Reset',
                         $user,
                         []
                     );
@@ -542,8 +792,12 @@ final class AuthController extends AbstractController
             }
         } else {
             // GET (incl. the emailed link): prefill from the path params.
-            $form->field('username')?->setValue((string) $this->param('username', ''));
-            $form->field('token')?->setValue((string) $this->param('token', ''));
+            $form->field('username')?->setValue(
+                self::stringOrDefault($this->param('username'), '', 'Password-reset username'),
+            );
+            $form->field('token')?->setValue(
+                self::stringOrDefault($this->param('token'), '', 'Password-reset token'),
+            );
         }
 
         return $this->view('auth/native-reset-password.phtml', [
@@ -557,26 +811,26 @@ final class AuthController extends AbstractController
      * `_reauthenticate` + session bookkeeping. Returns the post-auth redirect
      * (honouring a stashed `postAuthRedirect`).
      */
-    private function grantPendingLogin(object $admin, object $session): Response
+    private function grantPendingLogin(\Entities\Admin $admin, MagicPropertyStorage $session): Response
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_regenerate_id(true);
         }
 
-        $session->totp_verified = true;
-        $session->logged_in_via = $session->totp_pending_via ?? 'auth';
-        unset($session->totp_pending_admin_id);
-        unset($session->totp_pending_via);
+        $session->set('totp_verified', true);
+        $session->set('logged_in_via', $session->get('totp_pending_via') ?? 'auth');
+        $session->remove('totp_pending_admin_id');
+        $session->remove('totp_pending_via');
 
         $this->container->auth()->establish($admin);
 
-        $session->timeOfLastAction = time();
+        $session->set('timeOfLastAction', time());
         $admin->setLastLogin(new \DateTime());
         $this->em()->flush();
 
-        $target = $session->postAuthRedirect ?? '';
+        $target = self::applicationPathOrDefault($session->get('postAuthRedirect'), '');
         if ($target !== '') {
-            unset($session->postAuthRedirect);
+            $session->remove('postAuthRedirect');
         }
 
         return $this->redirect($target);
@@ -586,7 +840,7 @@ final class AuthController extends AbstractController
     private function buildTotpForm(): Form
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
-        $form->add(new Field('code', 'Authentication code', 'text', [Validators::required()]));
+        $form->add(new Field('code', 'Authentication code', 'text', [Validators::string(), Validators::required()]));
 
         return $form;
     }
@@ -598,10 +852,11 @@ final class AuthController extends AbstractController
     private function buildChangePasswordForm(int $minPw): Form
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
-        $form->add(new Field('username', 'Email address', 'text', [Validators::required(), Validators::email()]))
-             ->add(new Field('current_password', 'Current password', 'password', [Validators::required()]))
-             ->add(new Field('new_password', 'New password', 'password', [Validators::required(), Validators::minLength($minPw)]))
+        $form->add(new Field('username', 'Email address', 'text', [Validators::string(), Validators::required(), Validators::email()]))
+             ->add(new Field('current_password', 'Current password', 'password', [Validators::string(), Validators::required()]))
+             ->add(new Field('new_password', 'New password', 'password', [Validators::string(), Validators::required(), Validators::minLength($minPw)]))
              ->add(new Field('confirm_new_password', 'Confirm new password', 'password', [
+                 Validators::string(),
                  Validators::required(),
                  Validators::matches(static fn() => $_POST['new_password'] ?? null, 'The passwords do not match.'),
              ]));
@@ -612,24 +867,25 @@ final class AuthController extends AbstractController
     /**
      * Complete a verified login, enforcing the 2FA gate first.
      */
-    private function completeLogin(object $admin, object $bf, array $options): Response
+    /** @param array<string,mixed> $options */
+    private function completeLogin(\Entities\Admin $admin, \ViMbAdmin_BruteForce $bf, array $options): Response
     {
-        $tfa     = new \ViMbAdmin_TwoFactor('ViMbAdmin', (string) ($options['securitysalt'] ?? ''));
-        $session = $this->session();
+        $tfa     = new \ViMbAdmin_TwoFactor('ViMbAdmin', self::optionString($options, '', 'securitysalt'));
+        $session = new MagicPropertyStorage($this->session());
 
         // Every password authentication demands a fresh second factor: drop any
         // stale `totp_verified` (e.g. left in a shared-browser session by a prior
         // 2FA login) BEFORE the gate below reads it, so it can never bypass 2FA.
-        unset($session->totp_verified);
+        $session->remove('totp_verified');
 
         // Lost-device recovery without DB surgery: application.ini
         // `twofactor.force_disable = "user@dom"` (or "*" for everyone) wipes the
         // matching admin's 2FA (secret + backup codes + replay state) and clears
         // any forced-enrolment flag at login, so they get back in. Remove the
         // setting again once recovered.
-        $forceDisable = trim((string) ($options['twofactor']['force_disable'] ?? ''));
+        $forceDisable = trim(self::optionString($options, '', 'twofactor', 'force_disable'));
         if ($forceDisable !== ''
-            && ($forceDisable === '*' || strcasecmp($forceDisable, (string) $admin->getUsername()) === 0)) {
+            && ($forceDisable === '*' || strcasecmp($forceDisable, $admin->requiredUsername()) === 0)) {
             $tfa->disable($admin);
             $tfa->clearForce($admin);
             $this->em()->flush();
@@ -643,17 +899,17 @@ final class AuthController extends AbstractController
         // at login (visitors can't supply its TOTP). Enrolment is NOT disabled —
         // a real admin can still set up/verify 2FA; we just don't park the demo
         // login behind it.
-        $isDemo = \ViMbAdmin_Demo::isLocked($options, (string) $admin->getUsername());
+        $isDemo = \ViMbAdmin_Demo::isLocked($options, $admin->requiredUsername());
 
-        if (!$isDemo && $tfa->isEnabled($admin) && !$session->totp_verified) {
-            $session->totp_pending_admin_id = $admin->getId();
-            $session->totp_pending_via      = 'auth';
+        if (!$isDemo && $tfa->isEnabled($admin) && !$session->get('totp_verified')) {
+            $session->set('totp_pending_admin_id', $admin->getId());
+            $session->set('totp_pending_via', 'auth');
             return $this->redirect('auth/totp');
         }
 
-        if (!$isDemo && $tfa->isForced($admin) && !$tfa->isEnabled($admin) && !$session->totp_verified) {
-            $session->totp_pending_admin_id = $admin->getId();
-            $session->totp_pending_via      = 'auth';
+        if (!$isDemo && $tfa->isForced($admin) && !$tfa->isEnabled($admin) && !$session->get('totp_verified')) {
+            $session->set('totp_pending_admin_id', $admin->getId());
+            $session->set('totp_pending_via', 'auth');
             return $this->redirect('auth/totp-setup');
         }
 
@@ -667,7 +923,7 @@ final class AuthController extends AbstractController
         // and the native kernel both read it.
         $this->container->auth()->establish($admin);
 
-        $session->logged_in_via = 'auth';
+        $session->set('logged_in_via', 'auth');
 
         $bf->clear($admin->getUsername(), null);
         $admin->setLastLogin(new \DateTime());
@@ -679,26 +935,77 @@ final class AuthController extends AbstractController
     /**
      * The brute-force gate, built exactly as AuthController::_bruteForce() does.
      */
-    private function bruteForce(array $options): object
+    /** @param array<string,mixed> $options */
+    private function bruteForce(array $options): \ViMbAdmin_BruteForce
     {
-        $opts = $options['bruteforce'] ?? [];
-        if (empty($opts['statedir'])) {
+        $opts = self::optionArray($options, [], 'bruteforce');
+        $stateDir = self::optionNullableString($opts, 'statedir');
+        if ($stateDir === null || $stateDir === '') {
             $appPath = defined('APPLICATION_PATH') ? APPLICATION_PATH : '';
             $opts['statedir'] = $appPath . '/../var/bruteforce';
+        } else {
+            $opts['statedir'] = $stateDir;
         }
         if (isset($options['trustedproxy'])) {
-            $opts['trustedproxy'] = $options['trustedproxy'];
+            $opts['trustedproxy'] = self::optionArray($options, [], 'trustedproxy');
         }
 
         return new \ViMbAdmin_BruteForce($this->em(), $opts);
+    }
+
+    protected function em(): \Doctrine\ORM\EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof \Doctrine\ORM\EntityManager) {
+            throw new \LogicException('Doctrine entity manager resource has an invalid type');
+        }
+
+        return $em;
+    }
+
+    private function adminRepository(): \Repositories\Admin
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Admin');
+        if (!$repo instanceof \Repositories\Admin) {
+            throw new \LogicException('Admin repository has an invalid type');
+        }
+
+        return $repo;
+    }
+
+    private function mailboxRepository(): \Repositories\Mailbox
+    {
+        $repo = $this->em()->getRepository('\\Entities\\Mailbox');
+        if (!$repo instanceof \Repositories\Mailbox) {
+            throw new \LogicException('Mailbox repository has an invalid type');
+        }
+
+        return $repo;
+    }
+
+    /**
+     * Resolve the configurable password-reset entity while preserving the
+     * Admin contract required by the reset flow and email templates.
+     *
+     * @param array<string,mixed> $options
+     * @return class-string<\Entities\Admin>
+     */
+    private function authEntityClass(array $options): string
+    {
+        $entityClass = self::option($options, 'resources', 'auth', 'oss', 'entity') ?? \Entities\Admin::class;
+        if (!is_string($entityClass) || !is_a($entityClass, \Entities\Admin::class, true)) {
+            throw new \LogicException('Authentication entity must extend Entities\\Admin');
+        }
+
+        return $entityClass;
     }
 
     /** The login form. CSRF-guarded (login-CSRF defence; the GET mints the token). */
     private function buildLoginForm(): Form
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
-        $form->add(new Field('username', 'Username', 'text', [Validators::required()]))
-             ->add(new Field('password', 'Password', 'password', [Validators::required()]));
+        $form->add(new Field('username', 'Username', 'text', [Validators::string(), Validators::required()]))
+             ->add(new Field('password', 'Password', 'password', [Validators::string(), Validators::required()]));
 
         return $form;
     }
@@ -713,9 +1020,9 @@ final class AuthController extends AbstractController
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
 
-        $form->add(new Field('salt', 'Security salt', 'text', [Validators::required()]))
-             ->add(new Field('username', 'Username (email)', 'text', [Validators::required(), Validators::email()]))
-             ->add(new Field('password', 'Password', 'password', [Validators::required(), Validators::minLength(6)]));
+        $form->add(new Field('salt', 'Security salt', 'text', [Validators::string(), Validators::required()]))
+             ->add(new Field('username', 'Username (email)', 'text', [Validators::string(), Validators::required(), Validators::email()]))
+             ->add(new Field('password', 'Password', 'password', [Validators::string(), Validators::required(), Validators::minLength(6)]));
 
         return $form;
     }
@@ -732,18 +1039,25 @@ final class AuthController extends AbstractController
     private function buildLostPasswordForm(bool $useCaptcha): Form
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
-        $form->add(new Field('username', 'Username', 'text', [Validators::required()]));
+        $form->add(new Field('username', 'Username', 'text', [Validators::string(), Validators::required()]));
 
         if ($useCaptcha) {
             $form->add(new Field('captchatext', 'Verification', 'text', [
                 Validators::required(),
-                static fn(mixed $v): ?string =>
-                    \OSS_Captcha_Image::_isValid((string) ($_POST['captchaid'] ?? ''), (string) $v)
+                Validators::string(),
+                static function (mixed $value): ?string {
+                    $captchaId = $_POST['captchaid'] ?? null;
+                    if (!is_string($captchaId) || !is_string($value)) {
+                        return 'The entered text does not match that of the image.';
+                    }
+
+                    return \OSS_Captcha_Image::_isValid($captchaId, $value)
                         ? null
-                        : 'The entered text does not match that of the image.',
+                        : 'The entered text does not match that of the image.';
+                },
             ]))
-                 ->add(new Field('captchaid', '', 'hidden'))
-                 ->add(new Field('requestnewimage', '', 'hidden'));
+                 ->add(new Field('captchaid', '', 'hidden', [Validators::string()]))
+                 ->add(new Field('requestnewimage', '', 'hidden', [Validators::string()]));
         }
 
         return $form;
@@ -777,13 +1091,15 @@ final class AuthController extends AbstractController
     private function buildResetPasswordForm(): Form
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
-        $form->add(new Field('username', 'Email address', 'text', [Validators::required()]))
+        $form->add(new Field('username', 'Email address', 'text', [Validators::string(), Validators::required()]))
              ->add(new Field('token', 'Token', 'text', [
+                 Validators::string(),
                  Validators::required(),
                  Validators::regex('/^[A-Za-z0-9]{40}$/', 'Invalid token.'),
              ]))
-             ->add(new Field('password', 'New password', 'password', [Validators::required()]))
+             ->add(new Field('password', 'New password', 'password', [Validators::string(), Validators::required()]))
              ->add(new Field('password_confirm', 'Confirm new password', 'password', [
+                 Validators::string(),
                  Validators::required(),
                  Validators::matches(static fn() => $_POST['password'] ?? null, 'The passwords do not match.'),
              ]));
@@ -800,20 +1116,20 @@ final class AuthController extends AbstractController
      *
      * @param array<string,mixed> $vars extra template variables (e.g. the token)
      */
-    private function sendAuthEmail(string $template, string $subject, object $user, array $vars): void
+    private function sendAuthEmail(string $template, string $subject, \Entities\Admin $user, array $vars): void
     {
         $options = $this->container->options();
 
         $email = (new Email())
             ->from(new Address(
-                (string) ($options['identity']['mailer']['email'] ?? 'do-not-reply@localhost'),
-                (string) ($options['identity']['mailer']['name'] ?? '')
+                self::optionString($options, 'do-not-reply@localhost', 'identity', 'mailer', 'email'),
+                self::optionString($options, '', 'identity', 'mailer', 'name'),
             ))
-            ->to(new Address((string) $user->getEmail(), (string) $user->getFormattedName()))
+            ->to(new Address($user->getEmail(), $user->getFormattedName()))
             ->subject($subject);
 
         $vars += ['user' => $user, 'options' => $options];
-        $format = $options['resources']['auth']['oss']['email_format'] ?? 'both';
+        $format = self::optionString($options, 'both', 'resources', 'auth', 'oss', 'email_format');
 
         $haveBody = false;
         if ($format === 'html' || $format === 'both') {

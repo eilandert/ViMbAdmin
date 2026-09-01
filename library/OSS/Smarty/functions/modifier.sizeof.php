@@ -58,6 +58,8 @@
  */
 function smarty_modifier_sizeof( $input )
 {
-    return sizeof( $input );
-}
+    if( !is_array( $input ) && !( $input instanceof Countable ) )
+        throw new InvalidArgumentException( 'Sizeof modifier requires an array or Countable value.' );
 
+    return count( $input );
+}

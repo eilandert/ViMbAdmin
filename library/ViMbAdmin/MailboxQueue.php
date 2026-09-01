@@ -34,13 +34,14 @@ class ViMbAdmin_MailboxQueue
      */
     public static function enqueue( $em, \Entities\Mailbox $mailbox, $type, $by = null, $priority = 0 )
     {
+        $username = $mailbox->requiredUsername();
         $existing = $em->createQueryBuilder()
             ->select( 't' )
             ->from( '\\Entities\\MailboxTask', 't' )
             ->where( 't.username = :u' )
             ->andWhere( 't.type = :t' )
             ->andWhere( 't.status IN (:open)' )
-            ->setParameter( 'u', $mailbox->getUsername() )
+            ->setParameter( 'u', $username )
             ->setParameter( 't', $type )
             ->setParameter( 'open', [ \Entities\MailboxTask::STATUS_PENDING, \Entities\MailboxTask::STATUS_RUNNING ] )
             ->setMaxResults( 1 )
@@ -51,7 +52,7 @@ class ViMbAdmin_MailboxQueue
 
         $task = new \Entities\MailboxTask();
         $task->setType( $type )
-             ->setUsername( $mailbox->getUsername() )
+             ->setUsername( $username )
              ->setStatus( \Entities\MailboxTask::STATUS_PENDING )
              ->setPriority( (int) $priority )
              ->setCreatedAt( new \DateTime() )

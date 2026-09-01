@@ -26,10 +26,20 @@
  */
 class ViMbAdmin_Schema
 {
-    /** @var \Doctrine\ORM\EntityManager */
+    private static function countValue( mixed $value ): int
+    {
+        if( is_string( $value ) && preg_match( '/^[0-9]+$/D', $value ) === 1 ) {
+            $normalized = ltrim( $value, '0' );
+            $value = filter_var( $normalized === '' ? '0' : $normalized, FILTER_VALIDATE_INT );
+        }
+        if( !is_int( $value ) || $value < 0 )
+            throw new \UnexpectedValueException( 'Schema introspection count is malformed' );
+        return $value;
+    }
+    /** @var \Doctrine\ORM\EntityManagerInterface */
     private $_em;
 
-    public function __construct( $em )
+    public function __construct( \Doctrine\ORM\EntityManagerInterface $em )
     {
         $this->_em = $em;
     }
@@ -115,10 +125,10 @@ class ViMbAdmin_Schema
             //    `CREATE TABLE IF NOT EXISTS` would be a no-op at apply time but
             //    would still appear in pendingSql() forever -> perpetual "1
             //    pending".)
-            $haveSetting = (int) $conn->fetchOne(
+            $haveSetting = self::countValue( $conn->fetchOne(
                 'SELECT COUNT(*) FROM information_schema.TABLES
                   WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?',
-                [ $db, 'setting' ] );
+                [ $db, 'setting' ] ) );
             if( $haveSetting === 0 )
                 $out[] = 'CREATE TABLE `setting` ('
                        . ' `name` VARCHAR(64) NOT NULL,'
@@ -140,10 +150,10 @@ class ViMbAdmin_Schema
             // 2) the cascade FKs themselves (only if absent).
             foreach( $fks as $table => $name )
             {
-                $have = (int) $conn->fetchOne(
+                $have = self::countValue( $conn->fetchOne(
                     'SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
                       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_NAME = ?',
-                    [ $db, $table, $name ] );
+                    [ $db, $table, $name ] ) );
                 if( $have === 0 )
                     $out[] = sprintf(
                         'ALTER TABLE `%s` ADD CONSTRAINT `%s` '

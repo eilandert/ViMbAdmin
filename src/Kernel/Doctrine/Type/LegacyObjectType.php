@@ -52,6 +52,12 @@ final class LegacyObjectType extends Type
 
         if (is_resource($value)) {
             $value = stream_get_contents($value);
+            if ($value === false) {
+                throw new \RuntimeException('Could not read object column');
+            }
+        }
+        if (!is_string($value)) {
+            throw new \TypeError('Object column must be a serialized string');
         }
 
         // Mirror DBAL 3 ConversionException-on-corruption: turn the unserialize
@@ -65,7 +71,7 @@ final class LegacyObjectType extends Type
             // jpegPhoto bytes), so forbid object instantiation — neutralises the
             // PHP object-injection (POP-gadget) sink if a row ever carries crafted
             // `O:` bytes, with no behaviour change for the legitimate scalar case.
-            return unserialize((string) $value, ['allowed_classes' => false]);
+            return unserialize($value, ['allowed_classes' => false]);
         } finally {
             restore_error_handler();
         }

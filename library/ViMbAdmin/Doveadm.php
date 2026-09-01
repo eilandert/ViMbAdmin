@@ -52,6 +52,34 @@
  */
 class ViMbAdmin_Doveadm
 {
+    private static function stringValue( mixed $value, string $name ): string
+    {
+        if( !is_string( $value ) )
+            throw new ViMbAdmin_Exception( $name . ' must be a string' );
+        return $value;
+    }
+
+    /** @return array<string,mixed> */
+    private static function mapValue( mixed $value, string $name ): array
+    {
+        if( !is_array( $value ) )
+            throw new ViMbAdmin_Exception( $name . ' must be an array' );
+        foreach( $value as $key => $_item )
+            if( !is_string( $key ) )
+                throw new ViMbAdmin_Exception( $name . ' must use string keys' );
+        return $value;
+    }
+
+    private static function positiveIntValue( mixed $value, string $name ): int
+    {
+        if( is_string( $value ) && preg_match( '/^[0-9]+$/D', $value ) ) {
+            $normalized = ltrim( $value, '0' );
+            $value = filter_var( $normalized === '' ? '0' : $normalized, FILTER_VALIDATE_INT );
+        }
+        if( !is_int( $value ) || $value < 1 )
+            throw new ViMbAdmin_Exception( $name . ' must be a positive integer' );
+        return $value;
+    }
     /** @var string */
     private $_url;
 
@@ -68,15 +96,15 @@ class ViMbAdmin_Doveadm
      */
     public function __construct( $url, $apiKey, $timeout = 900 )
     {
-        $this->_url     = (string) $url;
-        $this->_apiKey  = (string) $apiKey;
-        $this->_timeout = (int) $timeout;
+        $this->_url = self::stringValue( $url, 'doveadm.http.url' );
+        $this->_apiKey = self::stringValue( $apiKey, 'doveadm.http.api_key' );
+        $this->_timeout = self::positiveIntValue( $timeout, 'doveadm.http.timeout' );
     }
 
     /**
      * Build an instance from the application options.
      *
-     * @param array|null $options
+     * @param array<string, mixed>|null $options
      * @return ViMbAdmin_Doveadm
      * @throws ViMbAdmin_Exception when not configured
      */
@@ -84,16 +112,25 @@ class ViMbAdmin_Doveadm
     {
         if( $options === null )
             $options = OSS_Runtime::options();
-
-        if( empty( $options['doveadm']['http']['url'] ) || !isset( $options['doveadm']['http']['api_key'] ) )
+        $options = self::mapValue( $options, 'doveadm options' );
+        if( !array_key_exists( 'doveadm', $options ) )
             throw new ViMbAdmin_Exception( _( 'doveadm HTTP API is not configured (doveadm.http.url / doveadm.http.api_key)' ) );
-
-        $timeout = isset( $options['doveadm']['http']['timeout'] )
-            ? (int) $options['doveadm']['http']['timeout'] : 900;
+        $doveadm = self::mapValue( $options['doveadm'] ?? null, 'doveadm options.doveadm' );
+        if( !array_key_exists( 'http', $doveadm ) )
+            throw new ViMbAdmin_Exception( _( 'doveadm HTTP API is not configured (doveadm.http.url / doveadm.http.api_key)' ) );
+        $http = self::mapValue( $doveadm['http'] ?? null, 'doveadm options.doveadm.http' );
+        if( !array_key_exists( 'url', $http ) || !array_key_exists( 'api_key', $http ) )
+            throw new ViMbAdmin_Exception( _( 'doveadm HTTP API is not configured (doveadm.http.url / doveadm.http.api_key)' ) );
+        $url = self::stringValue( $http['url'] ?? null, 'doveadm.http.url' );
+        $apiKey = self::stringValue( $http['api_key'] ?? null, 'doveadm.http.api_key' );
+        if( $url === '' || $apiKey === '' )
+            throw new ViMbAdmin_Exception( _( 'doveadm HTTP API is not configured (doveadm.http.url / doveadm.http.api_key)' ) );
+        $timeout = array_key_exists( 'timeout', $http ) ? $http['timeout'] : 900;
+        $timeout = self::positiveIntValue( $timeout, 'doveadm.http.timeout' );
 
         return new self(
-            $options['doveadm']['http']['url'],
-            $options['doveadm']['http']['api_key'],
+            $url,
+            $apiKey,
             $timeout
         );
     }
@@ -102,14 +139,17 @@ class ViMbAdmin_Doveadm
      * Run a single doveadm command and return its decoded response rows.
      *
      * @param string $cmd    doveadm command name (e.g. "force-resync", "mailbox delete")
-     * @param array  $params Named parameters as the HTTP API expects them
-     * @return array         The decoded doveadmResponse payload (rows / scalar)
+     * @param array<string, mixed> $params Named parameters as the HTTP API expects them
+     * @return array<mixed>         The decoded doveadmResponse payload
      * @throws ViMbAdmin_Exception on transport, auth, or command error
      */
     public function run( $cmd, array $params = [] )
     {
         $tag     = 'vimb' . substr( md5( uniqid( '', true ) ), 0, 8 );
         $payload = json_encode( [ [ $cmd, (object) $params, $tag ] ] );
+
+        if( $payload === false )
+            throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to encode request' ) );
 
         list( $status, $body ) = $this->_post( $payload );
 
@@ -123,19 +163,21 @@ class ViMbAdmin_Doveadm
         if( !is_array( $decoded ) || !isset( $decoded[0] ) || !is_array( $decoded[0] ) )
             throw new ViMbAdmin_Exception( sprintf( _( 'doveadm HTTP: unparseable response: %s' ), substr( (string) $body, 0, 500 ) ) );
 
-        $type    = isset( $decoded[0][0] ) ? $decoded[0][0] : '';
+        $type    = isset( $decoded[0][0] ) && is_string( $decoded[0][0] ) ? $decoded[0][0] : '';
         $content = isset( $decoded[0][1] ) ? $decoded[0][1] : null;
 
         if( $type === 'error' )
         {
-            $msg = is_array( $content ) && isset( $content['type'] ) ? $content['type'] : 'unknown';
-            $ec  = is_array( $content ) && isset( $content['exitCode'] ) ? $content['exitCode'] : '?';
+            $msg = is_array( $content ) && is_string( $content['type'] ?? null ) ? $content['type'] : 'unknown';
+            $ec  = is_array( $content ) && is_int( $content['exitCode'] ?? null ) ? $content['exitCode'] : '?';
             throw new ViMbAdmin_Exception( sprintf( _( "doveadm '%s' failed: %s (exit %s)" ), $cmd, $msg, $ec ) );
         }
 
         if( $type !== 'doveadmResponse' )
             throw new ViMbAdmin_Exception( sprintf( _( "doveadm '%s': unexpected response type '%s'" ), $cmd, $type ) );
 
+        if( !is_array( $content ) )
+            throw new ViMbAdmin_Exception( _( 'doveadm HTTP: response payload is not an array' ) );
         return $content;
     }
 
@@ -143,7 +185,7 @@ class ViMbAdmin_Doveadm
      * POST the JSON body to the doveadm endpoint.
      *
      * @param string $payload JSON request body
-     * @return array{0:int,1:string} [ httpStatus, responseBody ]
+     * @return array{0:int,1:string|true} [ httpStatus, responseBody ]
      * @throws ViMbAdmin_Exception on transport failure
      */
     private function _post( $payload )
@@ -184,7 +226,7 @@ class ViMbAdmin_Doveadm
      *
      * @param string $user  Full mailbox username (user@domain)
      * @param string $mbox  Mailbox mask (default all)
-     * @return array
+     * @return array<mixed>
      */
     public function forceResync( $user, $mbox = '*' )
     {
@@ -196,7 +238,7 @@ class ViMbAdmin_Doveadm
      *
      * @param string $user
      * @param string $mbox  Mailbox mask (default all)
-     * @return array
+     * @return array<mixed>
      */
     public function index( $user, $mbox = '*' )
     {
@@ -208,7 +250,7 @@ class ViMbAdmin_Doveadm
      * Non-destructive to live mail.
      *
      * @param string $user
-     * @return array
+     * @return array<mixed>
      */
     public function purge( $user )
     {
@@ -219,7 +261,7 @@ class ViMbAdmin_Doveadm
      * Recalculate quota usage for a user.
      *
      * @param string $user
-     * @return array
+     * @return array<mixed>
      */
     public function quotaRecalc( $user )
     {
@@ -233,7 +275,7 @@ class ViMbAdmin_Doveadm
      *
      * @param string $user
      * @param string $dest  dsync destination URI / path
-     * @return array
+     * @return array<mixed>
      */
     public function backup( $user, $dest )
     {
@@ -251,7 +293,7 @@ class ViMbAdmin_Doveadm
      *
      * @param string $path  filesystem path or `<driver>:<path>` dest URI
      * @param string $filter  the fs filter name (default "posix")
-     * @return array
+     * @return array<mixed>
      */
     public function fsDelete( $path, $filter = 'posix' )
     {
@@ -377,8 +419,11 @@ class ViMbAdmin_Doveadm
             foreach( $rows as $r )
             {
                 $name = is_array( $r ) ? ( $r['path'] ?? null ) : $r;
-                if( $name !== null && $name !== '' && $name !== '.' && $name !== '..' )
-                    $out[] = (string) $name;
+                if( $name === null || $name === '' || $name === '.' || $name === '..' )
+                    continue;
+                if( !is_string( $name ) )
+                    throw new ViMbAdmin_Exception( 'doveadm HTTP: filesystem response name must be a string' );
+                $out[] = $name;
             }
         }
         return $out;
@@ -404,10 +449,10 @@ class ViMbAdmin_Doveadm
             try
             {
                 $st = $this->run( 'fsStat', [ 'filterName' => $filter, 'path' => $child ] );
-                if( is_array( $st ) && isset( $st[0]['size'] ) )
-                    $total += (int) $st[0]['size'];
-                elseif( is_array( $st ) && isset( $st['size'] ) )
-                    $total += (int) $st['size'];
+                if( is_array( $st ) && isset( $st[0] ) && is_array( $st[0] ) && is_int( $st[0]['size'] ?? null ) )
+                    $total += $st[0]['size'];
+                elseif( is_array( $st ) && is_int( $st['size'] ?? null ) )
+                    $total += $st['size'];
             }
             catch( \Throwable $e ) { /* file vanished mid-walk */ }
         }
@@ -433,7 +478,7 @@ class ViMbAdmin_Doveadm
      *
      * @param string $user  the live user to restore INTO (must exist in userdb)
      * @param string $src   the backup source location (maildir:/backups/...)
-     * @return array
+     * @return array<mixed>
      */
     public function restoreFrom( $user, $src )
     {
@@ -449,8 +494,8 @@ class ViMbAdmin_Doveadm
      * the next auth to re-read from the userdb/passdb (e.g. after a password or
      * active-flag change in the panel).
      *
-     * @param array $users  Optional list of usernames to flush (default: all)
-     * @return array
+     * @param list<string> $users  Optional list of usernames to flush (default: all)
+     * @return array<mixed>
      */
     public function authCacheFlush( array $users = [] )
     {
@@ -474,8 +519,11 @@ class ViMbAdmin_Doveadm
         {
             foreach( $rows as $row )
             {
-                if( is_array( $row ) && isset( $row['mailbox'] ) )
-                    $names[] = (string) $row['mailbox'];
+                if( is_array( $row ) && isset( $row['mailbox'] ) ) {
+                    if( !is_string( $row['mailbox'] ) )
+                        throw new ViMbAdmin_Exception( 'doveadm HTTP: mailbox name must be a string' );
+                    $names[] = $row['mailbox'];
+                }
                 elseif( is_string( $row ) )
                     $names[] = $row;
             }
@@ -579,7 +627,7 @@ class ViMbAdmin_Doveadm
      *
      * @param string $user
      * @param string $mailbox
-     * @return array
+     * @return array<mixed>
      */
     private function _mailboxDeleteOne( $user, $mailbox )
     {

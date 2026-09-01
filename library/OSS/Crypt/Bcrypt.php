@@ -74,36 +74,62 @@ class OSS_Crypt_Bcrypt
     private static $_cost = 9;
 
     
+    /**
+     * @param int|numeric-string $cost Bcrypt work factor (4 through 31)
+     * @throws OSS_Crypt_Exception
+     * @SuppressWarnings("PHPMD.MissingImport") Legacy OSS classes use global PSR-0 names.
+     */
     public function __construct( $cost = 9 )
     {
-        if( CRYPT_BLOWFISH != 1 )
-            throw new OSS_Crypt_Exception( 'CRYPT_BLOWFISH unavailable. See http://php.net/crypt' );
+        if( !is_int( $cost ) && !( is_string( $cost ) && preg_match( '/^\d+$/D', $cost ) === 1 ) )
+            throw new OSS_Crypt_Exception( 'Bcrypt cost must be an integer between 4 and 31' );
+
+        $cost = (int) $cost;
+        if( $cost < 4 || $cost > 31 )
+            throw new OSS_Crypt_Exception( 'Bcrypt cost must be an integer between 4 and 31' );
 
         self::$_cost = $cost;
     }
     
 
+    /**
+     * @param string $plain
+     * @return non-empty-string
+     * @throws OSS_Crypt_Exception
+     * @SuppressWarnings("PHPMD.MissingImport") Legacy OSS classes use global PSR-0 names.
+     */
     public static function hash( $plain )
     {
         $hash = crypt( $plain, self::generateSalt() );
-    
-        if( strlen( $hash ) > 13 )
+
+        if( preg_match( '/^\$2a\$\d{2}\$[.\/A-Za-z0-9]{53}$/D', $hash ) === 1 )
             return $hash;
-    
-        return false;
+
+        throw new OSS_Crypt_Exception( 'Bcrypt hashing failed' );
     }
     
     
+    /**
+     * @param string $plain
+     * @param string $hash
+     * @return bool
+     */
     public static function verify( $plain, $hash )
     {
         // Constant-time comparison (avoid timing side-channel on the hash).
         return hash_equals( (string) $hash, crypt( $plain, (string) $hash ) );
     }
 
+    /**
+     * @return non-empty-string
+     * @SuppressWarnings("PHPMD.StaticAccess") OSS_String is a legacy static utility.
+     */
     public static function generateSalt()
     {
-        return sprintf( '$2a$%02d$%s', self::$_cost, OSS_String::random( 22, true, true, true, '', '' ) );
+        $salt = OSS_String::randomFromSet( './ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', 21 );
+        $salt .= OSS_String::randomFromSet( '.Oeu', 1 );
+
+        return sprintf( '$2a$%02d$%s', self::$_cost, $salt );
     }
 
 }
-

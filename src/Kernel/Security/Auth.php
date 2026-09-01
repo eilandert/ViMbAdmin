@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Security;
 
+use LogicException;
 use ViMbAdmin\Kernel\Session\SessionStorage;
 
 /**
@@ -53,7 +54,19 @@ final class Auth
     {
         $value = $this->session->get($this->identityKey);
 
-        return is_array($value) ? $value : null;
+        if (!is_array($value)) {
+            return null;
+        }
+
+        $identity = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                return null;
+            }
+            $identity[$key] = $item;
+        }
+
+        return $identity;
     }
 
     /**
@@ -63,7 +76,7 @@ final class Auth
     {
         $identity = $this->identity();
 
-        return $identity !== null && isset($identity['id']) && $identity['id'];
+        return $identity !== null && $this->identityId($identity) !== null;
     }
 
     /**
@@ -75,12 +88,39 @@ final class Auth
         if (!$this->loaded) {
             $this->loaded = true;
             $identity = $this->identity();
-            if ($identity !== null && isset($identity['id']) && $identity['id']) {
-                $this->admin = ($this->adminLoader)((int) $identity['id']);
+            $id = $identity === null ? null : $this->identityId($identity);
+            if ($id !== null) {
+                $admin = ($this->adminLoader)($id);
+                if (
+                    $admin !== null
+                    && (
+                        !method_exists($admin, 'getUsername')
+                        || !method_exists($admin, 'getId')
+                        || !method_exists($admin, 'getSuper')
+                    )
+                ) {
+                    throw new LogicException('Authenticated admin has an invalid type');
+                }
+                $this->admin = $admin;
             }
         }
 
         return $this->admin;
+    }
+
+    /** @param array<string,mixed> $identity */
+    private function identityId(array $identity): ?int
+    {
+        $value = $identity['id'] ?? null;
+        if (is_int($value)) {
+            return $value > 0 ? $value : null;
+        }
+        if (!is_string($value) || $value === '') {
+            return null;
+        }
+
+        $parsed = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        return is_int($parsed) ? $parsed : null;
     }
 
     /**
@@ -94,8 +134,21 @@ final class Auth
      */
     public function establish(object $admin): void
     {
+        if (
+            !method_exists($admin, 'getUsername')
+            || !method_exists($admin, 'getId')
+            || !method_exists($admin, 'getSuper')
+        ) {
+            throw new LogicException('Authenticated admin has an invalid type');
+        }
+
+        $username = $admin->getUsername();
+        if (!is_string($username) || $username === '') {
+            throw new LogicException('Authenticated admin username is required');
+        }
+
         $this->session->set($this->identityKey, [
-            'username' => $admin->getUsername(),
+            'username' => $username,
             'user'     => $admin,
             'id'       => $admin->getId(),
         ]);
@@ -121,8 +174,14 @@ final class Auth
     public function isSuper(): bool
     {
         $admin = $this->admin();
+        if ($admin === null) {
+            return false;
+        }
+        if (!method_exists($admin, 'getSuper')) {
+            throw new LogicException('Authenticated admin has an invalid type');
+        }
 
-        return $admin !== null && (bool) $admin->getSuper();
+        return (bool) $admin->getSuper();
     }
 
     /**

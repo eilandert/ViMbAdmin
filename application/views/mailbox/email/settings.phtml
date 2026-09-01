@@ -4,7 +4,7 @@ Dear {$mailbox->getName()},
 Welcome to your new email account.
 {/if}
 
-Your email address is: {$mailbox->getUsername()}
+Your email address is: {$mailbox->requiredUsername()}
 
 {if $welcome}
 Your password is: {$password}
@@ -97,6 +97,3 @@ Log in with the password above.
 {$vimbadminPluginText}
     {/foreach}
 {/if}
-
-
-

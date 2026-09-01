@@ -47,6 +47,7 @@ class ViMbAdmin_Service_Archive
      */
     public function toggleAutoprune(\Entities\Archive $archive, \Entities\Admin $actor): bool
     {
+        $username = $archive->requiredUsername();
         $now = new \DateTime();
 
         if ($archive->getAutoprune()) {
@@ -57,7 +58,7 @@ class ViMbAdmin_Service_Archive
             $this->log(
                 $actor,
                 \Entities\Log::ACTION_ARCHIVE_REQUEST,
-                "{$actor->getFormattedName()} disabled autoprune for archive {$archive->getUsername()}"
+                "{$actor->getFormattedName()} disabled autoprune for archive {$username}"
             );
         } else {
             // OFF -> ON (restart the prune window)
@@ -68,7 +69,7 @@ class ViMbAdmin_Service_Archive
             $this->log(
                 $actor,
                 \Entities\Log::ACTION_ARCHIVE_REQUEST,
-                "{$actor->getFormattedName()} enabled autoprune for archive {$archive->getUsername()} (window reset to now)"
+                "{$actor->getFormattedName()} enabled autoprune for archive {$username} (window reset to now)"
             );
         }
 
@@ -86,7 +87,7 @@ class ViMbAdmin_Service_Archive
      */
     public function delete(\Entities\Archive $archive, \Entities\Admin $actor): void
     {
-        $user = $archive->getUsername();
+        $user = $archive->requiredUsername();
 
         $this->em->remove($archive);
 

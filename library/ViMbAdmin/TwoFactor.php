@@ -27,6 +27,35 @@ class ViMbAdmin_TwoFactor
     /** @var string 32-byte key for sodium secretbox */
     private $_key;
 
+    private static function _normalizedCode( mixed $code, string $pattern ): ?string
+    {
+        if( !is_string( $code ) )
+            return null;
+        $normalized = preg_replace( '/\s+/', '', $code );
+        return is_string( $normalized ) && preg_match( $pattern, $normalized ) === 1
+            ? $normalized
+            : null;
+    }
+
+    private static function _nonNegativeIntegerOrNull( mixed $value ): ?int
+    {
+        if( is_int( $value ) && $value >= 0 )
+            return $value;
+        if( is_string( $value ) && preg_match( '/^(0|[1-9][0-9]*)$/D', $value ) === 1 )
+        {
+            $integer = filter_var( $value, FILTER_VALIDATE_INT );
+            return is_int( $integer ) ? $integer : null;
+        }
+        return null;
+    }
+
+    private static function _storedReplaySlice( mixed $value ): ?int
+    {
+        return $value === false || $value === null
+            ? 0
+            : self::_nonNegativeIntegerOrNull( $value );
+    }
+
     /**
      * @param string $issuer       Label shown in the authenticator app.
      * @param string $securitysalt The app securitysalt (key material).
@@ -52,19 +81,27 @@ class ViMbAdmin_TwoFactor
 
     // ---- enrolment -----------------------------------------------------
 
-    /** Generate a new base32 TOTP secret. */
+    /** @return string New base32 TOTP secret. */
     public function createSecret()
     {
         return $this->_tfa->createSecret();
     }
 
-    /** otpauth:// provisioning URI (for QR code) for a label + secret. */
+    /**
+     * @param string $label
+     * @param string $secret
+     * @return string otpauth:// provisioning URI for the label and secret.
+     */
     public function getProvisioningUri( $label, $secret )
     {
         return $this->_tfa->getQRText( $label, $secret );
     }
 
-    /** Inline data: URI PNG of the QR code, for embedding in a template. */
+    /**
+     * @param string $label
+     * @param string $secret
+     * @return string Inline data URI of the QR code.
+     */
     public function getQrDataUri( $label, $secret )
     {
         return $this->_tfa->getQRCodeImageAsDataUri( $label, $secret );
@@ -75,12 +112,16 @@ class ViMbAdmin_TwoFactor
     /**
      * Verify a 6-digit TOTP code against the secret (±1 time step for skew).
      *
+     * @param string $secret
+     * @param string $code
      * @return bool
      */
     public function verifyCode( $secret, $code )
     {
-        $code = preg_replace( '/\s+/', '', (string) $code );
-        if( !preg_match( '/^\d{6}$/', $code ) )
+        if( !is_string( $secret ) || $secret === '' )
+            return false;
+        $code = self::_normalizedCode( $code, '/^\d{6}$/' );
+        if( $code === null )
             return false;
 
         return $this->_tfa->verifyCode( $secret, $code, 1 );
@@ -88,10 +129,14 @@ class ViMbAdmin_TwoFactor
 
     // ---- per-admin state (encrypted at rest) ---------------------------
 
-    /** Is 2FA enabled for this admin? */
+    /**
+     * @param \Entities\Admin $admin
+     * @return bool
+     */
     public function isEnabled( $admin )
     {
-        return (bool) $admin->getPreference( self::PREF_SECRET );
+        $secret = $admin->getPreference( self::PREF_SECRET );
+        return is_string( $secret ) && $secret !== '';
     }
 
     /**
@@ -99,6 +144,8 @@ class ViMbAdmin_TwoFactor
      * backup codes. Returns the plaintext backup codes (show once, never
      * again).
      *
+     * @param \Entities\Admin $admin
+     * @param string $secret
      * @return string[] plaintext backup codes
      */
     public function enable( $admin, $secret )
@@ -112,6 +159,7 @@ class ViMbAdmin_TwoFactor
      * super-admin setting it up on someone's behalf). Returns the plaintext
      * secret + backup codes so they can be shown / handed over.
      *
+     * @param \Entities\Admin $admin
      * @return array{secret:string,backup:string[]}
      */
     public function provision( $admin )
@@ -122,7 +170,10 @@ class ViMbAdmin_TwoFactor
         return [ 'secret' => $secret, 'backup' => $backup ];
     }
 
-    /** Disable 2FA for an admin (clears secret + backup codes + replay state). */
+    /**
+     * @param \Entities\Admin $admin
+     * @return void
+     */
     public function disable( $admin )
     {
         $admin->deletePreference( self::PREF_SECRET );
@@ -132,32 +183,45 @@ class ViMbAdmin_TwoFactor
 
     // ---- force-at-next-login -------------------------------------------
 
-    /** Is this admin required to set up 2FA at their next login? */
+    /**
+     * @param \Entities\Admin $admin
+     * @return bool
+     */
     public function isForced( $admin )
     {
         return (bool) $admin->getPreference( self::PREF_FORCE );
     }
 
-    /** Require (or stop requiring) the admin to enrol 2FA at next login. */
+    /**
+     * @param \Entities\Admin $admin
+     * @param bool $on
+     * @return void
+     */
     public function setForce( $admin, $on = true )
     {
         if( $on )
-            $admin->setPreference( self::PREF_FORCE, 1 );
+            $admin->setPreference( self::PREF_FORCE, '1' );
         else
             $this->clearForce( $admin );
     }
 
-    /** Clear the force flag. */
+    /**
+     * @param \Entities\Admin $admin
+     * @return void
+     */
     public function clearForce( $admin )
     {
         $admin->deletePreference( self::PREF_FORCE );
     }
 
-    /** Decrypt and return the admin's TOTP secret (or null). */
+    /**
+     * @param \Entities\Admin $admin
+     * @return string|null
+     */
     public function getSecret( $admin )
     {
         $enc = $admin->getPreference( self::PREF_SECRET );
-        return $enc ? $this->_decrypt( $enc ) : null;
+        return is_string( $enc ) && $enc !== '' ? $this->_decrypt( $enc ) : null;
     }
 
     /**
@@ -165,6 +229,8 @@ class ViMbAdmin_TwoFactor
      * protection: a given time-slice can only be used once (a code captured by
      * a MITM cannot be replayed within its validity window).
      *
+     * @param \Entities\Admin $admin
+     * @param string $code
      * @return bool
      */
     public function verifyForAdmin( $admin, $code )
@@ -173,8 +239,8 @@ class ViMbAdmin_TwoFactor
         if( $secret === null )
             return false;
 
-        $code = preg_replace( '/\s+/', '', (string) $code );
-        if( !preg_match( '/^\d{6}$/', $code ) )
+        $code = self::_normalizedCode( $code, '/^\d{6}$/' );
+        if( $code === null )
             return false;
 
         $timeslice = 0;
@@ -183,11 +249,13 @@ class ViMbAdmin_TwoFactor
 
         // Reject replay: the matched slice must be newer than the last one we
         // accepted for this admin.
-        $last = (int) $admin->getPreference( self::PREF_LASTTS );
+        $last = self::_storedReplaySlice( $admin->getPreference( self::PREF_LASTTS ) );
+        if( $last === null )
+            return false;
         if( $timeslice <= $last )
             return false;
 
-        $admin->setPreference( self::PREF_LASTTS, $timeslice );
+        $admin->setPreference( self::PREF_LASTTS, (string) $timeslice );
         return true;
     }
 
@@ -197,7 +265,10 @@ class ViMbAdmin_TwoFactor
      * Generate, store (hashed) and return a fresh set of one-time backup
      * codes. Each is 10 chars from an unambiguous alphabet.
      *
+     * @param \Entities\Admin $admin
+     * @param int $count
      * @return string[] plaintext codes
+     * @phpstan-impure
      */
     public function regenerateBackupCodes( $admin, $count = 8 )
     {
@@ -209,7 +280,7 @@ class ViMbAdmin_TwoFactor
             $plain[]  = $code;
             $hashed[] = password_hash( $code, PASSWORD_BCRYPT );
         }
-        $admin->setPreference( self::PREF_BACKUP, json_encode( $hashed ) );
+        $admin->setPreference( self::PREF_BACKUP, json_encode( $hashed, JSON_THROW_ON_ERROR ) );
         return $plain;
     }
 
@@ -217,43 +288,63 @@ class ViMbAdmin_TwoFactor
      * Consume a backup code: if it matches an unused stored code, remove it
      * and return true. Single use.
      *
+     * @param \Entities\Admin $admin
+     * @param string $code
      * @return bool
+     * @phpstan-impure
      */
     public function consumeBackupCode( $admin, $code )
     {
-        $code = strtoupper( preg_replace( '/\s+/', '', (string) $code ) );
+        $code = self::_normalizedCode( $code, '/^[23456789A-HJ-NP-Z]{10}$/i' );
+        if( $code === null )
+            return false;
+        $code = strtoupper( $code );
         $raw  = $admin->getPreference( self::PREF_BACKUP );
-        if( !$raw )
+        if( !is_string( $raw ) || $raw === '' )
             return false;
 
         $hashes = json_decode( $raw, true );
-        if( !is_array( $hashes ) )
+        if( !is_array( $hashes ) || !array_is_list( $hashes ) )
             return false;
 
         foreach( $hashes as $idx => $hash )
         {
+            if( !is_string( $hash ) )
+                return false;
             if( password_verify( $code, $hash ) )
             {
                 unset( $hashes[ $idx ] );
-                $admin->setPreference( self::PREF_BACKUP, json_encode( array_values( $hashes ) ) );
+                $admin->setPreference( self::PREF_BACKUP, json_encode( array_values( $hashes ), JSON_THROW_ON_ERROR ) );
                 return true;
             }
         }
         return false;
     }
 
-    /** How many backup codes remain unused. */
+    /**
+     * @param \Entities\Admin $admin
+     * @return int
+     */
     public function backupCodesRemaining( $admin )
     {
         $raw = $admin->getPreference( self::PREF_BACKUP );
-        if( !$raw )
+        if( !is_string( $raw ) || $raw === '' )
             return 0;
         $h = json_decode( $raw, true );
-        return is_array( $h ) ? count( $h ) : 0;
+        if( !is_array( $h ) || !array_is_list( $h ) )
+            return 0;
+        foreach( $h as $hash )
+            if( !is_string( $hash ) )
+                return 0;
+        return count( $h );
     }
 
     // ---- crypto --------------------------------------------------------
 
+    /**
+     * @param string $plaintext
+     * @return string
+     */
     private function _encrypt( $plaintext )
     {
         $nonce = random_bytes( SODIUM_CRYPTO_SECRETBOX_NONCEBYTES );
@@ -261,6 +352,10 @@ class ViMbAdmin_TwoFactor
         return base64_encode( $nonce . $ct );
     }
 
+    /**
+     * @param string $encoded
+     * @return string|null
+     */
     private function _decrypt( $encoded )
     {
         $raw = base64_decode( $encoded, true );

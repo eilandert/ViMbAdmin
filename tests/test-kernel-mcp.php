@@ -17,11 +17,15 @@ final class McpTestSession implements SessionStorage
 
 final class McpTestResources
 {
+    /** @param array<string,mixed> $options */
     public function __construct(private array $options) {}
+
+    /** @return array<string,mixed> */
     public function getOptions(): array { return $this->options; }
     public function getResource(string $name): object { return new stdClass(); }
 }
 
+/** @param array<string,mixed> $options */
 function controllerFor(array $options): McpController
 {
     $auth = new Auth(new McpTestSession(), static fn(int $id): null => null);
@@ -31,22 +35,28 @@ function controllerFor(array $options): McpController
     return new McpController($container, $route);
 }
 
-$failures = 0;
-function check(string $label, bool $ok): void {
+final class McpTestState
+{
+    public static int $failures = 0;
+}
+
+function mcpCheck(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { McpTestState::$failures++; }
 }
 
 echo "== native MCP transport ==\n";
 
 $_SERVER['REQUEST_METHOD'] = 'GET';
 $disabled = controllerFor(['mcp' => ['enabled' => false]])->indexAction();
-check('disabled MCP returns 404', $disabled->status === 404);
-check('disabled MCP returns JSON-RPC error', str_contains($disabled->body, '"error"'));
+mcpCheck('disabled MCP returns 404', $disabled->status === 404);
+mcpCheck('disabled MCP returns JSON-RPC error', str_contains($disabled->body, '"error"'));
 
 $method = controllerFor(['mcp' => ['enabled' => true]])->indexAction();
-check('enabled MCP rejects GET with 405', $method->status === 405);
-check('method error remains JSON', str_starts_with($method->contentType, 'application/json'));
+mcpCheck('enabled MCP rejects GET with 405', $method->status === 405);
+mcpCheck('method error remains JSON', str_starts_with($method->contentType, 'application/json'));
 
-echo $failures === 0 ? "\nALL PASSED\n" : "\n{$failures} FAILED\n";
-exit($failures === 0 ? 0 : 1);
+echo McpTestState::$failures === 0
+    ? "\nALL PASSED\n"
+    : "\n" . McpTestState::$failures . " FAILED\n";
+exit(McpTestState::$failures === 0 ? 0 : 1);

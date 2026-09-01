@@ -33,6 +33,32 @@ class ViMbAdmin_Service_Alias
         $this->em = $em;
     }
 
+    /** @return array{address:string,goto:string} */
+    private function requiredAliasIdentity(\Entities\Alias $alias): array
+    {
+        $address = $alias->getAddress();
+        if ($address === null) {
+            throw new \LogicException('Alias address cannot be null.');
+        }
+
+        $goto = $alias->getGoto();
+        if ($goto === null) {
+            throw new \LogicException('Alias goto cannot be null.');
+        }
+
+        return ['address' => $address, 'goto' => $goto];
+    }
+
+    private function requiredAliasDomain(\Entities\Alias $alias): \Entities\Domain
+    {
+        $domain = $alias->getDomain();
+        if ($domain === null) {
+            throw new \LogicException('Alias domain cannot be null.');
+        }
+
+        return $domain;
+    }
+
     /**
      * Toggle an alias's active flag, threading the plugin hooks.
      *
@@ -55,6 +81,8 @@ class ViMbAdmin_Service_Alias
         ?callable $preFlush = null,
         ?callable $postFlush = null
     ): ?bool {
+        $identity = $this->requiredAliasIdentity($alias);
+
         if ($preToggle !== null && $preToggle() === false) {
             return null;
         }
@@ -67,7 +95,7 @@ class ViMbAdmin_Service_Alias
         $this->log(
             $actor,
             $active ? \Entities\Log::ACTION_ALIAS_ACTIVATE : \Entities\Log::ACTION_ALIAS_DEACTIVATE,
-            "{$actor->getFormattedName()} " . ($active ? 'activated' : 'deactivated') . " alias {$alias->getAddress()}"
+            "{$actor->getFormattedName()} " . ($active ? 'activated' : 'deactivated') . " alias {$identity['address']}"
         );
 
         if ($preFlush !== null) {
@@ -106,22 +134,24 @@ class ViMbAdmin_Service_Alias
         ?callable $preFlush = null,
         ?callable $postFlush = null
     ): \Entities\Alias {
+        $identity = $this->requiredAliasIdentity($alias);
+
         $alias->setDomain($domain);
-        $alias->setActive(1);
+        $alias->setActive(true);
         $alias->setCreated(new \DateTime());
 
         $this->em->persist($alias);
 
         // A mailbox self-alias (address == goto) does not count against the
         // domain's alias allowance (ZF1 parity).
-        if ($alias->getAddress() != $alias->getGoto()) {
+        if ($identity['address'] != $identity['goto']) {
             $domain->setAliasCount($domain->getAliasCount() + 1);
         }
 
         $this->log(
             $actor,
             \Entities\Log::ACTION_ALIAS_ADD,
-            "{$actor->getFormattedName()} added alias {$alias->getAddress()}"
+            "{$actor->getFormattedName()} added alias {$identity['address']}"
         );
 
         if ($preFlush !== null) {
@@ -156,12 +186,14 @@ class ViMbAdmin_Service_Alias
         ?callable $preFlush = null,
         ?callable $postFlush = null
     ): \Entities\Alias {
+        $identity = $this->requiredAliasIdentity($alias);
+
         $alias->setModified(new \DateTime());
 
         $this->log(
             $actor,
             \Entities\Log::ACTION_ALIAS_EDIT,
-            "{$actor->getFormattedName()} edited alias {$alias->getAddress()}"
+            "{$actor->getFormattedName()} edited alias {$identity['address']}"
         );
 
         if ($preFlush !== null) {
@@ -198,6 +230,9 @@ class ViMbAdmin_Service_Alias
         ?callable $preFlush = null,
         ?callable $postFlush = null
     ): bool {
+        $identity = $this->requiredAliasIdentity($alias);
+        $domain = $this->requiredAliasDomain($alias);
+
         foreach ($alias->getPreferences() as $pref) {
             $this->em->remove($pref);
         }
@@ -208,14 +243,14 @@ class ViMbAdmin_Service_Alias
 
         $this->em->remove($alias);
 
-        if ($alias->getAddress() != $alias->getGoto()) {
-            $alias->getDomain()->setAliasCount($alias->getDomain()->getAliasCount() - 1);
+        if ($identity['address'] != $identity['goto']) {
+            $domain->setAliasCount($domain->getAliasCount() - 1);
         }
 
         $this->log(
             $actor,
             \Entities\Log::ACTION_ALIAS_DELETE,
-            "{$actor->getFormattedName()} removed alias {$alias->getAddress()}"
+            "{$actor->getFormattedName()} removed alias {$identity['address']}"
         );
 
         if ($preFlush !== null) {

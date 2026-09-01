@@ -8,7 +8,7 @@
 
     <div class="page-header" >
         <h1>
-            Archives {if isset( $domain ) && $domain}<small> for {$domain->getDomain()} {if $domain->getMaxMailboxes() != 0}({$domain->getMailboxCount()}/{$domain->getMaxMailboxes()}){/if}</small>
+            Archives {if isset( $domain ) && $domain}<small> for {$domain->requiredDomainName()} {if $domain->getMaxMailboxes() != 0}({$domain->getMailboxCount()}/{$domain->getMaxMailboxes()}){/if}</small>
                 <a class="btn have-tooltip-below" id="show_all_archives" title="Show All" href="{genUrl controller='archive' action='list' unset=1}">
                     <i class="icon-remove-circle"></i>
                 </a>

@@ -35,7 +35,9 @@ final class FormPluginHost
         // A plugin constructor may read getOptions() off the object it is handed
         // (it never keeps a reference), so pass a minimal options carrier.
         $ctorContext = new class ($this->options) {
+            /** @param array<string,mixed> $options */
             public function __construct(private array $options) {}
+            /** @return array<string,mixed> */
             public function getOptions(): array { return $this->options; }
         };
 
@@ -43,7 +45,7 @@ final class FormPluginHost
             $name = basename($file, '.php');
 
             // Opt-in: load only when `vimbadmin_plugins.<name>.enabled` is true.
-            if (empty($this->options['vimbadmin_plugins'][$name]['enabled'])) {
+            if (!$this->pluginEnabled($name)) {
                 continue;
             }
 
@@ -61,13 +63,16 @@ final class FormPluginHost
     /**
      * Every extension field, in plugin order, to append to the mailbox form.
      *
+     * @param array<string,mixed> $options
      * @return \ViMbAdmin\Kernel\Form\Field[]
      */
     public function fields(?object $mailbox, array $options): array
     {
+        /** @var \Entities\Mailbox|null $nativeMailbox */
+        $nativeMailbox = $mailbox;
         $fields = [];
         foreach ($this->extensions as $ext) {
-            foreach ($ext->nativeMailboxFields($mailbox, $options) as $field) {
+            foreach ($ext->nativeMailboxFields($nativeMailbox, $options) as $field) {
                 $fields[] = $field;
             }
         }
@@ -80,6 +85,7 @@ final class FormPluginHost
      * every extension section is valid.
      *
      * @param array<string,mixed> $values
+     * @param array<string,mixed> $options
      */
     public function validate(array $values, array $options): ?string
     {
@@ -99,11 +105,14 @@ final class FormPluginHost
      * persist themselves (e.g. DirectoryEntry).
      *
      * @param array<string,mixed> $values
+     * @param array<string,mixed> $options
      */
     public function apply(object $mailbox, array $values, array $options, ?object $em = null): void
     {
+        /** @var \Entities\Mailbox $nativeMailbox */
+        $nativeMailbox = $mailbox;
         foreach ($this->extensions as $ext) {
-            $ext->nativeMailboxApply($mailbox, $values, $options, $em);
+            $ext->nativeMailboxApply($nativeMailbox, $values, $options, $em);
         }
     }
 
@@ -111,5 +120,26 @@ final class FormPluginHost
     public function extensionCount(): int
     {
         return count($this->extensions);
+    }
+
+    private function pluginEnabled(string $name): bool
+    {
+        if (!array_key_exists('vimbadmin_plugins', $this->options)) {
+            return false;
+        }
+        $plugins = $this->options['vimbadmin_plugins'];
+        if ($plugins === null) {
+            throw new \TypeError('Plugin configuration must be an array.');
+        }
+        if (!is_array($plugins)) {
+            throw new \TypeError('Plugin configuration must be an array.');
+        }
+
+        $entry = $plugins[$name] ?? null;
+        if (!is_array($entry)) {
+            return false;
+        }
+
+        return in_array($entry['enabled'] ?? false, [true, 1, '1'], true);
     }
 }

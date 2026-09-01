@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Cli\Command;
 
+use Doctrine\Persistence\ObjectRepository;
+use Entities\McpToken;
+use LogicException;
 use ViMbAdmin\Kernel\Cli\CliCommand;
 use ViMbAdmin\Kernel\Container;
 
@@ -23,9 +26,14 @@ final class McpTokenListCommand implements CliCommand
 
     public function run(Container $container, array $args): int
     {
-        $tokens = $container->entityManager()
-            ->getRepository('\\Entities\\McpToken')
-            ->findBy([], ['id' => 'ASC']);
+        $entityManager = $container->entityManager();
+        if (!method_exists($entityManager, 'getRepository')) {
+            throw new LogicException('MCP token listing requires a Doctrine object manager.');
+        }
+
+        /** @var ObjectRepository<McpToken> $repository */
+        $repository = $entityManager->getRepository('\\Entities\\McpToken');
+        $tokens = $repository->findBy([], ['id' => 'ASC']);
 
         if (!$tokens) {
             echo "No MCP tokens.\n";

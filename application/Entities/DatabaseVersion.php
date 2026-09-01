@@ -25,6 +25,10 @@ class DatabaseVersion
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    protected function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
 
     /**
      * Set version
@@ -42,7 +46,7 @@ class DatabaseVersion
     /**
      * Get version
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getVersion()
     {
@@ -52,7 +56,7 @@ class DatabaseVersion
     /**
      * Get id
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getId()
     {
@@ -87,7 +91,7 @@ class DatabaseVersion
     /**
      * Get name
      *
-     * @return string 
+     * @return string|null
      */
     public function getName()
     {
@@ -110,7 +114,7 @@ class DatabaseVersion
     /**
      * Get applied_on
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getAppliedOn()
     {

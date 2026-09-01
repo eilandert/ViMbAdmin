@@ -89,7 +89,7 @@ class ViMbAdmin_Dovecot
                     $scheme, implode( ', ', self::SUPPORTED_SCHEMES ) ) );
         }
 
-        if( !is_string( $hash ) || strlen( $hash ) < 13 )
+        if( strlen( $hash ) < 13 )
             throw new ViMbAdmin_Exception( _( 'Password hashing failed' ) );
 
         return $hash;
@@ -147,7 +147,7 @@ class ViMbAdmin_Dovecot
                 return false;
 
             $dlen = ( $algo === 'sha256' ) ? 32 : 64;
-            if( $scheme[0] === 'S' && strlen( $scheme ) > 6 ) // salted (SSHA*)
+            if( strlen( $scheme ) > 6 ) // salted (SSHA*)
             {
                 $salt   = substr( $raw, $dlen );
                 $digest = substr( $raw, 0, $dlen );

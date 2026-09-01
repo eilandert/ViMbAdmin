@@ -25,10 +25,20 @@ final class ArraySession implements SessionStorage
     public function remove(string $key): void { unset($this->data[$key]); }
 }
 
-$failures = 0;
+final class TestKernelFlashHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelFlashHarnessState::$count;
 function check(string $label, bool $ok): void {
+
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelFlashHarnessState::$count++; }
+}
+
+function identical(mixed $actual, mixed $expected): bool {
+    return $actual === $expected;
 }
 
 echo "== ViMbAdmin\\Kernel\\Flash\\FlashMessages ==\n";
@@ -64,9 +74,9 @@ check('second drain -> []',           $f->drain() === []);
 $s2 = new ArraySession();
 $f2 = new FlashMessages($s2);
 $f2->add('x', FlashMessages::WARNING);
-check('WARNING == "warning" (OSS alert)', FlashMessages::WARNING === 'warning' && $f2->peek()[0]->level === 'warning');
+check('WARNING == "warning" (OSS alert)', identical(FlashMessages::WARNING, 'warning') && identical($f2->peek()[0]->level, 'warning'));
 check('SUCCESS/ERROR/INFO constants',
-    FlashMessages::SUCCESS === 'success' && FlashMessages::ERROR === 'error' && FlashMessages::INFO === 'info');
+    identical(FlashMessages::SUCCESS, 'success') && identical(FlashMessages::ERROR, 'error') && identical(FlashMessages::INFO, 'info'));
 
 // custom key isolation + round-trip through the raw session array
 $s3 = new ArraySession();
@@ -75,8 +85,18 @@ $f3->success('hi');
 check('custom key used',              is_array($s3->get('altFlash')) && $s3->get('flashMessages') === null);
 check('round-trips via session array',$f3->peek()[0]->text === 'hi' && $f3->peek()[0]->level === 'success');
 
+$malformed = new ArraySession();
+$malformed->set('flashMessages', [['text' => ['not-text']]]);
+$malformedRejected = false;
+try {
+    (new FlashMessages($malformed))->peek();
+} catch (\UnexpectedValueException) {
+    $malformedRejected = true;
+}
+check('malformed queued flash text fails closed', $malformedRejected);
+
 echo "\n";
-if ($failures === 0) {
+if (identical($failures, 0)) {
     echo "OK: all FlashMessages assertions passed (PHP " . PHP_VERSION . ")\n";
     exit(0);
 }

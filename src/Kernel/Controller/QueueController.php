@@ -33,6 +33,143 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  */
 final class QueueController extends AbstractController
 {
+    private static function requiredString(mixed $value, string $name): string
+    {
+        if (!is_string($value)) {
+            throw new \LogicException("{$name} must be a string");
+        }
+
+        return $value;
+    }
+
+    private static function positiveIntegerOrNull(mixed $value): ?int
+    {
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            return is_int($integer) ? $integer : null;
+        }
+
+        return null;
+    }
+
+    /** @return array<string,mixed> */
+    private static function stringKeyedArray(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new \LogicException("{$name} must be an array");
+        }
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                throw new \LogicException("{$name} must use string keys");
+            }
+            $result[$key] = $item;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array{bool,mixed}
+     */
+    private static function option(array $options, string ...$path): array
+    {
+        $value = $options;
+        $walked = [];
+        foreach ($path as $key) {
+            $value = self::stringKeyedArray(
+                $value,
+                'Configuration ' . ($walked === [] ? 'root' : implode('.', $walked)),
+            );
+            $walked[] = $key;
+            if (!array_key_exists($key, $value)) {
+                return [false, null];
+            }
+            $value = $value[$key];
+        }
+
+        return [true, $value];
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionString(array $options, string $default, string ...$path): string
+    {
+        [$found, $value] = self::option($options, ...$path);
+        return $found ? self::requiredString($value, 'Configuration ' . implode('.', $path)) : $default;
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionInt(array $options, int $default, string ...$path): int
+    {
+        [$found, $value] = self::option($options, ...$path);
+        if (!$found) {
+            return $default;
+        }
+        if (is_int($value) && $value >= 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[0-9]+$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            if (is_int($integer)) {
+                return $integer;
+            }
+        }
+
+        throw new \LogicException('Configuration ' . implode('.', $path) . ' must be a non-negative integer');
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array<string,mixed>
+     */
+    private static function optionArray(array $options, string ...$path): array
+    {
+        [$found, $value] = self::option($options, ...$path);
+        return $found ? self::stringKeyedArray($value, 'Configuration ' . implode('.', $path)) : [];
+    }
+
+    /** @return array<int|string,mixed> */
+    private static function proxyList(mixed $value): array
+    {
+        if ($value === null) {
+            return [];
+        }
+        if (is_string($value)) {
+            return [$value];
+        }
+        if (!is_array($value)) {
+            throw new \LogicException('Configuration trustedproxy.proxies must be a list');
+        }
+        foreach ($value as $proxy) {
+            if (!is_string($proxy)) {
+                throw new \LogicException('Configuration trustedproxy.proxies must contain strings');
+            }
+        }
+
+        return $value;
+    }
+
+    /** @return array<string,mixed> */
+    private static function serverParams(): array
+    {
+        return self::stringKeyedArray($_SERVER, 'Server parameters');
+    }
+
+    private static function serverString(string $key): string
+    {
+        $value = self::serverParams()[$key] ?? '';
+        return $value === '' ? '' : self::requiredString($value, "Server parameter {$key}");
+    }
+
+    private static function postStringOrEmpty(mixed $value): string
+    {
+        return is_string($value) ? $value : '';
+    }
+
     /**
      * GET /queue — the mailbox-task queue overview (super admins only).
      */
@@ -43,7 +180,7 @@ final class QueueController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $repo = $this->em()->getRepository('\\Entities\\MailboxTask');
+        $repo = $this->mailboxTaskRepository();
 
         $tasks = $this->em()->createQueryBuilder()
             ->select('t')
@@ -158,7 +295,7 @@ final class QueueController extends AbstractController
             return $admin;
         }
 
-        $n = (int) $this->em()->createQuery(
+        $n = $this->em()->createQuery(
             'DELETE FROM \\Entities\\MailboxTask t WHERE t.status IN (:done)')
             ->setParameter('done', [
                 \Entities\MailboxTask::STATUS_DONE,
@@ -166,6 +303,9 @@ final class QueueController extends AbstractController
                 \Entities\MailboxTask::STATUS_CANCELLED,
             ])
             ->execute();
+        if (!is_int($n)) {
+            throw new \LogicException('Queue clear returned an invalid affected-row count');
+        }
 
         $this->flash(sprintf('Cleared %d finished task(s).', $n));
         return $this->redirect('queue/index');
@@ -188,7 +328,10 @@ final class QueueController extends AbstractController
         }
 
         $options = $this->container->options();
-        $max     = (int) ($options['queue']['runner']['max_per_run'] ?? 5);
+        $max = self::optionInt($options, 5, 'queue', 'runner', 'max_per_run');
+        if ($max < 1) {
+            throw new \LogicException('Configuration queue.runner.max_per_run must be greater than zero');
+        }
 
         $n = (new \ViMbAdmin_Service_QueueRunner($this->em(), $options))->drain($max);
 
@@ -219,7 +362,7 @@ final class QueueController extends AbstractController
             return $admin;
         }
 
-        $repo = $this->em()->getRepository('\\Entities\\MailboxTask');
+        $repo = $this->mailboxTaskRepository();
         $task = $this->taskFromPost();
 
         if (!$task || $task->getStatus() !== \Entities\MailboxTask::STATUS_PENDING) {
@@ -268,12 +411,12 @@ final class QueueController extends AbstractController
     {
         $options = $this->container->options();
 
-        $key = (string) ($options['queue']['runner']['key'] ?? '');
+        $key = self::optionString($options, '', 'queue', 'runner', 'key');
         if ($key === '') {
             return $this->json(['error' => 'queue trigger disabled'], 404);
         }
 
-        $auth = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+        $auth = self::serverString('HTTP_AUTHORIZATION');
         if (!preg_match('/^Bearer\s+(.+)$/i', $auth, $m)) {
             return $this->json(['error' => 'missing bearer'], 401);
         }
@@ -282,14 +425,15 @@ final class QueueController extends AbstractController
         }
 
         // Proxy-aware client IP + the CIDR allowlist.
-        $proxy = $options['trustedproxy'] ?? [];
+        $proxy = self::optionArray($options, 'trustedproxy');
+        [$proxyListFound, $proxyList] = self::option($proxy, 'proxies');
         $ip    = \ViMbAdmin_Net::clientIp(
-            $_SERVER,
-            $proxy['mode'] ?? 'auto',
-            isset($proxy['proxies']) ? (array) $proxy['proxies'] : []
+            self::serverParams(),
+            self::optionString($proxy, 'auto', 'mode'),
+            self::proxyList($proxyListFound ? $proxyList : null)
         );
 
-        if (!\ViMbAdmin_Net::ipInList($ip, (string) ($options['queue']['runner']['allowed_ips'] ?? ''))) {
+        if (!\ViMbAdmin_Net::ipInList($ip, self::optionString($options, '', 'queue', 'runner', 'allowed_ips'))) {
             return $this->json(['error' => "source IP {$ip} not allowed"], 403);
         }
 
@@ -298,7 +442,10 @@ final class QueueController extends AbstractController
         // batch is lease-throttled), so one trigger autonomously empties the
         // queue. The EntityManager + options are captured for the detached run.
         $em      = $this->em();
-        $max     = (int) ($options['queue']['runner']['max_per_run'] ?? 5);
+        $max = self::optionInt($options, 5, 'queue', 'runner', 'max_per_run');
+        if ($max < 1) {
+            throw new \LogicException('Configuration queue.runner.max_per_run must be greater than zero');
+        }
         $afterSend = static function () use ($em, $options, $max): void {
             $runner = new \ViMbAdmin_Service_QueueRunner($em, $options);
             // Each drain() is itself lease-gated; loop to clear a backlog larger
@@ -323,10 +470,10 @@ final class QueueController extends AbstractController
      * read from the POST body — not the URL like the GET-link actions). Returns the
      * admin on success, or the {@see Response} to return on any failure.
      */
-    private function guardSuperPost(): object
+    private function guardSuperPost(): \Entities\Admin|Response
     {
         $admin = $this->admin();
-        if ($admin === null || !$admin->isSuper()) {
+        if (!$admin instanceof \Entities\Admin || !$admin->isSuper()) {
             return $this->redirect('auth/login');
         }
 
@@ -335,7 +482,7 @@ final class QueueController extends AbstractController
         }
 
         $csrf = new Csrf(new MagicPropertyStorage($this->container->session()));
-        if (!$csrf->isValid((string) ($this->postData()['csrf'] ?? ''))) {
+        if (!$csrf->isValid(self::postStringOrEmpty($this->postData()['csrf'] ?? null))) {
             $this->flash('Invalid or missing security token. Please retry from the queue page.', FlashMessages::ERROR);
             return $this->redirect('queue/index');
         }
@@ -346,12 +493,42 @@ final class QueueController extends AbstractController
     /**
      * Resolve the MailboxTask from the POST `id` field, or null when absent/unknown.
      */
-    private function taskFromPost(): ?object
+    private function taskFromPost(): ?\Entities\MailboxTask
     {
-        $id = (int) ($this->postData()['id'] ?? 0);
+        $id = self::positiveIntegerOrNull($this->postData()['id'] ?? null);
 
-        return $id > 0
-            ? $this->em()->getRepository('\\Entities\\MailboxTask')->find($id)
-            : null;
+        if ($id === null) {
+            return null;
+        }
+
+        $task = $this->mailboxTaskRepository()->find($id);
+        return $task instanceof \Entities\MailboxTask ? $task : null;
+    }
+
+    protected function em(): \Doctrine\ORM\EntityManager
+    {
+        $em = parent::em();
+        if (!$em instanceof \Doctrine\ORM\EntityManager) {
+            throw new \LogicException('Doctrine entity manager resource has an invalid type');
+        }
+        return $em;
+    }
+
+    protected function admin(): ?\Entities\Admin
+    {
+        $admin = parent::admin();
+        if ($admin !== null && !$admin instanceof \Entities\Admin) {
+            throw new \LogicException('Authenticated admin has an invalid type');
+        }
+        return $admin;
+    }
+
+    private function mailboxTaskRepository(): \Repositories\MailboxTask
+    {
+        $repo = $this->em()->getRepository('\\Entities\\MailboxTask');
+        if (!$repo instanceof \Repositories\MailboxTask) {
+            throw new \LogicException('MailboxTask repository has an invalid type');
+        }
+        return $repo;
     }
 }

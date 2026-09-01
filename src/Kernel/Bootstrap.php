@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel;
 
+use Closure;
+use LogicException;
 use ViMbAdmin\Kernel\Config\IniConfig;
 use ViMbAdmin\Kernel\Doctrine\EntityManagerFactory;
 use ViMbAdmin\Kernel\Security\Auth;
@@ -39,6 +41,63 @@ use ViMbAdmin\Kernel\View\SmartyView;
  */
 final class Bootstrap
 {
+    /** @return array<string,mixed> */
+    private static function stringMap(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new LogicException("{$name} must be an array");
+        }
+        foreach ($value as $key => $_item) {
+            if (!is_string($key)) {
+                throw new LogicException("{$name} must use string keys");
+            }
+        }
+
+        return $value;
+    }
+
+    /** @param array<string,mixed> $map */
+    private static function optionalString(array $map, string $key, string $name, string $default = ''): string
+    {
+        if (!array_key_exists($key, $map)) {
+            return $default;
+        }
+        $value = $map[$key];
+        if (!is_string($value)) {
+            throw new LogicException("{$name} must be a string");
+        }
+        if (preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
+            throw new LogicException("{$name} contains control characters");
+        }
+
+        return $value;
+    }
+
+    private static function iniValue(mixed $value, string $name): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+        if (is_bool($value)) {
+            return $value ? '1' : '';
+        }
+        if (is_int($value)) {
+            return (string) $value;
+        }
+
+        throw new LogicException("{$name} must be a scalar session setting");
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array<string,mixed>
+     */
+    private static function resourceMap(array $options, string $key): array
+    {
+        $resources = self::stringMap($options['resources'] ?? [], 'resources');
+        return self::stringMap($resources[$key] ?? [], "resources.{$key}");
+    }
+
     /**
      * Build a Container backed entirely by native resources.
      *
@@ -81,7 +140,7 @@ final class Bootstrap
         // the legacy `storage` key (the auth layer's default member name).
         $auth = new Auth(
             new MagicPropertyStorage(new SessionNamespace($authNs)),
-            static fn (int $id) => $em->getRepository('\\Entities\\Admin')->find($id),
+            self::adminLoader($em),
             'storage',
         );
 
@@ -89,6 +148,33 @@ final class Bootstrap
         \OSS_Runtime::configure($options, self::baseUrl($options), $em);
 
         return new Container($resources, $auth, ['skinCss' => self::skinCss($appPath, $options)]);
+    }
+
+    /**
+     * Validate the persistence boundary once, where the native entity manager
+     * is wired into the framework-free auth service.
+     *
+     * @return Closure(int):?object
+     */
+    private static function adminLoader(object $entityManager): Closure
+    {
+        if (!method_exists($entityManager, 'getRepository')) {
+            throw new LogicException('Native bootstrap requires a Doctrine object manager.');
+        }
+
+        $repository = $entityManager->getRepository('\\Entities\\Admin');
+        if (!is_object($repository) || !method_exists($repository, 'find')) {
+            throw new LogicException('Native bootstrap requires an admin repository.');
+        }
+
+        return static function (int $id) use ($repository): ?object {
+            $admin = $repository->find($id);
+            if ($admin !== null && !is_object($admin)) {
+                throw new LogicException('Admin repository returned an invalid value.');
+            }
+
+            return $admin;
+        };
     }
 
     /**
@@ -105,20 +191,19 @@ final class Bootstrap
      */
     private static function configureSession(array $options): void
     {
-        $session = $options['resources']['session'] ?? [];
-        if (!is_array($session)) {
-            return;
-        }
+        $session = self::resourceMap($options, 'session');
 
-        if (!empty($session['save_path'])) {
-            $path = (string) $session['save_path'];
+        $savePath = self::optionalString($session, 'save_path', 'resources.session.save_path');
+        if ($savePath !== '') {
+            $path = $savePath;
             if (!is_dir($path)) {
                 @mkdir($path, 0770, true);
             }
             session_save_path($path);
         }
-        if (!empty($session['name'])) {
-            session_name((string) $session['name']);
+        $name = self::optionalString($session, 'name', 'resources.session.name');
+        if ($name !== '') {
+            session_name($name);
         }
 
         // session.use_strict_mode rejects attacker-seeded session IDs (a core
@@ -127,7 +212,7 @@ final class Bootstrap
         // default HERE rather than relying on the deployment. A config value, if
         // present, still wins (cast '1'/'' from IniConfig booleans).
         ini_set('session.use_strict_mode', array_key_exists('use_strict_mode', $session)
-            ? (string) $session['use_strict_mode']
+            ? self::iniValue($session['use_strict_mode'], 'resources.session.use_strict_mode')
             : '1');
 
         // The remaining keys map one-to-one onto `session.*` php.ini settings
@@ -136,7 +221,7 @@ final class Bootstrap
         // skipped. IniConfig yields booleans as '1'/'' which ini_set accepts.
         foreach (['use_only_cookies', 'cookie_httponly', 'cookie_secure', 'cookie_samesite', 'gc_maxlifetime'] as $key) {
             if (array_key_exists($key, $session)) {
-                ini_set('session.' . $key, (string) $session[$key]);
+                ini_set('session.' . $key, self::iniValue($session[$key], 'resources.session.' . $key));
             }
         }
     }
@@ -163,19 +248,27 @@ final class Bootstrap
     {
         // Accept the ZF1 key casing (`frontController.baseUrl`, what existing
         // deployments + application.ini.dist use) and an all-lowercase variant.
-        $fc         = $options['resources']['frontController']
-            ?? $options['resources']['frontcontroller'] ?? [];
-        $configured = $fc['baseUrl'] ?? $fc['baseurl'] ?? null;
-        if (is_string($configured) && trim($configured) !== '') {
+        $resources = self::stringMap($options['resources'] ?? [], 'resources');
+        $fc = array_key_exists('frontController', $resources)
+            ? self::stringMap($resources['frontController'], 'resources.frontController')
+            : self::stringMap($resources['frontcontroller'] ?? [], 'resources.frontcontroller');
+        $configured = array_key_exists('baseUrl', $fc)
+            ? self::optionalString($fc, 'baseUrl', 'resources.frontController.baseUrl')
+            : self::optionalString($fc, 'baseurl', 'resources.frontController.baseurl');
+        if (trim($configured) !== '') {
+            if (preg_match('#^/?[A-Za-z0-9._~/-]+$#', $configured) !== 1) {
+                throw new LogicException('Configured base URL contains invalid path characters');
+            }
             return '/' . trim(trim($configured), '/');
         }
 
-        $prefix = (string) ($_SERVER['HTTP_X_FORWARDED_PREFIX'] ?? '');
+        $prefix = self::forwardedPrefix();
         if ($prefix !== '' && preg_match('#^/[A-Za-z0-9._~/-]+$#', $prefix)) {
             return '/' . trim($prefix, '/');
         }
 
-        $scriptName = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
+        $scriptName = array_key_exists('SCRIPT_NAME', $_SERVER)
+            ? self::serverString('SCRIPT_NAME') : '';
         $dir        = str_replace('\\', '/', dirname($scriptName));
 
         return $dir === '/' ? '' : rtrim($dir, '/');
@@ -191,9 +284,8 @@ final class Bootstrap
      */
     private static function skinCss(string $appPath, array $options): string
     {
-        $skin = isset($options['resources']['smarty']['skin'])
-            ? trim((string) $options['resources']['smarty']['skin'])
-            : '';
+        $smarty = self::resourceMap($options, 'smarty');
+        $skin = trim(self::optionalString($smarty, 'skin', 'resources.smarty.skin'));
 
         if ($skin === '' || !preg_match('/^[A-Za-z0-9_-]+$/', $skin)) {
             return '';
@@ -205,5 +297,34 @@ final class Bootstrap
         }
 
         return rtrim(self::baseUrl($options), '/') . '/' . $rel;
+    }
+
+    private static function serverString(string $key): string
+    {
+        $value = $_SERVER[$key] ?? '';
+        if (!is_string($value)) {
+            throw new LogicException("Server parameter {$key} must be a string");
+        }
+        if (preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
+            throw new LogicException("Server parameter {$key} contains control characters");
+        }
+
+        return $value;
+    }
+
+    private static function forwardedPrefix(): string
+    {
+        if (!array_key_exists('HTTP_X_FORWARDED_PREFIX', $_SERVER)) {
+            return '';
+        }
+        $value = $_SERVER['HTTP_X_FORWARDED_PREFIX'];
+        if (!is_string($value)) {
+            throw new LogicException('Server parameter HTTP_X_FORWARDED_PREFIX must be a string');
+        }
+        if (preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
+            return '';
+        }
+
+        return $value;
     }
 }

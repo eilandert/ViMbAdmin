@@ -78,7 +78,7 @@ abstract class AbstractController
      */
     protected function postData(): array
     {
-        return $_POST;
+        return self::stringMap($_POST, 'POST data');
     }
 
     /**
@@ -104,10 +104,21 @@ abstract class AbstractController
         // gc_maxlifetime. 0/unset disables. Cheap + idempotent per request.
         if ($auth->isAuthenticated()) {
             $options = $this->container->options();
-            $idle    = (int) ($options['resources']['session']['idle_timeout'] ?? 0);
+            $resources = array_key_exists('resources', $options)
+                ? self::stringMap($options['resources'], 'resources')
+                : [];
+            $sessionOptions = array_key_exists('session', $resources)
+                ? self::stringMap($resources['session'], 'resources.session')
+                : [];
+            $idle = array_key_exists('idle_timeout', $sessionOptions)
+                ? self::nonNegativeInt($sessionOptions['idle_timeout'], 'idle_timeout')
+                : 0;
             if ($idle > 0) {
-                $session = $this->container->session();
-                $last    = (int) ($session->timeOfLastAction ?? 0);
+                $session = new MagicPropertyStorage($this->container->session());
+                $lastValue = $session->get('timeOfLastAction');
+                $last = $lastValue === null
+                    ? 0
+                    : self::nonNegativeInt($lastValue, 'timeOfLastAction');
                 if ($last > 0 && (time() - $last) > $idle) {
                     $auth->clear();
                     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -117,7 +128,7 @@ abstract class AbstractController
                     }
                     return null;
                 }
-                $session->timeOfLastAction = time();
+                $session->set('timeOfLastAction', time());
             }
         }
 
@@ -186,8 +197,9 @@ abstract class AbstractController
      */
     protected function csrfValid(): bool
     {
-        return (new Csrf(new MagicPropertyStorage($this->container->session())))
-            ->isValid((string) $this->param('csrf', ''));
+        $token = $this->param('csrf', '');
+        return is_string($token)
+            && (new Csrf(new MagicPropertyStorage($this->container->session())))->isValid($token);
     }
 
     /**
@@ -214,13 +226,13 @@ abstract class AbstractController
      */
     protected function renderPartial(string $script, array $vars = []): string
     {
-        $view = $this->container->getResource('smarty');
+        $view = $this->viewResource();
 
         foreach ($vars as $key => $value) {
-            $view->{$key} = $value;
+            $this->assignView($view, $key, $value);
         }
 
-        return (string) $view->render($script);
+        return $this->renderView($view, $script);
     }
 
     /**
@@ -245,31 +257,98 @@ abstract class AbstractController
      */
     protected function view(string $script, array $vars = [], int $status = 200): Response
     {
-        $view  = $this->container->getResource('smarty');
+        $view  = $this->viewResource();
         $admin = $this->admin();
 
         // Chrome variables header.phtml / footer.phtml expect.
-        $view->controller  = $this->route->controller;
-        $view->action      = $this->route->action;
-        $view->hasIdentity = $admin !== null;
-        $view->user        = $admin;
-        $view->identity    = $this->container->auth()->identity();
-        $view->options     = $this->container->options();
-        $view->skinCss     = $this->container->chrome('skinCss') ?? '';
-        $view->session     = $this->container->session();
+        $this->assignView($view, 'controller', $this->route->controller);
+        $this->assignView($view, 'action', $this->route->action);
+        $this->assignView($view, 'hasIdentity', $admin !== null);
+        $this->assignView($view, 'user', $admin);
+        $this->assignView($view, 'identity', $this->container->auth()->identity());
+        $this->assignView($view, 'options', $this->container->options());
+        $this->assignView($view, 'skinCss', $this->container->chrome('skinCss') ?? '');
+        $this->assignView($view, 'session', $this->container->session());
 
         // The per-session CSRF token guarding state-changing GET links — set only
         // for an authed page, exactly as the ZF1 base controller did, over the
         // same session key (`csrfToken`) so links minted here validate against
         // the ZF1 _assertCsrf() that still serves those actions.
         if ($admin !== null) {
-            $view->csrfToken = (new Csrf(new MagicPropertyStorage($this->container->session())))->token();
+            $this->assignView(
+                $view,
+                'csrfToken',
+                (new Csrf(new MagicPropertyStorage($this->container->session())))->token()
+            );
         }
 
         foreach ($vars as $key => $value) {
-            $view->{$key} = $value;
+            $this->assignView($view, $key, $value);
         }
 
-        return new Response((string) $view->render($script), $status);
+        return new Response($this->renderView($view, $script), $status);
+    }
+
+    /** @return array<string,mixed> */
+    private static function stringMap(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new \TypeError($name . ' must be an array');
+        }
+        foreach ($value as $key => $_value) {
+            if (!is_string($key)) {
+                throw new \TypeError($name . ' must use string keys');
+            }
+        }
+
+        return $value;
+    }
+
+    private static function nonNegativeInt(mixed $value, string $name): int
+    {
+        if (is_int($value) && $value >= 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^(?:0|[1-9][0-9]*)$/D', $value) === 1) {
+            $parsed = filter_var($value, FILTER_VALIDATE_INT);
+            if ($parsed !== false && $parsed >= 0) {
+                return $parsed;
+            }
+        }
+
+        throw new \TypeError($name . ' must be a non-negative integer');
+    }
+
+    private function viewResource(): object
+    {
+        $view = $this->container->getResource('smarty');
+        if (!is_object($view) || !is_callable([$view, 'render'])) {
+            throw new \TypeError('smarty resource must expose render()');
+        }
+
+        return $view;
+    }
+
+    private function assignView(object $view, string $key, mixed $value): void
+    {
+        $setter = [$view, '__set'];
+        if (!is_callable($setter)) {
+            throw new \TypeError('smarty resource must expose __set()');
+        }
+        $setter($key, $value);
+    }
+
+    private function renderView(object $view, string $script): string
+    {
+        $renderer = [$view, 'render'];
+        if (!is_callable($renderer)) {
+            throw new \TypeError('smarty resource must expose render()');
+        }
+        $rendered = $renderer($script);
+        if (!is_string($rendered)) {
+            throw new \TypeError('smarty render() must return a string');
+        }
+
+        return $rendered;
     }
 }

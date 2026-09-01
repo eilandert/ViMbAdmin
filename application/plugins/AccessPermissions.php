@@ -62,12 +62,30 @@ class ViMbAdminPlugin_AccessPermissions extends ViMbAdmin_Plugin implements OSS_
     /**
      * The configured permission types (e.g. SMTP/IMAP/POP3/SIEVE) as a name=>label
      * map, or an empty array when the plugin is not configured.
+     *
+     * @param array<string,mixed> $options
+     * @return array<string,string>
      */
     private function _types( array $options ): array
     {
-        return $options['vimbadmin_plugins']['AccessPermissions']['type'] ?? [];
+        $plugins = array_key_exists('vimbadmin_plugins', $options) ? $options['vimbadmin_plugins'] : [];
+        if (!is_array($plugins)) throw new \TypeError('vimbadmin_plugins must be an array');
+        $config = array_key_exists('AccessPermissions', $plugins) ? $plugins['AccessPermissions'] : [];
+        if (!is_array($config)) throw new \TypeError('AccessPermissions options must be an array');
+        $types = array_key_exists('type', $config) ? $config['type'] : [];
+        if (!is_array($types)) throw new \TypeError('AccessPermissions type must be an array');
+        $result = [];
+        foreach ($types as $name => $label) {
+            if (!is_string($name) || !is_string($label)) throw new \TypeError('AccessPermissions types must be a string map');
+            $result[$name] = $label;
+        }
+        return $result;
     }
 
+    /**
+     * @param array<string,mixed> $options
+     * @return list<\ViMbAdmin\Kernel\Form\Field>
+     */
     public function nativeMailboxFields( ?\Entities\Mailbox $mailbox, array $options ): array
     {
         $types      = $this->_types( $options );
@@ -102,7 +120,9 @@ class ViMbAdminPlugin_AccessPermissions extends ViMbAdmin_Plugin implements OSS_
     /**
      * The services the form actually has ticked, in config order.
      *
-     * @return string[]
+     * @param array<string,mixed> $values
+     * @param array<string,mixed> $options
+     * @return list<string>
      */
     private function _selected( array $values, array $options ): array
     {
@@ -114,6 +134,10 @@ class ViMbAdminPlugin_AccessPermissions extends ViMbAdmin_Plugin implements OSS_
         return $selected;
     }
 
+    /**
+     * @param array<string,mixed> $values
+     * @param array<string,mixed> $options
+     */
     public function nativeMailboxValidate( array $values, array $options ): ?string
     {
         // "Restricted" means the master box is ticked OR at least one service is
@@ -130,6 +154,10 @@ class ViMbAdminPlugin_AccessPermissions extends ViMbAdmin_Plugin implements OSS_
         return null;
     }
 
+    /**
+     * @param array<string,mixed> $values
+     * @param array<string,mixed> $options
+     */
     public function nativeMailboxApply( \Entities\Mailbox $mailbox, array $values, array $options, ?object $em = null ): void
     {
         // Apply a restriction when any service is ticked, even if the master

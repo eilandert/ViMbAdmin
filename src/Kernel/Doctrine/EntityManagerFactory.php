@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Doctrine;
 
+use InvalidArgumentException;
+
 /**
  * Framework-free factory for the Doctrine entity manager (WALL #2,
  * docs/ZF1-REMOVAL.md).
@@ -41,6 +43,122 @@ namespace ViMbAdmin\Kernel\Doctrine;
  */
 final class EntityManagerFactory
 {
+    /** @return array<string,mixed> */
+    private static function stringMap(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new \LogicException("{$name} must be an array");
+        }
+        foreach ($value as $key => $_item) {
+            if (!is_string($key)) {
+                throw new \LogicException("{$name} must use string keys");
+            }
+        }
+
+        return $value;
+    }
+
+    private static function requiredString(mixed $value, string $name): string
+    {
+        if (!is_string($value) || $value === '') {
+            throw new \LogicException("{$name} must be a non-empty string");
+        }
+        if (preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
+            throw new \LogicException("{$name} contains control characters");
+        }
+
+        return $value;
+    }
+
+    /** @param array<string,mixed> $map */
+    private static function optionalString(array $map, string $key, string $name, string $default = ''): string
+    {
+        if (!array_key_exists($key, $map)) {
+            return $default;
+        }
+
+        $value = $map[$key];
+        if (!is_string($value)) {
+            throw new \LogicException("{$name} must be a string");
+        }
+
+        return $value;
+    }
+
+    private static function proxyModeValue(mixed $value): int
+    {
+        if (is_string($value) && preg_match('/^[0-4]$/D', $value) === 1) {
+            return (int) $value;
+        }
+        if (is_int($value) && $value >= 0 && $value <= 4) {
+            return $value;
+        }
+
+        throw new InvalidArgumentException(
+            'resources.doctrine2.autogen_proxies must be a Doctrine proxy-generation mode from 0 through 4'
+        );
+    }
+
+    /** @return array<string,mixed> */
+    private static function connectionOptions(mixed $value): array
+    {
+        $options = self::stringMap($value, 'resources.doctrine2.connection.options');
+        if (!array_key_exists('driver', $options)) {
+            throw new \LogicException('resources.doctrine2.connection.options requires a driver');
+        }
+        $driver = self::requiredString($options['driver'], 'resources.doctrine2.connection.options.driver');
+        $driver = match ($driver) {
+            'ibm_db2' => 'ibm_db2', 'mysqli' => 'mysqli', 'oci8' => 'oci8',
+            'pdo_mysql' => 'pdo_mysql', 'pdo_oci' => 'pdo_oci', 'pdo_pgsql' => 'pdo_pgsql',
+            'pdo_sqlite' => 'pdo_sqlite', 'pdo_sqlsrv' => 'pdo_sqlsrv', 'pgsql' => 'pgsql',
+            'sqlite3' => 'sqlite3', 'sqlsrv' => 'sqlsrv',
+            default => throw new \LogicException('resources.doctrine2.connection.options.driver is unsupported'),
+        };
+        foreach (['dbname', 'user', 'password', 'host', 'charset', 'unix_socket', 'application_name'] as $key) {
+            if (array_key_exists($key, $options) && !is_string($options[$key])) {
+                throw new \LogicException("resources.doctrine2.connection.options.{$key} must be a string");
+            }
+        }
+        if (array_key_exists('driverClass', $options) && !is_string($options['driverClass'])) {
+            throw new \LogicException('resources.doctrine2.connection.options.driverClass must be a string');
+        }
+        if (array_key_exists('driverClass', $options)) {
+            $driverClass = $options['driverClass'];
+            if (!class_exists($driverClass) || !is_a($driverClass, \Doctrine\DBAL\Driver::class, true)) {
+                throw new \LogicException('resources.doctrine2.connection.options.driverClass must implement Doctrine\\DBAL\\Driver');
+            }
+        }
+        if (array_key_exists('port', $options)) {
+            $port = $options['port'];
+            if (is_string($port) && preg_match('/^[1-9][0-9]*$/D', $port) === 1) {
+                $port = filter_var($port, FILTER_VALIDATE_INT);
+            }
+            if (!is_int($port) || $port < 1 || $port > 65535) {
+                throw new \LogicException('resources.doctrine2.connection.options.port must be an integer from 1 through 65535');
+            }
+            $options['port'] = $port;
+        }
+        if (array_key_exists('driverOptions', $options) && !is_array($options['driverOptions'])) {
+            throw new \LogicException('resources.doctrine2.connection.options.driverOptions must be an array');
+        }
+        if (array_key_exists('memory', $options) && !is_bool($options['memory'])) {
+            throw new \LogicException('resources.doctrine2.connection.options.memory must be boolean');
+        }
+
+        $options['driver'] = $driver;
+        return $options;
+    }
+
+    /**
+     * @phpstan-assert array{driver:'ibm_db2'|'mysqli'|'oci8'|'pdo_mysql'|'pdo_oci'|'pdo_pgsql'|'pdo_sqlite'|'pdo_sqlsrv'|'pgsql'|'sqlite3'|'sqlsrv'} $options
+     * @param array<string,mixed> $options
+     */
+    private static function assertConnectionShape(array $options): void
+    {
+        // connectionOptions() performs the runtime checks; this declaration
+        // carries the validated DBAL parameter contract to the call site.
+    }
+
     /**
      * Build the Doctrine entity manager from the merged application options
      * (`$options['resources']['doctrine2']` + `['doctrine2cache']`).
@@ -62,9 +180,9 @@ final class EntityManagerFactory
      */
     private static function withLayoutDefaults(array $dconfig): array
     {
+        $dconfig = self::stringMap($dconfig, 'resources.doctrine2');
         $app = defined('APPLICATION_PATH') ? APPLICATION_PATH : '.';
-
-        return $dconfig + [
+        $config = $dconfig + [
             'models_path'            => $app,
             'proxies_path'           => $app . '/Proxies',
             'repositories_path'      => $app,
@@ -73,12 +191,31 @@ final class EntityManagerFactory
             'repositories_namespace' => 'Repositories',
             'autogen_proxies'        => 0,
         ];
+        foreach (['models_path', 'proxies_path', 'repositories_path'] as $key) {
+            $config[$key] = self::requiredString($config[$key], "resources.doctrine2.{$key}");
+        }
+        foreach (['models_namespace', 'proxies_namespace', 'repositories_namespace'] as $key) {
+            $config[$key] = self::requiredString($config[$key], "resources.doctrine2.{$key}");
+            if (preg_match('/[^A-Za-z0-9_\\\\]/', $config[$key]) === 1) {
+                throw new \LogicException("resources.doctrine2.{$key} contains an invalid namespace");
+            }
+        }
+        $config['autogen_proxies'] = self::proxyModeValue($config['autogen_proxies']);
+
+        return $config;
     }
 
+    /**
+     * @param array<string,mixed> $options the full options array
+     */
     public static function create(array $options): object
     {
-        $dconfig = self::withLayoutDefaults($options['resources']['doctrine2'] ?? []);
-        $cache   = self::buildCache($options['resources']['doctrine2cache'] ?? []);
+        $resources = self::stringMap($options['resources'] ?? [], 'resources');
+        $dconfig = self::withLayoutDefaults(self::stringMap($resources['doctrine2'] ?? [], 'resources.doctrine2'));
+        $cache   = self::buildCache(self::stringMap($resources['doctrine2cache'] ?? [], 'resources.doctrine2cache'));
+        $connection = self::stringMap($dconfig['connection'] ?? null, 'resources.doctrine2.connection');
+        $connectionOptions = self::connectionOptions($connection['options'] ?? null);
+        self::assertConnectionShape($connectionOptions);
 
         self::registerLegacyTypes();
 
@@ -91,22 +228,27 @@ final class EntityManagerFactory
 
         // Mapping now lives in #[ORM\...] attributes on the entity classes
         // (was XML under doctrine2/xml). Scan the Entities directory.
+        $modelsPath = self::requiredString($dconfig['models_path'], 'resources.doctrine2.models_path');
+        $proxiesPath = self::requiredString($dconfig['proxies_path'], 'resources.doctrine2.proxies_path');
+        $proxiesNamespace = self::requiredString($dconfig['proxies_namespace'], 'resources.doctrine2.proxies_namespace');
         $driver = new \Doctrine\ORM\Mapping\Driver\AttributeDriver(
-            [rtrim((string) $dconfig['models_path'], '/\\') . '/Entities']
+            [rtrim($modelsPath, '/\\') . '/Entities']
         );
         $config->setMetadataDriverImpl($driver);
 
         $config->setQueryCache($cache);
         $config->setResultCache($cache);
-        $config->setProxyDir((string) $dconfig['proxies_path']);
-        $config->setProxyNamespace((string) $dconfig['proxies_namespace']);
-        $config->setAutoGenerateProxyClasses((int) ($dconfig['autogen_proxies'] ?? 0));
+        $config->setProxyDir($proxiesPath);
+        $config->setProxyNamespace($proxiesNamespace);
+        $config->setAutoGenerateProxyClasses(
+            self::autoGenerateProxyMode($dconfig['autogen_proxies'])
+        );
 
         // ORM 3.x dropped EntityManager::create(): build the DBAL connection
         // explicitly, then hand it to the constructor. Connection stays lazy —
         // no socket opens until the first query.
         $connection = \Doctrine\DBAL\DriverManager::getConnection(
-            $dconfig['connection']['options'],
+            $connectionOptions,
             $config
         );
 
@@ -124,20 +266,26 @@ final class EntityManagerFactory
      */
     public static function registerEntityAutoloaders(array $options): void
     {
-        $dconfig = self::withLayoutDefaults($options['resources']['doctrine2'] ?? []);
+        $resources = self::stringMap($options['resources'] ?? [], 'resources');
+        $dconfig = self::withLayoutDefaults(self::stringMap($resources['doctrine2'] ?? [], 'resources.doctrine2'));
 
-        $map = [
-            (string) $dconfig['models_namespace']       => (string) $dconfig['models_path'],
-            (string) $dconfig['repositories_namespace'] => (string) $dconfig['repositories_path'],
-        ];
+        $modelsNamespace = self::requiredString($dconfig['models_namespace'], 'resources.doctrine2.models_namespace');
+        $repositoriesNamespace = self::requiredString($dconfig['repositories_namespace'], 'resources.doctrine2.repositories_namespace');
+        $modelsPath = self::requiredString($dconfig['models_path'], 'resources.doctrine2.models_path');
+        $repositoriesPath = self::requiredString($dconfig['repositories_path'], 'resources.doctrine2.repositories_path');
+        $map = [$modelsNamespace => $modelsPath, $repositoriesNamespace => $repositoriesPath];
 
         spl_autoload_register(static function (string $class) use ($map): void {
             foreach ($map as $prefix => $base) {
                 if ($class === $prefix || str_starts_with($class, $prefix . '\\')) {
                     $relative = str_replace('\\', DIRECTORY_SEPARATOR, $class) . '.php';
                     $path     = rtrim($base, '/\\') . DIRECTORY_SEPARATOR . $relative;
-                    if (is_file($path)) {
-                        require $path;
+                    $basePath = realpath($base);
+                    $candidate = $basePath === false ? false : realpath($path);
+                    if ($basePath !== false && $candidate !== false
+                        && str_starts_with($candidate, rtrim($basePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)
+                        && is_file($candidate)) {
+                        require $candidate;
                     }
                     return;
                 }
@@ -170,9 +318,13 @@ final class EntityManagerFactory
      *
      * @param array<string,mixed> $cfg the `doctrine2cache` options
      */
-    private static function buildCache(array $cfg): object
+    private static function buildCache(array $cfg): \Psr\Cache\CacheItemPoolInterface
     {
-        $namespace = isset($cfg['namespace']) ? (string) $cfg['namespace'] : '';
+        $cfg = self::stringMap($cfg, 'resources.doctrine2cache');
+        $namespace = self::optionalString($cfg, 'namespace', 'resources.doctrine2cache.namespace');
+        $type = self::optionalString($cfg, 'type', 'resources.doctrine2cache.type', 'auto');
+        $redis = self::stringMap($cfg['redis'] ?? [], 'resources.doctrine2cache.redis');
+        $dsn = self::optionalString($redis, 'dsn', 'resources.doctrine2cache.redis.dsn', 'redis://127.0.0.1:6379');
 
         // Version the cache namespace by the running build so a code bump that
         // changes the entity mappings can never serve STALE ClassMetadata.
@@ -197,7 +349,7 @@ final class EntityManagerFactory
         $pool      = null;
 
         try {
-            switch ($cfg['type'] ?? 'auto') {
+            switch ($type) {
                 case 'auto':
                     // Default: prefer APCu (a persistent, cross-request metadata/
                     // query cache) whenever the extension is loaded and enabled
@@ -220,7 +372,6 @@ final class EntityManagerFactory
 
                 case 'RedisCache':
                 case 'PredisCache':
-                    $dsn    = isset($cfg['redis']['dsn']) ? (string) $cfg['redis']['dsn'] : 'redis://127.0.0.1:6379';
                     $client = \Symfony\Component\Cache\Adapter\RedisAdapter::createConnection($dsn);
                     $pool   = new \Symfony\Component\Cache\Adapter\RedisAdapter($client, $namespace);
                     break;
@@ -239,5 +390,24 @@ final class EntityManagerFactory
         // ORM 3.x consumes PSR-6 pools directly; the old doctrine/cache
         // DoctrineProvider wrapper was removed with that package.
         return $pool;
+    }
+
+    /**
+     * Normalize the scalar values produced by the INI loader to one of
+     * Doctrine's documented proxy-generation modes.
+     *
+     * @return 0|1|2|3|4
+     */
+    /** @return 0|1|2|3|4 */
+    private static function autoGenerateProxyMode(mixed $value): int
+    {
+        return match (self::proxyModeValue($value)) {
+            0 => 0,
+            1 => 1,
+            2 => 2,
+            3 => 3,
+            4 => 4,
+            default => throw new InvalidArgumentException('Invalid Doctrine proxy-generation mode'),
+        };
     }
 }

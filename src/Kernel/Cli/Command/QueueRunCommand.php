@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Cli\Command;
 
+use Doctrine\Persistence\ObjectManager;
 use ViMbAdmin\Kernel\Cli\CliCommand;
 use ViMbAdmin\Kernel\Container;
 
@@ -36,9 +37,27 @@ final class QueueRunCommand implements CliCommand
         $once    = array_key_exists('once', $args);
 
         $options = $container->options();
-        $max     = (int) ($options['queue']['runner']['max_per_run'] ?? 5);
+        $max = 5;
+        if (array_key_exists('queue', $options)) {
+            if (!is_array($options['queue'])) throw new \TypeError('queue options must be an array');
+            if (array_key_exists('runner', $options['queue'])) {
+                if (!is_array($options['queue']['runner'])) throw new \TypeError('queue.runner options must be an array');
+                if (array_key_exists('max_per_run', $options['queue']['runner'])) {
+                    $rawMax = $options['queue']['runner']['max_per_run'];
+                    if (is_int($rawMax) && $rawMax > 0) $max = $rawMax;
+                    elseif (is_string($rawMax) && preg_match('/^[1-9][0-9]*$/D', $rawMax) === 1
+                        && filter_var($rawMax, FILTER_VALIDATE_INT) !== false) $max = (int) $rawMax;
+                    else throw new \TypeError('max_per_run must be a positive integer');
+                }
+            }
+        }
 
-        $runner = new \ViMbAdmin_Service_QueueRunner($container->entityManager(), $options);
+        $entityManager = $container->entityManager();
+        if (!$entityManager instanceof ObjectManager) {
+            throw new \LogicException('Queue command requires a Doctrine object manager.');
+        }
+
+        $runner = new \ViMbAdmin_Service_QueueRunner($entityManager, $options);
 
         $total = 0;
         do {

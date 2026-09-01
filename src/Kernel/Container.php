@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel;
 
+use Error;
 use ViMbAdmin\Kernel\Mail\Mailer;
 use ViMbAdmin\Kernel\Security\Auth;
 
@@ -49,9 +50,23 @@ final class Container
      */
     public function mailer(): Mailer
     {
+        $options = $this->options();
+        $resources = self::stringMap(
+            array_key_exists('resources', $options) ? $options['resources'] : [],
+            'resources'
+        );
+        $mail = self::stringMap(
+            array_key_exists('mail', $resources) ? $resources['mail'] : [],
+            'resources.mail'
+        );
+        $transport = self::stringMap(
+            array_key_exists('transport', $mail) ? $mail['transport'] : [],
+            'resources.mail.transport'
+        );
+
         return $this->mailer ??= new Mailer(
-            $this->options()['resources']['mail']['transport'] ?? [],
-            \ViMbAdmin_Demo::enabled($this->options())
+            $transport,
+            \ViMbAdmin_Demo::enabled($options)
         );
     }
 
@@ -65,7 +80,12 @@ final class Container
      */
     public function entityManager(): object
     {
-        return $this->getResource('doctrine2');
+        $resource = $this->getResource('doctrine2');
+        if (!is_object($resource)) {
+            throw new \TypeError('doctrine2 resource must be an object');
+        }
+
+        return $resource;
     }
 
     /**
@@ -86,7 +106,7 @@ final class Container
      */
     public function options(): array
     {
-        return $this->bootstrap->getOptions();
+        return self::stringMap(($this->bootstrapMethod('getOptions'))(), 'bootstrap options');
     }
 
     /**
@@ -94,7 +114,12 @@ final class Container
      */
     public function session(): object
     {
-        return $this->getResource('namespace');
+        $resource = $this->getResource('namespace');
+        if (!is_object($resource)) {
+            throw new \TypeError('namespace resource must be an object');
+        }
+
+        return $resource;
     }
 
     /**
@@ -111,6 +136,40 @@ final class Container
      */
     public function getResource(string $name): mixed
     {
-        return $this->bootstrap->getResource($name);
+        return ($this->bootstrapMethod('getResource'))($name);
+    }
+
+    /** @return array<string,mixed> */
+    private static function stringMap(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new \TypeError($name . ' must be an array');
+        }
+        foreach ($value as $key => $_value) {
+            if (!is_string($key)) {
+                throw new \TypeError($name . ' must use string keys');
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * Resolve the structural bootstrap API without coupling the constructor to
+     * a framework type. Dynamic legacy bootstrap proxies remain callable, while
+     * malformed objects still fail at the boundary instead of falling back.
+     */
+    private function bootstrapMethod(string $method): callable
+    {
+        $callable = [$this->bootstrap, $method];
+        if (!is_callable($callable)) {
+            throw new Error(sprintf(
+                'Call to undefined method %s::%s()',
+                $this->bootstrap::class,
+                $method,
+            ));
+        }
+
+        return $callable;
     }
 }

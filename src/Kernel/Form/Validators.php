@@ -18,6 +18,26 @@ namespace ViMbAdmin\Kernel\Form;
  */
 final class Validators
 {
+    private static function scalarString(mixed $value): ?string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+        if (is_int($value) || is_float($value) || is_bool($value)) {
+            return (string) $value;
+        }
+
+        return null;
+    }
+
+    /** The value must be a string when present (empty passes for optional fields). */
+    public static function string(string $message = 'This field has an invalid type.'): callable
+    {
+        return static function (mixed $value) use ($message): ?string {
+            return $value === null || is_string($value) ? null : $message;
+        };
+    }
+
     /** The value must be present (non-empty after trimming strings). */
     public static function required(string $message = 'This field is required.'): callable
     {
@@ -33,7 +53,11 @@ final class Validators
         };
     }
 
-    /** A syntactically valid email address (empty passes — combine with required()). */
+    /**
+     * A syntactically valid email address (empty passes — combine with required()).
+     *
+     * @return callable(mixed):?string
+     */
     public static function email(string $message = 'Please enter a valid email address.'): callable
     {
         return static function (mixed $value) use ($message): ?string {
@@ -41,7 +65,8 @@ final class Validators
                 return null;
             }
 
-            return filter_var((string) $value, FILTER_VALIDATE_EMAIL) === false ? $message : null;
+            $string = self::scalarString($value);
+            return $string === null || filter_var($string, FILTER_VALIDATE_EMAIL) === false ? $message : null;
         };
     }
 
@@ -61,7 +86,10 @@ final class Validators
                 return null;
             }
 
-            $s = (string) $value;
+            $s = self::scalarString($value);
+            if ($s === null) {
+                return $message;
+            }
             if (strlen($s) > 64) {
                 return $message;
             }
@@ -90,7 +118,10 @@ final class Validators
                 return null;
             }
 
-            $s = (string) $value;
+            $s = self::scalarString($value);
+            if ($s === null) {
+                return $message;
+            }
             if (strlen($s) > 253) {
                 return $message;
             }
@@ -115,7 +146,10 @@ final class Validators
                 return null;
             }
 
-            $s = (string) $value;
+            $s = self::scalarString($value);
+            if ($s === null) {
+                return $message;
+            }
 
             // Reject invalid UTF-8 outright: it has no business in a name/domain
             // field and would make the /u match below return false (mis-read as
@@ -142,7 +176,8 @@ final class Validators
                 return null;
             }
 
-            return strlen((string) $value) < $min ? $message : null;
+            $string = self::scalarString($value);
+            return $string === null || strlen($string) < $min ? $message : null;
         };
     }
 
@@ -154,7 +189,8 @@ final class Validators
                 return null;
             }
 
-            return preg_match($pattern, (string) $value) === 1 ? null : $message;
+            $string = self::scalarString($value);
+            return $string !== null && preg_match($pattern, $string) === 1 ? null : $message;
         };
     }
 
@@ -169,14 +205,23 @@ final class Validators
      */
     public static function inArray(array $allowed, string $message = 'Please select a valid option.'): callable
     {
-        $set = array_map('strval', array_keys($allowed) === range(0, count($allowed) - 1) ? $allowed : array_keys($allowed));
+        $candidates = array_keys($allowed) === range(0, count($allowed) - 1) ? $allowed : array_keys($allowed);
+        $set = [];
+        foreach ($candidates as $candidate) {
+            $string = self::scalarString($candidate);
+            if ($string === null) {
+                throw new \InvalidArgumentException('Allowed validator values must be scalar');
+            }
+            $set[] = $string;
+        }
 
         return static function (mixed $value) use ($set, $message): ?string {
             if ($value === null || $value === '') {
                 return null;
             }
 
-            return in_array((string) $value, $set, true) ? null : $message;
+            $string = self::scalarString($value);
+            return $string !== null && in_array($string, $set, true) ? null : $message;
         };
     }
 
@@ -208,7 +253,11 @@ final class Validators
                 return null;
             }
 
-            $s = trim((string) $value);
+            $string = self::scalarString($value);
+            if ($string === null) {
+                return $message;
+            }
+            $s = trim($string);
             if (!is_numeric($s) || (float) $s < 0) {
                 return $message;
             }
@@ -228,7 +277,11 @@ final class Validators
                 return null;
             }
 
-            $s = trim((string) $value);
+            $string = self::scalarString($value);
+            if ($string === null) {
+                return $message;
+            }
+            $s = trim($string);
             if (preg_match('/^\d+$/', $s) !== 1) {
                 return $message;
             }

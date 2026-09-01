@@ -9,9 +9,13 @@
  */
 
 require __DIR__ . '/../src/Kernel/Session/SessionStorage.php';
+require __DIR__ . '/../src/Kernel/Session/MagicPropertyStorage.php';
 require __DIR__ . '/../src/Kernel/Security/Auth.php';
 require __DIR__ . '/../src/Kernel/Http/Response.php';
 require __DIR__ . '/../src/Kernel/RouteMatch.php';
+require __DIR__ . '/../src/Kernel/NativeResources.php';
+require __DIR__ . '/../library/ViMbAdmin/Demo.php';
+require __DIR__ . '/../src/Kernel/Mail/Mailer.php';
 require __DIR__ . '/../src/Kernel/Container.php';
 require __DIR__ . '/../src/Kernel/Mvc/AbstractController.php';
 require __DIR__ . '/../src/Kernel/Mvc/Dispatcher.php';
@@ -20,6 +24,7 @@ use ViMbAdmin\Kernel\Container;
 use ViMbAdmin\Kernel\Http\Response;
 use ViMbAdmin\Kernel\Mvc\AbstractController;
 use ViMbAdmin\Kernel\Mvc\Dispatcher;
+use ViMbAdmin\Kernel\NativeResources;
 use ViMbAdmin\Kernel\RouteMatch;
 use ViMbAdmin\Kernel\Security\Auth;
 use ViMbAdmin\Kernel\Session\SessionStorage;
@@ -36,11 +41,12 @@ final class ArraySession implements SessionStorage
     public function remove(string $key): void { unset($this->data[$key]); }
 }
 
-/** Stand-in for \Entities\Admin (only getSuper()/getId() are used here). */
+/** Stand-in for \Entities\Admin at the strict Auth identity boundary. */
 final class AdminFake
 {
     public function __construct(private int $id, private bool $super) {}
     public function getId(): int { return $this->id; }
+    public function getUsername(): string { return "admin{$this->id}@example.test"; }
     public function getSuper(): bool { return $this->super; }
 }
 
@@ -60,7 +66,68 @@ final class BootstrapFake
     }
     /** Real Bootstrap exposes getOptions(); AbstractController::admin() reads
      *  resources.session.idle_timeout through it. Empty options = idle disabled. */
+    /** @return array<string,mixed> */
     public function getOptions(): array { return []; }
+}
+
+/** Legacy-compatible proxy whose bootstrap methods are exposed through __call(). */
+final class DynamicBootstrapFake
+{
+    /** @param array<string,mixed> $options */
+    public function __construct(private object $resource, private array $options) {}
+
+    /** @param list<mixed> $arguments */
+    public function __call(string $method, array $arguments): mixed
+    {
+        return match ($method) {
+            'getOptions' => $this->options,
+            'getResource' => $arguments[0] === 'dynamic' ? $this->resource : null,
+            default => null,
+        };
+    }
+}
+
+final class InvalidOptionsBootstrapFake
+{
+    public function getOptions(): string { return 'not-an-array'; }
+    public function getResource(string $name): mixed
+    {
+        return match ($name) {
+            default => null,
+        };
+    }
+}
+
+final class MailerShapeBootstrapFake
+{
+    /** @param array<string,mixed> $options */
+    public function __construct(private array $options) {}
+    /** @return array<string,mixed> */
+    public function getOptions(): array { return $this->options; }
+    public function getResource(string $name): mixed { return null; }
+}
+
+/** Resource holder for idle-timeout boundary tests. */
+final class IdleBootstrapFake
+{
+    /** @param array<string,mixed> $options */
+    public function __construct(
+        private EmFake $em,
+        private array $options,
+        private mixed $session,
+    ) {}
+
+    public function getResource(string $name): mixed
+    {
+        return match ($name) {
+            'doctrine2' => $this->em,
+            'namespace' => $this->session,
+            default => null,
+        };
+    }
+
+    /** @return array<string,mixed> */
+    public function getOptions(): array { return $this->options; }
 }
 
 /** A native controller exercising every AbstractController helper. */
@@ -68,10 +135,12 @@ final class ProbeController extends AbstractController
 {
     public function showAction(): Response
     {
+        $admin = $this->admin();
+        $entityManager = $this->em();
         return $this->json([
             'type'  => $this->param('type', 'DEFAULT'),
-            'admin' => $this->admin()?->getId(),
-            'em'    => $this->em()->ping(),
+            'admin' => $admin instanceof AdminFake ? $admin->getId() : null,
+            'em'    => $entityManager instanceof EmFake ? $entityManager->ping() : null,
         ]);
     }
 
@@ -83,10 +152,15 @@ final class ProbeController extends AbstractController
 
 // --- harness ----------------------------------------------------------- //
 
-$failures = 0;
+final class TestKernelDispatchHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelDispatchHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelDispatchHarnessState::$count++; }
 }
 
 echo "== Phase 3 native dispatch (Container + Dispatcher + AbstractController) ==\n";
@@ -100,6 +174,65 @@ $container = new Container(new BootstrapFake($em), $auth);
 check('container->entityManager() returns the doctrine2 resource', $container->entityManager() === $em);
 check('container->auth() returns the Auth service',                $container->auth() === $auth);
 check('container->getResource() passthrough',                      $container->getResource('doctrine2') === $em);
+
+$nativeOptions = ['footer' => ['hide' => '1']];
+$nativeSession = new stdClass();
+$nativeView = new stdClass();
+$native = new Container(
+    new NativeResources($nativeOptions, $em, $nativeView, $nativeSession),
+    $auth,
+);
+check('container->options() reads native resources', $native->options() === $nativeOptions);
+check('container->session() reads the native namespace', $native->session() === $nativeSession);
+check('container preserves an unknown native resource', $native->getResource('missing') === null);
+
+$dynamicResource = new stdClass();
+$dynamic = new Container(new DynamicBootstrapFake($dynamicResource, ['legacy' => true]), $auth);
+check('container preserves dynamic legacy options lookup', $dynamic->options() === ['legacy' => true]);
+check('container preserves dynamic legacy resource lookup', $dynamic->getResource('dynamic') === $dynamicResource);
+
+$missingOptionsRejected = false;
+try {
+    (new Container(new stdClass(), $auth))->options();
+} catch (Error $e) {
+    $missingOptionsRejected = str_contains($e->getMessage(), 'stdClass::getOptions()');
+}
+check('container rejects a missing options API', $missingOptionsRejected);
+
+$missingResourceRejected = false;
+try {
+    (new Container(new stdClass(), $auth))->getResource('doctrine2');
+} catch (Error $e) {
+    $missingResourceRejected = str_contains($e->getMessage(), 'stdClass::getResource()');
+}
+check('container rejects a missing resource API', $missingResourceRejected);
+
+$wrongOptionsRejected = false;
+try {
+    (new Container(new InvalidOptionsBootstrapFake(), $auth))->options();
+} catch (TypeError) {
+    $wrongOptionsRejected = true;
+}
+check('container rejects a non-array options return', $wrongOptionsRejected);
+
+check(
+    'container mailer preserves the absent transport default',
+    get_debug_type((new Container(new BootstrapFake($em), $auth))->mailer()) === 'ViMbAdmin\\Kernel\\Mail\\Mailer'
+);
+$malformedMailerOptions = [
+    ['resources' => null],
+    ['resources' => ['mail' => null]],
+    ['resources' => ['mail' => ['transport' => null]]],
+];
+foreach ($malformedMailerOptions as $index => $options) {
+    $rejected = false;
+    try {
+        (new Container(new MailerShapeBootstrapFake($options), $auth))->mailer();
+    } catch (TypeError) {
+        $rejected = true;
+    }
+    check('container mailer rejects malformed nested option shape ' . $index, $rejected);
+}
 
 $dispatcher = new Dispatcher($container, ['probe' => ProbeController::class]);
 
@@ -135,6 +268,80 @@ $anon = new Dispatcher(
 $respAnon = $anon->dispatch(new RouteMatch('probe', 'show', 'ProbeController', 'showAction', ['type' => 'X']));
 $bodyAnon = $respAnon !== null ? json_decode($respAnon->body, true) : null;
 check('admin() is null when unauthenticated', is_array($bodyAnon) && $bodyAnon['admin'] === null);
+
+// Idle-timeout session boundary --------------------------------------- //
+$idleOptions = ['resources' => ['session' => ['idle_timeout' => 60]]];
+$freshSession = (object) ['timeOfLastAction' => time() - 5];
+$freshAuth = new Auth(
+    new ArraySession(['identity' => ['id' => 7]]),
+    fn(int $id) => $id === 7 ? $admin : null,
+);
+$freshDispatcher = new Dispatcher(
+    new Container(new IdleBootstrapFake($em, $idleOptions, $freshSession), $freshAuth),
+    ['probe' => ProbeController::class],
+);
+$beforeRefresh = time();
+$freshResponse = $freshDispatcher->dispatch(
+    new RouteMatch('probe', 'show', 'ProbeController', 'showAction', []),
+);
+$freshBody = $freshResponse !== null ? json_decode($freshResponse->body, true) : null;
+check('authenticated admin survives within the idle timeout',
+    is_array($freshBody) && $freshBody['admin'] === 7);
+check('authenticated request refreshes its last-action timestamp',
+    is_int($freshSession->timeOfLastAction)
+        && $freshSession->timeOfLastAction >= $beforeRefresh
+        && $freshSession->timeOfLastAction <= time());
+
+$expiredSession = (object) ['timeOfLastAction' => time() - 61];
+$expiredIdentity = new ArraySession(['identity' => ['id' => 7]]);
+$expiredAuth = new Auth($expiredIdentity, fn(int $id) => $id === 7 ? $admin : null);
+$expiredDispatcher = new Dispatcher(
+    new Container(new IdleBootstrapFake($em, $idleOptions, $expiredSession), $expiredAuth),
+    ['probe' => ProbeController::class],
+);
+$expiredResponse = $expiredDispatcher->dispatch(
+    new RouteMatch('probe', 'show', 'ProbeController', 'showAction', []),
+);
+$expiredBody = $expiredResponse !== null ? json_decode($expiredResponse->body, true) : null;
+check('expired authenticated session returns no admin',
+    is_array($expiredBody) && $expiredBody['admin'] === null);
+check('expired authenticated session clears the identity', !$expiredIdentity->has('identity'));
+
+$anonymousMalformedDispatcher = new Dispatcher(
+    new Container(
+        new IdleBootstrapFake($em, $idleOptions, 'malformed-session'),
+        new Auth(new ArraySession([]), fn(int $id) => null),
+    ),
+    ['probe' => ProbeController::class],
+);
+$anonymousMalformedResponse = $anonymousMalformedDispatcher->dispatch(
+    new RouteMatch('probe', 'show', 'ProbeController', 'showAction', []),
+);
+$anonymousMalformedBody = $anonymousMalformedResponse !== null
+    ? json_decode($anonymousMalformedResponse->body, true)
+    : null;
+check('anonymous request does not touch a malformed session resource',
+    is_array($anonymousMalformedBody) && $anonymousMalformedBody['admin'] === null);
+
+$malformedRejected = false;
+try {
+    $malformedDispatcher = new Dispatcher(
+        new Container(
+            new IdleBootstrapFake($em, $idleOptions, 'malformed-session'),
+            new Auth(
+                new ArraySession(['identity' => ['id' => 7]]),
+                fn(int $id) => $id === 7 ? $admin : null,
+            ),
+        ),
+        ['probe' => ProbeController::class],
+    );
+    $malformedDispatcher->dispatch(
+        new RouteMatch('probe', 'show', 'ProbeController', 'showAction', []),
+    );
+} catch (TypeError) {
+    $malformedRejected = true;
+}
+check('authenticated request rejects a malformed session resource', $malformedRejected);
 
 echo "\n";
 if ($failures === 0) {

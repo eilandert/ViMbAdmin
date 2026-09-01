@@ -14,7 +14,7 @@
 
     	</div>
 
-        <h1>Domain Administrators <small>for {$domain->getDomain()}</small></h1>
+        <h1>Domain Administrators <small>for {$domain->requiredDomainName()}</small></h1>
     </div>
 
 {OSS_Message}
@@ -32,7 +32,7 @@
             <tr id="admin_{$admin->getId()}">
                 <td>{$admin->getUsername()}{if !$admin->getActive()} <em>(inactive)</em>{/if}</td>
                 <td>
-                    <a class="btn btn-small have-tooltip" href="{genUrl controller='domain' action='remove-admin' aid=$admin->getId() did=$domain->getId()}" ref="{$admin->getUsername()}" id="remove-admin-{$admin->getId()}" title="Remove">
+                    <a class="btn btn-small have-tooltip" href="{genUrl controller='domain' action='remove-admin' aid=$admin->getId() did=$domain->getId() csrf=$csrfToken}" ref="{$admin->getUsername()}" id="remove-admin-{$admin->getId()}" title="Remove">
                         <i class="icon-minus"></i>
                     </a>
                 </td>

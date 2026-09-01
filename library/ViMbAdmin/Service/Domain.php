@@ -48,6 +48,7 @@ class ViMbAdmin_Service_Domain
      */
     public function toggleActive(\Entities\Domain $domain, \Entities\Admin $actor): bool
     {
+        $domainName = $domain->requiredDomainName();
         $domain->setActive( !$domain->getActive() );
         $domain->setModified( new \DateTime() );
 
@@ -57,7 +58,7 @@ class ViMbAdmin_Service_Domain
             $actor,
             $domain,
             $active ? \Entities\Log::ACTION_DOMAIN_ACTIVATE : \Entities\Log::ACTION_DOMAIN_DEACTIVATE,
-            "{$actor->getFormattedName()} " . ( $active ? 'activated' : 'deactivated' ) . " domain {$domain->getDomain()}"
+            "{$actor->getFormattedName()} " . ( $active ? 'activated' : 'deactivated' ) . " domain {$domainName}"
         );
 
         $this->em->flush();
@@ -81,13 +82,14 @@ class ViMbAdmin_Service_Domain
         if( $domain->getAdmins()->contains( $target ) )
             throw new ViMbAdmin_Service_Exception( 'This admin is already assigned to the domain.' );
 
+        $domainName = $domain->requiredDomainName();
         $target->addDomain( $domain );
 
         $this->log(
             $actor,
             $domain,
             \Entities\Log::ACTION_ADMIN_TO_DOMAIN_ADD,
-            "{$actor->getFormattedName()} added admin {$target->getFormattedName()} to domain {$domain->getDomain()}"
+            "{$actor->getFormattedName()} added admin {$target->getFormattedName()} to domain {$domainName}"
         );
 
         $this->em->flush();
@@ -100,13 +102,14 @@ class ViMbAdmin_Service_Domain
      */
     public function removeAdmin(\Entities\Domain $domain, \Entities\Admin $target, \Entities\Admin $actor): void
     {
+        $domainName = $domain->requiredDomainName();
         $target->removeDomain( $domain );
 
         $this->log(
             $actor,
             $domain,
             \Entities\Log::ACTION_ADMIN_TO_DOMAIN_REMOVE,
-            "{$actor->getFormattedName()} removed admin {$target->getFormattedName()} from domain {$domain->getDomain()}"
+            "{$actor->getFormattedName()} removed admin {$target->getFormattedName()} from domain {$domainName}"
         );
 
         $this->em->flush();
@@ -120,7 +123,11 @@ class ViMbAdmin_Service_Domain
      */
     public function purge(\Entities\Domain $domain): void
     {
-        $this->em->getRepository( '\\Entities\\Domain' )->purge( $domain );
+        $repository = $this->em->getRepository( '\\Entities\\Domain' );
+        if (!method_exists($repository, 'purge')) {
+            throw new \LogicException('Domain repository must implement purge().');
+        }
+        $repository->purge( $domain );
     }
 
     /**
@@ -130,6 +137,7 @@ class ViMbAdmin_Service_Domain
      */
     public function save(\Entities\Domain $domain, \Entities\Admin $actor, bool $isEdit): void
     {
+        $domainName = $domain->requiredDomainName();
         if (!$isEdit) {
             $this->em->persist( $domain );
         }
@@ -138,7 +146,7 @@ class ViMbAdmin_Service_Domain
             $actor,
             $domain,
             $isEdit ? \Entities\Log::ACTION_DOMAIN_EDIT : \Entities\Log::ACTION_DOMAIN_ADD,
-            "{$actor->getFormattedName()} " . ( $isEdit ? 'edited' : 'added' ) . " domain {$domain->getDomain()}"
+            "{$actor->getFormattedName()} " . ( $isEdit ? 'edited' : 'added' ) . " domain {$domainName}"
         );
 
         $this->em->flush();

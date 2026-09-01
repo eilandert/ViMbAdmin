@@ -25,18 +25,74 @@
  */
 class ViMbAdmin_BruteForce
 {
+    /** @return array<string,mixed> */
+    private static function stringMap( mixed $value, string $name ): array
+    {
+        if( !is_array( $value ) )
+            throw new LogicException( $name . ' must be an array' );
+        foreach( $value as $key => $_item )
+            if( !is_string( $key ) )
+                throw new LogicException( $name . ' must use string keys' );
+        return $value;
+    }
+
+    private static function boolValue( mixed $value, string $name ): bool
+    {
+        if( $value === true || $value === 1 || $value === '1' ) return true;
+        if( $value === false || $value === 0 || $value === '' || $value === '0' ) return false;
+        throw new LogicException( $name . ' must be boolean' );
+    }
+
+    private static function stringValue( mixed $value, string $name ): string
+    {
+        if( !is_string( $value ) )
+            throw new LogicException( $name . ' must be a string' );
+        return $value;
+    }
+
+    private static function intValue( mixed $value, string $name, int $minimum = 0 ): int
+    {
+        if( is_string( $value ) && preg_match( '/^[0-9]+$/D', $value ) ) {
+            $normalized = ltrim( $value, '0' );
+            $value = filter_var( $normalized === '' ? '0' : $normalized, FILTER_VALIDATE_INT );
+        }
+        if( !is_int( $value ) || $value < $minimum )
+            throw new LogicException( $name . ' must be a non-negative integer' );
+        return $value;
+    }
+
+    /** @return list<string> */
+    private static function stringList( mixed $value, string $name ): array
+    {
+        $values = is_array( $value ) ? $value : [ $value ];
+        $result = [];
+        foreach( $values as $item ) {
+            if( !is_string( $item ) )
+                throw new LogicException( $name . ' must contain strings' );
+            $result[] = $item;
+        }
+        return $result;
+    }
+    /** @var bool */
     private $_enabled   = true;
+    /** @var int */
     private $_max       = 5;
+    /** @var int */
     private $_window    = 900;
+    /** @var int */
     private $_lockout   = 900;
+    /** @var string */
     private $_statedir  = null;
+    /** @var list<string> */
     private $_whitelist = [];
+    /** @var string */
     private $_proxyMode = 'auto';
+    /** @var list<string> */
     private $_proxies   = [];
 
     /**
      * @param mixed $em   Unused (kept for call-site compatibility).
-     * @param array $opts [bruteforce] options from application.ini.
+     * @param array<string, mixed> $opts [bruteforce] options from application.ini.
      */
     public function __construct( $em = null, array $opts = [] )
     {
@@ -45,24 +101,30 @@ class ViMbAdmin_BruteForce
         // not use it. Explicitly discard so it isn't flagged as dead.
         unset( $em );
 
-        if( isset( $opts['enabled'] ) )      $this->_enabled = (bool) $opts['enabled'];
-        if( isset( $opts['max_attempts'] ) ) $this->_max     = (int) $opts['max_attempts'];
-        if( isset( $opts['window'] ) )       $this->_window  = (int) $opts['window'];
-        if( isset( $opts['lockout'] ) )      $this->_lockout = (int) $opts['lockout'];
+        $opts = self::stringMap( $opts, 'bruteforce options' );
+        if( isset( $opts['enabled'] ) )      $this->_enabled = self::boolValue( $opts['enabled'], 'bruteforce.enabled' );
+        if( isset( $opts['max_attempts'] ) ) $this->_max     = self::intValue( $opts['max_attempts'], 'bruteforce.max_attempts', 1 );
+        if( isset( $opts['window'] ) )       $this->_window  = self::intValue( $opts['window'], 'bruteforce.window' );
+        if( isset( $opts['lockout'] ) )      $this->_lockout = self::intValue( $opts['lockout'], 'bruteforce.lockout' );
 
-        $this->_statedir = !empty( $opts['statedir'] )
-            ? rtrim( $opts['statedir'], '/' )
+        $statedir = isset( $opts['statedir'] ) ? $opts['statedir'] : null;
+        if( $statedir !== null && !is_string( $statedir ) )
+            throw new LogicException( 'bruteforce.statedir must be a string' );
+        $this->_statedir = $statedir !== null && $statedir !== ''
+            ? rtrim( $statedir, '/' )
             : sys_get_temp_dir() . '/vimbadmin-bruteforce';
 
         if( isset( $opts['whitelist'] ) )
-            $this->_whitelist = is_array( $opts['whitelist'] ) ? $opts['whitelist'] : [ $opts['whitelist'] ];
+            $this->_whitelist = self::stringList( $opts['whitelist'], 'bruteforce.whitelist' );
 
         // Trusted-proxy policy for resolving the real client IP (see [trustedproxy]).
-        if( isset( $opts['trustedproxy']['mode'] ) )
-            $this->_proxyMode = (string) $opts['trustedproxy']['mode'];
-        if( isset( $opts['trustedproxy']['proxies'] ) )
-            $this->_proxies = is_array( $opts['trustedproxy']['proxies'] )
-                ? $opts['trustedproxy']['proxies'] : [ $opts['trustedproxy']['proxies'] ];
+        if( isset( $opts['trustedproxy'] ) ) {
+            $proxy = self::stringMap( $opts['trustedproxy'], 'bruteforce.trustedproxy' );
+            if( isset( $proxy['mode'] ) )
+                $this->_proxyMode = self::stringValue( $proxy['mode'], 'bruteforce.trustedproxy.mode' );
+            if( isset( $proxy['proxies'] ) )
+                $this->_proxies = self::stringList( $proxy['proxies'], 'bruteforce.trustedproxy.proxies' );
+        }
     }
 
     // ---- public API ----------------------------------------------------
@@ -72,6 +134,8 @@ class ViMbAdmin_BruteForce
      * locked out. Call early in the login flow (_preLogin).
      *
      * @throws never returns when locked (sends 429 + exits)
+     * @param mixed $request
+     * @return void
      */
     public function assertNotLocked( $request )
     {
@@ -97,6 +161,10 @@ class ViMbAdmin_BruteForce
      * when it crosses the threshold inside the window. Counting is per-IP only;
      * $username is accepted for call-site symmetry/logging but not keyed on
      * (an attacker rotating usernames from one IP still trips the same lock).
+     *
+     * @param mixed $username
+     * @param mixed $request
+     * @return void
      */
     public function record( $username, $request )
     {
@@ -125,7 +193,13 @@ class ViMbAdmin_BruteForce
         $this->_save( $ip, $rec );
     }
 
-    /** Clear the counter for a source after a fully successful login. */
+    /**
+     * Clear the counter for a source after a fully successful login.
+     *
+     * @param mixed $username
+     * @param mixed $request
+     * @return void
+     */
     public function clear( $username, $request )
     {
         if( !$this->_enabled )
@@ -133,7 +207,12 @@ class ViMbAdmin_BruteForce
         $this->_delete( $this->_ip( $request ) );
     }
 
-    /** Is this source currently locked? (no side effects) */
+    /**
+     * Is this source currently locked? (no side effects)
+     *
+     * @param mixed $request
+     * @return bool
+     */
     public function isLocked( $request )
     {
         if( !$this->_enabled )
@@ -146,6 +225,10 @@ class ViMbAdmin_BruteForce
 
     // ---- storage (one JSON file per IP under the state dir) ------------
 
+    /**
+     * @param string $ip
+     * @return string
+     */
     private function _file( $ip )
     {
         // Hash the IP so the filename is filesystem-safe and doesn't leak the
@@ -153,12 +236,19 @@ class ViMbAdmin_BruteForce
         return $this->_statedir . '/' . hash( 'sha256', $ip ) . '.json';
     }
 
+    /** @return void */
     private function _ensureDir()
     {
+        if( !is_string( $this->_statedir ) )
+            throw new LogicException( 'bruteforce state directory is not configured' );
         if( !is_dir( $this->_statedir ) )
             @mkdir( $this->_statedir, 0750, true );
     }
 
+    /**
+     * @param string $ip
+     * @return array{attempts:int, first:int, last:int, locked_until:int}
+     */
     private function _load( $ip )
     {
         $default = [ 'attempts' => 0, 'first' => 0, 'last' => 0, 'locked_until' => 0 ];
@@ -166,13 +256,30 @@ class ViMbAdmin_BruteForce
         $f = $this->_file( $ip );
         if( is_readable( $f ) )
         {
-            $d = json_decode( (string) @file_get_contents( $f ), true );
-            if( is_array( $d ) )
-                return array_merge( $default, $d );
+            $json = @file_get_contents( $f );
+            $d = is_string( $json ) ? json_decode( $json, true ) : null;
+            if( is_array( $d ) ) {
+                foreach( $default as $key => $_zero ) {
+                    if( !isset( $d[$key] ) || !is_int( $d[$key] ) || $d[$key] < 0 ) {
+                        throw new LogicException( 'bruteforce state is corrupt' );
+                    }
+                }
+                $attempts = $d['attempts'];
+                $first = $d['first'];
+                $last = $d['last'];
+                $lockedUntil = $d['locked_until'];
+                return [ 'attempts' => $attempts, 'first' => $first, 'last' => $last, 'locked_until' => $lockedUntil ];
+            }
+            throw new LogicException( 'bruteforce state is corrupt' );
         }
         return $default;
     }
 
+    /**
+     * @param string $ip
+     * @param array{attempts:int, first:int, last:int, locked_until:int} $rec
+     * @return void
+     */
     private function _save( $ip, array $rec )
     {
         $this->_ensureDir();
@@ -182,6 +289,10 @@ class ViMbAdmin_BruteForce
             @rename( $tmp, $f );   // atomic replace
     }
 
+    /**
+     * @param string $ip
+     * @return void
+     */
     private function _delete( $ip )
     {
         @unlink( $this->_file( $ip ) );
@@ -189,14 +300,22 @@ class ViMbAdmin_BruteForce
 
     // ---- helpers -------------------------------------------------------
 
+    /**
+     * @param mixed $request
+     * @return string
+     */
     private function _ip( $request )
     {
         // Resolve the real client IP per the trusted-proxy policy (default
         // 'auto': peel X-Forwarded-For only when the direct peer is a private
         // proxy). See ViMbAdmin_Net::clientIp.
-        return ViMbAdmin_Net::clientIp( $_SERVER, $this->_proxyMode, $this->_proxies );
+        return ViMbAdmin_Net::clientIp( self::stringMap( $_SERVER, 'server parameters' ), $this->_proxyMode, $this->_proxies );
     }
 
+    /**
+     * @param string $ip
+     * @return bool
+     */
     private function _isWhitelisted( $ip )
     {
         // Shared IP/CIDR matching (see ViMbAdmin_Net) so the brute-force

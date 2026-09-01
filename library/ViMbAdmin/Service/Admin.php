@@ -68,7 +68,12 @@ class ViMbAdmin_Service_Admin
      */
     public function toggleSuper(\Entities\Admin $target, \Entities\Admin $actor): bool
     {
-        $target->setSuper( !$target->getSuper() );
+        $current = $target->getSuper();
+        if ($current === null) {
+            throw new \LogicException('Admin super flag cannot be null.');
+        }
+
+        $target->setSuper(!$current);
         $target->setModified( new \DateTime() );
 
         $super = (bool) $target->getSuper();
@@ -95,12 +100,13 @@ class ViMbAdmin_Service_Admin
         if( $target->getDomains()->contains( $domain ) )
             throw new ViMbAdmin_Service_Exception( 'This domain is already assigned to the admin.' );
 
+        $domainName = $domain->requiredDomainName();
         $target->addDomain( $domain );
 
         $this->log(
             $actor,
             \Entities\Log::ACTION_ADMIN_TO_DOMAIN_ADD,
-            "{$actor->getFormattedName()} added admin {$target->getFormattedName()} to domain {$domain->getDomain()}",
+            "{$actor->getFormattedName()} added admin {$target->getFormattedName()} to domain {$domainName}",
             $domain
         );
 
@@ -113,12 +119,13 @@ class ViMbAdmin_Service_Admin
      */
     public function removeDomain(\Entities\Admin $target, \Entities\Domain $domain, \Entities\Admin $actor): void
     {
+        $domainName = $domain->requiredDomainName();
         $target->removeDomain( $domain );
 
         $this->log(
             $actor,
             \Entities\Log::ACTION_ADMIN_TO_DOMAIN_REMOVE,
-            "{$actor->getFormattedName()} removed admin {$target->getFormattedName()} from domain {$domain->getDomain()}",
+            "{$actor->getFormattedName()} removed admin {$target->getFormattedName()} from domain {$domainName}",
             $domain
         );
 
@@ -161,15 +168,15 @@ class ViMbAdmin_Service_Admin
      * configured auth options, persist the admin, log the action against the
      * actor, and flush. Returns the new admin.
      *
-     * @param array $authOptions the `resources.auth.oss` config OSS_Auth_Password needs
+     * @param array<string, mixed> $authOptions the `resources.auth.oss` config OSS_Auth_Password needs
      */
     public function create(string $username, string $plainPassword, bool $super, \Entities\Admin $actor, array $authOptions): \Entities\Admin
     {
         $admin = new \Entities\Admin();
         $admin->setUsername( $username );
         $admin->setPassword( OSS_Auth_Password::hash( $plainPassword, $authOptions ) );
-        $admin->setSuper( $super ? 1 : 0 );
-        $admin->setActive( 1 );
+        $admin->setSuper( $super );
+        $admin->setActive( true );
         $admin->setCreated( new \DateTime() );
 
         $this->em->persist( $admin );
@@ -193,7 +200,7 @@ class ViMbAdmin_Service_Admin
      * responsible for the privilege check and (for a self-change) verifying the
      * current password first.
      *
-     * @param array $authOptions the `resources.auth.oss` config OSS_Auth_Password needs
+     * @param array<string, mixed> $authOptions the `resources.auth.oss` config OSS_Auth_Password needs
      */
     public function changePassword(\Entities\Admin $target, string $plainPassword, \Entities\Admin $actor, bool $isSelf, array $authOptions): void
     {

@@ -160,6 +160,7 @@ class OSS_String
     * @param string $charSet
     * @param int $length
     * @return string
+    * @SuppressWarnings("PHPMD.MissingImport") TypeError is in the global namespace.
     */
     public static function randomFromSet( $charSet, $length = 16 )
     {
@@ -168,6 +169,12 @@ class OSS_String
 
         // Multibyte-safe, CSPRNG-backed random selection.
         $chars = preg_split( '//u', $charSet, -1, PREG_SPLIT_NO_EMPTY );
+        if( $chars === false )
+            throw new \TypeError( 'The character set must be valid UTF-8' );
+
+        if( $chars === [] )
+            return '';
+
         $max = count( $chars ) - 1;
 
         $retVal = '';
@@ -215,10 +222,10 @@ class OSS_String
     public static function toValidFieldName( $string )
     {
         $string = mb_strtolower( trim( $string ) );
-        $string = preg_replace( "/[^0-9a-z]+/u", '_', $string );
-        $string = preg_replace ("/[_]+/u", '_', $string );
+        $string = preg_replace( "/[^0-9a-z]+/u", '_', $string ) ?? '';
+        $string = preg_replace ("/[_]+/u", '_', $string ) ?? '';
 
-        if( $string[0] == '_' )
+        if( $string !== '' && $string[0] == '_' )
             $string = mb_substr( $string, 1 );
 
         if( mb_substr( $string, -1 ) == '_')
@@ -264,10 +271,13 @@ class OSS_String
         $to = [   'AE',       'ae',       'd',        'O',        'o',        'ss',       'Th',       'th',       'L',        'l',        "d",        "D",        "EUR" ];
 
         $retVal = iconv( 'UTF-8', 'ASCII//TRANSLIT', str_replace( $from, $to, $input ) ); // TRANSLIT does the whole job
+        if( $retVal === false )
+            $retVal = '';
+
         if( !$keepSpaces )
-            $retVal = preg_replace( "/[^a-z]/", '', mb_strtolower( $retVal ) );
+            $retVal = preg_replace( "/[^a-z]/", '', mb_strtolower( $retVal ) ) ?? '';
         else
-            $retVal = preg_replace( "/[^a-z\s]/", '', mb_strtolower( $retVal ) );
+            $retVal = preg_replace( "/[^a-z\s]/", '', mb_strtolower( $retVal ) ) ?? '';
 
         return $retVal;
     }
@@ -309,7 +319,7 @@ class OSS_String
      * The return value is either a string or an array.
      *
      * @param mixed $input
-     * @return array|string
+     * @return array<array-key, mixed>|string
      */
     public static function stripSlashes( $input )
     {
@@ -318,7 +328,7 @@ class OSS_String
 
         if( !is_array( $input ) && !is_object( $input ) )
         {
-            $input = (string) $input;
+            $input = is_scalar( $input ) ? (string) $input : '';
             return stripslashes( $input );
         }
 
@@ -328,7 +338,7 @@ class OSS_String
         foreach( $input as $key => $item )
         {
             if ( is_scalar( $item ) )
-                $input[ $key ] = stripslashes( $item );
+                $input[ $key ] = stripslashes( (string) $item );
             else
                 $input[ $key ] = self::stripSlashes( $item );
         }
@@ -344,7 +354,7 @@ class OSS_String
      * The return value is either a string or an array.
      *
      * @param mixed $input
-     * @return array|string
+     * @return array<array-key, mixed>|string
      */
     public static function htmlEntityDecode( $input )
     {
@@ -353,7 +363,7 @@ class OSS_String
 
         if( !is_array( $input ) && !is_object( $input ) )
         {
-            $input = (string) $input;
+            $input = is_scalar( $input ) ? (string) $input : '';
             return html_entity_decode( $input );
         }
 
@@ -363,7 +373,7 @@ class OSS_String
         foreach( $input as $key => $item )
         {
             if ( is_scalar( $item ) )
-                $input[ $key ] = html_entity_decode( $item );
+                $input[ $key ] = html_entity_decode( (string) $item );
             else
                 $input[ $key ] = self::htmlEntityDecode( $item );
         }

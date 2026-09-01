@@ -5,7 +5,14 @@ date_default_timezone_set(@date_default_timezone_get());
 require_once dirname(__FILE__) . '/../vendor/autoload.php';
 
 defined('APPLICATION_ENV') || define('APPLICATION_ENV', getenv('APPLICATION_ENV') ?: 'development');
-defined('APPLICATION_PATH') || define('APPLICATION_PATH', realpath(dirname(__FILE__) . '/../application'));
+$applicationPath = defined('APPLICATION_PATH')
+    ? constant('APPLICATION_PATH')
+    : realpath(dirname(__FILE__) . '/../application');
+if (!is_string($applicationPath) || !is_dir($applicationPath)) {
+    fwrite(STDERR, "ViMbAdmin application directory is unavailable.\n");
+    exit(1);
+}
+defined('APPLICATION_PATH') || define('APPLICATION_PATH', $applicationPath);
 
 const SCRIPT_NAME = 'vimbadtool - ViMbAdmin CLI Management Tool';
 define('SCRIPT_COPY', '(c) Copyright 2010 - ' . date('Y') . ' Open Source Solutions Limited');
@@ -44,7 +51,7 @@ if (!is_string($action) || $action === '') {
     exit(1);
 }
 
-$kernel = new \ViMbAdmin\Kernel\Cli\CliKernel(APPLICATION_PATH, APPLICATION_ENV);
+$kernel = new \ViMbAdmin\Kernel\Cli\CliKernel($applicationPath, APPLICATION_ENV);
 if (!$kernel->canHandle($action)) {
     fwrite(STDERR, "ERROR: unknown action '{$action}'. Use --help for supported actions.\n");
     exit(1);

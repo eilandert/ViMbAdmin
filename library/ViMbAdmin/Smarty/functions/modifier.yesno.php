@@ -42,7 +42,7 @@
  * @package ViMbAdmin
  * @subpackage Smarty_Functions
  */
-function smarty_modifier_yesno( $input )
+function smarty_modifier_yesno( mixed $input ): string
 {
     return ( $input ? _( 'Yes' ) : _( 'No' ) );
 }

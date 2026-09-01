@@ -45,5 +45,14 @@
  */
 interface OSS_Plugin_Observer
 {
-    function update( $controller, $action, $hook, object $controllerObject, $params = null );
+    /**
+     * @param array<string,mixed>|null $params
+     */
+    public function update(
+        string $controller,
+        string $action,
+        string $hook,
+        object $controllerObject,
+        ?array $params = null
+    ): bool;
 }

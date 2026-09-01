@@ -53,21 +53,89 @@
      * @package    OSS_Smarty
      * @subpackage Functions
      *
-     * @param array $params
-     * @param Smarty $smarty A reference to the Smarty template object
+     * @param array{randomid?: mixed} $params
+     * @param \Smarty\Smarty $smarty A reference to the Smarty template object
      * @return string
      */
     function smarty_function_OSS_Message( $params, &$smarty )
     {
+        if( !is_array( $params ) )
+            throw new \InvalidArgumentException( 'OSS_Message parameters must be an array' );
+        foreach( $params as $key => $_value )
+            if( !is_string( $key ) )
+                throw new \InvalidArgumentException( 'OSS_Message parameter names must be strings' );
+        if( !( $smarty instanceof \Smarty\Smarty ) && !( $smarty instanceof \Smarty\Template ) )
+            throw new \InvalidArgumentException( 'OSS_Message requires a Smarty engine or template' );
+
         $ossms = $smarty->getTemplateVars( 'OSS_Messages' );
+        if( $ossms === null )
+            $ossms = [];
+        if( !is_array( $ossms ) )
+            throw new \InvalidArgumentException( 'OSS_Messages must be an array' );
 
-        if( $ossms === null ) $ossms = [];
+        $session = $_SESSION ?? [];
+        $application = $session['Application'] ?? [];
+        if( !is_array( $application ) )
+            throw new \InvalidArgumentException( 'session Application namespace must be an array' );
+        $sessionMessages = $application['OSS_Messages'] ?? null;
+        if( $sessionMessages !== null && !is_array( $sessionMessages ) )
+            throw new \InvalidArgumentException( 'session OSS_Messages must be an array' );
+        if( !is_array( $sessionMessages ) )
+            $sessionMessages = [];
 
-        if( isset( $_SESSION['Application']['OSS_Messages'] ) && is_array( $_SESSION['Application']['OSS_Messages'] )
-                && sizeof( $_SESSION['Application']['OSS_Messages'] ) > 0 )
-        {
-            $ossms = array_merge($ossms, $_SESSION['Application']['OSS_Messages']);
-            unset($_SESSION['Application']['OSS_Messages']);
+        $classValue = static function( mixed $value ): string {
+            if( !is_string( $value ) || preg_match( '/^[A-Za-z0-9_-]*$/D', $value ) !== 1 )
+                throw new \InvalidArgumentException( 'OSS message class must be a safe CSS class token' );
+            return $value;
+        };
+        $messageItems = static function( mixed $value ): array {
+            $items = is_array( $value ) ? $value : [ $value ];
+            $result = [];
+            foreach( $items as $item ) {
+                if( !is_string( $item ) )
+                    throw new \InvalidArgumentException( 'OSS message text must contain strings' );
+                $result[] = $item;
+            }
+            return $result;
+        };
+        $validateMessage = static function( mixed $ossm ) use ( $classValue, $messageItems ): void {
+            if( !( $ossm instanceof OSS_Message ) )
+                throw new \InvalidArgumentException( 'OSS_Messages must contain OSS_Message objects' );
+            $classValue( $ossm->getClass() );
+            $messageItems( $ossm->getMessage() );
+            if( $ossm instanceof OSS_Message_Block ) {
+                $actions = $ossm->getActions();
+                if( $actions !== null )
+                    foreach( $actions as $action )
+                        if( !is_string( $action ) )
+                            throw new \InvalidArgumentException( 'OSS message actions must contain strings' );
+            }
+        };
+        foreach( $ossms as $ossm )
+            $validateMessage( $ossm );
+        foreach( $sessionMessages as $ossm )
+            $validateMessage( $ossm );
+
+        $flashMessages = $application['flashMessages'] ?? null;
+        if( $flashMessages !== null && !is_array( $flashMessages ) )
+            throw new \InvalidArgumentException( 'session flashMessages must be an array' );
+        if( !is_array( $flashMessages ) )
+            $flashMessages = [];
+        foreach( $flashMessages as $flashMessage ) {
+            if( !is_array( $flashMessage ) )
+                throw new \InvalidArgumentException( 'session flash messages must be arrays' );
+            $classValue( $flashMessage['level'] ?? 'success' );
+            if( array_key_exists( 'text', $flashMessage ) && !is_string( $flashMessage['text'] ) )
+                throw new \InvalidArgumentException( 'session flash message text must be a string' );
+            if( array_key_exists( 'isHtml', $flashMessage ) && !is_bool( $flashMessage['isHtml'] ) )
+                throw new \InvalidArgumentException( 'session flash message isHtml must be boolean' );
+        }
+
+        if( $sessionMessages !== [] ) {
+            $ossms = array_merge( $ossms, $sessionMessages );
+            unset( $application['OSS_Messages'] );
+            $session['Application'] = $application;
+            $_SESSION = $session;
         }
 
         // NB: no early return when $ossms is empty — a natively-dispatched
@@ -79,23 +147,35 @@
         
         foreach( $ossms as $ossm )
         {
+            if( isset( $params['randomid'] ) && !is_scalar( $params['randomid'] ) )
+                throw new \InvalidArgumentException( 'OSS_Message randomid must be scalar' );
             if( isset( $params['randomid'] ) && $params['randomid'] )
                 $count = mt_rand();
 
             if( $ossm instanceof OSS_Message_Block )
             {
+                $class = $classValue( $ossm->getClass() );
+                $blockMessage = $ossm->getMessage();
+                if( !is_string( $blockMessage ) )
+                    throw new \UnexpectedValueException( 'OSS block message must be a string' );
+                $actions = $ossm->getActions();
+                if( $actions === null )
+                    $actions = [];
                 $message .= <<<END_MESSAGE
 
-    <div class="alert alert-block alert-{$ossm->getClass()} fade in" id="oss-message-{$count}">
+    <div class="alert alert-block alert-{$class} fade in" id="oss-message-{$count}">
         <a class="close" href="#" data-dismiss="alert">×</a>
-        {$ossm->getMessage()}
+        {$blockMessage}
 END_MESSAGE;
-                if( count( $ossm->getActions() ) )
+                if( count( $actions ) )
                 {
                     $message .= "        <div class=\"alert-actions\">\n";
 
-                    foreach( $ossm->getActions() as $a )
+                    foreach( $actions as $a ) {
+                        if( !is_string( $a ) )
+                            throw new \InvalidArgumentException( 'OSS message actions must contain strings' );
                         $message .= $a . "\n";
+                    }
 
                     $message .= "        </div>\n";
                 }
@@ -108,10 +188,7 @@ END_MESSAGE;
             else if( $ossm instanceof OSS_Message_Pop_Up )
             {
 
-                $items = $ossm->getMessage();
-
-                if( !is_array( $items ) )
-                    $items = [ $items ];
+                $items = $messageItems( $ossm->getMessage() );
 
                 foreach( $items as $item )
                 {
@@ -129,17 +206,16 @@ END_MESSAGE;
             }
             else
             {
-
-                $items = $ossm->getMessage();
-
-                if( !is_array( $items ) )
-                    $items = [ $items ];
+                if( !( $ossm instanceof OSS_Message ) )
+                    throw new \InvalidArgumentException( 'OSS_Messages must contain OSS_Message objects' );
+                $items = $messageItems( $ossm->getMessage() );
+                $class = $classValue( $ossm->getClass() );
                 
                 foreach( $items as $item )
                 {
                         $message .= <<<END_MESSAGE
 
-        <div class="alert alert-{$ossm->getClass()} fade in" id="oss-message-{$count}">
+        <div class="alert alert-{$class} fade in" id="oss-message-{$count}">
             <a class="close" href="#" data-dismiss="alert">×</a>
             {$item}
         </div>
@@ -159,25 +235,33 @@ END_MESSAGE;
         // alert the legacy OSS_Message path produces above. Append-only — the
         // legacy OSS_Messages handling is untouched, so existing flashes are
         // unaffected and a page can carry both.
-        if( isset( $_SESSION['Application']['flashMessages'] ) && is_array( $_SESSION['Application']['flashMessages'] ) )
+        if( $flashMessages !== [] )
         {
-            foreach( $_SESSION['Application']['flashMessages'] as $fm )
+            foreach( $flashMessages as $fm )
             {
-                $fmClass = isset( $fm['level'] ) ? $fm['level'] : 'success';
+                $fmClass = isset( $fm['level'] ) ? $classValue( $fm['level'] ) : 'success';
                 $fmText  = isset( $fm['text'] )  ? $fm['text']  : '';
+                if( !is_string( $fmText ) )
+                    throw new \InvalidArgumentException( 'session flash message text must be a string' );
+                $fmIsHtml = isset( $fm['isHtml'] ) ? $fm['isHtml'] : true;
+                if( !is_bool( $fmIsHtml ) )
+                    throw new \InvalidArgumentException( 'session flash message isHtml must be boolean' );
+                $fmOutput = $fmIsHtml ? $fmText : htmlspecialchars( $fmText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
 
                 $message .= <<<END_MESSAGE
 
         <div class="alert alert-{$fmClass} fade in" id="oss-message-{$count}">
             <a class="close" href="#" data-dismiss="alert">×</a>
-            {$fmText}
+            {$fmOutput}
         </div>
 
 END_MESSAGE;
                 $count++;
             }
 
-            unset( $_SESSION['Application']['flashMessages'] );
+            unset( $application['flashMessages'] );
+            $session['Application'] = $application;
+            $_SESSION = $session;
         }
 
 

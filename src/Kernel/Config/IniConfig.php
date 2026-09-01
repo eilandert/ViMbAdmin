@@ -83,6 +83,9 @@ final class IniConfig
         $bodies  = [];
         $parents = [];
         foreach ($raw as $header => $body) {
+            // PHP converts numeric-string array keys to integers. INI keys are
+            // textual, so restore that representation before building maps.
+            $header = (string) $header;
             // A scalar, or a `key[] = ...` array-append in the section-less scope
             // (which PHP returns as a list-keyed array), is a global base key —
             // not a `[section]`. Real section bodies are string-keyed maps.
@@ -95,7 +98,7 @@ final class IniConfig
             if (count($parts) > 1) {
                 throw new \RuntimeException("Section '{$header}' extends more than one section");
             }
-            $bodies[$name]  = $body;
+            $bodies[$name]  = self::stringMap($body);
             $parents[$name] = $parts[0] ?? null;
         }
 
@@ -148,18 +151,43 @@ final class IniConfig
         $out = [];
         foreach ($flat as $key => $value) {
             $segments = explode('.', (string) $key);
-            $ref      = &$out;
-            foreach ($segments as $segment) {
-                if (!isset($ref[$segment]) || !is_array($ref[$segment])) {
-                    $ref[$segment] = [];
-                }
-                $ref = &$ref[$segment];
-            }
-            $ref = $value;
-            unset($ref);
+            $out = self::stringMap(array_replace_recursive($out, self::dottedValue($segments, $value)));
         }
 
         return $out;
+    }
+
+    /**
+     * @param non-empty-list<string> $segments
+     * @return array<string,mixed>
+     */
+    private static function dottedValue(array $segments, mixed $value): array
+    {
+        $segment = array_pop($segments);
+        if ($segment === null) {
+            throw new \LogicException('A dotted INI key must contain a segment');
+        }
+
+        $nested = [$segment => $value];
+        while (($segment = array_pop($segments)) !== null) {
+            $nested = [$segment => $nested];
+        }
+
+        return $nested;
+    }
+
+    /**
+     * @param array<array-key,mixed> $values
+     * @return array<string,mixed>
+     */
+    private static function stringMap(array $values): array
+    {
+        $result = [];
+        foreach ($values as $key => $value) {
+            $result[(string) $key] = $value;
+        }
+
+        return $result;
     }
 
     /**
@@ -173,14 +201,6 @@ final class IniConfig
      */
     private static function deepMerge(array $base, array $override): array
     {
-        foreach ($override as $key => $value) {
-            if (is_array($value) && isset($base[$key]) && is_array($base[$key])) {
-                $base[$key] = self::deepMerge($base[$key], $value);
-            } else {
-                $base[$key] = $value;
-            }
-        }
-
-        return $base;
+        return self::stringMap(array_replace_recursive($base, $override));
     }
 }

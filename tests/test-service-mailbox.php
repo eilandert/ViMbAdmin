@@ -33,16 +33,29 @@ require __DIR__ . '/../library/OSS/Exception.php';
 require __DIR__ . '/../library/OSS/String.php';
 require __DIR__ . '/../library/OSS/Auth/Password.php';
 
+final class ActiveRecordingMailbox extends \Entities\Mailbox
+{
+    public mixed $activeInput = null;
+
+    /** @param bool $active */
+    public function setActive($active): \Entities\Mailbox
+    {
+        $this->activeInput = $active;
+        return parent::setActive($active);
+    }
+}
+
 /**
  * Records purgeMailbox() calls so the service's orchestration can be asserted
  * without the real (DB-backed) repository.
  */
+/** @implements \Doctrine\Persistence\ObjectRepository<\Entities\Mailbox> */
 final class FakeMailboxRepo implements \Doctrine\Persistence\ObjectRepository
 {
     /** @var array<int,array{mailbox:object,admin:?object,removeMailbox:bool}> */
     public array $purges = [];
 
-    public function purgeMailbox($mailbox, $admin, $removeMailbox = true)
+    public function purgeMailbox(\Entities\Mailbox $mailbox, ?\Entities\Admin $admin, bool $removeMailbox = true): bool
     {
         $this->purges[] = ['mailbox' => $mailbox, 'admin' => $admin, 'removeMailbox' => $removeMailbox];
         return true;
@@ -51,7 +64,8 @@ final class FakeMailboxRepo implements \Doctrine\Persistence\ObjectRepository
     public function find(mixed $id): ?object { return null; }
     public function findAll(): array { return []; }
     public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array { return []; }
-    public function getClassName(): string { return ''; }
+    /** @return class-string<object> */
+    public function getClassName(): string { return \Entities\Mailbox::class; }
 }
 
 /**
@@ -59,18 +73,24 @@ final class FakeMailboxRepo implements \Doctrine\Persistence\ObjectRepository
  * configurable findOneBy() result lets the create() test exercise both the
  * "no clashing alias -> create one" and "alias already exists -> skip" branches.
  */
+/** @implements \Doctrine\Persistence\ObjectRepository<\Entities\Alias> */
 final class FakeAliasRepo implements \Doctrine\Persistence\ObjectRepository
 {
-    public ?object $existing = null;
+    public ?\Entities\Alias $existing = null;
+    public ?\Throwable $error = null;
 
     public function findOneBy(array $criteria): ?object
     {
+        if ($this->error !== null) {
+            throw $this->error;
+        }
         return $this->existing;
     }
     public function find(mixed $id): ?object { return null; }
     public function findAll(): array { return []; }
     public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array { return []; }
-    public function getClassName(): string { return ''; }
+    /** @return class-string<object> */
+    public function getClassName(): string { return \Entities\Alias::class; }
 }
 
 final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager
@@ -88,11 +108,18 @@ final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager
     public function clear(): void {}
     public function detach(object $object): void {}
     public function refresh(object $object): void {}
+    /**
+     * @template T of object
+     * @param class-string<T> $className
+     * @return ($className is class-string<\Entities\Alias> ? FakeAliasRepo :
+     *     ($className is class-string<\Entities\Mailbox> ? FakeMailboxRepo :
+     *     \Doctrine\Persistence\ObjectRepository<T>))
+     */
     public function getRepository(string $className): \Doctrine\Persistence\ObjectRepository {
-        if ($this->aliasRepo !== null && str_contains($className, 'Alias')) {
+        if ($this->aliasRepo !== null && $className === '\\Entities\\Alias') {
             return $this->aliasRepo;
         }
-        if ($this->mailboxRepo !== null && str_contains($className, 'Mailbox')) {
+        if ($this->mailboxRepo !== null && $className === '\\Entities\\Mailbox') {
             return $this->mailboxRepo;
         }
         throw new \RuntimeException('not used');
@@ -129,10 +156,30 @@ final class FakeObjectManager implements \Doctrine\Persistence\ObjectManager
     }
 }
 
-$failures = 0;
+final class TestServiceMailboxHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestServiceMailboxHarnessState::$count;
 function check(string $label, bool $ok): void {
+
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestServiceMailboxHarnessState::$count++; }
+}
+
+function mailboxIdentical(mixed $actual, mixed $expected): bool {
+    return $actual === $expected;
+}
+
+/** @return string|null */
+function mailboxUsernameError(callable $operation): ?string {
+    try {
+        $operation();
+    } catch (\LogicException $e) {
+        return $e->getMessage();
+    }
+    return null;
 }
 
 echo "== ViMbAdmin_Service_Mailbox ==\n";
@@ -143,9 +190,51 @@ $actor->setUsername('admin@example.com');
 $mkMailbox = static function (bool $active): \Entities\Mailbox {
     $mb = new \Entities\Mailbox();
     $mb->setUsername('user@example.com');
-    $mb->setActive($active ? 1 : 0);
+    $mb->setActive($active);
     return $mb;
 };
+
+$preHydrationMailbox = new \Entities\Mailbox();
+check('pre-hydration username getter preserves null', $preHydrationMailbox->getUsername() === null);
+check('required username rejects a pre-hydration mailbox',
+    mailboxUsernameError($preHydrationMailbox->requiredUsername(...)) === 'Mailbox username cannot be null.');
+check('required username preserves an initialized address',
+    $mkMailbox(true)->requiredUsername() === 'user@example.com');
+
+// Every service entry point must reject an unnamed mailbox before hooks,
+// entity changes, repository work, persistence, logging, or flushing.
+$invalidToggleEm = new FakeObjectManager();
+$invalidToggle = new \Entities\Mailbox();
+$invalidToggle->setActive(true);
+$invalidToggleHooks = 0;
+check('toggle rejects a null username', mailboxUsernameError(static function () use ($invalidToggleEm, $invalidToggle, $actor, &$invalidToggleHooks): void {
+    (new ViMbAdmin_Service_Mailbox($invalidToggleEm))->toggleActive(
+        $invalidToggle,
+        $actor,
+        static function () use (&$invalidToggleHooks): bool { $invalidToggleHooks++; return true; },
+    );
+}) === 'Mailbox username cannot be null.');
+check('toggle username failure precedes hooks and mutation',
+    $invalidToggleHooks === 0 && $invalidToggle->getActive() === true
+        && $invalidToggle->getModified() === null && $invalidToggleEm->persisted === []
+        && $invalidToggleEm->flushes === 0);
+
+$invalidPurgeEm = new FakeObjectManager();
+$invalidPurgeEm->mailboxRepo = new FakeMailboxRepo();
+$invalidPurge = new \Entities\Mailbox();
+$invalidPurgeHooks = 0;
+check('purge rejects a null username', mailboxUsernameError(static function () use ($invalidPurgeEm, $invalidPurge, $actor, &$invalidPurgeHooks): void {
+    (new ViMbAdmin_Service_Mailbox($invalidPurgeEm))->purge(
+        $invalidPurge,
+        $actor,
+        false,
+        static function () use (&$invalidPurgeHooks): bool { $invalidPurgeHooks++; return true; },
+    );
+}) === 'Mailbox username cannot be null.');
+check('purge username failure precedes hooks and repository mutation',
+    $invalidPurgeHooks === 0 && $invalidPurgeEm->mailboxRepo->purges === []
+        && $invalidPurgeEm->persisted === [] && $invalidPurgeEm->removed === []
+        && $invalidPurgeEm->flushes === 0);
 
 // --- happy path: activate, hooks fire in order, one flush -------------- //
 $em  = new FakeObjectManager();
@@ -166,9 +255,9 @@ check('mailbox is now active',                (bool) $mb->getActive() === true);
 check('exactly one flush',                    $em->flushes === 1);
 check('a Log row was persisted',              $em->lastLog() instanceof \Entities\Log);
 check('log action is ACTIVATE',               $em->lastLog()?->getAction() === \Entities\Log::ACTION_MAILBOX_ACTIVATE);
-check('preToggle saw pre-toggle state (0)',   $order[0] === 'preToggle:0');
-check('preFlush saw post-toggle state (1)',   $order[1] === 'preFlush:1');
-check('postFlush saw post-toggle state (1)',  $order[2] === 'postFlush:1');
+check('preToggle saw pre-toggle state (0)',   hash_equals('preToggle:0', $order[0]));
+check('preFlush saw post-toggle state (1)',   hash_equals('preFlush:1', $order[1]));
+check('postFlush saw post-toggle state (1)',  hash_equals('postFlush:1', $order[2]));
 check('hook order preToggle<preFlush<postFlush', $order === ['preToggle:0', 'preFlush:1', 'postFlush:1']);
 
 // --- deactivate path -------------------------------------------------- //
@@ -253,10 +342,51 @@ $createOptions = [
     ]],
 ];
 
+$invalidCreateEm = new FakeObjectManager();
+$invalidCreateEm->aliasRepo = new FakeAliasRepo();
+$invalidCreate = new \Entities\Mailbox();
+$invalidCreate->setPassword('unchanged-plaintext');
+$invalidCreateDomain = $mkDomain(4);
+$invalidCreateHooks = 0;
+check('create rejects a null username', mailboxUsernameError(static function () use ($invalidCreateEm, $invalidCreate, $invalidCreateDomain, $actor, $createOptions, &$invalidCreateHooks): void {
+    (new ViMbAdmin_Service_Mailbox($invalidCreateEm))->create(
+        $invalidCreate,
+        $invalidCreateDomain,
+        $actor,
+        $createOptions,
+        static function () use (&$invalidCreateHooks): void { $invalidCreateHooks++; },
+    );
+}) === 'Mailbox username cannot be null.');
+check('create username failure precedes entity and persistence mutation',
+    $invalidCreateHooks === 0 && $invalidCreate->getDomain() === null
+        && $invalidCreate->getPassword() === 'unchanged-plaintext'
+        && $invalidCreateDomain->getMailboxCount() === 4
+        && $invalidCreateEm->persisted === [] && $invalidCreateEm->flushes === 0);
+
+$missingPasswordEm = new FakeObjectManager();
+$missingPassword = new \Entities\Mailbox();
+$missingPassword->setUsername('missing-password@example.com');
+$missingPasswordDomain = $mkDomain(5);
+$missingPasswordHooks = 0;
+check('create rejects a null password', mailboxUsernameError(static function () use ($missingPasswordEm, $missingPassword, $missingPasswordDomain, $actor, $createOptions, &$missingPasswordHooks): void {
+    (new ViMbAdmin_Service_Mailbox($missingPasswordEm))->create(
+        $missingPassword,
+        $missingPasswordDomain,
+        $actor,
+        $createOptions,
+        static function () use (&$missingPasswordHooks): void { $missingPasswordHooks++; },
+    );
+}) === 'Mailbox password cannot be null.');
+check('create password failure precedes entity and persistence mutation',
+    $missingPasswordHooks === 0 && $missingPassword->getDomain() === null
+        && $missingPassword->getActive() === null && $missingPassword->getCreated() === null
+        && $missingPasswordDomain->getMailboxCount() === 5
+        && $missingPasswordEm->persisted === [] && $missingPasswordEm->flushes === 0);
+
 $emC = new FakeObjectManager();
 $emC->aliasRepo = new FakeAliasRepo();        // findOneBy -> null (no clash)
 $domC = $mkDomain(7);
-$mbC  = new \Entities\Mailbox();
+$mbC  = new ActiveRecordingMailbox();
 $mbC->setUsername('new@example.com');
 $mbC->setLocalPart('new');
 $mbC->setName('New User');
@@ -272,19 +402,31 @@ $created = (new ViMbAdmin_Service_Mailbox($emC))->create(
 
 check('create returns the mailbox',           $created === $mbC);
 check('create set the domain',                $mbC->getDomain() === $domC);
-check('create set active',                    (bool) $mbC->getActive() === true);
+check('create normalizes mailbox active=1 to bool true',
+    $mbC->activeInput === true && $mbC->getActive() === true);
 check('create cleared delete-pending',        (bool) $mbC->getDeletePending() === false);
 check('create hashed the password',           $mbC->getPassword() !== 's3cr3t-plaintext');
-check('create password verifies',             OSS_Auth_Password::verify('s3cr3t-plaintext', $mbC->getPassword(), ['pwhash' => 'crypt:sha512']) === true);
+check('create password verifies',             OSS_Auth_Password::verify('s3cr3t-plaintext', $mbC->requiredPassword(), ['pwhash' => 'crypt:sha512']) === true);
 check('create persisted the mailbox',         in_array($mbC, $emC->persisted, true));
 check('create bumped domain mailboxCount',    (int) $domC->getMailboxCount() === 8);
 check('create logged ACTION_MAILBOX_ADD',     $emC->lastLog()?->getAction() === \Entities\Log::ACTION_MAILBOX_ADD);
 check('create flushed once',                  $emC->flushes === 1);
 check('create hook order around flush',       $orderC === ['preFlush:0', 'postFlush:1']);
 // auto mailbox-alias
+$autoAlias = $emC->lastAlias();
 check('create made the auto-alias',           $emC->countPersisted(\Entities\Alias::class) === 1);
-check('auto-alias address == username',       $emC->lastAlias()?->getAddress() === 'new@example.com');
-check('auto-alias goto == username',          $emC->lastAlias()?->getGoto() === 'new@example.com');
+check('auto-alias address == username',
+    $autoAlias instanceof \Entities\Alias && $autoAlias->getAddress() === 'new@example.com');
+check('auto-alias goto == username',
+    $autoAlias instanceof \Entities\Alias && $autoAlias->getGoto() === 'new@example.com');
+check('auto-alias active matches mailbox bool state',
+    $autoAlias instanceof \Entities\Alias
+        && $autoAlias->getActive() === true
+        && $autoAlias->getActive() === $mbC->getActive());
+check('create persistence order is mailbox, alias, then log',
+    $emC->persisted[0] === $mbC
+        && $emC->persisted[1] instanceof \Entities\Alias
+        && $emC->persisted[2] instanceof \Entities\Log);
 
 // --- create: mailboxAliases off -> no auto-alias ---------------------- //
 $emN = new FakeObjectManager();
@@ -296,6 +438,31 @@ $mbN->setPassword('s3cr3t-plaintext');
 (new ViMbAdmin_Service_Mailbox($emN))->create($mbN, $mkDomain(0), $actor, $optsN);
 check('aliases off: no auto-alias',           $emN->countPersisted(\Entities\Alias::class) === 0);
 check('aliases off: still creates mailbox',   $emN->countPersisted(\Entities\Mailbox::class) === 1 && $emN->flushes === 1);
+check('aliases off active=0 does not deactivate the mailbox', $mbN->getActive() === true);
+
+// --- create: omitted mailboxAliases defaults to no auto-alias --------- //
+$emO = new FakeObjectManager();
+$mbO = new \Entities\Mailbox();
+$mbO->setUsername('omitted@example.com');
+$mbO->setPassword('s3cr3t-plaintext');
+$optsO = $createOptions;
+unset($optsO['mailboxAliases']);
+(new ViMbAdmin_Service_Mailbox($emO))->create($mbO, $mkDomain(0), $actor, $optsO);
+check('omitted aliases switch defaults to no auto-alias',
+    $emO->countPersisted(\Entities\Alias::class) === 0 && $mbO->getActive() === true);
+
+// --- create: legacy string "1" remains accepted ---------------------- //
+$emS = new FakeObjectManager();
+$emS->aliasRepo = new FakeAliasRepo();
+$mbS = new \Entities\Mailbox();
+$mbS->setUsername('string-switch@example.com');
+$mbS->setPassword('s3cr3t-plaintext');
+$optsS = $createOptions;
+$optsS['mailboxAliases'] = '1';
+(new ViMbAdmin_Service_Mailbox($emS))->create($mbS, $mkDomain(0), $actor, $optsS);
+check('legacy string aliases switch keeps the public input domain',
+    $emS->countPersisted(\Entities\Alias::class) === 1
+        && $emS->lastAlias()?->getActive() === $mbS->getActive());
 
 // --- create: a clashing alias already exists -> skip the auto-alias --- //
 $emE = new FakeObjectManager();
@@ -308,10 +475,69 @@ $mbE->setPassword('s3cr3t-plaintext');
 check('existing alias: no new auto-alias',    $emE->countPersisted(\Entities\Alias::class) === 0);
 check('existing alias: mailbox still created', $emE->countPersisted(\Entities\Mailbox::class) === 1);
 
+// --- create errors preserve ordering and propagate unchanged ---------- //
+$emBadOptions = new FakeObjectManager();
+$mbBadOptions = new \Entities\Mailbox();
+$mbBadOptions->setUsername('bad-options@example.com');
+$mbBadOptions->setPassword('s3cr3t-plaintext');
+$badOptions = $createOptions;
+$badOptions['defaults']['mailbox']['password_scheme'] = null;
+$badOptionsRejected = false;
+try {
+    (new ViMbAdmin_Service_Mailbox($emBadOptions))->create(
+        $mbBadOptions,
+        $mkDomain(0),
+        $actor,
+        $badOptions,
+    );
+} catch (OSS_Exception $e) {
+    $badOptionsRejected = $e->getMessage() === 'Cannot hash password without a hash method';
+}
+check('malformed password scheme fails before persistence or flush',
+    $badOptionsRejected && $emBadOptions->persisted === [] && $emBadOptions->flushes === 0);
+
+$aliasLookupError = new \RuntimeException('alias lookup failed');
+$emAliasError = new FakeObjectManager();
+$emAliasError->aliasRepo = new FakeAliasRepo();
+$emAliasError->aliasRepo->error = $aliasLookupError;
+$mbAliasError = new \Entities\Mailbox();
+$mbAliasError->setUsername('alias-error@example.com');
+$mbAliasError->setPassword('s3cr3t-plaintext');
+$aliasErrorPropagated = false;
+try {
+    (new ViMbAdmin_Service_Mailbox($emAliasError))->create(
+        $mbAliasError,
+        $mkDomain(0),
+        $actor,
+        $createOptions,
+    );
+} catch (\RuntimeException $e) {
+    $aliasErrorPropagated = $e === $aliasLookupError;
+}
+check('alias lookup errors propagate after mailbox persist but before log and flush',
+    $aliasErrorPropagated
+        && $emAliasError->persisted === [$mbAliasError]
+        && $emAliasError->flushes === 0);
+
 // --- update: stamp modified, log EDIT, single flush, hooks around flush -- //
+$invalidUpdateEm = new FakeObjectManager();
+$invalidUpdate = new \Entities\Mailbox();
+$invalidUpdateHooks = 0;
+check('update rejects a null username', mailboxUsernameError(static function () use ($invalidUpdateEm, $invalidUpdate, $actor, &$invalidUpdateHooks): void {
+    (new ViMbAdmin_Service_Mailbox($invalidUpdateEm))->update(
+        $invalidUpdate,
+        $actor,
+        static function () use (&$invalidUpdateHooks): void { $invalidUpdateHooks++; },
+    );
+}) === 'Mailbox username cannot be null.');
+check('update username failure precedes hooks and mutation',
+    $invalidUpdateHooks === 0 && $invalidUpdate->getModified() === null
+        && $invalidUpdateEm->persisted === [] && $invalidUpdateEm->flushes === 0);
+
 $emU = new FakeObjectManager();
 $mbU = new \Entities\Mailbox();
 $mbU->setUsername('edit@example.com');
+$mbU->setActive(false);
 $orderU = [];
 $updated = (new ViMbAdmin_Service_Mailbox($emU))->update(
     $mbU, $actor,
@@ -320,13 +546,21 @@ $updated = (new ViMbAdmin_Service_Mailbox($emU))->update(
 );
 check('update returns the mailbox',           $updated === $mbU);
 check('update stamped modified',              $mbU->getModified() instanceof \DateTime);
+check('update preserves active=false',        $mbU->getActive() === false);
 check('update logged ACTION_MAILBOX_EDIT',    $emU->lastLog()?->getAction() === \Entities\Log::ACTION_MAILBOX_EDIT);
 check('update did NOT create an alias',       $emU->countPersisted(\Entities\Alias::class) === 0);
 check('update flushed once',                  $emU->flushes === 1);
 check('update hook order around flush',       $orderU === ['preFlush:0', 'postFlush:1']);
 
+$emUActive = new FakeObjectManager();
+$mbUActive = new \Entities\Mailbox();
+$mbUActive->setUsername('active-edit@example.com');
+$mbUActive->setActive(true);
+(new ViMbAdmin_Service_Mailbox($emUActive))->update($mbUActive, $actor);
+check('update preserves active=true', $mbUActive->getActive() === true && $emUActive->flushes === 1);
+
 echo "\n";
-if ($failures === 0) {
+if (mailboxIdentical($failures, 0)) {
     echo "OK: all Service_Mailbox assertions passed (PHP " . PHP_VERSION . ")\n";
     exit(0);
 }

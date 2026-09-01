@@ -18,10 +18,15 @@ use ViMbAdmin\Kernel\Router;
 use ViMbAdmin\Kernel\Http\Kernel;
 use ViMbAdmin\Kernel\Http\Response;
 
-$failures = 0;
+final class TestKernelHttpHarnessState
+{
+    public static int $count = 0;
+}
+
+$failures =& TestKernelHttpHarnessState::$count;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
-    if (!$ok) { $GLOBALS['failures']++; }
+    if (!$ok) { TestKernelHttpHarnessState::$count++; }
 }
 
 echo "== ViMbAdmin\\Kernel\\Http\\Kernel ==\n";

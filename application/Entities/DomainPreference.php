@@ -50,6 +50,11 @@ class DomainPreference
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    protected function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
+
     /**
      * @var \Entities\Domain
      */
@@ -74,7 +79,7 @@ class DomainPreference
     /**
      * Get attribute
      *
-     * @return string 
+     * @return string|null
      */
     public function getAttribute()
     {
@@ -97,7 +102,7 @@ class DomainPreference
     /**
      * Get ix
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getIx()
     {
@@ -120,7 +125,7 @@ class DomainPreference
     /**
      * Get op
      *
-     * @return string 
+     * @return string|null
      */
     public function getOp()
     {
@@ -143,7 +148,7 @@ class DomainPreference
     /**
      * Get value
      *
-     * @return string 
+     * @return string|null
      */
     public function getValue()
     {
@@ -166,7 +171,7 @@ class DomainPreference
     /**
      * Get expire
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getExpire()
     {
@@ -176,7 +181,7 @@ class DomainPreference
     /**
      * Get id
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getId()
     {
@@ -199,7 +204,7 @@ class DomainPreference
     /**
      * Get Domain
      *
-     * @return \Entities\Domain 
+     * @return \Entities\Domain|null
      */
     public function getDomain()
     {

@@ -24,6 +24,11 @@ class QueueRunner
     #[ORM\GeneratedValue(strategy: 'AUTO')]
     private ?int $id = null;
 
+    protected function assignGeneratedId(int $id): void
+    {
+        $this->id = $id;
+    }
+
     /** @var string */
     #[ORM\Column(type: 'string', length: 255)]
     private ?string $host = null;
@@ -40,17 +45,38 @@ class QueueRunner
     #[ORM\Column(type: 'datetime')]
     private ?\DateTime $heartbeat_at = null;
 
+    /** @return int|null */
     public function getId()              { return $this->id; }
 
+    /** @return string|null */
     public function getHost()            { return $this->host; }
+    /**
+     * @param string $v
+     * @return $this
+     */
     public function setHost( $v )        { $this->host = $v; return $this; }
 
+    /** @return int|null */
     public function getPid()             { return $this->pid; }
+    /**
+     * @param int $v
+     * @return $this
+     */
     public function setPid( $v )         { $this->pid = (int) $v; return $this; }
 
+    /** @return \DateTime|null */
     public function getStartedAt()       { return $this->started_at; }
+    /**
+     * @param \DateTime $v
+     * @return $this
+     */
     public function setStartedAt( $v )   { $this->started_at = $v; return $this; }
 
+    /** @return \DateTime|null */
     public function getHeartbeatAt()     { return $this->heartbeat_at; }
+    /**
+     * @param \DateTime $v
+     * @return $this
+     */
     public function setHeartbeatAt( $v ) { $this->heartbeat_at = $v; return $this; }
 }

@@ -55,23 +55,26 @@ final class SmartyView
             }
         }
 
-        if (isset($dirs['templates'])) {
-            $this->smarty->setTemplateDir((string) $dirs['templates']);
+        if (array_key_exists('templates', $dirs)) {
+            $this->smarty->setTemplateDir(self::directoryValue($dirs['templates'], 'Smarty templates'));
         }
-        if (!empty($dirs['compiled'])) {
-            $this->ensureDir((string) $dirs['compiled']);
-            $this->smarty->setCompileDir((string) $dirs['compiled']);
+        if (array_key_exists('compiled', $dirs) && $dirs['compiled'] !== '') {
+            $compiled = self::directoryValue($dirs['compiled'], 'Smarty compiled');
+            $this->ensureDir($compiled);
+            $this->smarty->setCompileDir($compiled);
         }
-        if (!empty($dirs['cache'])) {
-            $this->ensureDir((string) $dirs['cache']);
-            $this->smarty->setCacheDir((string) $dirs['cache']);
+        if (array_key_exists('cache', $dirs) && $dirs['cache'] !== '') {
+            $cache = self::directoryValue($dirs['cache'], 'Smarty cache');
+            $this->ensureDir($cache);
+            $this->smarty->setCacheDir($cache);
         }
-        if (!empty($dirs['config'])) {
-            $this->smarty->setConfigDir((string) $dirs['config']);
+        if (array_key_exists('config', $dirs) && $dirs['config'] !== '') {
+            $this->smarty->setConfigDir(self::directoryValue($dirs['config'], 'Smarty config'));
         }
-        if (!empty($dirs['plugins'])) {
+        if (array_key_exists('plugins', $dirs) && $dirs['plugins'] !== '') {
             // The OSS template plugins ({genUrl}, {OSS_Message}, {addJSValidator}…).
-            @$this->smarty->addPluginsDir($dirs['plugins']);
+            $plugins = self::pluginDirectories($dirs['plugins']);
+            @$this->smarty->addPluginsDir($plugins);
         }
     }
 
@@ -84,7 +87,8 @@ final class SmartyView
      */
     public static function fromOptions(array $options): self
     {
-        $o = $options['resources']['smarty'] ?? [];
+        $resources = self::optionArray($options['resources'] ?? null, 'resources');
+        $o = self::optionArray($resources['smarty'] ?? null, 'resources.smarty');
 
         // Sensible defaults derived from APPLICATION_PATH so a lean
         // application.ini need not spell out the standard layout. Any
@@ -102,8 +106,13 @@ final class SmartyView
             ],
         ]);
 
-        if (isset($o['skin']) && (string) $o['skin'] !== '') {
-            $view->setSkin((string) $o['skin']);
+        if (array_key_exists('skin', $o)) {
+            if (!is_string($o['skin'])) {
+                throw new \InvalidArgumentException('resources.smarty.skin must be a string');
+            }
+            if ($o['skin'] !== '') {
+                $view->setSkin($o['skin']);
+            }
         }
 
         return $view;
@@ -161,9 +170,17 @@ final class SmartyView
      */
     public function resolveTemplate(string $name): string
     {
-        $base = (string) $this->smarty->getTemplateDir(0);
+        self::templateName($name);
+        $base = $this->templateBase();
         if ($this->skin !== '' && is_readable($base . '/_skins/' . $this->skin . '/' . $name)) {
-            return '_skins/' . $this->skin . '/' . $name;
+            $skinned = '_skins/' . $this->skin . '/' . $name;
+            if (!$this->templateContained($skinned)) {
+                throw new \InvalidArgumentException('Smarty skin template is outside configured template roots');
+            }
+            return $skinned;
+        }
+        if ($this->smarty->templateExists($name) && !$this->templateContained($name)) {
+            throw new \InvalidArgumentException('Smarty template is outside configured template roots');
         }
 
         return $name;
@@ -175,7 +192,10 @@ final class SmartyView
      */
     public function setSkin(string $skin): void
     {
-        $base = (string) $this->smarty->getTemplateDir(0);
+        if ($skin === '' || str_contains($skin, "\0") || str_contains($skin, '/') || str_contains($skin, '\\') || $skin === '.' || $skin === '..') {
+            throw new \InvalidArgumentException('Smarty skin must be a single safe directory name');
+        }
+        $base = $this->templateBase();
         if (!is_readable($base . '/_skins/' . $skin)) {
             throw new \RuntimeException("Skin directory does not exist or is not readable ({$base}/_skins/{$skin})");
         }
@@ -196,7 +216,99 @@ final class SmartyView
     private function ensureDir(string $dir): void
     {
         if (!is_dir($dir)) {
-            @mkdir($dir, 0770, true);
+            if (!@mkdir($dir, 0770, true) && !is_dir($dir)) {
+                throw new \RuntimeException("Unable to create Smarty directory ({$dir})");
+            }
         }
+    }
+
+    private function templateBase(): string
+    {
+        $base = $this->smarty->getTemplateDir(0);
+        if (is_string($base)) {
+            return $base;
+        }
+
+        $first = reset($base);
+        return is_string($first) ? $first : '';
+    }
+
+    private static function directoryValue(mixed $value, string $name): string
+    {
+        if (!is_string($value) || $value === '') {
+            throw new \InvalidArgumentException($name . ' must be a non-empty string');
+        }
+        return $value;
+    }
+
+    /** @return string|list<string> */
+    private static function pluginDirectories(mixed $value): string|array
+    {
+        if (is_string($value)) {
+            if ($value === '') {
+                throw new \InvalidArgumentException('Smarty plugins must contain a non-empty path');
+            }
+            return $value;
+        }
+        if (!is_array($value)) {
+            throw new \InvalidArgumentException('Smarty plugins must be a string or array of strings');
+        }
+        $plugins = [];
+        foreach ($value as $plugin) {
+            if (!is_string($plugin) || $plugin === '') {
+                throw new \InvalidArgumentException('Smarty plugins must contain non-empty strings');
+            }
+            $plugins[] = $plugin;
+        }
+        return $plugins;
+    }
+
+    /** @return array<array-key,mixed> */
+    private static function optionArray(mixed $value, string $name): array
+    {
+        if ($value === null) {
+            return [];
+        }
+        if (!is_array($value)) {
+            throw new \InvalidArgumentException($name . ' must be an array');
+        }
+        foreach ($value as $key => $_item) {
+            if (!is_string($key)) {
+                throw new \InvalidArgumentException($name . ' must use string keys');
+            }
+        }
+        return $value;
+    }
+
+    private static function templateName(string $name): void
+    {
+        if ($name === '' || str_contains($name, "\0") || str_contains($name, '\\') || str_contains($name, ':') || $name[0] === '/') {
+            throw new \InvalidArgumentException('Smarty template name must be a safe relative path');
+        }
+        foreach (explode('/', $name) as $part) {
+            if ($part === '' || $part === '.' || $part === '..') {
+                throw new \InvalidArgumentException('Smarty template name must be a safe relative path');
+            }
+        }
+    }
+
+    private function templateContained(string $name): bool
+    {
+        $roots = $this->smarty->getTemplateDir();
+        if (!is_array($roots)) {
+            $roots = [$roots];
+        }
+        foreach ($roots as $root) {
+            if (!is_string($root)) {
+                continue;
+            }
+            $rootReal = realpath($root);
+            $candidateReal = realpath($root . '/' . $name);
+            if (is_string($rootReal) && is_string($candidateReal)
+                && ($candidateReal === $rootReal || str_starts_with($candidateReal, $rootReal . '/'))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

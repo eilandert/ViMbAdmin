@@ -34,27 +34,27 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'dovecot_last_login')]
 class LastLogin
 {
-    /** @var string  full email address (mailbox username) */
+    /** @var string|null  full email address (mailbox username) */
     #[ORM\Id]
     #[ORM\Column(type: 'string')]
-    private ?int $username = null;
+    private ?string $username = null;
 
     /** @var integer  unix timestamp (seconds) of the last login */
     #[ORM\Column(type: 'bigint', options: ['default' => 0])]
     private int $last_login = 0;
 
-    public function setUsername( $username )
+    public function setUsername(?string $username): self
     {
         $this->username = $username;
         return $this;
     }
 
-    public function getUsername()
+    public function getUsername(): ?string
     {
         return $this->username;
     }
 
-    public function getLastLogin()
+    public function getLastLogin(): int
     {
         return $this->last_login;
     }
