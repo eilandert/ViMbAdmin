@@ -44,8 +44,10 @@ class RememberMe extends EntityRepository
      */
     public function deleteForUser( $user )
     {
-        return $this->getEntityManager()->createQuery( "DELETE \\Entities\\RememberMe me WHERE me.User = ?1" )
+        return \ViMbAdmin\Kernel\Doctrine\ResultValidator::affectedRows(
+            $this->getEntityManager()->createQuery( "DELETE \\Entities\\RememberMe me WHERE me.User = ?1" )
             ->setParameter( 1, $user )
-            ->execute();
+            ->execute(), 'Remember-me purge'
+        );
     }
 }

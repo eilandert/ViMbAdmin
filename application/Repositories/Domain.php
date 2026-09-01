@@ -271,11 +271,11 @@ class Domain extends EntityRepository
      */
     public function purgeMailboxes( $domain )
     {
-        return $this->getEntityManager()->createQuery(
+        return \ViMbAdmin\Kernel\Doctrine\ResultValidator::affectedRows($this->getEntityManager()->createQuery(
                 "DELETE FROM \\Entities\\Mailbox m WHERE m.Domain = ?1"
             )
             ->setParameter( 1, $domain )
-            ->execute();
+            ->execute(), 'Domain mailbox purge');
     }
     
     /**
@@ -286,11 +286,11 @@ class Domain extends EntityRepository
      */
     public function purgeAliases( $domain )
     {
-        return $this->getEntityManager()->createQuery(
+        return \ViMbAdmin\Kernel\Doctrine\ResultValidator::affectedRows($this->getEntityManager()->createQuery(
                 "DELETE FROM \\Entities\\Alias m WHERE m.Domain = ?1"
             )
             ->setParameter( 1, $domain )
-            ->execute();
+            ->execute(), 'Domain alias purge');
     }
     
     /**
@@ -301,11 +301,11 @@ class Domain extends EntityRepository
      */
     public function purgeLogs( $domain )
     {
-        return $this->getEntityManager()->createQuery(
+        return \ViMbAdmin\Kernel\Doctrine\ResultValidator::affectedRows($this->getEntityManager()->createQuery(
                 "DELETE FROM \\Entities\\Log m WHERE m.Domain = ?1"
             )
             ->setParameter( 1, $domain )
-            ->execute();
+            ->execute(), 'Domain log purge');
     }
     
     /**

@@ -119,6 +119,9 @@ jobs:
       - name: Doctrine entity result boundaries
         run: php tests/test-repository-entity-results.php
 
+      - name: Doctrine execute result boundaries
+        run: php tests/test-repository-execute-results.php
+
       - name: Nullable entity preference contracts
         run: php tests/test-entity-preferences.php
 

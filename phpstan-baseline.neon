@@ -97,24 +97,6 @@ parameters:
 			path: application/Repositories/Domain.php
 
 		-
-			message: '#^Method Repositories\\Domain\:\:purgeAliases\(\) should return int but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Method Repositories\\Domain\:\:purgeLogs\(\) should return int but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Method Repositories\\Domain\:\:purgeMailboxes\(\) should return int but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
 			message: '#^Possibly invalid array key type mixed\.$#'
 			identifier: offsetAccess.invalidOffset
 			count: 3
@@ -245,12 +227,6 @@ parameters:
 			identifier: offsetAccess.invalidOffset
 			count: 1
 			path: application/Repositories/MailboxTask.php
-
-		-
-			message: '#^Method Repositories\\RememberMe\:\:deleteForUser\(\) should return int but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/RememberMe.php
 
 		-
 			message: '#^Cannot access offset ''active'' on mixed\.$#'

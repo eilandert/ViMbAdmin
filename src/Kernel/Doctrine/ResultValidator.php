@@ -42,4 +42,12 @@ final class ResultValidator
         }
         return $result;
     }
+
+    public static function affectedRows(mixed $result, string $context): int
+    {
+        if (!is_int($result)) {
+            throw new \UnexpectedValueException($context . ' must return an integer row count.');
+        }
+        return $result;
+    }
 }
