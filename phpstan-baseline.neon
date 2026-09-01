@@ -103,12 +103,6 @@ parameters:
 			path: application/Entities/AliasPreference.php
 
 		-
-			message: '#^Method Entities\\Archive\:\:getArchivedAt\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
 			message: '#^Method Entities\\Archive\:\:getDomain\(\) should return Entities\\Domain but returns Entities\\Domain\|null\.$#'
 			identifier: return.type
 			count: 1
@@ -188,12 +182,6 @@ parameters:
 
 		-
 			message: '#^Method Entities\\Mailbox\:\:expungePreferences\(\) should return int but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:getDirectoryEntry\(\) should return Entities\\DirectoryEntry but returns Entities\\DirectoryEntry\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Entities/Mailbox.php

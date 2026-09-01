@@ -209,7 +209,7 @@ class Archive
     /**
      * Get archived_at
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getArchivedAt()
     {

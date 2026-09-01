@@ -353,6 +353,9 @@ $de->nativeMailboxApply($mbD, [
 
 $dent = $mbD->getDirectoryEntry();
 check('DE apply: entity created + linked',    $dent instanceof \Entities\DirectoryEntry && $dent->getMailbox() === $mbD);
+if (!$dent instanceof \Entities\DirectoryEntry) {
+    throw new \LogicException('DirectoryEntry plugin did not link the created entity');
+}
 check('DE apply: persisted via em',           in_array($dent, $deEm->persisted, true));
 check('DE apply: mail = username',            $dent->getMail() === 'dir@example.com');
 check('DE apply: GivenName written',          $dent->getGivenName() === 'Ada');

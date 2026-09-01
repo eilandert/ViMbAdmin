@@ -514,7 +514,7 @@ class Mailbox
     /**
      * Get DirectoryEntry
      *
-     * @return \Entities\DirectoryEntry
+     * @return \Entities\DirectoryEntry|null
      */
     public function getDirectoryEntry()
     {
