@@ -36,6 +36,82 @@ class ViMbAdmin_Service_QueueRunner
     /** @var array<string, mixed> */
     private $options;
 
+    private static function nonNegativeInteger(mixed $value, string $name): int
+    {
+        if (is_int($value) && $value >= 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[0-9]+$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            if (is_int($integer)) {
+                return $integer;
+            }
+        }
+        throw new \LogicException($name . ' must be a non-negative integer.');
+    }
+
+    private static function positiveInteger(mixed $value, string $name): int
+    {
+        $integer = self::nonNegativeInteger($value, $name);
+        if ($integer < 1) {
+            throw new \LogicException($name . ' must be greater than zero.');
+        }
+        return $integer;
+    }
+
+    private static function requiredString(mixed $value, string $name): string
+    {
+        if (!is_string($value)) {
+            throw new \LogicException($name . ' must be a string.');
+        }
+        return $value;
+    }
+
+    /** @return array{bool,mixed} */
+    private function option(string ...$path): array
+    {
+        $value = $this->options;
+        foreach ($path as $key) {
+            if (!is_array($value)) {
+                throw new \LogicException('QueueRunner configuration path must be an array.');
+            }
+            if (!array_key_exists($key, $value)) {
+                return [false, null];
+            }
+            $value = $value[$key];
+        }
+        return [true, $value];
+    }
+
+    private function optionString(string $default, string ...$path): string
+    {
+        [$found, $value] = $this->option(...$path);
+        return $found ? self::requiredString($value, 'Configuration ' . implode('.', $path)) : $default;
+    }
+
+    private function optionNonNegativeInteger(int $default, string ...$path): int
+    {
+        [$found, $value] = $this->option(...$path);
+        return $found ? self::nonNegativeInteger($value, 'Configuration ' . implode('.', $path)) : $default;
+    }
+
+    private function maildirRoot(): string
+    {
+        $root = rtrim($this->optionString('/opt/myguard/dovecot/maildir', 'doveadm', 'maildir_root'), '/');
+        if ($root === '' || $root[0] !== '/' || strpos($root, "\0") !== false) {
+            throw new \LogicException('Configuration doveadm.maildir_root must be a non-root absolute path.');
+        }
+
+        return $root;
+    }
+
+    /** @return array{queue:array{runner:array{max_concurrent:int}}} */
+    private function leaseOptions(): array
+    {
+        return ['queue' => ['runner' => ['max_concurrent' => max(1,
+            $this->optionNonNegativeInteger(1, 'queue', 'runner', 'max_concurrent'))]]];
+    }
+
     /** @param array<string, mixed> $options */
     public function __construct(\Doctrine\Persistence\ObjectManager $em, array $options)
     {
@@ -58,14 +134,14 @@ class ViMbAdmin_Service_QueueRunner
      */
     public function drain($max, $verbose = false)
     {
-        $max  = max(1, (int) $max);
+        $max  = self::positiveInteger($max, 'Queue drain maximum');
         $em   = $this->em;
         $repo = $em->getRepository('\\Entities\\MailboxTask');
         if (!$repo instanceof \Repositories\MailboxTask) {
             throw new \LogicException('MailboxTask entity must use Repositories\\MailboxTask.');
         }
 
-        $lease = ViMbAdmin_QueueRunner::acquireLease($em, $this->options);
+        $lease = ViMbAdmin_QueueRunner::acquireLease($em, $this->leaseOptions());
         if ($lease === null) {
             if ($verbose) {
                 echo "All runner slots busy (queue.runner.max_concurrent) — skipping.\n";
@@ -132,7 +208,7 @@ class ViMbAdmin_Service_QueueRunner
     /** @return void */
     private function execute(\Entities\MailboxTask $task, ViMbAdmin_Doveadm $doveadm)
     {
-        $user = $task->getUsername();
+        $user = $task->requiredUsername();
 
         switch ($task->getType()) {
             case \Entities\MailboxTask::TYPE_REPAIR:
@@ -236,8 +312,8 @@ class ViMbAdmin_Service_QueueRunner
     /** @return string */
     private function backupDest(\Entities\MailboxTask $task)
     {
-        $tpl  = (string) ($this->options['doveadm']['backup']['dest'] ?? 'maildir:/backups/%d/%u');
-        $user = self::assertPathSafe($task->getUsername());
+        $tpl  = $this->optionString('maildir:/backups/%d/%u', 'doveadm', 'backup', 'dest');
+        $user = self::assertPathSafe($task->requiredUsername());
         $domainSuffix = strrchr($user, '@');
         $taskDomain = $task->getDomain();
         $dom  = $taskDomain ? $taskDomain->requiredDomainName() : ($domainSuffix === false ? '' : substr($domainSuffix, 1));
@@ -257,9 +333,9 @@ class ViMbAdmin_Service_QueueRunner
      * @param mixed $value
      * @return string
      */
-    private static function assertPathSafe($value)
+    private static function assertPathSafe(mixed $value): string
     {
-        $s = (string) $value;
+        $s = self::requiredString($value, 'Mailbox task path component');
         if ($s === '' || strpos($s, '/') !== false || strpos($s, "\0") !== false
             || $s === '..' || strpos($s, '..') !== false) {
             throw new ViMbAdmin_Exception('refusing unsafe path component in mailbox task: ' . $s);
@@ -275,7 +351,7 @@ class ViMbAdmin_Service_QueueRunner
     private function recordArchive(\Entities\MailboxTask $task, $dest, $autoprune)
     {
         $em   = $this->em;
-        $user = $task->getUsername();
+        $user = $task->requiredUsername();
         $now  = new \DateTime();
 
         $mbData = null;
@@ -302,23 +378,19 @@ class ViMbAdmin_Service_QueueRunner
             ViMbAdmin_Doveadm::fromOptions($this->options)->quotaRecalc($user);
             $bytes = $em->getConnection()->fetchOne('SELECT bytes FROM dovecot_quota WHERE username = ?', [$user]);
             if ($bytes !== false && $bytes !== null) {
-                $origSize = (int) $bytes;
+                $origSize = self::nonNegativeInteger($bytes, 'Dovecot quota bytes');
             }
         } catch (\Throwable $e) {
             error_log("QueueRunner::recordArchive quota {$user}: " . $e->getMessage());
         }
-
-        $size = $origSize;
 
         $archive->setStatus(\Entities\Archive::STATUS_ARCHIVED)
                 ->setArchivedAt($now)
                 ->setStatusChangedAt($now)
                 ->setArchivedBy($task->getRequestedBy())
                 ->setDomain($task->getDomain())
-                ->setMaildirServer((string) ($this->options['doveadm']['http']['url'] ?? ''))
+                ->setMaildirServer($this->optionString('', 'doveadm', 'http', 'url'))
                 ->setMaildirFile($dest)
-                ->setMaildirOrigSize($origSize)
-                ->setMaildirSize($size)
                 ->setAutoprune($autoprune)
                 ->setData($this->encodeTaskData([
                     'username' => $user,
@@ -328,6 +400,9 @@ class ViMbAdmin_Service_QueueRunner
                     'mailbox'  => $mbData,
                 ]));
 
+        if ($origSize !== null) {
+            $archive->setMaildirOrigSize($origSize)->setMaildirSize($origSize);
+        }
         $em->persist($archive);
 
         $open = $em->createQuery(
@@ -337,7 +412,7 @@ class ViMbAdmin_Service_QueueRunner
             ->setParameter('t', \Entities\MailboxTask::TYPE_MEASURE_SIZE)
             ->setParameter('open', [\Entities\MailboxTask::STATUS_PENDING, \Entities\MailboxTask::STATUS_RUNNING])
             ->getSingleScalarResult();
-        if ((int) $open === 0) {
+        if (self::nonNegativeInteger($open, 'Open measure-size task count') === 0) {
             $mt = new \Entities\MailboxTask();
             $mt->setType(\Entities\MailboxTask::TYPE_MEASURE_SIZE)
                ->setUsername($user)
@@ -358,9 +433,7 @@ class ViMbAdmin_Service_QueueRunner
      */
     private function removeMaildirHome(\Entities\MailboxTask $task, $doveadm, $user)
     {
-        $root = isset($this->options['doveadm']['maildir_root'])
-            ? rtrim((string) $this->options['doveadm']['maildir_root'], '/')
-            : '/opt/myguard/dovecot/maildir';
+        $root = $this->maildirRoot();
         $home = $root . '/' . self::assertPathSafe($user);
 
         try {
@@ -434,8 +507,7 @@ class ViMbAdmin_Service_QueueRunner
     /** @return int */
     private function autopruneDays()
     {
-        $v = $this->options['queue']['autoprune']['days'] ?? 90;
-        return max(0, (int) $v);
+        return $this->optionNonNegativeInteger(90, 'queue', 'autoprune', 'days');
     }
 
     /** @return void */
@@ -454,7 +526,7 @@ class ViMbAdmin_Service_QueueRunner
         ViMbAdmin_Setting::set($em, ViMbAdmin_Setting::LAST_PRUNE_SWEEP, (new \DateTime())->format('c'));
 
         try {
-            $days   = max(0, (int) ($this->options['queue']['autoprune']['days'] ?? 90));
+            $days   = $this->autopruneDays();
             $cutoff = (new \DateTime())->modify('-' . $days . ' days');
             $archiveRepository = $em->getRepository('\\Entities\\Archive');
             if (!$archiveRepository instanceof \Repositories\Archive) {
@@ -517,7 +589,8 @@ class ViMbAdmin_Service_QueueRunner
     private function backupOrphan(\Entities\MailboxTask $task, $doveadm)
     {
         $em   = $this->em;
-        $user = $task->getUsername();
+        $user = self::assertPathSafe($task->requiredUsername());
+        $root = $this->maildirRoot();
         $conn = $em->getConnection();
 
         $exists = (int) $em->createQuery('SELECT COUNT(m.id) FROM \Entities\Mailbox m WHERE m.username = :u')
@@ -558,9 +631,6 @@ class ViMbAdmin_Service_QueueRunner
             $task->appendLog("backup-orphan: domain '{$domainPart}' not in ViMbAdmin — created transient inactive domain row #{$tempDomainId}");
         }
 
-        $root      = isset($this->options['doveadm']['maildir_root'])
-            ? rtrim((string) $this->options['doveadm']['maildir_root'], '/')
-            : '/opt/myguard/dovecot/maildir';
         $home      = $root . '/' . $user;
         $localPart = strstr($user, '@', true) ?: $user;
         $tempId    = null;

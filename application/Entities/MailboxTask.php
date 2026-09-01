@@ -151,6 +151,14 @@ class MailboxTask
 
     /** @return string|null */
     public function getUsername()           { return $this->username; }
+    public function requiredUsername(): string
+    {
+        if ($this->username === null) {
+            throw new \LogicException('Mailbox task username cannot be null.');
+        }
+
+        return $this->username;
+    }
     /**
      * @param string $v
      * @return $this
