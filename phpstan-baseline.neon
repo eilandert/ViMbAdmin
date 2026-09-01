@@ -79,30 +79,6 @@ parameters:
 			path: application/Repositories/Alias.php
 
 		-
-			message: '#^Cannot access offset ''bytes'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Cannot access offset ''last_login'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Cannot access offset ''messages'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Cannot access offset ''username'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 2
-			path: application/Repositories/Mailbox.php
-
-		-
 			message: '#^Cannot call method decreaseAliasCount\(\) on Entities\\Domain\|null\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -121,18 +97,6 @@ parameters:
 			path: application/Repositories/Mailbox.php
 
 		-
-			message: '#^Cannot cast mixed to int\.$#'
-			identifier: cast.int
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Method Repositories\\Mailbox\:\:_mergeQuotaUsage\(\) should return array\<int, array\{id\: int, username\: string, name\: string\|null, active\: bool, quota\: int\|string, domain\: string, delete_pending\: bool\|null, quota_bytes\: int\|string\|null, \.\.\.\}\> but returns non\-empty\-array\<int, array\{id\: int, username\: string, name\: string\|null, active\: bool, quota\: int\|string, domain\: string, delete_pending\: bool\|null, quota_bytes\: mixed, \.\.\.\}\>\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
 			message: '#^Parameter \#2 \$admin of method Repositories\\Alias\:\:loadForMailbox\(\) expects Entities\\Admin, Entities\\Admin\|null given\.$#'
 			identifier: argument.type
 			count: 1
@@ -142,12 +106,6 @@ parameters:
 			message: '#^Parameter \#2 \$admin of method Repositories\\Alias\:\:loadWithMailbox\(\) expects Entities\\Admin, Entities\\Admin\|null given\.$#'
 			identifier: argument.type
 			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 2
 			path: application/Repositories/Mailbox.php
 
 		-

@@ -128,6 +128,9 @@ jobs:
       - name: Domain usage hydration
         run: php tests/test-repository-domain-usage.php
 
+      - name: Mailbox quota and last-login hydration
+        run: php tests/test-repository-mailbox-quota-usage.php
+
       - name: Nullable entity preference contracts
         run: php tests/test-entity-preferences.php
 

@@ -13,10 +13,115 @@ use Doctrine\ORM\QueryBuilder;
  *
  * @extends EntityRepository<\Entities\Mailbox>
  * @phpstan-type MailboxHydrationRow array{id:int,username:string,name:string|null,active:bool,quota:int|string,domain:string,delete_pending:bool|null}
- * @phpstan-type MailboxListRow array{id:int,username:string,name:string|null,active:bool,quota:int|string,domain:string,delete_pending:bool|null,quota_bytes:int|string|null,quota_messages:int|string|null,last_login:int|null}
+ * @phpstan-type MailboxListRow array{id:int,username:string,name:string|null,active:bool,quota:int|string,domain:string,delete_pending:bool|null,quota_bytes:int|string|null,quota_messages:int|string|null,last_login:int|string|null}
  */
 class Mailbox extends EntityRepository
 {
+    /** @return int|string */
+    private static function requiredUsageCount(mixed $value, string $label): int|string
+    {
+        if ((!is_int($value) || $value < 0)
+            && (!is_string($value) || preg_match('/^(0|[1-9][0-9]*)$/D', $value) !== 1)) {
+            throw new \UnexpectedValueException("Mailbox {$label} has an invalid value.");
+        }
+        return $value;
+    }
+
+    /** @return int|string */
+    private static function requiredLastLoginTimestamp(mixed $value): int|string
+    {
+        return self::requiredUsageCount($value, 'last-login timestamp');
+    }
+
+    /** @return array{username:string,bytes:mixed,messages:mixed} */
+    private static function requiredQuotaUsageRow(mixed $key, mixed $row): array
+    {
+        if (!is_int($key) || !is_array($row) || count($row) !== 3
+            || !isset($row['username']) || !is_string($row['username'])
+            || !array_key_exists('bytes', $row) || !array_key_exists('messages', $row)) {
+            throw new \UnexpectedValueException('Mailbox quota query row has an invalid shape.');
+        }
+        return ['username' => $row['username'], 'bytes' => $row['bytes'], 'messages' => $row['messages']];
+    }
+
+    /** @return array<string,array{bytes:int|string,messages:int|string}> */
+    private static function requiredQuotaUsageByUsername(mixed $rows): array
+    {
+        if (!is_array($rows)) {
+            throw new \UnexpectedValueException('Mailbox quota query result must be an array.');
+        }
+
+        $usage = [];
+        foreach ($rows as $key => $row) {
+            $row = self::requiredQuotaUsageRow($key, $row);
+            $username = strtolower($row['username']);
+            if (array_key_exists($username, $usage)) {
+                throw new \UnexpectedValueException('Mailbox quota query returned a duplicate username.');
+            }
+            $usage[$username] = [
+                'bytes' => self::requiredUsageCount($row['bytes'], 'quota bytes'),
+                'messages' => self::requiredUsageCount($row['messages'], 'quota messages'),
+            ];
+        }
+        return $usage;
+    }
+
+    /** @return array{username:string,last_login:mixed} */
+    private static function requiredLastLoginRow(mixed $key, mixed $row): array
+    {
+        if (!is_int($key) || !is_array($row) || count($row) !== 2
+            || !isset($row['username']) || !is_string($row['username'])
+            || !array_key_exists('last_login', $row)) {
+            throw new \UnexpectedValueException('Mailbox last-login query row has an invalid shape.');
+        }
+        return ['username' => $row['username'], 'last_login' => $row['last_login']];
+    }
+
+    /** @return array<string,int|string> */
+    private static function requiredLastLoginByUsername(mixed $rows): array
+    {
+        if (!is_array($rows)) {
+            throw new \UnexpectedValueException('Mailbox last-login query result must be an array.');
+        }
+
+        $logins = [];
+        foreach ($rows as $key => $row) {
+            $row = self::requiredLastLoginRow($key, $row);
+            $username = strtolower($row['username']);
+            if (array_key_exists($username, $logins)) {
+                throw new \UnexpectedValueException('Mailbox last-login query returned a duplicate username.');
+            }
+            $logins[$username] = self::requiredLastLoginTimestamp($row['last_login']);
+        }
+        return $logins;
+    }
+
+    /**
+     * @param array<int,MailboxHydrationRow> $rows
+     * @param array<string,array{bytes:int|string,messages:int|string}> $quotaByUsername
+     * @param array<string,int|string> $loginByUsername
+     * @return array<int,MailboxListRow>
+     */
+    private static function mergeMailboxUsageRows(array $rows, array $quotaByUsername, array $loginByUsername): array
+    {
+        $result = [];
+        foreach ($rows as $key => $row) {
+            $username = strtolower($row['username']);
+            $quota = $quotaByUsername[$username] ?? null;
+            $lastLogin = $loginByUsername[$username] ?? 0;
+            $hasLastLogin = is_int($lastLogin) ? $lastLogin > 0 : $lastLogin !== '0';
+            $result[$key] = [
+                'id' => $row['id'], 'username' => $row['username'], 'name' => $row['name'],
+                'active' => $row['active'], 'quota' => $row['quota'], 'domain' => $row['domain'],
+                'delete_pending' => $row['delete_pending'],
+                'quota_bytes' => $quota['bytes'] ?? null,
+                'quota_messages' => $quota['messages'] ?? null,
+                'last_login' => $hasLastLogin ? $lastLogin : null,
+            ];
+        }
+        return $result;
+    }
+
     /** @return array<int,MailboxHydrationRow> */
     private static function requiredMailboxHydrationRows(mixed $rows): array
     {
@@ -228,9 +333,7 @@ class Mailbox extends EntityRepository
             ->setParameter( 'usernames', $usernames )
             ->getQuery()->getArrayResult();
 
-        $byUser = [];
-        foreach( $quotas as $q )
-            $byUser[ $q['username'] ] = $q;
+        $byUser = self::requiredQuotaUsageByUsername($quotas);
 
         // Last-login (Dovecot last_login plugin -> dovecot_last_login table,
         // unix timestamp). Batch-load and graft alongside the quota usage.
@@ -241,20 +344,9 @@ class Mailbox extends EntityRepository
             ->setParameter( 'usernames', $usernames )
             ->getQuery()->getArrayResult();
 
-        $loginByUser = [];
-        foreach( $logins as $l )
-            $loginByUser[ $l['username'] ] = (int) $l['last_login'];
+        $loginByUser = self::requiredLastLoginByUsername($logins);
 
-        foreach( $rows as &$row )
-        {
-            $u = $row['username'];
-            $row['quota_bytes']    = isset( $byUser[$u] ) ? $byUser[$u]['bytes']    : null;
-            $row['quota_messages'] = isset( $byUser[$u] ) ? $byUser[$u]['messages'] : null;
-            $row['last_login']     = ( isset( $loginByUser[$u] ) && $loginByUser[$u] > 0 ) ? $loginByUser[$u] : null;
-        }
-        unset( $row );
-
-        return $rows;
+        return self::mergeMailboxUsageRows($rows, $byUser, $loginByUser);
     }
 
     /**
