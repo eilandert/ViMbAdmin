@@ -175,36 +175,6 @@ parameters:
 			path: application/Repositories/Mailbox.php
 
 		-
-			message: '#^Cannot access offset ''cnt'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: application/Repositories/MailboxTask.php
-
-		-
-			message: '#^Cannot access offset ''status'' on mixed\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: application/Repositories/MailboxTask.php
-
-		-
-			message: '#^Cannot cast mixed to int\.$#'
-			identifier: cast.int
-			count: 1
-			path: application/Repositories/MailboxTask.php
-
-		-
-			message: '#^Method Repositories\\MailboxTask\:\:statusCounts\(\) should return array\<string, int\> but returns array\<int\>\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/MailboxTask.php
-
-		-
-			message: '#^Possibly invalid array key type mixed\.$#'
-			identifier: offsetAccess.invalidOffset
-			count: 1
-			path: application/Repositories/MailboxTask.php
-
-		-
 			message: '#^Cannot access offset ''active'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 1

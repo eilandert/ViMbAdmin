@@ -17,6 +17,40 @@ use Doctrine\ORM\QueryBuilder;
  */
 class MailboxTask extends EntityRepository
 {
+    /** @return array<string,int> */
+    private static function requiredStatusCounts(mixed $rows): array
+    {
+        if (!is_array($rows)) {
+            throw new \UnexpectedValueException('Mailbox task status query result must be an array.');
+        }
+
+        $counts = [];
+        foreach ($rows as $key => $row) {
+            if (!is_int($key) || !is_array($row) || count($row) !== 2
+                || !isset($row['status']) || !is_string($row['status'])
+                || !array_key_exists('cnt', $row)) {
+                throw new \UnexpectedValueException('Mailbox task status query row has an invalid shape.');
+            }
+
+            $rawCount = $row['cnt'];
+            if (is_int($rawCount) && $rawCount >= 0) {
+                $count = $rawCount;
+            } elseif (is_string($rawCount) && preg_match('/^(0|[1-9][0-9]*)$/D', $rawCount) === 1) {
+                $count = filter_var($rawCount, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+                if ($count === false) {
+                    throw new \UnexpectedValueException('Mailbox task status query row has an invalid count.');
+                }
+            } else {
+                throw new \UnexpectedValueException('Mailbox task status query row has an invalid count.');
+            }
+            if (array_key_exists($row['status'], $counts)) {
+                throw new \UnexpectedValueException('Mailbox task status query returned a duplicate status.');
+            }
+            $counts[$row['status']] = $count;
+        }
+        return $counts;
+    }
+
     /**
      * Fetch the oldest PENDING tasks (highest priority first), up to $limit.
      *
@@ -88,9 +122,6 @@ class MailboxTask extends EntityRepository
             ->groupBy( 't.status' )
             ->getQuery()->getArrayResult();
 
-        $out = [];
-        foreach( $rows as $r )
-            $out[ $r['status'] ] = (int) $r['cnt'];
-        return $out;
+        return self::requiredStatusCounts($rows);
     }
 }

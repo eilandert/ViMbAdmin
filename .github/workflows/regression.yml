@@ -122,6 +122,9 @@ jobs:
       - name: Doctrine execute result boundaries
         run: php tests/test-repository-execute-results.php
 
+      - name: Mailbox task status-count hydration
+        run: php tests/test-repository-mailbox-task-status-counts.php
+
       - name: Nullable entity preference contracts
         run: php tests/test-entity-preferences.php
 
