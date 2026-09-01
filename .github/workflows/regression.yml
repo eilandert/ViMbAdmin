@@ -173,6 +173,9 @@ jobs:
       - name: Native MCP transport
         run: php tests/test-kernel-mcp.php
 
+      - name: Controller and MCP identity boundaries
+        run: php tests/test-controller-alias-identity.php
+
       - name: ViMbAdmin_Dovecot::passwordVerify (scheme-prefixed hashes)
         run: php tests/test-dovecot-password.php
 

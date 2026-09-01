@@ -145,16 +145,19 @@ function automaticAliasThrows(string $message, \Closure $operation): bool {
     return false;
 }
 
-function automaticAliasDomain(bool $initialized = true): \Entities\Domain {
-    $domain = (new \Entities\Domain())->setDomain('example.test');
+function automaticAliasDomain(bool $initialized = true, bool $named = true): \Entities\Domain {
+    $domain = new \Entities\Domain();
+    if ($named) {
+        $domain->setDomain('example.test');
+    }
     if ($initialized) {
         (new ReflectionMethod($domain, 'assignGeneratedId'))->invoke($domain, 17);
     }
     return $domain;
 }
 
-function makeContext(AutomaticAliasRepository $repository, bool $initialized = true): AutomaticAliasMailboxContext {
-    $domain = automaticAliasDomain($initialized);
+function makeContext(AutomaticAliasRepository $repository, bool $initialized = true, bool $named = true): AutomaticAliasMailboxContext {
+    $domain = automaticAliasDomain($initialized, $named);
     $mailbox = (new \Entities\Mailbox())->setUsername('user@example.test');
     return new AutomaticAliasMailboxContext(
         ['vimbadmin_plugins' => ['MailboxAutomaticAliases' => [
@@ -211,6 +214,24 @@ $failures += checkAutomaticAlias(
     $unpersistedContext->getD2EM()->persisted === []
         && $unpersistedContext->getD2EM()->flushes === 0
         && $unpersistedContext->messages === [],
+);
+
+$unnamedContext = makeContext(new AutomaticAliasRepository(), true, false);
+$failures += checkAutomaticAlias(
+    'automatic alias construction rejects a null domain name',
+    automaticAliasThrows(
+        'Domain name cannot be null.',
+        static function () use ($unnamedContext): void {
+            (new ViMbAdminPlugin_MailboxAutomaticAliases($unnamedContext))
+                ->mailbox_add_addPostflush($unnamedContext, ['options' => []]);
+        },
+    ),
+);
+$failures += checkAutomaticAlias(
+    'null domain name fails before alias persistence or flush',
+    $unnamedContext->getD2EM()->persisted === []
+        && $unnamedContext->getD2EM()->flushes === 0
+        && $unnamedContext->messages === [],
 );
 
 $repository = new AutomaticAliasRepository();

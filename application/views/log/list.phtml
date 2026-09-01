@@ -8,7 +8,7 @@
 
     <div class="page-header" >
         <h1>
-            Logs{if isset( $domain ) && $domain }<small> for {$domain->getDomain()}</small>
+            Logs{if isset( $domain ) && $domain }<small> for {$domain->requiredDomainName()}</small>
                 <a class="btn have-tooltip-below" id="show_all_logs" title="Show All" href="{genUrl controller='log' action='list' unset=1}">
                     <i class="icon-remove-circle"></i>
                 </a>

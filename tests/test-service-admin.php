@@ -184,6 +184,18 @@ check('assignDomain flushed once',               $em->flushes === 1);
 check('assignDomain logged ADD',                 $em->lastLog() && $em->lastLog()->getAction() === \Entities\Log::ACTION_ADMIN_TO_DOMAIN_ADD);
 check('assignDomain Log binds the domain',       $em->lastLog() && $em->lastLog()->getDomain() === $dom);
 
+$em = new FakeAdminObjectManager();
+$t = makeAdminForService('malformed-domain@example.com');
+$malformedDomain = new \Entities\Domain();
+$malformedError = null;
+try { (new ViMbAdmin_Service_Admin($em))->assignDomain($t, $malformedDomain, $actor); }
+catch (\LogicException $e) { $malformedError = $e->getMessage(); }
+check('assignDomain rejects a null domain name', $malformedError === 'Domain name cannot be null.');
+check('assignDomain name failure precedes mutation',
+    !$t->getDomains()->contains($malformedDomain)
+        && $em->persisted === []
+        && $em->flushes === 0);
+
 // ---- assignDomain duplicate throws -------------------------------------- //
 $em  = new FakeAdminObjectManager();
 $t   = makeAdminForService('d@example.com');

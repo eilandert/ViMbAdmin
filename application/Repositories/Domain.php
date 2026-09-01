@@ -59,7 +59,7 @@ class Domain extends EntityRepository
         if( $onlyNames )
         {
             foreach( $this->loadForAdmin( $admin ) as $domain )
-                $array[ $domain->requiredId() ] = $domain->getDomain();
+                $array[ $domain->requiredId() ] = $domain->requiredDomainName();
             
         }
         else
@@ -67,7 +67,7 @@ class Domain extends EntityRepository
             foreach( $this->loadForAdmin( $admin ) as $domain )
             {
                 $array[ $domain->requiredId() ] = [
-                    'domain'        => $domain->getDomain(),
+                    'domain'        => $domain->requiredDomainName(),
                     'description'   => $domain->getDescription(),
                     'max_aliaseses' => $domain->getMaxAliases(),
                     'alias_count'   => $domain->getAliasCount(),
@@ -317,8 +317,10 @@ class Domain extends EntityRepository
     public function getNotAssignedForAdmin( $admin )
     {
         $domainNames = [];
-        foreach( $this->findAll() as $domain )
-            $domainNames[ $domain->requiredId() ] = $domain->getActive() ? $domain->getDomain() : $domain->getDomain() . " (inactive)";
+        foreach( $this->findAll() as $domain ) {
+            $domainName = $domain->requiredDomainName();
+            $domainNames[ $domain->requiredId() ] = $domain->getActive() ? $domainName : $domainName . " (inactive)";
+        }
 
         foreach( $admin->getDomains() as $domain )
             if( isset( $domainNames[ $domain->requiredId() ] ) )

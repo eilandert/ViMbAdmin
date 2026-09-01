@@ -324,6 +324,32 @@ $mcpOutput = ob_get_clean();
 controllerAliasIdentityCheck('MCP rejects missing goto without partial output',
     $mcpError === 'Alias goto cannot be null.' && $mcpOutput === '');
 
+$unnamedDomain = new \Entities\Domain();
+$unnamedDomainEntityManager = controllerAliasIdentityEntityManager([
+    'Entities\\Domain' => new ControllerAliasIdentityDomainRepository($unnamedDomain),
+    'Entities\\Alias' => new ControllerAliasIdentityAliasRepository([]),
+]);
+$unnamedDomainMcp = new McpController(
+    new Container(
+        new ControllerAliasIdentityResources($unnamedDomainEntityManager, $mcpSession, $mcpView),
+        new Auth($mcpSession, static fn(int $id): null => null),
+    ),
+    new RouteMatch('mcp', 'index', McpController::class, 'indexAction', []),
+);
+$unnamedDomainError = null;
+ob_start();
+try {
+    controllerAliasIdentityMcpAliases($unnamedDomainMcp, ['domain' => 'example.test']);
+} catch (LogicException $e) {
+    $unnamedDomainError = $e->getMessage();
+}
+$unnamedDomainOutput = ob_get_clean();
+controllerAliasIdentityCheck('MCP rejects a null domain name without output or mutation',
+    $unnamedDomainError === 'Domain name cannot be null.'
+        && $unnamedDomainOutput === ''
+        && $unnamedDomainEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $unnamedDomainEntityManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
+
 echo ControllerAliasIdentityState::$failures === 0
     ? "\nALL PASSED\n"
     : "\n" . ControllerAliasIdentityState::$failures . " FAILED\n";

@@ -30,7 +30,7 @@
     	</div>
 
         <h1>
-            Aliases {if isset( $domain ) && $domain }<small> for {$domain->getDomain()} {if $domain->getMaxAliases() != 0}({$domain->getAliasCount()}/{$domain->getMaxAliases()}){/if}</small>
+            Aliases {if isset( $domain ) && $domain }<small> for {$domain->requiredDomainName()} {if $domain->getMaxAliases() != 0}({$domain->getAliasCount()}/{$domain->getMaxAliases()}){/if}</small>
                 <a class="btn have-tooltip-below" id="show_all_aliases" title="Show All" href="{genUrl controller='alias' action='list' unset=1}{if $ima}/ima/1{/if}"><i class="icon-remove-circle"></i></a>
             {/if}
         </h1>

@@ -109,11 +109,12 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $out = [];
         foreach( $this->em()->getRepository( '\\Entities\\Domain' )->findAll() as $d )
         {
-            if( $this->_token && !$this->_token->allowsDomain( $d->getDomain() ) )
+            $domainName = $d->requiredDomainName();
+            if( $this->_token && !$this->_token->allowsDomain( $domainName ) )
                 continue;
             $out[] = [
                 'id'        => $d->requiredId(),
-                'domain'    => $d->getDomain(),
+                'domain'    => $domainName,
                 'active'    => (bool) $d->getActive(),
                 'transport' => $d->getTransport(),
                 'quota'     => $d->requiredQuota(),
@@ -132,6 +133,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     private function _mailboxesList( array $params ): array
     {
         $domain = $this->_requireDomain( $params );
+        $domainName = $domain->requiredDomainName();
         $out = [];
         foreach( $this->em()->getRepository( '\\Entities\\Mailbox' )->findBy( [ 'Domain' => $domain ] ) as $m )
             $out[] = [
@@ -141,7 +143,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
                 'quota'      => $m->getQuota(),
                 'local_part' => $m->getLocalPart(),
             ];
-        return [ 'domain' => $domain->getDomain(), 'mailboxes' => $out ];
+        return [ 'domain' => $domainName, 'mailboxes' => $out ];
     }
 
     /**
@@ -151,6 +153,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     private function _aliasesList( array $params ): array
     {
         $domain = $this->_requireDomain( $params );
+        $domainName = $domain->requiredDomainName();
         $out = [];
         foreach( $this->em()->getRepository( '\\Entities\\Alias' )->findBy( [ 'Domain' => $domain ] ) as $a )
         {
@@ -161,7 +164,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
                 'active'  => (bool) $a->getActive(),
             ];
         }
-        return [ 'domain' => $domain->getDomain(), 'aliases' => $out ];
+        return [ 'domain' => $domainName, 'aliases' => $out ];
     }
 
     /** @return array{address:string,goto:string} */
@@ -206,11 +209,12 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $d->setMailboxCount( 0 );
         $d->setAliasCount( 0 );
         $d->setCreated( new \DateTime() );
+        $createdDomainName = $d->requiredDomainName();
 
         $em = $this->em();
         $em->persist( $d );
         $em->flush();
-        return [ 'created' => true, 'domain' => $d->getDomain(), 'id' => $d->requiredId() ];
+        return [ 'created' => true, 'domain' => $createdDomainName, 'id' => $d->requiredId() ];
     }
 
     /**
@@ -220,7 +224,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     private function _domainDelete( array $params ): array
     {
         $domain = $this->_requireDomain( $params );
-        $name   = $domain->getDomain();
+        $name   = $domain->requiredDomainName();
         $this->_domainRepository()->purge( $domain );
         return [ 'deleted' => true, 'domain' => $name ];
     }
@@ -235,7 +239,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $localPart = $this->_str( $params, 'local_part', true );
         $this->_validate( $localPart, \ViMbAdmin\Kernel\Form\Validators::localPart(), 'local_part' );
         $password  = $this->_str( $params, 'password', true );
-        $username  = $localPart . '@' . $domain->getDomain();
+        $username  = $localPart . '@' . $domain->requiredDomainName();
 
         $repo = $this->_mailboxRepository();
         if( !$repo->isUnique( $username ) )
@@ -306,7 +310,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         if( strpos( $address, '@' ) === false )
         {
             $this->_validate( $address, \ViMbAdmin\Kernel\Form\Validators::localPart(), 'address local part' );
-            $address .= '@' . $domain->getDomain();
+            $address .= '@' . $domain->requiredDomainName();
         }
         else
             $this->_validateEmail( $address, 'address' );
@@ -341,7 +345,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
             throw new ViMbAdmin_Mcp_Exception( 'unknown alias' );
         $domain = $a->getDomain();
         if( $domain )
-            $this->_assertDomainAllowed( $domain->getDomain() );
+            $this->_assertDomainAllowed( $domain->requiredDomainName() );
         $em = $this->em();
         $em->remove( $a );
         if( $domain )
@@ -391,7 +395,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
             throw new ViMbAdmin_Mcp_Exception( 'no archive for that username' );
         $archiveDomain = $archive->getDomain();
         if( $archiveDomain )
-            $this->_assertDomainAllowed( $archiveDomain->getDomain() );
+            $this->_assertDomainAllowed( $archiveDomain->requiredDomainName() );
 
         $dest    = $archive->getMaildirFile();
         $doveadm = ViMbAdmin_Doveadm::fromOptions( $this->options() );
@@ -449,7 +453,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $domain = $this->em()->getRepository( '\\Entities\\Domain' )->findOneBy( [ 'domain' => $name ] );
         if( !$domain )
             throw new ViMbAdmin_Mcp_Exception( 'unknown domain' );
-        $this->_assertDomainAllowed( $domain->getDomain() );
+        $this->_assertDomainAllowed( $domain->requiredDomainName() );
         return $domain;
     }
 
@@ -477,8 +481,9 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $m = $this->em()->getRepository( '\\Entities\\Mailbox' )->findOneBy( [ 'username' => $username ] );
         if( !$m )
             throw new ViMbAdmin_Mcp_Exception( 'unknown mailbox' );
-        if( $m->getDomain() )
-            $this->_assertDomainAllowed( $m->getDomain()->getDomain() );
+        $mailboxDomain = $m->getDomain();
+        if( $mailboxDomain )
+            $this->_assertDomainAllowed( $mailboxDomain->requiredDomainName() );
         return $m;
     }
 

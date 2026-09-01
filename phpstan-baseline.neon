@@ -91,12 +91,6 @@ parameters:
 			path: application/Entities/Domain.php
 
 		-
-			message: '#^Method Entities\\Domain\:\:getDomain\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
 			message: '#^Parameter \#1 \$config of method Entities\\Domain\:\:_processKey\(\) expects array\<int\|string, mixed\>, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -2594,12 +2588,6 @@ parameters:
 
 		-
 			message: '#^Cannot call method getAliasCount\(\) on Entities\\Domain\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Kernel/Controller/MailboxController.php
-
-		-
-			message: '#^Cannot call method getDomain\(\) on Entities\\Domain\|null\.$#'
 			identifier: method.nonObject
 			count: 1
 			path: src/Kernel/Controller/MailboxController.php

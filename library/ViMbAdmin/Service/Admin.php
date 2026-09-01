@@ -95,12 +95,13 @@ class ViMbAdmin_Service_Admin
         if( $target->getDomains()->contains( $domain ) )
             throw new ViMbAdmin_Service_Exception( 'This domain is already assigned to the admin.' );
 
+        $domainName = $domain->requiredDomainName();
         $target->addDomain( $domain );
 
         $this->log(
             $actor,
             \Entities\Log::ACTION_ADMIN_TO_DOMAIN_ADD,
-            "{$actor->getFormattedName()} added admin {$target->getFormattedName()} to domain {$domain->getDomain()}",
+            "{$actor->getFormattedName()} added admin {$target->getFormattedName()} to domain {$domainName}",
             $domain
         );
 
@@ -113,12 +114,13 @@ class ViMbAdmin_Service_Admin
      */
     public function removeDomain(\Entities\Admin $target, \Entities\Domain $domain, \Entities\Admin $actor): void
     {
+        $domainName = $domain->requiredDomainName();
         $target->removeDomain( $domain );
 
         $this->log(
             $actor,
             \Entities\Log::ACTION_ADMIN_TO_DOMAIN_REMOVE,
-            "{$actor->getFormattedName()} removed admin {$target->getFormattedName()} from domain {$domain->getDomain()}",
+            "{$actor->getFormattedName()} removed admin {$target->getFormattedName()} from domain {$domainName}",
             $domain
         );
 

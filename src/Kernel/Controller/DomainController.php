@@ -236,7 +236,7 @@ final class DomainController extends AbstractController
         }
 
         return $this->view('domain/native-add.phtml', [
-            'pageTitle' => 'Edit Domain: ' . $domain->getDomain(),
+            'pageTitle' => 'Edit Domain: ' . $domain->requiredDomainName(),
             'formHtml'  => (new FormRenderer())->render(
                 $form,
                 '/domain/edit/did/' . $domain->requiredId(),
@@ -477,7 +477,7 @@ final class DomainController extends AbstractController
      */
     private function populateDomainForm(Form $form, \Entities\Domain $domain): void
     {
-        $form->field('domain')->setValue($domain->getDomain());
+        $form->field('domain')->setValue($domain->requiredDomainName());
         $form->field('description')->setValue($domain->getDescription());
         $form->field('transport')->setValue($domain->getTransport());
         $form->field('backupmx')->setValue((bool) $domain->getBackupmx());

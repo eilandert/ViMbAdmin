@@ -239,8 +239,9 @@ class ViMbAdmin_Service_QueueRunner
         $tpl  = (string) ($this->options['doveadm']['backup']['dest'] ?? 'maildir:/backups/%d/%u');
         $user = self::assertPathSafe($task->getUsername());
         $domainSuffix = strrchr($user, '@');
-        $dom  = $task->getDomain() ? $task->getDomain()->getDomain() : ($domainSuffix === false ? '' : substr($domainSuffix, 1));
-        $dom  = self::assertPathSafe((string) $dom);
+        $taskDomain = $task->getDomain();
+        $dom  = $taskDomain ? $taskDomain->requiredDomainName() : ($domainSuffix === false ? '' : substr($domainSuffix, 1));
+        $dom  = self::assertPathSafe($dom);
         return str_replace(['%d', '%u'], [$dom, $user], $tpl);
     }
 

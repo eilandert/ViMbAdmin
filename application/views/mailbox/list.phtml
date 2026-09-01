@@ -19,7 +19,7 @@
     	</div>
 
         <h1>
-            Mailboxes {if isset( $domain ) && $domain}<small> for {$domain->getDomain()} {if $domain->getMaxMailboxes() != 0}({$domain->getMailboxCount()}/{$domain->getMaxMailboxes()}){/if}</small>
+            Mailboxes {if isset( $domain ) && $domain}<small> for {$domain->requiredDomainName()} {if $domain->getMaxMailboxes() != 0}({$domain->getMailboxCount()}/{$domain->getMaxMailboxes()}){/if}</small>
                 <a class="btn have-tooltip-below" id="show_all_mailbox" title="Show All" href="{genUrl controller='mailbox' action='list' unset=1}">
                     <i class="icon-remove-circle"></i>
                 </a>

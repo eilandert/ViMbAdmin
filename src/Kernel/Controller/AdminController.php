@@ -509,7 +509,7 @@ final class AdminController extends AbstractController
 
         (new \ViMbAdmin_Service_Admin($this->em()))->removeDomain($target, $domain, $admin);
 
-        $this->flash('You have successfully removed the admin from domain ' . $domain->getDomain());
+        $this->flash('You have successfully removed the admin from domain ' . $domain->requiredDomainName());
         return $this->redirect('admin/domains/aid/' . $target->getId());
     }
 

@@ -270,7 +270,7 @@ final class AliasController extends AbstractController
                     // _setAddress: assemble local_part@domain (blank local part is
                     // a catch-all @domain alias, which ZF1 does not email-validate).
                     $localPart = strtolower(trim((string) $v['local_part']));
-                    $address   = sprintf('%s@%s', $localPart, $domain->getDomain());
+                    $address   = sprintf('%s@%s', $localPart, $domain->requiredDomainName());
 
                     if ($localPart !== '' && filter_var($address, FILTER_VALIDATE_EMAIL) === false) {
                         $this->flash('Invalid email address.', FlashMessages::ERROR);

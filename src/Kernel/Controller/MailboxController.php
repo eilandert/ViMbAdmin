@@ -365,7 +365,7 @@ final class MailboxController extends AbstractController
                 $this->flash('You have used all of your allocated mailboxes.', FlashMessages::ERROR);
             } else {
                 $localPart = strtolower(trim((string) $v['local_part']));
-                $username  = sprintf('%s@%s', $localPart, $domain->getDomain());
+                $username  = sprintf('%s@%s', $localPart, $domain->requiredDomainName());
 
                 if (!$this->mailboxRepository()->isUnique($username)) {
                     $this->flash("Mailbox already exists for {$username}", FlashMessages::ERROR);
@@ -1104,13 +1104,18 @@ final class MailboxController extends AbstractController
     private function sendSettingsEmail(\Entities\Mailbox $mailbox, array $recipients): bool
     {
         $options = $this->container->options();
+        $domain = $mailbox->getDomain();
+        if (!$domain instanceof \Entities\Domain) {
+            throw new \LogicException('Mailbox domain cannot be null.');
+        }
+        $domainName = $domain->requiredDomainName();
 
         $email = (new Email())
             ->from(new Address(
                 (string) ($options['server']['email']['address'] ?? 'support@localhost'),
                 (string) ($options['server']['email']['name'] ?? '')
             ))
-            ->subject(sprintf('Settings for your mailbox on %s', $mailbox->getDomain()->getDomain()));
+            ->subject(sprintf('Settings for your mailbox on %s', $domainName));
 
         foreach ($recipients as $rcpt) {
             $email->addTo($rcpt);

@@ -40,15 +40,19 @@ echo "== required domain persistence fields ==\n";
 
 $newDomain = new \Entities\Domain();
 domainRequiredFieldsCheck('pre-hydration getters preserve null',
-    $newDomain->getId() === null && $newDomain->getQuota() === null);
+    $newDomain->getId() === null && $newDomain->getQuota() === null
+        && $newDomain->getDomain() === null);
 domainRequiredFieldsCheck('required id rejects a pre-hydration domain',
     domainRequiredFieldsError($newDomain->requiredId(...)) === 'Domain id cannot be null.');
 domainRequiredFieldsCheck('required quota rejects an unset domain quota',
     domainRequiredFieldsError($newDomain->requiredQuota(...)) === 'Domain quota cannot be null.');
+domainRequiredFieldsCheck('required name rejects an unset domain name',
+    domainRequiredFieldsError($newDomain->requiredDomainName(...)) === 'Domain name cannot be null.');
 
-$initialized = domainRequiredFieldsWithId(17)->setQuota(2048);
+$initialized = domainRequiredFieldsWithId(17)->setQuota(2048)->setDomain('example.test');
 domainRequiredFieldsCheck('required fields preserve initialized values',
-    $initialized->requiredId() === 17 && $initialized->requiredQuota() === 2048);
+    $initialized->requiredId() === 17 && $initialized->requiredQuota() === 2048
+        && $initialized->requiredDomainName() === 'example.test');
 
 $admin = new \Entities\Admin();
 $assigned = domainRequiredFieldsWithId(17);

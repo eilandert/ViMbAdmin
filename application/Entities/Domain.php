@@ -233,10 +233,20 @@ class Domain
     /**
      * Get domain
      *
-     * @return string 
+     * @return string|null
      */
     public function getDomain()
     {
+        return $this->domain;
+    }
+
+    /** Return the name for operations that require an initialized domain. */
+    public function requiredDomainName(): string
+    {
+        if ($this->domain === null) {
+            throw new \LogicException('Domain name cannot be null.');
+        }
+
         return $this->domain;
     }
 

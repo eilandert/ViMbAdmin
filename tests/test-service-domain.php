@@ -130,6 +130,23 @@ check('toggleActive(false) returns true',            $res2 === true);
 check('toggleActive(false) sets domain active',      $domain2->getActive() === true);
 check('toggleActive logged ACTIVATE',                $em2->lastLog() !== null && $em2->lastLog()->getAction() === \Entities\Log::ACTION_DOMAIN_ACTIVATE);
 
+// ---- required domain name fails before mutation ------------------------ //
+$malformedEm = new FakeObjectManager();
+$malformedDomain = new \Entities\Domain();
+$malformedDomain->setActive(true);
+$malformedError = null;
+try {
+    (new ViMbAdmin_Service_Domain($malformedEm))->toggleActive($malformedDomain, $actor);
+} catch (\LogicException $e) {
+    $malformedError = $e->getMessage();
+}
+check('toggleActive rejects a null domain name', $malformedError === 'Domain name cannot be null.');
+check('toggleActive name failure precedes mutation',
+    $malformedDomain->getActive() === true
+        && $malformedDomain->getModified() === null
+        && $malformedEm->persisted === []
+        && $malformedEm->flushes === 0);
+
 // ---- assignAdmin: happy path -------------------------------------------- //
 $em3    = new FakeObjectManager();
 $svc3   = new ViMbAdmin_Service_Domain($em3);
