@@ -186,7 +186,7 @@ class Archive
     /**
      * Get status
      *
-     * @return string 
+     * @return string|null
      */
     public function getStatus()
     {
@@ -232,7 +232,7 @@ class Archive
     /**
      * Get status_changed_at
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getStatusChangedAt()
     {
@@ -255,7 +255,7 @@ class Archive
     /**
      * Get homedir_server
      *
-     * @return string 
+     * @return string|null
      */
     public function getHomedirServer()
     {
@@ -278,7 +278,7 @@ class Archive
     /**
      * Get homedir_file
      *
-     * @return string 
+     * @return string|null
      */
     public function getHomedirFile()
     {
@@ -301,7 +301,7 @@ class Archive
     /**
      * Get homedir_orig_size
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getHomedirOrigSize()
     {
@@ -324,7 +324,7 @@ class Archive
     /**
      * Get homedir_size
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getHomedirSize()
     {
@@ -347,7 +347,7 @@ class Archive
     /**
      * Get maildir_server
      *
-     * @return string 
+     * @return string|null
      */
     public function getMaildirServer()
     {
@@ -370,7 +370,7 @@ class Archive
     /**
      * Get maildir_file
      *
-     * @return string 
+     * @return string|null
      */
     public function getMaildirFile()
     {
@@ -393,7 +393,7 @@ class Archive
     /**
      * Get maildir_orig_size
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getMaildirOrigSize()
     {
@@ -416,7 +416,7 @@ class Archive
     /**
      * Get maildir_size
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getMaildirSize()
     {
@@ -439,7 +439,7 @@ class Archive
     /**
      * Get data
      *
-     * @return string 
+     * @return string|null
      */
     public function getData()
     {
@@ -472,7 +472,7 @@ class Archive
     /**
      * Get id
      *
-     * @return integer
+     * @return integer|null
      */
     public function getId()
     {
@@ -518,7 +518,7 @@ class Archive
     /**
      * Get ArchivedBy
      *
-     * @return \Entities\Admin 
+     * @return \Entities\Admin|null
      */
     public function getArchivedBy()
     {

@@ -104,7 +104,7 @@ class Log
     /**
      * Get action
      *
-     * @return string
+     * @return string|null
      */
     public function getAction()
     {
@@ -127,7 +127,7 @@ class Log
     /**
      * Get data
      *
-     * @return string
+     * @return string|null
      */
     public function getData()
     {
@@ -150,7 +150,7 @@ class Log
     /**
      * Get timestamp
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getTimestamp()
     {
@@ -160,7 +160,7 @@ class Log
     /**
      * Get id
      *
-     * @return integer
+     * @return integer|null
      */
     public function getId()
     {

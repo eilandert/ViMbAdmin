@@ -132,7 +132,7 @@ class Quota
     /**
      * Get updated_at (when Dovecot last wrote this row)
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getUpdatedAt()
     {

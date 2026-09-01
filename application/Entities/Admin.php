@@ -269,7 +269,7 @@ class Admin
     /**
      * Get active
      *
-     * @return boolean
+     * @return boolean|null
      */
     public function getActive()
     {
@@ -292,7 +292,7 @@ class Admin
     /**
      * Get created
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getCreated()
     {
@@ -315,7 +315,7 @@ class Admin
     /**
      * Get modified
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getModified()
     {
@@ -338,7 +338,7 @@ class Admin
     /**
      * Get last_login
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getLastLogin()
     {
@@ -348,7 +348,7 @@ class Admin
     /**
      * Get id
      *
-     * @return integer
+     * @return integer|null
      */
     public function getId()
     {

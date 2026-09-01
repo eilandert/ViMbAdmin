@@ -78,7 +78,7 @@ class RememberMe
     /**
      * Get userhash
      *
-     * @return string 
+     * @return string|null
      */
     public function getUserhash()
     {
@@ -101,7 +101,7 @@ class RememberMe
     /**
      * Get ckey
      *
-     * @return string 
+     * @return string|null
      */
     public function getCkey()
     {
@@ -124,7 +124,7 @@ class RememberMe
     /**
      * Get original_ip
      *
-     * @return string 
+     * @return string|null
      */
     public function getOriginalIp()
     {
@@ -147,7 +147,7 @@ class RememberMe
     /**
      * Get expires
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getExpires()
     {
@@ -170,7 +170,7 @@ class RememberMe
     /**
      * Get created
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getCreated()
     {
@@ -180,7 +180,7 @@ class RememberMe
     /**
      * Get id
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getId()
     {
@@ -203,7 +203,7 @@ class RememberMe
     /**
      * Get User
      *
-     * @return \Entities\Admin 
+     * @return \Entities\Admin|null
      */
     public function getUser()
     {
@@ -232,7 +232,7 @@ class RememberMe
     /**
      * Get last_used
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getLastUsed()
     {

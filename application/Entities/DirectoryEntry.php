@@ -216,7 +216,7 @@ class DirectoryEntry
     /**
      * Get businessCategory
      *
-     * @return string 
+     * @return string|null
      */
     public function getBusinessCategory()
     {
@@ -239,7 +239,7 @@ class DirectoryEntry
     /**
      * Get carLicense
      *
-     * @return string 
+     * @return string|null
      */
     public function getCarLicense()
     {
@@ -262,7 +262,7 @@ class DirectoryEntry
     /**
      * Get departmentNumber
      *
-     * @return string 
+     * @return string|null
      */
     public function getDepartmentNumber()
     {
@@ -285,7 +285,7 @@ class DirectoryEntry
     /**
      * Get displayName
      *
-     * @return string 
+     * @return string|null
      */
     public function getDisplayName()
     {
@@ -308,7 +308,7 @@ class DirectoryEntry
     /**
      * Get employeeNumber
      *
-     * @return string 
+     * @return string|null
      */
     public function getEmployeeNumber()
     {
@@ -331,7 +331,7 @@ class DirectoryEntry
     /**
      * Get employeeType
      *
-     * @return string 
+     * @return string|null
      */
     public function getEmployeeType()
     {
@@ -354,7 +354,7 @@ class DirectoryEntry
     /**
      * Get homePhone
      *
-     * @return string 
+     * @return string|null
      */
     public function getHomePhone()
     {
@@ -377,7 +377,7 @@ class DirectoryEntry
     /**
      * Get homePostalAddress
      *
-     * @return string 
+     * @return string|null
      */
     public function getHomePostalAddress()
     {
@@ -400,7 +400,7 @@ class DirectoryEntry
     /**
      * Get initials
      *
-     * @return string 
+     * @return string|null
      */
     public function getInitials()
     {
@@ -446,7 +446,7 @@ class DirectoryEntry
     /**
      * Get labeledURI
      *
-     * @return string 
+     * @return string|null
      */
     public function getLabeledURI()
     {
@@ -469,7 +469,7 @@ class DirectoryEntry
     /**
      * Get mail
      *
-     * @return string 
+     * @return string|null
      */
     public function getMail()
     {
@@ -492,7 +492,7 @@ class DirectoryEntry
     /**
      * Get manager
      *
-     * @return string 
+     * @return string|null
      */
     public function getManager()
     {
@@ -515,7 +515,7 @@ class DirectoryEntry
     /**
      * Get mobile
      *
-     * @return string 
+     * @return string|null
      */
     public function getMobile()
     {
@@ -538,7 +538,7 @@ class DirectoryEntry
     /**
      * Get o
      *
-     * @return string 
+     * @return string|null
      */
     public function getO()
     {
@@ -561,7 +561,7 @@ class DirectoryEntry
     /**
      * Get pager
      *
-     * @return string 
+     * @return string|null
      */
     public function getPager()
     {
@@ -584,7 +584,7 @@ class DirectoryEntry
     /**
      * Get preferredLanguage
      *
-     * @return string 
+     * @return string|null
      */
     public function getPreferredLanguage()
     {
@@ -607,7 +607,7 @@ class DirectoryEntry
     /**
      * Get roomNumber
      *
-     * @return string 
+     * @return string|null
      */
     public function getRoomNumber()
     {
@@ -630,7 +630,7 @@ class DirectoryEntry
     /**
      * Get secretary
      *
-     * @return string 
+     * @return string|null
      */
     public function getSecretary()
     {
@@ -653,7 +653,7 @@ class DirectoryEntry
     /**
      * Get personalTitle
      *
-     * @return string 
+     * @return string|null
      */
     public function getPersonalTitle()
     {
@@ -676,7 +676,7 @@ class DirectoryEntry
     /**
      * Get sn
      *
-     * @return string 
+     * @return string|null
      */
     public function getSn()
     {
@@ -699,7 +699,7 @@ class DirectoryEntry
     /**
      * Get ou
      *
-     * @return string 
+     * @return string|null
      */
     public function getOu()
     {
@@ -722,7 +722,7 @@ class DirectoryEntry
     /**
      * Get title
      *
-     * @return string 
+     * @return string|null
      */
     public function getTitle()
     {
@@ -745,7 +745,7 @@ class DirectoryEntry
     /**
      * Get facsimileTelephoneNumber
      *
-     * @return string 
+     * @return string|null
      */
     public function getFacsimileTelephoneNumber()
     {
@@ -768,7 +768,7 @@ class DirectoryEntry
     /**
      * Get givenName
      *
-     * @return string 
+     * @return string|null
      */
     public function getGivenName()
     {
@@ -791,7 +791,7 @@ class DirectoryEntry
     /**
      * Get telephoneNumber
      *
-     * @return string 
+     * @return string|null
      */
     public function getTelephoneNumber()
     {
@@ -814,7 +814,7 @@ class DirectoryEntry
     /**
      * Get vimb_created
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getVimbCreated()
     {
@@ -837,7 +837,7 @@ class DirectoryEntry
     /**
      * Get vimb_update
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getVimbUpdate()
     {
@@ -847,7 +847,7 @@ class DirectoryEntry
     /**
      * Get id
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getId()
     {
@@ -870,7 +870,7 @@ class DirectoryEntry
     /**
      * Get Mailbox
      *
-     * @return \Entities\Mailbox 
+     * @return \Entities\Mailbox|null
      */
     public function getMailbox()
     {

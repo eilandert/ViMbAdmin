@@ -178,7 +178,7 @@ class Alias
     /**
      * Get active
      *
-     * @return boolean 
+     * @return boolean|null
      */
     public function getActive()
     {
@@ -201,7 +201,7 @@ class Alias
     /**
      * Get created
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getCreated()
     {
@@ -224,7 +224,7 @@ class Alias
     /**
      * Get modified
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getModified()
     {
@@ -234,7 +234,7 @@ class Alias
     /**
      * Get id
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getId()
     {

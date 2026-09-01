@@ -13,36 +13,6 @@ parameters:
 			path: application/Entities/Admin.php
 
 		-
-			message: '#^Method Entities\\Admin\:\:getActive\(\) should return bool but returns bool\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getCreated\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getId\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getLastLogin\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getModified\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
 			message: '#^Method Entities\\Admin\:\:getPassword\(\) should return string but returns string\|null\.$#'
 			identifier: return.type
 			count: 1
@@ -73,25 +43,7 @@ parameters:
 			path: application/Entities/AdminPreference.php
 
 		-
-			message: '#^Method Entities\\AdminPreference\:\:getExpire\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^Method Entities\\AdminPreference\:\:getId\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
 			message: '#^Method Entities\\AdminPreference\:\:getIx\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^Method Entities\\AdminPreference\:\:getOp\(\) should return string but returns string\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Entities/AdminPreference.php
@@ -115,19 +67,7 @@ parameters:
 			path: application/Entities/Alias.php
 
 		-
-			message: '#^Method Entities\\Alias\:\:getActive\(\) should return bool but returns bool\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
 			message: '#^Method Entities\\Alias\:\:getAddress\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\Alias\:\:getCreated\(\) should return DateTime but returns DateTime\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Entities/Alias.php
@@ -139,28 +79,10 @@ parameters:
 			path: application/Entities/Alias.php
 
 		-
-			message: '#^Method Entities\\Alias\:\:getId\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\Alias\:\:getModified\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
 			message: '#^Parameter \#1 \$config of method Entities\\Alias\:\:_processKey\(\) expects array\<int\|string, mixed\>, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\AliasPreference\:\:getAlias\(\) should return Entities\\Alias but returns Entities\\Alias\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AliasPreference.php
 
 		-
 			message: '#^Method Entities\\AliasPreference\:\:getAttribute\(\) should return string but returns string\|null\.$#'
@@ -169,25 +91,7 @@ parameters:
 			path: application/Entities/AliasPreference.php
 
 		-
-			message: '#^Method Entities\\AliasPreference\:\:getExpire\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AliasPreference.php
-
-		-
-			message: '#^Method Entities\\AliasPreference\:\:getId\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AliasPreference.php
-
-		-
 			message: '#^Method Entities\\AliasPreference\:\:getIx\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AliasPreference.php
-
-		-
-			message: '#^Method Entities\\AliasPreference\:\:getOp\(\) should return string but returns string\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Entities/AliasPreference.php
@@ -205,85 +109,7 @@ parameters:
 			path: application/Entities/Archive.php
 
 		-
-			message: '#^Method Entities\\Archive\:\:getArchivedBy\(\) should return Entities\\Admin but returns Entities\\Admin\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getData\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
 			message: '#^Method Entities\\Archive\:\:getDomain\(\) should return Entities\\Domain but returns Entities\\Domain\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getHomedirFile\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getHomedirOrigSize\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getHomedirServer\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getHomedirSize\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getId\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getMaildirFile\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getMaildirOrigSize\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getMaildirServer\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getMaildirSize\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getStatus\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getStatusChangedAt\(\) should return DateTime but returns DateTime\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Entities/Archive.php
@@ -295,205 +121,7 @@ parameters:
 			path: application/Entities/Archive.php
 
 		-
-			message: '#^Method Entities\\DatabaseVersion\:\:getAppliedOn\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DatabaseVersion.php
-
-		-
-			message: '#^Method Entities\\DatabaseVersion\:\:getId\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DatabaseVersion.php
-
-		-
-			message: '#^Method Entities\\DatabaseVersion\:\:getName\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DatabaseVersion.php
-
-		-
-			message: '#^Method Entities\\DatabaseVersion\:\:getVersion\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DatabaseVersion.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getBusinessCategory\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getCarLicense\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getDepartmentNumber\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getDisplayName\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getEmployeeNumber\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getEmployeeType\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getFacsimileTelephoneNumber\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getGivenName\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getHomePhone\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getHomePostalAddress\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getId\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getInitials\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
 			message: '#^Method Entities\\DirectoryEntry\:\:getJpegPhoto\(\) should return stdClass but returns stdClass\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getLabeledURI\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getMail\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getMailbox\(\) should return Entities\\Mailbox but returns Entities\\Mailbox\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getManager\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getMobile\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getO\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getOu\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getPager\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getPersonalTitle\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getPreferredLanguage\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getRoomNumber\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getSecretary\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getSn\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getTelephoneNumber\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getTitle\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getVimbCreated\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getVimbUpdate\(\) should return DateTime but returns DateTime\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Entities/DirectoryEntry.php
@@ -511,43 +139,7 @@ parameters:
 			path: application/Entities/Domain.php
 
 		-
-			message: '#^Method Entities\\Domain\:\:getActive\(\) should return bool but returns bool\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getBackupmx\(\) should return bool but returns bool\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getCreated\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getDescription\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
 			message: '#^Method Entities\\Domain\:\:getDomain\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getGid\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getHomedir\(\) should return string but returns string\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Entities/Domain.php
@@ -559,49 +151,7 @@ parameters:
 			path: application/Entities/Domain.php
 
 		-
-			message: '#^Method Entities\\Domain\:\:getMaildir\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getMaxAliases\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getMaxMailboxes\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getMaxQuota\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getModified\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
 			message: '#^Method Entities\\Domain\:\:getQuota\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getTransport\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Domain.php
-
-		-
-			message: '#^Method Entities\\Domain\:\:getUid\(\) should return int but returns int\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Entities/Domain.php
@@ -619,31 +169,7 @@ parameters:
 			path: application/Entities/DomainPreference.php
 
 		-
-			message: '#^Method Entities\\DomainPreference\:\:getDomain\(\) should return Entities\\Domain but returns Entities\\Domain\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DomainPreference.php
-
-		-
-			message: '#^Method Entities\\DomainPreference\:\:getExpire\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DomainPreference.php
-
-		-
-			message: '#^Method Entities\\DomainPreference\:\:getId\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DomainPreference.php
-
-		-
 			message: '#^Method Entities\\DomainPreference\:\:getIx\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DomainPreference.php
-
-		-
-			message: '#^Method Entities\\DomainPreference\:\:getOp\(\) should return string but returns string\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Entities/DomainPreference.php
@@ -653,30 +179,6 @@ parameters:
 			identifier: return.type
 			count: 1
 			path: application/Entities/DomainPreference.php
-
-		-
-			message: '#^Method Entities\\Log\:\:getAction\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^Method Entities\\Log\:\:getData\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^Method Entities\\Log\:\:getId\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Log.php
-
-		-
-			message: '#^Method Entities\\Log\:\:getTimestamp\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Log.php
 
 		-
 			message: '#^Method Entities\\Mailbox\:\:_getPreferences\(\) should return list\<Entities\\MailboxPreference\> but returns mixed\.$#'
@@ -691,67 +193,13 @@ parameters:
 			path: application/Entities/Mailbox.php
 
 		-
-			message: '#^Method Entities\\Mailbox\:\:getActive\(\) should return bool but returns bool\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:getAltEmail\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:getCreated\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:getDeletePending\(\) should return bool but returns bool\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
 			message: '#^Method Entities\\Mailbox\:\:getDirectoryEntry\(\) should return Entities\\DirectoryEntry but returns Entities\\DirectoryEntry\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Entities/Mailbox.php
 
 		-
-			message: '#^Method Entities\\Mailbox\:\:getId\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:getLocalPart\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:getModified\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:getName\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
 			message: '#^Method Entities\\Mailbox\:\:getPassword\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\Mailbox\:\:getQuota\(\) should return int but returns int\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Entities/Mailbox.php
@@ -775,25 +223,7 @@ parameters:
 			path: application/Entities/MailboxPreference.php
 
 		-
-			message: '#^Method Entities\\MailboxPreference\:\:getExpire\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/MailboxPreference.php
-
-		-
-			message: '#^Method Entities\\MailboxPreference\:\:getId\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/MailboxPreference.php
-
-		-
 			message: '#^Method Entities\\MailboxPreference\:\:getIx\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/MailboxPreference.php
-
-		-
-			message: '#^Method Entities\\MailboxPreference\:\:getOp\(\) should return string but returns string\|null\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Entities/MailboxPreference.php
@@ -815,60 +245,6 @@ parameters:
 			identifier: return.type
 			count: 1
 			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\Quota\:\:getUpdatedAt\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Quota.php
-
-		-
-			message: '#^Method Entities\\RememberMe\:\:getCkey\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/RememberMe.php
-
-		-
-			message: '#^Method Entities\\RememberMe\:\:getCreated\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/RememberMe.php
-
-		-
-			message: '#^Method Entities\\RememberMe\:\:getExpires\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/RememberMe.php
-
-		-
-			message: '#^Method Entities\\RememberMe\:\:getId\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/RememberMe.php
-
-		-
-			message: '#^Method Entities\\RememberMe\:\:getLastUsed\(\) should return DateTime but returns DateTime\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/RememberMe.php
-
-		-
-			message: '#^Method Entities\\RememberMe\:\:getOriginalIp\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/RememberMe.php
-
-		-
-			message: '#^Method Entities\\RememberMe\:\:getUser\(\) should return Entities\\Admin but returns Entities\\Admin\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/RememberMe.php
-
-		-
-			message: '#^Method Entities\\RememberMe\:\:getUserhash\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/RememberMe.php
 
 		-
 			message: '#^Cannot call method andWhere\(\) on mixed\.$#'

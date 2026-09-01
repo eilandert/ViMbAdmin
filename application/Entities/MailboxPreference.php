@@ -125,7 +125,7 @@ class MailboxPreference
     /**
      * Get op
      *
-     * @return string 
+     * @return string|null
      */
     public function getOp()
     {
@@ -171,7 +171,7 @@ class MailboxPreference
     /**
      * Get expire
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getExpire()
     {
@@ -181,7 +181,7 @@ class MailboxPreference
     /**
      * Get id
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getId()
     {

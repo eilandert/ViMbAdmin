@@ -256,7 +256,7 @@ class Domain
     /**
      * Get description
      *
-     * @return string 
+     * @return string|null
      */
     public function getDescription()
     {
@@ -322,7 +322,7 @@ class Domain
     /**
      * Get transport
      *
-     * @return string 
+     * @return string|null
      */
     public function getTransport()
     {
@@ -345,7 +345,7 @@ class Domain
     /**
      * Get backupmx
      *
-     * @return boolean 
+     * @return boolean|null
      */
     public function getBackupmx()
     {
@@ -368,7 +368,7 @@ class Domain
     /**
      * Get active
      *
-     * @return boolean 
+     * @return boolean|null
      */
     public function getActive()
     {
@@ -391,7 +391,7 @@ class Domain
     /**
      * Get homedir
      *
-     * @return string 
+     * @return string|null
      */
     public function getHomedir()
     {
@@ -414,7 +414,7 @@ class Domain
     /**
      * Get maildir
      *
-     * @return string 
+     * @return string|null
      */
     public function getMaildir()
     {
@@ -437,7 +437,7 @@ class Domain
     /**
      * Get uid
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getUid()
     {
@@ -460,7 +460,7 @@ class Domain
     /**
      * Get gid
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getGid()
     {
@@ -483,7 +483,7 @@ class Domain
     /**
      * Get created
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getCreated()
     {
@@ -506,7 +506,7 @@ class Domain
     /**
      * Get modified
      *
-     * @return \DateTime 
+     * @return \DateTime|null
      */
     public function getModified()
     {
@@ -657,7 +657,7 @@ class Domain
     /**
      * Get max_aliases
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getMaxAliases()
     {
@@ -680,7 +680,7 @@ class Domain
     /**
      * Get max_mailboxes
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getMaxMailboxes()
     {
@@ -705,7 +705,7 @@ class Domain
     /**
      * Get max_quota
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getMaxQuota()
     {

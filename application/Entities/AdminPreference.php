@@ -123,7 +123,7 @@ class AdminPreference
     /**
      * Get op
      *
-     * @return string 
+     * @return string|null
      */
     public function getOp()
     {
@@ -169,7 +169,7 @@ class AdminPreference
     /**
      * Get expire
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getExpire()
     {
@@ -179,7 +179,7 @@ class AdminPreference
     /**
      * Get id
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getId()
     {

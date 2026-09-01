@@ -214,7 +214,7 @@ class Mailbox
     /**
      * Get name
      *
-     * @return string
+     * @return string|null
      */
     public function getName()
     {
@@ -237,7 +237,7 @@ class Mailbox
     /**
      * Get alt_email
      *
-     * @return string
+     * @return string|null
      */
     public function getAltEmail()
     {
@@ -260,7 +260,7 @@ class Mailbox
     /**
      * Get quota
      *
-     * @return integer
+     * @return integer|null
      */
     public function getQuota()
     {
@@ -283,7 +283,7 @@ class Mailbox
     /**
      * Get local_part
      *
-     * @return string
+     * @return string|null
      */
     public function getLocalPart()
     {
@@ -306,7 +306,7 @@ class Mailbox
     /**
      * Get active
      *
-     * @return boolean
+     * @return boolean|null
      */
     public function getActive()
     {
@@ -352,7 +352,7 @@ class Mailbox
     /**
      * Get created
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getCreated()
     {
@@ -375,7 +375,7 @@ class Mailbox
     /**
      * Get modified
      *
-     * @return \DateTime
+     * @return \DateTime|null
      */
     public function getModified()
     {
@@ -385,7 +385,7 @@ class Mailbox
     /**
      * Get id
      *
-     * @return integer
+     * @return integer|null
      */
     public function getId()
     {
@@ -544,7 +544,7 @@ class Mailbox
     /**
      * Get delete_pending
      *
-     * @return boolean
+     * @return boolean|null
      */
     public function getDeletePending()
     {

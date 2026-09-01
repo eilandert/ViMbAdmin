@@ -125,7 +125,7 @@ class DomainPreference
     /**
      * Get op
      *
-     * @return string 
+     * @return string|null
      */
     public function getOp()
     {
@@ -171,7 +171,7 @@ class DomainPreference
     /**
      * Get expire
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getExpire()
     {
@@ -181,7 +181,7 @@ class DomainPreference
     /**
      * Get id
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getId()
     {
@@ -204,7 +204,7 @@ class DomainPreference
     /**
      * Get Domain
      *
-     * @return \Entities\Domain 
+     * @return \Entities\Domain|null
      */
     public function getDomain()
     {
