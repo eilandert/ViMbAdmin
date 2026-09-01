@@ -72,10 +72,29 @@ final class RecordingAlias extends \Entities\Alias
     }
 }
 
+final class InvalidAliasHookState
+{
+    private static bool $ran = false;
+
+    public static function reset(): void { self::$ran = false; }
+    public static function markRan(): void { self::$ran = true; }
+    public static function ran(): bool { return self::$ran; }
+}
+
 $failures = 0;
 function check(string $label, bool $ok): void {
     echo ($ok ? "  ok   " : "  FAIL ") . $label . "\n";
     if (!$ok) { $GLOBALS['failures']++; }
+}
+
+function aliasOperationThrows(string $message, \Closure $operation): bool {
+    try {
+        $operation();
+    } catch (\LogicException $exception) {
+        return $exception->getMessage() === $message;
+    }
+
+    return false;
 }
 
 echo "== ViMbAdmin_Service_Alias ==\n";
@@ -86,6 +105,7 @@ $actor->setUsername('admin@example.com');
 $mkAlias = static function (bool $active): \Entities\Alias {
     $al = new \Entities\Alias();
     $al->setAddress("alias@example.com");
+    $al->setGoto("target@example.com");
     $al->setActive($active ? 1 : 0);
     return $al;
 };
@@ -136,12 +156,63 @@ check('veto leaves alias unchanged',        (bool) $al3->getActive() === true);
 check('veto does NOT flush',                  $em3->flushes === 0);
 check('veto writes no log',                   $em3->lastLog() === null);
 
+// --- required identity fails before hooks or mutations --------------- //
+$emInvalidToggle = new FakeObjectManager();
+$invalidToggle = new \Entities\Alias();
+$invalidToggle->setGoto('target@example.com');
+$invalidToggle->setActive(false);
+InvalidAliasHookState::reset();
+check(
+    'toggle rejects a null alias address',
+    aliasOperationThrows(
+        'Alias address cannot be null.',
+        static fn (): mixed => (new ViMbAdmin_Service_Alias($emInvalidToggle))->toggleActive(
+            $invalidToggle,
+            $actor,
+            static function (): bool {
+                InvalidAliasHookState::markRan();
+                return true;
+            },
+        ),
+    ),
+);
+check(
+    'toggle identity failure has no side effects',
+    $invalidToggle->getActive() === false
+        && $invalidToggle->getModified() === null
+        && !InvalidAliasHookState::ran()
+        && $emInvalidToggle->persisted === []
+        && $emInvalidToggle->flushes === 0,
+);
+
 $mkDomain = static function (int $count): \Entities\Domain {
     $d = new \Entities\Domain();
     $d->setDomain('example.com');
     $d->setAliasCount($count);
     return $d;
 };
+
+$emInvalidCreate = new FakeObjectManager();
+$invalidCreateDomain = $mkDomain(6);
+$invalidCreate = (new \Entities\Alias())->setAddress('invalid@example.com');
+check(
+    'create rejects a null alias goto',
+    aliasOperationThrows(
+        'Alias goto cannot be null.',
+        static fn (): mixed => (new ViMbAdmin_Service_Alias($emInvalidCreate))->create(
+            $invalidCreate,
+            $invalidCreateDomain,
+            $actor,
+        ),
+    ),
+);
+check(
+    'create identity failure has no side effects',
+    $emInvalidCreate->persisted === []
+        && $emInvalidCreate->flushes === 0
+        && $invalidCreateDomain->getAliasCount() === 6
+        && $invalidCreate->getDomain() === null,
+);
 
 // --- create: forwarding alias (address != goto) bumps the count ------- //
 $emC = new FakeObjectManager();
@@ -220,6 +291,25 @@ check('update did NOT touch aliasCount',      (int) $domU->getAliasCount() === 9
 check('update did NOT persist (edit only)',   $emU->countPersisted(\Entities\Alias::class) === 0);
 check('update hook order around flush',       $orderU === ['preFlush:0', 'postFlush:1']);
 
+$emInvalidUpdate = new FakeObjectManager();
+$invalidUpdate = (new \Entities\Alias())->setGoto('target@example.com');
+check(
+    'update rejects a null alias address',
+    aliasOperationThrows(
+        'Alias address cannot be null.',
+        static fn (): mixed => (new ViMbAdmin_Service_Alias($emInvalidUpdate))->update(
+            $invalidUpdate,
+            $actor,
+        ),
+    ),
+);
+check(
+    'update identity failure has no side effects',
+    $invalidUpdate->getModified() === null
+        && $emInvalidUpdate->persisted === []
+        && $emInvalidUpdate->flushes === 0,
+);
+
 // --- delete: forwarding alias, hooks fire, count decrements ----------- //
 $emD = new FakeObjectManager();
 $domD = $mkDomain(5);
@@ -240,6 +330,30 @@ check('delete decremented aliasCount',        (int) $domD->getAliasCount() === 4
 check('delete logged ACTION_ALIAS_DELETE',    $emD->lastLog()?->getAction() === \Entities\Log::ACTION_ALIAS_DELETE);
 check('delete flushed once',                  $emD->flushes === 1);
 check('delete hook order',                    $orderD === ['preRemove', 'preFlush', 'postFlush']);
+
+$emInvalidDelete = new FakeObjectManager();
+$invalidDeleteDomain = $mkDomain(8);
+$invalidDelete = (new \Entities\Alias())
+    ->setAddress('invalid@example.com')
+    ->setDomain($invalidDeleteDomain);
+$invalidDelete->addPreference(new \Entities\AliasPreference());
+check(
+    'delete rejects a null alias goto',
+    aliasOperationThrows(
+        'Alias goto cannot be null.',
+        static fn (): mixed => (new ViMbAdmin_Service_Alias($emInvalidDelete))->delete(
+            $invalidDelete,
+            $actor,
+        ),
+    ),
+);
+check(
+    'delete identity failure has no side effects',
+    $emInvalidDelete->removed === []
+        && $emInvalidDelete->persisted === []
+        && $emInvalidDelete->flushes === 0
+        && $invalidDeleteDomain->getAliasCount() === 8,
+);
 
 // --- delete: self-alias does NOT touch the count ---------------------- //
 $emDS = new FakeObjectManager();

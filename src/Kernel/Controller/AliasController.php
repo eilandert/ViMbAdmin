@@ -353,8 +353,9 @@ final class AliasController extends AbstractController
             return $this->redirect('alias/list');
         }
 
-        $options = $this->container->options();
-        $form    = $this->buildAliasEditForm($alias);
+        $identity = $this->requiredAliasIdentity($alias);
+        $options  = $this->container->options();
+        $form     = $this->buildAliasEditForm($identity['goto']);
 
         if ($this->isPost() && $form->isValid($this->postData())) {
             $v = $form->values();
@@ -392,7 +393,7 @@ final class AliasController extends AbstractController
 
         return $this->view('alias/native-add.phtml', [
             'formHtml'  => (new FormRenderer())->render($form, '/alias/edit/alid/' . $alias->getId(), 'Save'),
-            'pageTitle' => 'Edit Alias: ' . $alias->getAddress(),
+            'pageTitle' => 'Edit Alias: ' . $identity['address'],
         ]);
     }
 
@@ -498,15 +499,31 @@ final class AliasController extends AbstractController
      * domain are dropped on edit, matching ZF1), prefilled from the entity — the
      * stored comma-joined goto list shown one address per line.
      */
-    private function buildAliasEditForm(\Entities\Alias $alias): Form
+    private function buildAliasEditForm(string $aliasGoto): Form
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
 
         $goto = new Field('goto', 'Goto (one address per line)', 'textarea');
-        $goto->setValue(implode("\n", array_filter(array_map('trim', explode(',', (string) $alias->getGoto())))));
+        $goto->setValue(implode("\n", array_filter(array_map('trim', explode(',', $aliasGoto)))));
         $form->add($goto);
 
         return $form;
+    }
+
+    /** @return array{address:string,goto:string} */
+    private function requiredAliasIdentity(\Entities\Alias $alias): array
+    {
+        $address = $alias->getAddress();
+        if ($address === null) {
+            throw new \LogicException('Alias address cannot be null.');
+        }
+
+        $goto = $alias->getGoto();
+        if ($goto === null) {
+            throw new \LogicException('Alias goto cannot be null.');
+        }
+
+        return ['address' => $address, 'goto' => $goto];
     }
 
     /**

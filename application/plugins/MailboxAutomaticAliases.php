@@ -94,6 +94,20 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
            ? $options['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultMapping'] : [];
     }
 
+    /** @return array{address:string,goto:string} */
+    private function requiredAliasIdentity( \Entities\Alias $alias ): array
+    {
+        $address = $alias->getAddress();
+        if( $address === null )
+            throw new \LogicException( 'Alias address cannot be null.' );
+
+        $goto = $alias->getGoto();
+        if( $goto === null )
+            throw new \LogicException( 'Alias goto cannot be null.' );
+
+        return [ 'address' => $address, 'goto' => $goto ];
+    }
+
     /**
      * Create automatic aliases after a mailbox was created
      *
@@ -120,9 +134,10 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
 
                 // create automatic alias
                 $alias = $this->createAutomaticAlias( $controller, $item, $mailbox );
+                $identity = $this->requiredAliasIdentity( $alias );
 
                 $message = _( 'Auto-created alias %s -> %s.' );
-                $controller->addMessage( sprintf( $message, $alias->getAddress(), $alias->getGoto() ) );
+                $controller->addMessage( sprintf( $message, $identity['address'], $identity['goto'] ) );
             }
         }
     }
@@ -207,9 +222,11 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
     public function alias_add_addPostflush( ViMbAdmin_Plugin_AliasContext $controller, $options )
     {
         $domain = $controller->getDomain()->getDomain();
-        $aliasAddress = $controller->getAlias()->getAddress();
 
         if( $this->defaultAliases ) {
+            $identity = $this->requiredAliasIdentity( $controller->getAlias() );
+            $aliasAddress = $identity['address'];
+
             // no default aliases are required to exist if the whole domain is aliased
             if( $this->hasActiveDomainAlias( $controller ) ) {
                 return;
@@ -224,9 +241,10 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
 
                 // create automatic alias
                 $alias = $this->createAutomaticAlias( $controller, $item, $aliasAddress );
+                $automaticIdentity = $this->requiredAliasIdentity( $alias );
 
                 $message = _( 'Auto-created alias %s -> %s.' );
-                $controller->addMessage( sprintf( $message, $alias->getAddress(), $alias->getGoto() ) );
+                $controller->addMessage( sprintf( $message, $automaticIdentity['address'], $automaticIdentity['goto'] ) );
             }
         }
     }
@@ -242,9 +260,11 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
     public function alias_delete_preRemove( ViMbAdmin_Plugin_AliasContext $controller, $options )
     {
         $domain = $controller->getDomain()->getDomain();
-        $aliasAddress = $controller->getAlias()->getAddress();
 
         if( $this->defaultAliases ) {
+            $identity = $this->requiredAliasIdentity( $controller->getAlias() );
+            $aliasAddress = $identity['address'];
+
             // if we're about to delete a domain alias, ensure that distinct automatic aliases exist
             if( '@' . $domain === $aliasAddress ) {
                 foreach( $this->defaultAliases as $item ) {
@@ -301,9 +321,11 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
     public function alias_toggleActive_preToggle( ViMbAdmin_Plugin_AliasContext $controller, $options )
     {
         $domain = $controller->getDomain()->getDomain();
-        $aliasAddress = $controller->getAlias()->getAddress();
 
         if( $options['active'] && $this->defaultAliases ) {
+            $identity = $this->requiredAliasIdentity( $controller->getAlias() );
+            $aliasAddress = $identity['address'];
+
             // if we're about to disable a domain alias, ensure that distinct automatic aliases exist
             if( '@' . $domain === $aliasAddress ) {
                 foreach( $this->defaultAliases as $item ) {

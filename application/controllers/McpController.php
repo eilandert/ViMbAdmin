@@ -153,12 +153,29 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $domain = $this->_requireDomain( $params );
         $out = [];
         foreach( $this->em()->getRepository( '\\Entities\\Alias' )->findBy( [ 'Domain' => $domain ] ) as $a )
+        {
+            $identity = $this->requiredAliasIdentity( $a );
             $out[] = [
-                'address' => $a->getAddress(),
-                'goto'    => $a->getGoto(),
+                'address' => $identity['address'],
+                'goto'    => $identity['goto'],
                 'active'  => (bool) $a->getActive(),
             ];
+        }
         return [ 'domain' => $domain->getDomain(), 'aliases' => $out ];
+    }
+
+    /** @return array{address:string,goto:string} */
+    private function requiredAliasIdentity( \Entities\Alias $alias ): array
+    {
+        $address = $alias->getAddress();
+        if( $address === null )
+            throw new \LogicException( 'Alias address cannot be null.' );
+
+        $goto = $alias->getGoto();
+        if( $goto === null )
+            throw new \LogicException( 'Alias goto cannot be null.' );
+
+        return [ 'address' => $address, 'goto' => $goto ];
     }
 
     // ---- write abilities (scope: write) --------------------------------

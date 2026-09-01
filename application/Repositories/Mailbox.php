@@ -17,6 +17,22 @@ use Doctrine\ORM\QueryBuilder;
  */
 class Mailbox extends EntityRepository
 {
+    /** @return array{address:string,goto:string} */
+    private function requiredAliasIdentity(\Entities\Alias $alias): array
+    {
+        $address = $alias->getAddress();
+        if ($address === null) {
+            throw new \LogicException('Alias address cannot be null.');
+        }
+
+        $goto = $alias->getGoto();
+        if ($goto === null) {
+            throw new \LogicException('Alias goto cannot be null.');
+        }
+
+        return ['address' => $address, 'goto' => $goto];
+    }
+
     /**
      * Load mailboxes for admin.
      *
@@ -292,18 +308,26 @@ class Mailbox extends EntityRepository
         $aliases = $aliasRepository->loadForMailbox( $mailbox, $admin, true );
         $inAliases = $aliasRepository->loadWithMailbox( $mailbox, $admin );
 
+        /** @var array<int,array{address:string,goto:string}> $aliasIdentities */
+        $aliasIdentities = [];
+        foreach( $aliases as $alias )
+            $aliasIdentities[ spl_object_id( $alias ) ] = $this->requiredAliasIdentity( $alias );
+        foreach( $inAliases as $alias )
+            $aliasIdentities[ spl_object_id( $alias ) ] = $this->requiredAliasIdentity( $alias );
+
         foreach( $mailbox->getPreferences() as $pref )
             $this->getEntityManager()->remove( $pref );
 
         //this won't delete the alias entry where address == goto
         foreach( $aliases as $alias )
         {
-            $this->_removeAlias( $alias );
+            $this->_removeAlias( $alias, $aliasIdentities[ spl_object_id( $alias ) ] );
         }
 
         foreach( $inAliases as $alias )
         {
-            $gotos = explode( ',', $alias->getGoto() );
+            $identity = $aliasIdentities[ spl_object_id( $alias ) ];
+            $gotos = explode( ',', $identity['goto'] );
 
             foreach( $gotos as $key => $goto )
             {
@@ -314,7 +338,7 @@ class Mailbox extends EntityRepository
             }
 
             if( sizeof( $gotos ) == 0 )
-                $this->_removeAlias( $alias );
+                $this->_removeAlias( $alias, $identity );
             else
                 $alias->setGoto( implode( ',', $gotos ) );
         }
@@ -334,16 +358,17 @@ class Mailbox extends EntityRepository
      * if alias goto field is not equal to alias address field.
      *
      * @param \Entities\Alias $alias Alias to remove.
+     * @param array{address:string,goto:string} $identity Validated alias identity.
      * @return bool
      */
-    private function _removeAlias( $alias )
+    private function _removeAlias( $alias, array $identity )
     {
         foreach( $alias->getPreferences() as $pref )
             $this->getEntityManager()->remove( $pref );
 
         $this->getEntityManager()->remove( $alias );
 
-        if( $alias->getGoto() != $alias->getAddress() )
+        if( $identity['goto'] != $identity['address'] )
             $alias->getDomain()->decreaseAliasCount();
 
         return true;

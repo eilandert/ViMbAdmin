@@ -596,15 +596,16 @@ final class MailboxController extends AbstractController
             return $this->redirect('mailbox/list');
         }
 
-        $user = $mailbox->getUsername();
+        $identity = $this->requiredAliasIdentity($alias);
+        $user     = $mailbox->getUsername();
 
-        if ($user === $alias->getGoto()) {
+        if ($user === $identity['goto']) {
             $em->remove($alias);
-            $this->logAlias($admin, "removed alias {$alias->getAddress()}");
+            $this->logAlias($admin, "removed alias {$identity['address']}");
             $alias->getDomain()->setAliasCount($alias->getDomain()->getAliasCount() - 1);
             $this->flash('You have successfully removed the alias.');
         } else {
-            $gotos = explode(',', (string) $alias->getGoto());
+            $gotos = explode(',', $identity['goto']);
             foreach ($gotos as $key => $item) {
                 $gotos[$key] = $item = trim($item);
                 if ($item === $user || $item === '') {
@@ -612,12 +613,28 @@ final class MailboxController extends AbstractController
                 }
             }
             $alias->setGoto(implode(',', $gotos));
-            $this->logAlias($admin, "removed destination {$user} from alias {$alias->getAddress()}");
-            $this->flash("You have successfully removed {$user} from the alias {$alias->getAddress()}.");
+            $this->logAlias($admin, "removed destination {$user} from alias {$identity['address']}");
+            $this->flash("You have successfully removed {$user} from the alias {$identity['address']}.");
         }
 
         $em->flush();
         return $this->redirect('mailbox/aliases/mid/' . $mailbox->getId());
+    }
+
+    /** @return array{address:string,goto:string} */
+    private function requiredAliasIdentity(\Entities\Alias $alias): array
+    {
+        $address = $alias->getAddress();
+        if ($address === null) {
+            throw new \LogicException('Alias address cannot be null.');
+        }
+
+        $goto = $alias->getGoto();
+        if ($goto === null) {
+            throw new \LogicException('Alias goto cannot be null.');
+        }
+
+        return ['address' => $address, 'goto' => $goto];
     }
 
     /** Write an ALIAS_DELETE audit row. */

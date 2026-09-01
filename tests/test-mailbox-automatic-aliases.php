@@ -23,6 +23,7 @@ spl_autoload_register(static function (string $class): void {
 require __DIR__ . '/../library/OSS/Plugin/Observer.php';
 require __DIR__ . '/../library/ViMbAdmin/Plugin.php';
 require __DIR__ . '/../library/ViMbAdmin/Plugin/MutationContext.php';
+require __DIR__ . '/../library/ViMbAdmin/Plugin/AliasContext.php';
 require __DIR__ . '/../library/ViMbAdmin/Plugin/MailboxContext.php';
 require __DIR__ . '/../application/plugins/MailboxAutomaticAliases.php';
 
@@ -105,10 +106,43 @@ final class AutomaticAliasMailboxContext implements ViMbAdmin_Plugin_MailboxCont
     public function addMessage(mixed $message, mixed $class = null, mixed $type = null): void { $this->messages[] = $message; }
 }
 
+final class AutomaticAliasAliasContext implements ViMbAdmin_Plugin_AliasContext
+{
+    /** @var list<mixed> */
+    public array $messages = [];
+
+    /** @param array<string, mixed> $options */
+    public function __construct(
+        private array $options,
+        private AutomaticAliasEntityManager $entityManager,
+        private \Entities\Admin $admin,
+        private \Entities\Domain $domain,
+        private \Entities\Alias $alias,
+    ) {}
+
+    /** @return array<string, mixed> */
+    public function getOptions(): array { return $this->options; }
+    public function getD2EM(): AutomaticAliasEntityManager { return $this->entityManager; }
+    public function getAdmin(): \Entities\Admin { return $this->admin; }
+    public function getDomain(): \Entities\Domain { return $this->domain; }
+    public function getAlias(): \Entities\Alias { return $this->alias; }
+    public function addMessage(mixed $message, mixed $class = null, mixed $type = null): void { $this->messages[] = $message; }
+}
+
 $failures = 0;
 function checkAutomaticAlias(string $label, bool $ok): int {
     echo ($ok ? '  ok   ' : '  FAIL ') . $label . "\n";
     return $ok ? 0 : 1;
+}
+
+function automaticAliasThrows(string $message, \Closure $operation): bool {
+    try {
+        $operation();
+    } catch (\LogicException $exception) {
+        return $exception->getMessage() === $message;
+    }
+
+    return false;
 }
 
 function makeContext(AutomaticAliasRepository $repository): AutomaticAliasMailboxContext {
@@ -126,6 +160,20 @@ function makeContext(AutomaticAliasRepository $repository): AutomaticAliasMailbo
     );
 }
 
+function makeAliasContext(AutomaticAliasRepository $repository, \Entities\Alias $alias): AutomaticAliasAliasContext {
+    $domain = (new \Entities\Domain())->setDomain('example.test')->setAliasCount(0);
+    return new AutomaticAliasAliasContext(
+        ['vimbadmin_plugins' => ['MailboxAutomaticAliases' => [
+            'defaultAliases' => ['postmaster'],
+            'defaultMapping' => ['postmaster' => 'root@example.test'],
+        ]]],
+        new AutomaticAliasEntityManager($repository),
+        new \Entities\Admin(),
+        $domain,
+        $alias,
+    );
+}
+
 echo "== MailboxAutomaticAliases ==\n";
 
 $repository = new AutomaticAliasRepository();
@@ -138,6 +186,42 @@ $failures += checkAutomaticAlias('creates the configured automatic alias', $alia
 $failures += checkAutomaticAlias('uses the configured goto mapping', $alias instanceof \Entities\Alias && $alias->getGoto() === 'root@example.test');
 $failures += checkAutomaticAlias('creates active aliases and flushes once', $alias instanceof \Entities\Alias && $alias->getActive() === true && $entityManager->flushes === 1);
 $failures += checkAutomaticAlias('reports the created alias', count($context->messages) === 1);
+
+$repository = new AutomaticAliasRepository();
+$sourceAlias = (new \Entities\Alias())
+    ->setAddress('source@example.test')
+    ->setGoto('destination@example.test');
+$aliasContext = makeAliasContext($repository, $sourceAlias);
+(new ViMbAdminPlugin_MailboxAutomaticAliases($aliasContext))->alias_add_addPostflush($aliasContext, ['options' => []]);
+$createdFromAlias = $aliasContext->getD2EM()->persisted[0] ?? null;
+$failures += checkAutomaticAlias(
+    'alias add creates the configured automatic alias',
+    $createdFromAlias instanceof \Entities\Alias
+        && $createdFromAlias->getAddress() === 'postmaster@example.test'
+        && $createdFromAlias->getGoto() === 'root@example.test',
+);
+
+$repository = new AutomaticAliasRepository();
+$malformedAlias = (new \Entities\Alias())->setGoto('destination@example.test');
+$malformedContext = makeAliasContext($repository, $malformedAlias);
+$malformedDomainCount = $malformedContext->getDomain()->getAliasCount();
+$failures += checkAutomaticAlias(
+    'alias add rejects a null source address',
+    automaticAliasThrows(
+        'Alias address cannot be null.',
+        static function () use ($malformedContext): void {
+            (new ViMbAdminPlugin_MailboxAutomaticAliases($malformedContext))
+                ->alias_add_addPostflush($malformedContext, ['options' => []]);
+        },
+    ),
+);
+$failures += checkAutomaticAlias(
+    'alias add identity failure has no side effects',
+    $malformedContext->getD2EM()->persisted === []
+        && $malformedContext->getD2EM()->flushes === 0
+        && $malformedContext->getDomain()->getAliasCount() === $malformedDomainCount
+        && $malformedContext->messages === [],
+);
 
 $repository = new AutomaticAliasRepository();
 $repository->aliases['@example.test'] = [

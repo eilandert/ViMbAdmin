@@ -132,7 +132,7 @@ class Alias
     /**
      * Get address
      *
-     * @return string 
+     * @return string|null
      */
     public function getAddress()
     {
@@ -155,7 +155,7 @@ class Alias
     /**
      * Get goto
      *
-     * @return string 
+     * @return string|null
      */
     public function getGoto()
     {

@@ -67,18 +67,6 @@ parameters:
 			path: application/Entities/Alias.php
 
 		-
-			message: '#^Method Entities\\Alias\:\:getAddress\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
-			message: '#^Method Entities\\Alias\:\:getGoto\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Alias.php
-
-		-
 			message: '#^Parameter \#1 \$config of method Entities\\Alias\:\:_processKey\(\) expects array\<int\|string, mixed\>, mixed given\.$#'
 			identifier: argument.type
 			count: 1
