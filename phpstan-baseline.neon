@@ -115,18 +115,6 @@ parameters:
 			path: application/Entities/Mailbox.php
 
 		-
-			message: '#^Method Entities\\MailboxTask\:\:getStatusLabel\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
-			message: '#^Method Entities\\MailboxTask\:\:getTypeLabel\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/MailboxTask.php
-
-		-
 			message: '#^Cannot call method andWhere\(\) on mixed\.$#'
 			identifier: method.nonObject
 			count: 1

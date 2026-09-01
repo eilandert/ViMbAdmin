@@ -236,7 +236,7 @@ class MailboxTask
     public function setRequestedBy( ?\Entities\Admin $v = null ) { $this->RequestedBy = $v; return $this; }
 
     /**
-     * @return string Human-readable type label.
+     * @return string|null Human-readable type label, or null before hydration.
      */
     public function getTypeLabel()
     {
@@ -244,7 +244,7 @@ class MailboxTask
     }
 
     /**
-     * @return string Human-readable status label.
+     * @return string|null Human-readable status label, or null before hydration.
      */
     public function getStatusLabel()
     {

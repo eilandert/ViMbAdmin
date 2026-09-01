@@ -89,6 +89,9 @@ jobs:
       - name: Required mailbox password and auth boundary
         run: php tests/test-mailbox-required-password.php
 
+      - name: Mailbox task label contracts
+        run: php tests/test-entity-mailbox-task-labels.php
+
       - name: Mailbox password action boundary
         run: php tests/test-auth-mailbox-password-boundary.php
 
