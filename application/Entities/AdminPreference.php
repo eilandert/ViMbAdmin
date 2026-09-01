@@ -77,7 +77,7 @@ class AdminPreference
     /**
      * Get attribute
      *
-     * @return string 
+     * @return string|null
      */
     public function getAttribute()
     {
@@ -100,7 +100,7 @@ class AdminPreference
     /**
      * Get ix
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getIx()
     {
@@ -146,7 +146,7 @@ class AdminPreference
     /**
      * Get value
      *
-     * @return string 
+     * @return string|null
      */
     public function getValue()
     {

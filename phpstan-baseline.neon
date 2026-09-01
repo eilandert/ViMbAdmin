@@ -37,24 +37,6 @@ parameters:
 			path: application/Entities/Admin.php
 
 		-
-			message: '#^Method Entities\\AdminPreference\:\:getAttribute\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^Method Entities\\AdminPreference\:\:getIx\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
-			message: '#^Method Entities\\AdminPreference\:\:getValue\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AdminPreference.php
-
-		-
 			message: '#^Method Entities\\Alias\:\:_getPreferences\(\) should return list\<Entities\\AliasPreference\> but returns mixed\.$#'
 			identifier: return.type
 			count: 1

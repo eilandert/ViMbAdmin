@@ -110,6 +110,9 @@ jobs:
       - name: Doctrine preference repositories
         run: php tests/test-repository-preferences.php
 
+      - name: Nullable entity preference contracts
+        run: php tests/test-entity-preferences.php
+
       - name: ViMbAdmin_Schema constructor contract
         run: php tests/test-schema-constructor.php
 

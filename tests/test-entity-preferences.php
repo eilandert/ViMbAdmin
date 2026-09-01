@@ -35,6 +35,24 @@ final class PreferenceContractAlias extends \Entities\Alias
     }
 }
 
+final class PreferenceContractAdmin extends \Entities\Admin
+{
+    /** @var list<\Entities\AdminPreference> */
+    private array $testPreferences = [];
+
+    public function addTestPreference(\Entities\AdminPreference $preference): void
+    {
+        $this->testPreferences[] = $preference;
+        parent::addPreference($preference);
+    }
+
+    /** @return list<\Entities\AdminPreference> */
+    public function _getPreferences(): array
+    {
+        return $this->testPreferences;
+    }
+}
+
 final class PreferenceContractDomain extends \Entities\Domain
 {
     /** @var list<\Entities\DomainPreference> */
@@ -97,6 +115,58 @@ $configuration = \Doctrine\ORM\ORMSetup::createAttributeMetadataConfiguration([]
 $configuration->enableNativeLazyObjects(true);
 $connection = \Doctrine\DBAL\DriverManager::getConnection(['driver' => 'pdo_mysql'], $configuration);
 \OSS_Runtime::configure([], '', new \Doctrine\ORM\EntityManager($connection, $configuration));
+
+$freshAdminPreference = new \Entities\AdminPreference();
+preferenceContractCheck(
+    'fresh Admin preference preserves nullable persistence fields',
+    $freshAdminPreference->getAttribute() === null
+        && $freshAdminPreference->getIx() === null
+        && $freshAdminPreference->getValue() === null,
+);
+
+$admin = new PreferenceContractAdmin();
+$adminPlain = (new \Entities\AdminPreference())
+    ->setAttribute('plain')->setIx(0)->setValue('')->setExpire(0);
+$admin->addTestPreference($adminPlain);
+preferenceContractCheck('Admin valid preference preserves an empty string value', $admin->getPreference('plain', 0, true) === '');
+preferenceContractCheck('Admin indexed preference preserves zero index and empty value', $admin->getIndexedPreference('plain', true, true) === [0 => ['p_index' => 0, 'p_value' => '']]);
+preferenceContractCheck('Admin associated preference preserves its value', $admin->getAssocPreference('plain') === [0 => '']);
+
+$adminMissingAttribute = new PreferenceContractAdmin();
+$adminMissingAttribute->addTestPreference(
+    (new \Entities\AdminPreference())->setIx(0)->setValue('value')->setExpire(0),
+);
+preferenceContractCheck(
+    'Admin rejects a null preference attribute',
+    preferenceContractThrows(
+        'Preference attribute cannot be null.',
+        static fn (): mixed => $adminMissingAttribute->loadPreference('missing', 0, true),
+    ),
+);
+
+$adminMissingIndex = new PreferenceContractAdmin();
+$adminMissingIndex->addTestPreference(
+    (new \Entities\AdminPreference())->setAttribute('missing')->setValue('value')->setExpire(0),
+);
+preferenceContractCheck(
+    'Admin rejects a null preference index',
+    preferenceContractThrows(
+        'Preference index cannot be null.',
+        static fn (): mixed => $adminMissingIndex->getPreference('missing', 0, true),
+    ),
+);
+
+$adminMissingValue = new PreferenceContractAdmin();
+$adminMissingValue->addTestPreference(
+    (new \Entities\AdminPreference())->setAttribute('missing')->setIx(0)->setExpire(0),
+);
+preferenceContractCheck(
+    'Admin rejects a null preference value',
+    preferenceContractThrows(
+        'Preference value cannot be null.',
+        static fn (): mixed => $adminMissingValue->getPreference('missing', 0, true),
+    ),
+);
 
 $alias = new PreferenceContractAlias();
 $aliasPlain = (new \Entities\AliasPreference())
@@ -227,7 +297,7 @@ preferenceContractCheck(
     ),
 );
 
-preferenceContractCheck('fixed assertion count', PreferenceContractTestState::$checks === 17);
+preferenceContractCheck('fixed assertion count', PreferenceContractTestState::$checks === 24);
 
 echo PreferenceContractTestState::$failures === 0
     ? "ALL PASSED\n"
