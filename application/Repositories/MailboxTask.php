@@ -25,7 +25,11 @@ class MailboxTask extends EntityRepository
      */
     public function pending( $limit = 5 )
     {
-        return $this->pendingQuery( (int) $limit )->getQuery()->getResult();
+        return \ViMbAdmin\Kernel\Doctrine\ResultValidator::entityList(
+            $this->pendingQuery( (int) $limit )->getQuery()->getResult(),
+            \Entities\MailboxTask::class,
+            'Pending mailbox task query'
+        );
     }
 
     private function pendingQuery( int $limit ): QueryBuilder

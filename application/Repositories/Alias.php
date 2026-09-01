@@ -79,7 +79,9 @@ class Alias extends EntityRepository
                 ->setParameter( 'admin', $admin );
         }
 
-        return $qb->getQuery()->getResult();
+        return \ViMbAdmin\Kernel\Doctrine\ResultValidator::entityList(
+            $qb->getQuery()->getResult(), \Entities\Alias::class, 'Alias mailbox query'
+        );
     }
 
     /**
@@ -122,7 +124,9 @@ class Alias extends EntityRepository
                 ->setParameter( 'admin', $admin );
         }
 
-        return $qb->getQuery()->getResult();
+        return \ViMbAdmin\Kernel\Doctrine\ResultValidator::entityList(
+            $qb->getQuery()->getResult(), \Entities\Alias::class, 'Alias mailbox-membership query'
+        );
     }
 
     /**

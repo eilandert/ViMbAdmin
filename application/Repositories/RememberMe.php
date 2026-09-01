@@ -19,15 +19,19 @@ class RememberMe extends EntityRepository
      *
      * @param string $userhash The userhash
      * @param string $key The key
-     * @return \Entities\RememberMe Null or the remember me entity with the user entity loaded
+     * @return \Entities\RememberMe|null Null or the remember me entity with the user entity loaded
      */
     public function load( $userhash, $key )
     {
-        return $this->getEntityManager()
+        $result = $this->getEntityManager()
             ->createQuery( 'SELECT r, u FROM \\Entities\\RememberMe r JOIN r.User u WHERE r.userhash = ?1 AND r.ckey = ?2' )
             ->setParameter( 1, $userhash )
             ->setParameter( 2, $key )
             ->getOneOrNullResult();
+
+        return \ViMbAdmin\Kernel\Doctrine\ResultValidator::nullableEntity(
+            $result, \Entities\RememberMe::class, 'Remember-me lookup'
+        );
     }
     
     

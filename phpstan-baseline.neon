@@ -79,24 +79,6 @@ parameters:
 			path: application/Repositories/Alias.php
 
 		-
-			message: '#^Method Repositories\\Alias\:\:loadForMailbox\(\) should return array\<Entities\\Alias\> but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Method Repositories\\Alias\:\:loadWithMailbox\(\) should return array\<Entities\\Alias\> but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
-			message: '#^Method Repositories\\Archive\:\:findAutoprune\(\) should return array\<Entities\\Archive\> but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Archive.php
-
-		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
 			identifier: foreach.nonIterable
 			count: 1
@@ -111,12 +93,6 @@ parameters:
 		-
 			message: '#^Cannot access offset ''domain'' on mixed\.$#'
 			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: application/Repositories/Domain.php
-
-		-
-			message: '#^Method Repositories\\Domain\:\:loadForAdmin\(\) should return array\<Entities\\Domain\> but returns mixed\.$#'
-			identifier: return.type
 			count: 1
 			path: application/Repositories/Domain.php
 
@@ -211,18 +187,6 @@ parameters:
 			path: application/Repositories/Mailbox.php
 
 		-
-			message: '#^Method Repositories\\Mailbox\:\:loadForAdmin\(\) should return array\<Entities\\Mailbox\> but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
-			message: '#^Method Repositories\\Mailbox\:\:pendingDelete\(\) should return array\<Entities\\Mailbox\> but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/Mailbox.php
-
-		-
 			message: '#^Parameter \#1 \$data of method Repositories\\Mailbox\:\:indexUsernameRows\(\) expects array\<int, array\{id\: int, username\: string\}\>, array\<mixed\> given\.$#'
 			identifier: argument.type
 			count: 1
@@ -271,12 +235,6 @@ parameters:
 			path: application/Repositories/MailboxTask.php
 
 		-
-			message: '#^Method Repositories\\MailboxTask\:\:pending\(\) should return array\<Entities\\MailboxTask\> but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/MailboxTask.php
-
-		-
 			message: '#^Method Repositories\\MailboxTask\:\:statusCounts\(\) should return array\<string, int\> but returns array\<int\>\.$#'
 			identifier: return.type
 			count: 1
@@ -290,12 +248,6 @@ parameters:
 
 		-
 			message: '#^Method Repositories\\RememberMe\:\:deleteForUser\(\) should return int but returns mixed\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Repositories/RememberMe.php
-
-		-
-			message: '#^Method Repositories\\RememberMe\:\:load\(\) should return Entities\\RememberMe but returns mixed\.$#'
 			identifier: return.type
 			count: 1
 			path: application/Repositories/RememberMe.php

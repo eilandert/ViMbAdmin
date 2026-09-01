@@ -116,6 +116,9 @@ jobs:
       - name: Doctrine repository result shapes
         run: php tests/test-repository-doctrine-result-shapes.php
 
+      - name: Doctrine entity result boundaries
+        run: php tests/test-repository-entity-results.php
+
       - name: Nullable entity preference contracts
         run: php tests/test-entity-preferences.php
 

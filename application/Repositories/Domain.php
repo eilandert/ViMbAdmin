@@ -59,7 +59,9 @@ class Domain extends EntityRepository
         if( !$admin->isSuper() )
             $q->setParameter( 1, $admin );
         
-        return $q->execute();
+        return \ViMbAdmin\Kernel\Doctrine\ResultValidator::entityList(
+            $q->execute(), \Entities\Domain::class, 'Domain admin query'
+        );
     }
 
     /**

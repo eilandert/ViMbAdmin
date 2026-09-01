@@ -80,7 +80,9 @@ class Mailbox extends EntityRepository
                 ->where( 'd2a.Admin = ?1' )
                 ->setParameter( 1, $admin );
 
-        return $qb->getQuery()->getResult();
+        return \ViMbAdmin\Kernel\Doctrine\ResultValidator::entityList(
+            $qb->getQuery()->getResult(), \Entities\Mailbox::class, 'Mailbox admin query'
+        );
     }
 
     /**
@@ -412,12 +414,16 @@ class Mailbox extends EntityRepository
      */
     public function pendingDelete()
     {
-        return $this->getEntityManager()->createQueryBuilder()
+        $result = $this->getEntityManager()->createQueryBuilder()
             ->select( 'm' )
             ->from( '\\Entities\\Mailbox', 'm' )
             ->where( 'm.delete_pending = TRUE' )
             ->getQuery()
-            ->getResult();  
+            ->getResult();
+
+        return \ViMbAdmin\Kernel\Doctrine\ResultValidator::entityList(
+            $result, \Entities\Mailbox::class, 'Pending mailbox deletion query'
+        );
     }
 
 }

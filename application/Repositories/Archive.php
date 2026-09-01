@@ -165,6 +165,8 @@ class Archive extends EntityRepository
             $qb->andWhere( 'a.archived_at <= :before' )
                ->setParameter( 'before', $before );
 
-        return $qb->getQuery()->getResult();
+        return \ViMbAdmin\Kernel\Doctrine\ResultValidator::entityList(
+            $qb->getQuery()->getResult(), \Entities\Archive::class, 'Archive autoprune query'
+        );
     }
 }
