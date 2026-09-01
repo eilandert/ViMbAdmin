@@ -167,15 +167,19 @@ final class ArchiveController extends AbstractController
         $archive = $this->archiveFromParameter('arid');
 
         // loadArchive() authorises a non-super admin against the archive's domain.
-        if (!$archive || (!$admin->isSuper() && !$admin->canManageDomain($archive->getDomain()))) {
+        if (!$archive) {
+            return $this->redirect('archive/list');
+        }
+        if (!$admin->isSuper() && !$admin->canManageDomain($archive->requiredDomain())) {
             return $this->redirect('archive/list');
         }
 
+        $username = $archive->requiredUsername();
         $enabled = (new \ViMbAdmin_Service_Archive($this->em()))->toggleAutoprune($archive, $admin);
 
         $this->flash($enabled
-            ? sprintf('Autoprune enabled for %s; the prune window restarts from now.', $archive->getUsername())
-            : sprintf('Autoprune disabled for %s.', $archive->getUsername()));
+            ? sprintf('Autoprune enabled for %s; the prune window restarts from now.', $username)
+            : sprintf('Autoprune disabled for %s.', $username));
 
         return $this->redirect('archive/list');
     }
@@ -203,11 +207,14 @@ final class ArchiveController extends AbstractController
 
         $archive = $this->archiveFromParameter('arid');
 
-        if (!$archive || (!$admin->isSuper() && !$admin->canManageDomain($archive->getDomain()))) {
+        if (!$archive) {
+            return $this->redirect('archive/list');
+        }
+        if (!$admin->isSuper() && !$admin->canManageDomain($archive->requiredDomain())) {
             return $this->redirect('archive/list');
         }
 
-        $user = $archive->getUsername();
+        $user = $archive->requiredUsername();
         $dest = $archive->getMaildirFile();
 
         // Remove the backup files first; abort (keeping the row) if doveadm fails.
@@ -256,7 +263,10 @@ final class ArchiveController extends AbstractController
         $em      = $this->em();
         $archive = $this->archiveFromParameter('arid');
 
-        if (!$archive || (!$admin->isSuper() && !$admin->canManageDomain($archive->getDomain()))) {
+        if (!$archive) {
+            return $this->redirect('archive/list');
+        }
+        if (!$admin->isSuper() && !$admin->canManageDomain($archive->requiredDomain())) {
             return $this->redirect('archive/list');
         }
 
@@ -265,13 +275,14 @@ final class ArchiveController extends AbstractController
             return $this->redirect('archive/list');
         }
 
-        $user    = $archive->getUsername();
+        $user    = $archive->requiredUsername();
         $dest    = $archive->getMaildirFile();
         $options = $this->container->options();
 
         // 1) Recreate the mailbox if it's gone (a DELETE'd account).
         $mailbox = $em->getRepository('\\Entities\\Mailbox')->findOneBy(['username' => $user]);
         if (!$mailbox) {
+            $domain = $archive->requiredDomain();
             $snap = json_decode((string) $archive->getData(), true);
             $m    = (is_array($snap) && isset($snap['mailbox'])) ? $snap['mailbox'] : null;
             if (!$m) {
@@ -286,9 +297,9 @@ final class ArchiveController extends AbstractController
                     ->setPassword($m['password'])   // original hash — password preserved
                     ->setQuota($m['quota'])
                     ->setActive($m['active'])
-                    ->setDomain($archive->getDomain())
+                    ->setDomain($domain)
                     ->setCreated(new \DateTime());
-            $archive->getDomain()->increaseMailboxCount();
+            $domain->increaseMailboxCount();
             $em->persist($mailbox);
             $em->flush();   // userdb must see the account before doveadm sync
         }

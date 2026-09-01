@@ -389,8 +389,9 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $archive  = $em->getRepository( '\\Entities\\Archive' )->findOneBy( [ 'username' => $username ] );
         if( !$archive )
             throw new ViMbAdmin_Mcp_Exception( 'no archive for that username' );
-        if( $archive->getDomain() )
-            $this->_assertDomainAllowed( $archive->getDomain()->getDomain() );
+        $archiveDomain = $archive->getDomain();
+        if( $archiveDomain )
+            $this->_assertDomainAllowed( $archiveDomain->getDomain() );
 
         $dest    = $archive->getMaildirFile();
         $doveadm = ViMbAdmin_Doveadm::fromOptions( $this->options() );
@@ -410,6 +411,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $mailbox = $em->getRepository( '\\Entities\\Mailbox' )->findOneBy( [ 'username' => $username ] );
         if( !$mailbox )
         {
+            $archiveDomain = $archive->requiredDomain();
             $snap = json_decode( (string) $archive->getData(), true );
             $mb   = ( is_array( $snap ) && isset( $snap['mailbox'] ) ) ? $snap['mailbox'] : null;
             if( !$mb )
@@ -419,8 +421,8 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
             $mailbox->setUsername( $mb['username'] )->setLocalPart( $mb['local_part'] )
                     ->setName( $mb['name'] )->setPassword( $mb['password'] )
                     ->setQuota( $mb['quota'] )->setActive( $mb['active'] )
-                    ->setDomain( $archive->getDomain() )->setCreated( new \DateTime() );
-            $archive->getDomain()->increaseMailboxCount();
+                    ->setDomain( $archiveDomain )->setCreated( new \DateTime() );
+            $archiveDomain->increaseMailboxCount();
             $em->persist( $mailbox );
             $em->flush();
         }

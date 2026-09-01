@@ -89,6 +89,9 @@ jobs:
       - name: ViMbAdmin_Service_Archive
         run: php tests/test-service-archive.php
 
+      - name: Archive identity caller boundaries
+        run: php tests/test-archive-identity-boundaries.php
+
       - name: Doctrine preference repositories
         run: php tests/test-repository-preferences.php
 

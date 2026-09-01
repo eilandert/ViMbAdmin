@@ -225,6 +225,12 @@ final class MaintenanceController extends AbstractController
         $pruned  = 0;
 
         foreach ($archives as $archive) {
+            try {
+                $username = $archive->requiredUsername();
+            } catch (\Throwable $e) {
+                error_log('MaintenanceController::prune: ' . $e->getMessage());
+                continue;
+            }
             $dest = $archive->getMaildirFile();
             try {
                 if ($dest) {
@@ -233,7 +239,7 @@ final class MaintenanceController extends AbstractController
                 $this->em()->remove($archive);
                 $pruned++;
             } catch (\Throwable $e) {
-                error_log("MaintenanceController::prune {$archive->getUsername()}: " . $e->getMessage());
+                error_log("MaintenanceController::prune {$username}: " . $e->getMessage());
             }
         }
         $this->em()->flush();

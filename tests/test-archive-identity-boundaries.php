@@ -1,0 +1,359 @@
+<?php
+
+declare(strict_types=1);
+
+require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../application/Entities/Admin.php';
+require_once __DIR__ . '/../application/Entities/Domain.php';
+require_once __DIR__ . '/../application/Entities/DirectoryEntry.php';
+require_once __DIR__ . '/../application/Entities/Archive.php';
+require_once __DIR__ . '/../application/Entities/Log.php';
+require_once __DIR__ . '/../application/Entities/Mailbox.php';
+require_once __DIR__ . '/../application/Entities/MailboxPreference.php';
+require_once __DIR__ . '/../application/Entities/MailboxTask.php';
+require_once __DIR__ . '/../application/Repositories/Archive.php';
+require_once __DIR__ . '/../application/Repositories/Mailbox.php';
+require_once __DIR__ . '/../library/ViMbAdmin/Service/Archive.php';
+require_once __DIR__ . '/../library/ViMbAdmin/Service/QueueRunner.php';
+
+use Doctrine\DBAL\DriverManager;
+use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\ORMSetup;
+use Doctrine\ORM\Repository\DefaultRepositoryFactory;
+use ViMbAdmin\Kernel\Container;
+use ViMbAdmin\Kernel\Controller\ArchiveController;
+use ViMbAdmin\Kernel\RouteMatch;
+use ViMbAdmin\Kernel\Security\Auth;
+use ViMbAdmin\Kernel\Session\SessionStorage;
+
+final class ArchiveIdentitySession implements SessionStorage
+{
+    /** @param array<string,mixed> $data */
+    public function __construct(private array $data = []) {}
+    public function has(string $key): bool { return array_key_exists($key, $this->data); }
+    public function get(string $key): mixed { return $this->data[$key] ?? null; }
+    public function set(string $key, mixed $value): void { $this->data[$key] = $value; }
+    public function remove(string $key): void { unset($this->data[$key]); }
+    public function __get(string $key): mixed { return $this->data[$key] ?? null; }
+    public function __set(string $key, mixed $value): void { $this->data[$key] = $value; }
+    public function __isset(string $key): bool { return isset($this->data[$key]); }
+    public function __unset(string $key): void { unset($this->data[$key]); }
+    /** @return array<string,mixed> */
+    public function values(): array { return $this->data; }
+}
+
+final class ArchiveIdentityView
+{
+    public int $renders = 0;
+    public function __set(string $key, mixed $value): void {}
+    public function render(string $script): string
+    {
+        $this->renders++;
+        return $script;
+    }
+}
+
+final class ArchiveIdentityResources
+{
+    /** @param array<string,mixed> $options */
+    public function __construct(
+        private readonly EntityManager $entityManager,
+        private readonly ArchiveIdentitySession $session,
+        private readonly ArchiveIdentityView $view,
+        private readonly array $options = [],
+    ) {}
+
+    /** @return array<string,mixed> */
+    public function getOptions(): array { return $this->options; }
+    public function getResource(string $name): mixed
+    {
+        return match ($name) {
+            'doctrine2' => $this->entityManager,
+            'namespace' => $this->session,
+            'smarty' => $this->view,
+            default => null,
+        };
+    }
+}
+
+final class ArchiveIdentityAdmin extends \Entities\Admin
+{
+    public function __construct(private readonly bool $super) {}
+    public function getId(): int { return 1; }
+    public function getUsername(): string { return 'admin@example.test'; }
+    public function getSuper(): bool { return $this->super; }
+    public function isSuper(): bool { return $this->super; }
+}
+
+final class ArchiveIdentityArchiveRepository extends \Repositories\Archive
+{
+    public function __construct(private readonly \Entities\Archive $archive) {}
+
+    /**
+     * @param array<string,mixed> $criteria
+     * @param array<string,string>|null $orderBy
+     */
+    public function findOneBy(array $criteria, ?array $orderBy = null): object
+    {
+        return $this->archive;
+    }
+
+    public function find(mixed $id, \Doctrine\DBAL\LockMode|int|null $lockMode = null, ?int $lockVersion = null): object
+    {
+        return $this->archive;
+    }
+}
+
+final class ArchiveIdentityMailboxRepository extends \Repositories\Mailbox
+{
+    public function __construct(private readonly ?\Entities\Mailbox $mailbox) {}
+
+    /**
+     * @param array<string,mixed> $criteria
+     * @param array<string,string>|null $orderBy
+     */
+    public function findOneBy(array $criteria, ?array $orderBy = null): ?object
+    {
+        return $this->mailbox;
+    }
+}
+
+/** @param array<string,EntityRepository<covariant object>> $repositories */
+function archiveIdentityEntityManager(array $repositories): EntityManager
+{
+    $configuration = ORMSetup::createAttributeMetadataConfiguration([
+        __DIR__ . '/../application/Entities',
+    ]);
+    $configuration->enableNativeLazyObjects(true);
+    $repositoryFactory = new DefaultRepositoryFactory();
+    $configuration->setRepositoryFactory($repositoryFactory);
+    $connection = DriverManager::getConnection([
+        'driver' => 'pdo_mysql',
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'dbname' => 'unreachable',
+        'user' => 'unreachable',
+        'password' => 'unreachable',
+        'connectTimeout' => 1,
+        'serverVersion' => '8.0',
+    ], $configuration);
+    $entityManager = new EntityManager($connection, $configuration);
+
+    $repositoryList = [];
+    foreach ($repositories as $entityName => $repository) {
+        $metadata = $entityManager->getClassMetadata($entityName);
+        $repositoryList[$metadata->getName() . spl_object_id($entityManager)] = $repository;
+    }
+    (new ReflectionProperty($repositoryFactory, 'repositoryList'))
+        ->setValue($repositoryFactory, $repositoryList);
+
+    return $entityManager;
+}
+
+function archiveIdentityManage(EntityManager $entityManager, \Entities\Archive $archive, int $id): void
+{
+    (new ReflectionProperty($archive, 'id'))->setValue($archive, $id);
+    $entityManager->getUnitOfWork()->registerManaged($archive, ['id' => $id], []);
+}
+
+final class ArchiveIdentityState
+{
+    public static int $failures = 0;
+}
+
+function archiveIdentityCheck(string $label, bool $ok): void
+{
+    echo ($ok ? '  ok   ' : '  FAIL ') . $label . "\n";
+    if (!$ok) { ArchiveIdentityState::$failures++; }
+}
+
+function archiveIdentityContainer(
+    EntityManager $entityManager,
+    ArchiveIdentitySession $session,
+    ArchiveIdentityView $view,
+    bool $super,
+): Container {
+    $admin = new ArchiveIdentityAdmin($super);
+    return new Container(
+        new ArchiveIdentityResources($entityManager, $session, $view),
+        new Auth($session, static fn(int $id): object => $admin),
+    );
+}
+
+/** @param array<string,mixed> $params */
+function archiveIdentityMcpState(McpController $controller, array $params, string $status): mixed
+{
+    return (new ReflectionMethod($controller, '_archiveState'))->invoke($controller, $params, $status);
+}
+
+echo "== Archive identity caller boundaries ==\n";
+
+// Non-super authorization requires a real domain before any mutation.
+$missingDomain = (new \Entities\Archive())->setUsername('box@example.test');
+$authManager = archiveIdentityEntityManager([
+    'Entities\\Archive' => new ArchiveIdentityArchiveRepository($missingDomain),
+]);
+$authSession = new ArchiveIdentitySession([
+    'identity' => ['id' => 1],
+    'csrfToken' => 'test-token',
+]);
+$authView = new ArchiveIdentityView();
+$authController = new ArchiveController(
+    archiveIdentityContainer($authManager, $authSession, $authView, false),
+    new RouteMatch('archive', 'toggle-autoprune', ArchiveController::class, 'toggleAutopruneAction', [
+        'arid' => '7',
+        'csrf' => 'test-token',
+    ]),
+);
+$authError = null;
+try {
+    $authController->toggleAutopruneAction();
+} catch (Throwable $e) {
+    $authError = $e->getMessage();
+}
+archiveIdentityCheck('non-super authorization rejects a null archive domain',
+    $authError === 'Archive domain cannot be null.');
+archiveIdentityCheck('authorization identity failure occurs before mutation or output',
+    $missingDomain->getAutoprune() === false
+        && $authManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $authManager->getUnitOfWork()->getScheduledEntityDeletions() === []
+        && $authView->renders === 0
+        && $authSession->values() === ['identity' => ['id' => 1], 'csrfToken' => 'test-token']);
+
+// A super-admin delete does not need a domain and remains operational.
+$optionalDomainDelete = (new \Entities\Archive())->setUsername('box@example.test');
+$deleteManager = archiveIdentityEntityManager([
+    'Entities\\Archive' => new ArchiveIdentityArchiveRepository($optionalDomainDelete),
+]);
+archiveIdentityManage($deleteManager, $optionalDomainDelete, 7);
+$deleteSession = new ArchiveIdentitySession([
+    'identity' => ['id' => 1],
+    'csrfToken' => 'test-token',
+]);
+$deleteView = new ArchiveIdentityView();
+$deleteController = new ArchiveController(
+    archiveIdentityContainer($deleteManager, $deleteSession, $deleteView, true),
+    new RouteMatch('archive', 'delete', ArchiveController::class, 'deleteAction', [
+        'arid' => '7',
+        'csrf' => 'test-token',
+    ]),
+);
+$deleteError = null;
+try {
+    $deleteController->deleteAction();
+} catch (Throwable $e) {
+    $deleteError = $e;
+}
+archiveIdentityCheck('super-admin delete preserves the optional-domain flow to persistence',
+    $deleteError instanceof Throwable
+        && $deleteError->getMessage() !== 'Archive domain cannot be null.'
+        && $optionalDomainDelete->getDomain() === null
+        && in_array($optionalDomainDelete, $deleteManager->getUnitOfWork()->getScheduledEntityDeletions(), true));
+
+// Restore needs a domain only when it must recreate the mailbox.
+$restoreArchive = (new \Entities\Archive())
+    ->setUsername('box@example.test')
+    ->setStatus(\Entities\Archive::STATUS_ARCHIVED)
+    ->setData('{"mailbox":{"username":"box@example.test"}}');
+$restoreManager = archiveIdentityEntityManager([
+    'Entities\\Archive' => new ArchiveIdentityArchiveRepository($restoreArchive),
+    'Entities\\Mailbox' => new ArchiveIdentityMailboxRepository(null),
+]);
+$restoreSession = new ArchiveIdentitySession([
+    'identity' => ['id' => 1],
+    'csrfToken' => 'test-token',
+]);
+$restoreController = new ArchiveController(
+    archiveIdentityContainer($restoreManager, $restoreSession, new ArchiveIdentityView(), true),
+    new RouteMatch('archive', 'restore', ArchiveController::class, 'restoreAction', [
+        'arid' => '7',
+        'csrf' => 'test-token',
+    ]),
+);
+$restoreError = null;
+try {
+    $restoreController->restoreAction();
+} catch (Throwable $e) {
+    $restoreError = $e->getMessage();
+}
+archiveIdentityCheck('mailbox recreation rejects a null archive domain',
+    $restoreError === 'Archive domain cannot be null.');
+archiveIdentityCheck('restore domain failure precedes persist, flush, remove and doveadm',
+    $restoreManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $restoreManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
+
+// MCP delete intentionally authorizes only when a domain is attached.
+$mcpArchive = (new \Entities\Archive())->setUsername('box@example.test');
+$mcpManager = archiveIdentityEntityManager([
+    'Entities\\Archive' => new ArchiveIdentityArchiveRepository($mcpArchive),
+]);
+archiveIdentityManage($mcpManager, $mcpArchive, 8);
+$mcpSession = new ArchiveIdentitySession();
+$mcpController = new McpController(
+    new Container(
+        new ArchiveIdentityResources($mcpManager, $mcpSession, new ArchiveIdentityView(), [
+            'doveadm' => ['http' => ['url' => 'http://doveadm.invalid/v1', 'api_key' => 'test']],
+        ]),
+        new Auth($mcpSession, static fn(int $id): null => null),
+    ),
+    new RouteMatch('mcp', 'index', McpController::class, 'indexAction', []),
+);
+$mcpError = null;
+try {
+    archiveIdentityMcpState(
+        $mcpController,
+        ['username' => 'box@example.test'],
+        \Entities\Archive::STATUS_PENDING_DELETE,
+    );
+} catch (Throwable $e) {
+    $mcpError = $e;
+}
+archiveIdentityCheck('MCP delete preserves the optional-domain flow to persistence',
+    $mcpError instanceof Throwable
+        && $mcpError->getMessage() !== 'Archive domain cannot be null.'
+        && $mcpArchive->getDomain() === null
+        && in_array($mcpArchive, $mcpManager->getUnitOfWork()->getScheduledEntityDeletions(), true));
+
+// QueueRunner deliberately copies a nullable Archive domain into a nullable task.
+$malformedQueueArchive = new \Entities\Archive();
+$validQueueArchive = (new \Entities\Archive())->setUsername('valid@example.test');
+$queueRunner = (new ReflectionClass(ViMbAdmin_Service_QueueRunner::class))
+    ->newInstanceWithoutConstructor();
+$queueCandidates = [];
+$queueIsolationError = null;
+try {
+    $candidateIterator = (new ReflectionMethod($queueRunner, 'initializedAutopruneArchives'))
+        ->invoke($queueRunner, [$malformedQueueArchive, $validQueueArchive]);
+    if (!$candidateIterator instanceof Traversable) {
+        throw new RuntimeException('QueueRunner archive candidates are not iterable.');
+    }
+    foreach ($candidateIterator as $candidate) {
+        if (!is_array($candidate)
+            || count($candidate) !== 2
+            || !$candidate[0] instanceof \Entities\Archive
+            || !is_string($candidate[1])) {
+            throw new RuntimeException('QueueRunner archive candidate has an invalid shape.');
+        }
+        $queueCandidates[] = [$candidate[0], $candidate[1]];
+    }
+} catch (Throwable $e) {
+    $queueIsolationError = $e->getMessage();
+}
+archiveIdentityCheck('QueueRunner isolates a malformed archive before considering the next',
+    $queueIsolationError === null
+        && $queueCandidates === [[$validQueueArchive, 'valid@example.test']]);
+
+$queueTask = (new \Entities\MailboxTask())
+    ->setUsername('box@example.test')
+    ->setDomain($mcpArchive->getDomain());
+$queueSource = file_get_contents(__DIR__ . '/../library/ViMbAdmin/Service/QueueRunner.php');
+archiveIdentityCheck('QueueRunner retains its nullable archive-domain association',
+    $queueTask->getDomain() === null
+        && is_string($queueSource)
+        && substr_count($queueSource, '->setDomain($archive->getDomain())') === 1);
+
+echo ArchiveIdentityState::$failures === 0
+    ? "\nALL PASSED\n"
+    : "\n" . ArchiveIdentityState::$failures . " FAILED\n";
+exit(ArchiveIdentityState::$failures === 0 ? 0 : 1);

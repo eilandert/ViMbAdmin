@@ -461,9 +461,7 @@ class ViMbAdmin_Service_QueueRunner
             }
             $expired = $archiveRepository->findAutoprune($cutoff);
 
-            foreach ($expired as $archive) {
-                $user = $archive->getUsername();
-
+            foreach ($this->initializedAutopruneArchives($expired) as [$archive, $user]) {
                 $open = (int) $em->createQuery(
                     'SELECT COUNT(t.id) FROM \Entities\MailboxTask t
                       WHERE t.username = :u AND t.type = :t AND t.status IN (:open)')
@@ -488,6 +486,26 @@ class ViMbAdmin_Service_QueueRunner
             $em->flush();
         } catch (\Throwable $e) {
             error_log('QueueRunner::autopruneSweep: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Keep one corrupt archive identity from starving the remaining sweep.
+     *
+     * @param iterable<\Entities\Archive> $archives
+     * @return \Generator<int, array{0: \Entities\Archive, 1: string}>
+     */
+    private function initializedAutopruneArchives(iterable $archives): \Generator
+    {
+        foreach ($archives as $archive) {
+            try {
+                $username = $archive->requiredUsername();
+            } catch (\LogicException $e) {
+                error_log('QueueRunner::autopruneSweep: ' . $e->getMessage());
+                continue;
+            }
+
+            yield [$archive, $username];
         }
     }
 

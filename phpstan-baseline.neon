@@ -73,18 +73,6 @@ parameters:
 			path: application/Entities/Alias.php
 
 		-
-			message: '#^Method Entities\\Archive\:\:getDomain\(\) should return Entities\\Domain but returns Entities\\Domain\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
-			message: '#^Method Entities\\Archive\:\:getUsername\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Archive.php
-
-		-
 			message: '#^Method Entities\\DirectoryEntry\:\:getJpegPhoto\(\) should return stdClass but returns stdClass\|null\.$#'
 			identifier: return.type
 			count: 1

@@ -163,11 +163,22 @@ class Archive
     /**
      * Get username
      *
-     * @return string 
+     * @return string|null
      */
     public function getUsername()
     {
         return $this->username;
+    }
+
+    /**
+     * Get the persisted archive identity required by operational paths.
+     *
+     * @throws \LogicException when the archive has not been initialized
+     */
+    public function requiredUsername(): string
+    {
+        return $this->username
+            ?? throw new \LogicException('Archive username cannot be null.');
     }
 
     /**
@@ -495,11 +506,22 @@ class Archive
     /**
      * Get Domain
      *
-     * @return \Entities\Domain 
+     * @return \Entities\Domain|null
      */
     public function getDomain()
     {
         return $this->Domain;
+    }
+
+    /**
+     * Get the persisted domain required by authorization and restore paths.
+     *
+     * @throws \LogicException when the archive has no domain
+     */
+    public function requiredDomain(): \Entities\Domain
+    {
+        return $this->Domain
+            ?? throw new \LogicException('Archive domain cannot be null.');
     }
 
     /**

@@ -75,6 +75,65 @@ $mkArchive = static function (bool $autoprune): \Entities\Archive {
     return $ar;
 };
 
+// --- nullable lifecycle getters + required operational boundaries ----- //
+$uninitialized = new \Entities\Archive();
+check('pre-hydration archive identities remain nullable',
+    $uninitialized->getUsername() === null && $uninitialized->getDomain() === null);
+
+$usernameError = null;
+try {
+    $uninitialized->requiredUsername();
+} catch (\LogicException $e) {
+    $usernameError = $e->getMessage();
+}
+check('required username rejects an uninitialized archive',
+    $usernameError === 'Archive username cannot be null.');
+
+$domainError = null;
+try {
+    $uninitialized->requiredDomain();
+} catch (\LogicException $e) {
+    $domainError = $e->getMessage();
+}
+check('required domain rejects an uninitialized archive',
+    $domainError === 'Archive domain cannot be null.');
+
+$identityDomain = (new \Entities\Domain())->setDomain('example.test');
+$initialized = (new \Entities\Archive())
+    ->setUsername('box@example.test')
+    ->setDomain($identityDomain);
+check('required archive identities preserve initialized values',
+    $initialized->requiredUsername() === 'box@example.test'
+        && $initialized->requiredDomain() === $identityDomain);
+
+$invalidToggleManager = new FakeObjectManager();
+$invalidToggle = new \Entities\Archive();
+$invalidToggleError = null;
+try {
+    (new ViMbAdmin_Service_Archive($invalidToggleManager))->toggleAutoprune($invalidToggle, $actor);
+} catch (\LogicException $e) {
+    $invalidToggleError = $e->getMessage();
+}
+check('toggle rejects a missing username before mutation',
+    $invalidToggleError === 'Archive username cannot be null.'
+        && $invalidToggle->getAutoprune() === false
+        && $invalidToggleManager->persisted === []
+        && $invalidToggleManager->flushes === 0);
+
+$invalidDeleteManager = new FakeObjectManager();
+$invalidDelete = new \Entities\Archive();
+$invalidDeleteError = null;
+try {
+    (new ViMbAdmin_Service_Archive($invalidDeleteManager))->delete($invalidDelete, $actor);
+} catch (\LogicException $e) {
+    $invalidDeleteError = $e->getMessage();
+}
+check('delete rejects a missing username before mutation',
+    $invalidDeleteError === 'Archive username cannot be null.'
+        && $invalidDeleteManager->removed === []
+        && $invalidDeleteManager->persisted === []
+        && $invalidDeleteManager->flushes === 0);
+
 // --- OFF -> ON: sets autoprune, resets archivedAt + statusChangedAt ----- //
 $emOn = new FakeObjectManager();
 $arOff = $mkArchive(false);
