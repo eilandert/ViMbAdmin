@@ -149,6 +149,15 @@ jobs:
       - name: MCP create input validation (audit 2026-07-10 MAJOR)
         run: php tests/test-mcp-input-validation.php
 
+      - name: MCP request and configuration shapes
+        run: php tests/test-mcp-input-shapes.php
+
+      - name: MCP authentication boundaries
+        run: php tests/test-mcp-authentication.php
+
+      - name: MCP destructive rate limit
+        run: php tests/test-mcp-rate-limit.php
+
       - name: QueueRunner path-safety guard (audit 2026-07-10 MAJOR)
         run: php tests/test-queuerunner-path-safe.php
 

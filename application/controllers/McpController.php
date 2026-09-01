@@ -30,23 +30,33 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         if( !$this->_mcpEnabled() )
             return $this->_http( 404, 'mcp disabled' );
 
-        if( strtoupper( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) !== 'POST' )
+        $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        if( !is_string( $requestMethod ) || strtoupper( $requestMethod ) !== 'POST' )
             return $this->_http( 405, 'POST required' );
 
-        $body = (string) file_get_contents( 'php://input' );
+        $body = file_get_contents( 'php://input' );
+        if( !is_string( $body ) )
+            return $this->_rpcError( null, -32700, 'parse error' );
         $req  = json_decode( $body, true );
         if( !is_array( $req ) || !isset( $req['method'] ) )
             return $this->_rpcError( null, -32700, 'parse error' );
 
-        $id     = isset( $req['id'] ) ? $req['id'] : null;
-        $method = (string) $req['method'];
-        $params = isset( $req['params'] ) && is_array( $req['params'] ) ? $req['params'] : [];
+        $id          = isset( $req['id'] ) ? $req['id'] : null;
+        $methodValue = $req['method'];
+        $method      = is_string( $methodValue ) ? $methodValue : '';
+        $paramsValue = $req['params'] ?? [];
 
         // ---- authenticate (bearer + ip + scope) -------------------------
         try
         {
-            $auth  = new ViMbAdmin_Mcp_Auth( $this->em(), $this->options()['trustedproxy'] ?? [] );
-            $token = $this->_token = $auth->authenticate( $_SERVER, $this->_scopeFor( $method ) );
+            $options = $this->options();
+            [$trustedProxyFound, $trustedProxyValue] = ViMbAdmin_Mcp_Input::option( $options, 'trustedproxy' );
+            $trustedProxy = ViMbAdmin_Mcp_Input::trustedProxy(
+                $trustedProxyFound ? $trustedProxyValue : null
+            );
+            $server = ViMbAdmin_Mcp_Input::map( $_SERVER, 'server environment' );
+            $auth  = new ViMbAdmin_Mcp_Auth( $this->em(), $trustedProxy );
+            $token = $this->_token = $auth->authenticate( $server, $this->_scopeFor( $method ) );
 
             // Destructive methods are additionally per-token rate-limited.
             if( $this->_isDestructive( $method ) )
@@ -60,6 +70,8 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         // ---- dispatch ---------------------------------------------------
         try
         {
+            $method = ViMbAdmin_Mcp_Input::string( $methodValue, 'method', true );
+            $params = ViMbAdmin_Mcp_Input::map( $paramsValue, 'params' );
             switch( $method )
             {
                 // read
@@ -199,13 +211,25 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
             throw new ViMbAdmin_Mcp_Exception( 'domain already exists' );
 
         $d = new \Entities\Domain();
+        $options = $this->options();
         $d->setDomain( $name );
-        $d->setActive( isset( $params['active'] ) ? (bool) $params['active'] : true );
-        $d->setTransport( $this->_str( $params, 'transport' ) ?: ( $this->options()['defaults']['domain']['transport'] ?? 'virtual' ) );
-        $d->setQuota(        (int) ( $params['quota']        ?? ( $this->options()['defaults']['domain']['quota']     ?? 0 ) ) );
-        $d->setMaxQuota(     (int) ( $params['maxquota']     ?? ( $this->options()['defaults']['domain']['maxquota']  ?? 0 ) ) );
-        $d->setMaxMailboxes( (int) ( $params['max_mailboxes']?? ( $this->options()['defaults']['domain']['mailboxes']?? 0 ) ) );
-        $d->setMaxAliases(   (int) ( $params['max_aliases']  ?? ( $this->options()['defaults']['domain']['aliases']  ?? 0 ) ) );
+        $d->setActive( ViMbAdmin_Mcp_Input::optionalBoolean( $params, 'active', true ) );
+        $transport = $this->_str( $params, 'transport' );
+        $d->setTransport( $transport !== '' ? $transport : ViMbAdmin_Mcp_Input::optionString(
+            $options, 'virtual', 'defaults', 'domain', 'transport'
+        ) );
+        $d->setQuota( ViMbAdmin_Mcp_Input::optionalInteger(
+            $params, 'quota', ViMbAdmin_Mcp_Input::optionInteger( $options, 0, 'defaults', 'domain', 'quota' )
+        ) );
+        $d->setMaxQuota( ViMbAdmin_Mcp_Input::optionalInteger(
+            $params, 'maxquota', ViMbAdmin_Mcp_Input::optionInteger( $options, 0, 'defaults', 'domain', 'maxquota' )
+        ) );
+        $d->setMaxMailboxes( ViMbAdmin_Mcp_Input::optionalInteger(
+            $params, 'max_mailboxes', ViMbAdmin_Mcp_Input::optionInteger( $options, 0, 'defaults', 'domain', 'mailboxes' )
+        ) );
+        $d->setMaxAliases( ViMbAdmin_Mcp_Input::optionalInteger(
+            $params, 'max_aliases', ViMbAdmin_Mcp_Input::optionInteger( $options, 0, 'defaults', 'domain', 'aliases' )
+        ) );
         $d->setBackupmx( false );
         $d->setMailboxCount( 0 );
         $d->setAliasCount( 0 );
@@ -251,12 +275,16 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $m->setUsername( $username );
         $m->setName( $this->_str( $params, 'name' ) ?: $username );
         $m->setDomain( $domain );
-        $m->setQuota( (int) ( $params['quota'] ?? 0 ) );
-        $m->setActive( isset( $params['active'] ) ? (bool) $params['active'] : true );
+        $m->setQuota( ViMbAdmin_Mcp_Input::optionalInteger( $params, 'quota', 0 ) );
+        $m->setActive( ViMbAdmin_Mcp_Input::optionalBoolean( $params, 'active', true ) );
         $m->setDeletePending( false );
         $m->setCreated( new \DateTime() );
         $m->setPassword( OSS_Auth_Password::hash( $password, [
-            'pwhash'    => $this->options()['defaults']['mailbox']['password_scheme'],
+            'pwhash'    => ViMbAdmin_Mcp_Input::string(
+                ViMbAdmin_Mcp_Input::option( $this->options(), 'defaults', 'mailbox', 'password_scheme' )[1],
+                'configuration defaults.mailbox.password_scheme',
+                true
+            ),
             'username'  => $username,
         ] ) );
 
@@ -267,7 +295,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         // that address rather than inserting a duplicate (which would violate
         // the unique key and roll the whole create back -- e.g. an orphan alias
         // left by an earlier failed attempt).
-        if( ( $this->options()['mailboxAliases'] ?? 0 ) == 1
+        if( ViMbAdmin_Mcp_Input::optionBoolean( $this->options(), false, 'mailboxAliases' )
             && !$em->getRepository( '\\Entities\\Alias' )->findOneBy( [ 'address' => $username ] ) )
         {
             $a = new \Entities\Alias();
@@ -312,7 +340,12 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
             $address .= '@' . $domain->requiredDomainName();
         }
         else
+        {
             $this->_validateEmail( $address, 'address' );
+            $addressDomain = substr( $address, strrpos( $address, '@' ) + 1 );
+            if( strcasecmp( $addressDomain, $domain->requiredDomainName() ) !== 0 )
+                throw new ViMbAdmin_Mcp_Exception( 'address domain must match the authorized domain' );
+        }
         $this->_validateEmail( $goto, 'goto' );
 
         $repo = $this->em()->getRepository( '\\Entities\\Alias' );
@@ -323,7 +356,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $a->setAddress( $address );
         $a->setGoto( $goto );
         $a->setDomain( $domain );
-        $a->setActive( isset( $params['active'] ) ? (bool) $params['active'] : true );
+        $a->setActive( ViMbAdmin_Mcp_Input::optionalBoolean( $params, 'active', true ) );
         $a->setCreated( new \DateTime() );
         $em = $this->em();
         $em->persist( $a );
@@ -343,12 +376,12 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         if( !$a )
             throw new ViMbAdmin_Mcp_Exception( 'unknown alias' );
         $domain = $a->getDomain();
-        if( $domain )
-            $this->_assertDomainAllowed( $domain->requiredDomainName() );
+        if( !$domain instanceof \Entities\Domain )
+            throw new ViMbAdmin_Mcp_Exception( 'unknown alias' );
+        $this->_assertDomainAllowed( $domain->requiredDomainName() );
         $em = $this->em();
         $em->remove( $a );
-        if( $domain )
-            $domain->setAliasCount( max( 0, $domain->getAliasCount() - 1 ) );
+        $domain->setAliasCount( max( 0, $domain->getAliasCount() - 1 ) );
         $em->flush();
         return [ 'deleted' => true, 'address' => $address ];
     }
@@ -415,14 +448,20 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         if( !$mailbox )
         {
             $archiveDomain = $archive->requiredDomain();
-            $snap = json_decode( (string) $archive->getData(), true );
-            $mb   = ( is_array( $snap ) && isset( $snap['mailbox'] ) ) ? $snap['mailbox'] : null;
-            if( !$mb )
+            $archiveData = $archive->getData();
+            $snap = is_string( $archiveData ) ? json_decode( $archiveData, true ) : null;
+            if( !is_array( $snap ) || !array_key_exists( 'mailbox', $snap ) )
                 throw new ViMbAdmin_Mcp_Exception( 'no mailbox snapshot stored with this archive — cannot restore' );
+            $mb = ViMbAdmin_Mcp_Input::mailboxSnapshot( $snap['mailbox'] );
+            $expectedSnapshotUsername = $mb['local_part'] . '@' . $archiveDomain->requiredDomainName();
+            if( $mb['username'] !== $username || $mb['username'] !== $expectedSnapshotUsername )
+                throw new ViMbAdmin_Mcp_Exception( 'archive mailbox snapshot identity mismatch' );
 
             $mailbox = new \Entities\Mailbox();
-            $mailbox->setUsername( $mb['username'] )->setLocalPart( $mb['local_part'] )
-                    ->setName( $mb['name'] )->setPassword( $mb['password'] )
+            $mailbox->setUsername( $mb['username'] )->setLocalPart( $mb['local_part'] );
+            if( $mb['name'] !== null )
+                $mailbox->setName( $mb['name'] );
+            $mailbox->setPassword( $mb['password'] )
                     ->setQuota( $mb['quota'] )->setActive( $mb['active'] )
                     ->setDomain( $archiveDomain )->setCreated( new \DateTime() );
             $archiveDomain->increaseMailboxCount();
@@ -481,18 +520,23 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         if( !$m )
             throw new ViMbAdmin_Mcp_Exception( 'unknown mailbox' );
         $mailboxDomain = $m->getDomain();
-        if( $mailboxDomain )
-            $this->_assertDomainAllowed( $mailboxDomain->requiredDomainName() );
+        if( !$mailboxDomain instanceof \Entities\Domain )
+            throw new ViMbAdmin_Mcp_Exception( 'unknown mailbox' );
+        $this->_assertDomainAllowed( $mailboxDomain->requiredDomainName() );
         return $m;
     }
 
     /** @param array<string,mixed> $params */
     private function _str( array $params, string $key, bool $required = false ): string
     {
-        $v = isset( $params[ $key ] ) ? trim( (string) $params[ $key ] ) : '';
-        if( $v === '' && $required )
-            throw new ViMbAdmin_Mcp_Exception( "param \"{$key}\" required" );
-        return $v;
+        if( !array_key_exists( $key, $params ) )
+        {
+            if( $required )
+                throw new ViMbAdmin_Mcp_Exception( "param \"{$key}\" required" );
+            return '';
+        }
+
+        return ViMbAdmin_Mcp_Input::string( $params[$key], "param \"{$key}\"", $required );
     }
 
     /**
@@ -552,11 +596,14 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
 
     private function _rateLimiter(): ViMbAdmin_Mcp_RateLimit
     {
-        $rl = $this->options()['mcp']['ratelimit']['destructive'] ?? [];
+        $options = $this->options();
+        [$stateDirFound, $stateDir] = ViMbAdmin_Mcp_Input::option( $options, 'mcp', 'ratelimit', 'statedir' );
         return new ViMbAdmin_Mcp_RateLimit( [
-            'statedir' => $this->options()['mcp']['ratelimit']['statedir'] ?? null,
-            'max'      => $rl['max']    ?? 10,
-            'window'   => $rl['window'] ?? 3600,
+            'statedir' => $stateDirFound
+                ? ViMbAdmin_Mcp_Input::string( $stateDir, 'configuration mcp.ratelimit.statedir', true )
+                : null,
+            'max'      => ViMbAdmin_Mcp_Input::optionInteger( $options, 10, 'mcp', 'ratelimit', 'destructive', 'max' ),
+            'window'   => ViMbAdmin_Mcp_Input::optionInteger( $options, 3600, 'mcp', 'ratelimit', 'destructive', 'window' ),
         ] );
     }
 
@@ -564,7 +611,15 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
 
     private function _mcpEnabled(): bool
     {
-        return isset( $this->options()['mcp']['enabled'] ) && $this->options()['mcp']['enabled'];
+        try
+        {
+            return ViMbAdmin_Mcp_Input::optionBoolean( $this->options(), false, 'mcp', 'enabled' );
+        }
+        catch( ViMbAdmin_Mcp_Exception $e )
+        {
+            error_log( 'MCP configuration rejected: ' . $e->getMessage() );
+            return false;
+        }
     }
 
     private function _json( mixed $payload, int $httpStatus = 200 ): \ViMbAdmin\Kernel\Http\Response

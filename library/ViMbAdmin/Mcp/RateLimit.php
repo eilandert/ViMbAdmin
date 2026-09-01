@@ -29,6 +29,8 @@ class ViMbAdmin_Mcp_RateLimit
                        : sys_get_temp_dir() . '/vimbadmin-mcp-ratelimit';
         $this->_max    = isset( $opts['max'] )    ? (int) $opts['max']    : 10;
         $this->_window = isset( $opts['window'] ) ? (int) $opts['window'] : 3600;
+        if( $this->_max > 0 && $this->_window < 1 )
+            throw new ViMbAdmin_Mcp_Exception( 'destructive rate-limit window must be at least one second', 503 );
     }
 
     /**
@@ -49,33 +51,59 @@ class ViMbAdmin_Mcp_RateLimit
         // destructive calls can each read a sub-limit count and both proceed,
         // letting a compromised client slip past the cap. Hold an exclusive
         // flock on the state file for the entire check+record.
-        $fh = @fopen( $file, 'c+' );
+        // Lock a stable sidecar inode. The state file itself is atomically
+        // replaced, so locking it would let waiters retain and later overwrite
+        // a stale pre-rename inode.
+        $lockFile = $file . '.lock';
+        $fh = @fopen( $lockFile, 'c+' );
         if( $fh === false )
         {
-            // fail-open on FS error (limiter is best-effort), but make the noise
-            // visible — a silently-uncapped destructive limiter is a security
-            // gap, not a quiet degradation.
-            error_log( "ViMbAdmin_Mcp_RateLimit: cannot open state file {$file} — destructive rate limit NOT enforced for token {$tokenId}" );
-            return;
+            error_log( "ViMbAdmin_Mcp_RateLimit: cannot open lock file {$lockFile} — destructive operation denied for token {$tokenId}" );
+            throw new ViMbAdmin_Mcp_Exception( 'destructive rate limit unavailable', 503 );
         }
 
+        $temporary = null;
         try
         {
             if( !flock( $fh, LOCK_EX ) )
             {
-                error_log( "ViMbAdmin_Mcp_RateLimit: cannot lock {$file} — destructive rate limit NOT enforced for token {$tokenId}" );
-                return;
+                error_log( "ViMbAdmin_Mcp_RateLimit: cannot lock {$lockFile} — destructive operation denied for token {$tokenId}" );
+                throw new ViMbAdmin_Mcp_Exception( 'destructive rate limit unavailable', 503 );
             }
 
-            $raw  = stream_get_contents( $fh );
-            $hits = json_decode( (string) $raw, true );
-            if( !is_array( $hits ) )
+            $exists = is_file( $file );
+            $raw = $exists ? file_get_contents( $file ) : '';
+            if( !is_string( $raw ) )
+                throw new ViMbAdmin_Mcp_Exception( 'destructive rate limit unavailable', 503 );
+            if( !$exists )
                 $hits = [];
+            else
+            {
+                $hits = json_decode( $raw, true );
+                if( !is_array( $hits ) || !array_is_list( $hits ) )
+                    throw new ViMbAdmin_Mcp_Exception( 'destructive rate limit state is invalid', 503 );
+            }
 
             // drop entries outside the window
-            $hits = array_values( array_filter( $hits, function( $t ) use ( $now ) {
-                return ( $now - (int) $t ) < $this->_window;
-            } ) );
+            $activeHits = [];
+            foreach( $hits as $t )
+            {
+                if( is_int( $t ) )
+                    $timestamp = $t;
+                elseif( is_string( $t ) && preg_match( '/^[0-9]+$/D', $t ) === 1 )
+                {
+                    $parsed = filter_var( $t, FILTER_VALIDATE_INT );
+                    if( !is_int( $parsed ) )
+                        throw new ViMbAdmin_Mcp_Exception( 'destructive rate limit state is invalid', 503 );
+                    $timestamp = $parsed;
+                }
+                else
+                    throw new ViMbAdmin_Mcp_Exception( 'destructive rate limit state is invalid', 503 );
+
+                if( ( $now - $timestamp ) < $this->_window )
+                    $activeHits[] = $timestamp;
+            }
+            $hits = $activeHits;
 
             if( count( $hits ) >= $this->_max )
                 throw new ViMbAdmin_Mcp_Exception(
@@ -86,17 +114,21 @@ class ViMbAdmin_Mcp_RateLimit
             $encoded = json_encode( $hits );
             if( $encoded === false )
             {
-                error_log( "ViMbAdmin_Mcp_RateLimit: cannot encode state for {$file} — destructive rate limit NOT enforced for token {$tokenId}" );
-                return;
+                error_log( "ViMbAdmin_Mcp_RateLimit: cannot encode state for {$file} — destructive operation denied for token {$tokenId}" );
+                throw new ViMbAdmin_Mcp_Exception( 'destructive rate limit unavailable', 503 );
             }
 
-            ftruncate( $fh, 0 );
-            rewind( $fh );
-            fwrite( $fh, $encoded );
-            fflush( $fh );
+            $temporary = tempnam( dirname( $file ), basename( $file ) . '.tmp-' );
+            if( $temporary === false
+                || file_put_contents( $temporary, $encoded, LOCK_EX ) !== strlen( $encoded )
+                || !rename( $temporary, $file ) )
+                throw new ViMbAdmin_Mcp_Exception( 'destructive rate limit unavailable', 503 );
+            $temporary = null;
         }
         finally
         {
+            if( is_string( $temporary ) && is_file( $temporary ) )
+                @unlink( $temporary );
             flock( $fh, LOCK_UN );
             fclose( $fh );
         }

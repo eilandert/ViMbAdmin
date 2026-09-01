@@ -315,6 +315,50 @@ archiveIdentityCheck('MCP delete preserves the optional-domain flow to persisten
         && $mcpArchive->getDomain() === null
         && in_array($mcpArchive, $mcpManager->getUnitOfWork()->getScheduledEntityDeletions(), true));
 
+$snapshotDomain = (new \Entities\Domain())->setDomain('example.test')->setMailboxCount(1);
+$mismatchedSnapshotArchive = (new \Entities\Archive())
+    ->setUsername('box@example.test')
+    ->setDomain($snapshotDomain)
+    ->setData(json_encode([
+        'mailbox' => [
+            'username' => 'other@example.test',
+            'local_part' => 'other',
+            'name' => 'Other mailbox',
+            'password' => '{CRYPT}hash',
+            'quota' => 1024,
+            'active' => true,
+        ],
+    ], JSON_THROW_ON_ERROR));
+$mismatchedSnapshotManager = archiveIdentityEntityManager([
+    'Entities\\Archive' => new ArchiveIdentityArchiveRepository($mismatchedSnapshotArchive),
+    'Entities\\Mailbox' => new ArchiveIdentityMailboxRepository(null),
+]);
+$mismatchedSnapshotSession = new ArchiveIdentitySession();
+$mismatchedSnapshotMcp = new McpController(
+    new Container(
+        new ArchiveIdentityResources($mismatchedSnapshotManager, $mismatchedSnapshotSession, new ArchiveIdentityView(), [
+            'doveadm' => ['http' => ['url' => 'http://doveadm.invalid/v1', 'api_key' => 'test']],
+        ]),
+        new Auth($mismatchedSnapshotSession, static fn(int $id): null => null),
+    ),
+    new RouteMatch('mcp', 'index', McpController::class, 'indexAction', []),
+);
+$mismatchedSnapshotError = null;
+try {
+    archiveIdentityMcpState(
+        $mismatchedSnapshotMcp,
+        ['username' => 'box@example.test'],
+        \Entities\Archive::STATUS_PENDING_RESTORE,
+    );
+} catch (ViMbAdmin_Mcp_Exception $e) {
+    $mismatchedSnapshotError = $e->getMessage();
+}
+archiveIdentityCheck('MCP restore rejects a snapshot for another mailbox before mutation',
+    $mismatchedSnapshotError === 'archive mailbox snapshot identity mismatch'
+        && $snapshotDomain->getMailboxCount() === 1
+        && $mismatchedSnapshotManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $mismatchedSnapshotManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
+
 // QueueRunner deliberately copies a nullable Archive domain into a nullable task.
 $malformedQueueArchive = new \Entities\Archive();
 $validQueueArchive = (new \Entities\Archive())->setUsername('valid@example.test');

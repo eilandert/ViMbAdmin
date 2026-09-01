@@ -56,8 +56,14 @@ class ViMbAdmin_Mcp_Auth
             throw new \LogicException( 'McpToken entity must use Repositories\\McpToken.' );
         $token = $repository->findByHash( $hash );
 
-        // Constant-time-ish: always do a comparison even on miss.
-        if( $token === null || !hash_equals( $token->getTokenHash(), $hash ) )
+        // Always execute an equal-length comparison, including repository misses
+        // and malformed legacy rows, before deciding whether authentication fails.
+        $knownHash = $token?->getTokenHash();
+        $comparableHash = is_string( $knownHash ) && strlen( $knownHash ) === 64
+            ? $knownHash
+            : str_repeat( '0', 64 );
+        $hashMatches = hash_equals( $comparableHash, $hash );
+        if( $token === null || !is_string( $knownHash ) || !$hashMatches )
             throw new ViMbAdmin_Mcp_Exception( 'invalid token', 401 );
 
         if( !$token->isActive() )
@@ -107,7 +113,7 @@ class ViMbAdmin_Mcp_Auth
         elseif( isset( $server['REDIRECT_HTTP_AUTHORIZATION'] ) )
             $h = $server['REDIRECT_HTTP_AUTHORIZATION'];
 
-        if( $h === null || !preg_match( '/^\s*Bearer\s+([A-Za-z0-9._\-]+)\s*$/', $h, $m ) )
+        if( !is_string( $h ) || !preg_match( '/^\s*Bearer\s+([A-Za-z0-9._\-]+)\s*$/', $h, $m ) )
             return null;
 
         return $m[1];

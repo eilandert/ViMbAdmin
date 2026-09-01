@@ -89,6 +89,8 @@ final class ControllerAliasIdentityAdmin extends \Entities\Admin
 
 final class ControllerAliasIdentityAliasRepository extends \Repositories\Alias
 {
+    public int $identityLookups = 0;
+
     /** @param list<\Entities\Alias> $aliases */
     public function __construct(private readonly array $aliases) {}
 
@@ -107,6 +109,16 @@ final class ControllerAliasIdentityAliasRepository extends \Repositories\Alias
     public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
     {
         return $this->aliases;
+    }
+
+    /**
+     * @param array<string,mixed> $criteria
+     * @param array<string,string>|null $orderBy
+     */
+    public function findOneBy(array $criteria, ?array $orderBy = null): ?object
+    {
+        $this->identityLookups++;
+        return $this->aliases[0] ?? null;
     }
 }
 
@@ -283,6 +295,12 @@ function controllerAliasIdentityMcpDelete(McpController $controller, array $para
         $typed[$key] = $value;
     }
     return $typed;
+}
+
+/** @param array<string,mixed> $params */
+function controllerAliasIdentityMcpInvoke(McpController $controller, string $method, array $params): mixed
+{
+    return (new ReflectionMethod($controller, $method))->invoke($controller, $params);
 }
 
 final class ControllerAliasIdentityState
@@ -548,6 +566,60 @@ controllerAliasIdentityCheck('MCP alias list emits required string identities',
         ]],
     ]);
 
+$crossDomainAliasRepository = new ControllerAliasIdentityAliasRepository([]);
+$crossDomainAliasManager = controllerAliasIdentityEntityManager([
+    'Entities\\Domain' => new ControllerAliasIdentityDomainRepository($domain),
+    'Entities\\Alias' => $crossDomainAliasRepository,
+]);
+$crossDomainAliasMcp = new McpController(
+    new Container(
+        new ControllerAliasIdentityResources($crossDomainAliasManager, $mcpSession, $mcpView),
+        new Auth($mcpSession, static fn(int $id): null => null),
+    ),
+    new RouteMatch('mcp', 'index', McpController::class, 'indexAction', []),
+);
+$crossDomainAliasError = null;
+try {
+    controllerAliasIdentityMcpInvoke($crossDomainAliasMcp, '_aliasCreate', [
+        'domain' => 'example.test',
+        'address' => 'sales@other.test',
+        'goto' => 'user@example.test',
+    ]);
+} catch (ViMbAdmin_Mcp_Exception $e) {
+    $crossDomainAliasError = $e->getMessage();
+}
+controllerAliasIdentityCheck('MCP alias create rejects a cross-domain address before lookup or mutation',
+    $crossDomainAliasError === 'address domain must match the authorized domain'
+        && $crossDomainAliasRepository->identityLookups === 0
+        && $crossDomainAliasManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $crossDomainAliasManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
+
+$orphanAlias = (new \Entities\Alias())
+    ->setAddress('orphan@other.test')
+    ->setGoto('user@other.test');
+$orphanAliasRepository = new ControllerAliasIdentityAliasRepository([$orphanAlias]);
+$orphanAliasManager = controllerAliasIdentityEntityManager([
+    'Entities\\Alias' => $orphanAliasRepository,
+]);
+$orphanAliasMcp = new McpController(
+    new Container(
+        new ControllerAliasIdentityResources($orphanAliasManager, $mcpSession, $mcpView),
+        new Auth($mcpSession, static fn(int $id): null => null),
+    ),
+    new RouteMatch('mcp', 'index', McpController::class, 'indexAction', []),
+);
+$orphanAliasError = null;
+try {
+    controllerAliasIdentityMcpInvoke($orphanAliasMcp, '_aliasDelete', ['address' => 'orphan@other.test']);
+} catch (ViMbAdmin_Mcp_Exception $e) {
+    $orphanAliasError = $e->getMessage();
+}
+controllerAliasIdentityCheck('MCP alias delete fails closed on an orphan relation before mutation',
+    $orphanAliasError === 'unknown alias'
+        && $orphanAliasRepository->identityLookups === 1
+        && $orphanAliasManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $orphanAliasManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
+
 $deleteDomain = (new \Entities\Domain())->setDomain('delete.example.test')->setMailboxCount(3);
 $deleteMailbox = (new \Entities\Mailbox())
     ->setUsername('user@delete.example.test')
@@ -568,6 +640,30 @@ controllerAliasIdentityCheck('MCP mailbox delete delegates the counter exactly o
     $deleteResult === ['deleted' => true, 'username' => 'user@delete.example.test']
         && $deleteRepository->purged
         && $deleteDomain->getMailboxCount() === 2);
+
+$orphanMailbox = (new \Entities\Mailbox())->setUsername('orphan@other.test');
+$orphanMailboxRepository = new ControllerAliasIdentityMailboxRepository($orphanMailbox);
+$orphanMailboxManager = controllerAliasIdentityEntityManager([
+    'Entities\\Mailbox' => $orphanMailboxRepository,
+]);
+$orphanMailboxMcp = new McpController(
+    new Container(
+        new ControllerAliasIdentityResources($orphanMailboxManager, $mcpSession, $mcpView),
+        new Auth($mcpSession, static fn(int $id): null => null),
+    ),
+    new RouteMatch('mcp', 'index', McpController::class, 'indexAction', []),
+);
+$orphanMailboxError = null;
+try {
+    controllerAliasIdentityMcpDelete($orphanMailboxMcp, ['username' => 'orphan@other.test']);
+} catch (ViMbAdmin_Mcp_Exception $e) {
+    $orphanMailboxError = $e->getMessage();
+}
+controllerAliasIdentityCheck('MCP mailbox delete fails closed on an orphan relation before purge',
+    $orphanMailboxError === 'unknown mailbox'
+        && !$orphanMailboxRepository->purged
+        && $orphanMailboxManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $orphanMailboxManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
 
 $malformedMcpAlias = (new \Entities\Alias())->setAddress('broken@example.test')->setDomain($domain);
 $malformedMcpEntityManager = controllerAliasIdentityEntityManager([

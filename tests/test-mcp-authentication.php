@@ -113,7 +113,15 @@ mcpAuthCheck(
 
 mcpAuthDenied('missing bearer is denied', mcpAuth(new McpAuthEntityManager(mcpAuthRepository(null))), ['REMOTE_ADDR' => '203.0.113.5'], 401);
 mcpAuthDenied('malformed bearer is denied', mcpAuth($em), ['HTTP_AUTHORIZATION' => 'Basic nope', 'REMOTE_ADDR' => '203.0.113.5'], 401);
+mcpAuthDenied('container-shaped bearer is denied before regex matching', mcpAuth($em), ['HTTP_AUTHORIZATION' => ['Bearer', $raw], 'REMOTE_ADDR' => '203.0.113.5'], 401);
 mcpAuthDenied('unknown bearer is denied', mcpAuth(new McpAuthEntityManager(mcpAuthRepository(null))), ['HTTP_AUTHORIZATION' => 'Bearer unknown', 'REMOTE_ADDR' => '203.0.113.5'], 401);
+$missingHash = (new Entities\McpToken())
+    ->setName('malformed-row')
+    ->setScope('read')
+    ->setCreated(new DateTime());
+mcpAuthDenied('token row with a missing hash is denied without a type error',
+    mcpAuth(new McpAuthEntityManager(mcpAuthRepository($missingHash))),
+    ['HTTP_AUTHORIZATION' => "Bearer {$raw}", 'REMOTE_ADDR' => '203.0.113.5'], 401);
 
 $revoked = mcpAuthToken($raw);
 $revoked->setRevoked(true);
