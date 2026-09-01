@@ -17,7 +17,7 @@ function fail(string $message, int $code = 2): void
 
 /**
  * @param list<string> $argv
- * @return array{apply:bool,proposal_apply:bool,format:string,repo:string,head:?string,sites:?int,diagnostics:?int,allows:list<string>,packet_input:?string,packet_file:?string,proposal_file:?string,packet_allows:list<string>}
+ * @return array{apply:bool,proposal_apply:bool,format:string,family:?string,repo:string,head:?string,sites:?int,diagnostics:?int,allows:list<string>,packet_input:?string,packet_file:?string,proposal_file:?string,packet_allows:list<string>}
  */
 function options(array $argv): array
 {
@@ -25,6 +25,7 @@ function options(array $argv): array
         'apply' => false,
         'proposal_apply' => false,
         'format' => 'json',
+        'family' => null,
         'repo' => getcwd() ?: '.',
         'head' => null,
         'sites' => null,
@@ -47,6 +48,7 @@ function options(array $argv): array
         if ($argument === '--help') {
             echo "usage: tools/phpstan-codemod.php [--apply] --repo=DIR --format=json|tsv\n";
             echo "       --expect-head=SHA --allow=FILE:METHOD@FILE_SHA [--allow=...]\n";
+            echo "       --family=test-harness-static-counter --allow=FILE:VARIABLE@FILE_SHA\n";
             echo "       --apply also requires --expect-sites=N --expect-diagnostics=N\n";
             echo "       --packets=PHPSTAN.json --expect-head=SHA\n";
             echo "       --packet-file=PACKETS.json --proposal-file=MODEL.json --allow-packet=ID@HASH\n";
@@ -55,6 +57,7 @@ function options(array $argv): array
         }
         $pairs = [
             '--format=' => 'format', '--repo=' => 'repo', '--expect-head=' => 'head',
+            '--family=' => 'family',
             '--expect-sites=' => 'sites', '--expect-diagnostics=' => 'diagnostics',
             '--packets=' => 'packet_input', '--packet-file=' => 'packet_file',
             '--proposal-file=' => 'proposal_file',
@@ -91,6 +94,9 @@ function options(array $argv): array
     if (!in_array($result['format'], ['json', 'tsv'], true)) {
         fail('format must be json or tsv');
     }
+    if ($result['family'] !== null && $result['family'] !== 'test-harness-static-counter') {
+        fail('unknown family');
+    }
     if ($result['head'] === null || $result['head'] === '') {
         fail('--expect-head is required');
     }
@@ -115,6 +121,9 @@ function options(array $argv): array
     }
     if (($packetMode || $proposalMode) && $result['format'] !== 'json') {
         fail('packet and proposal modes support JSON only');
+    }
+    if ($result['family'] !== null && ($packetMode || $proposalMode)) {
+        fail('family mode cannot be combined with packet or proposal mode');
     }
     return $result;
 }
@@ -177,7 +186,7 @@ function baselineEntries(string $file): array
         if (isset($current['message'], $current['identifier'], $current['count'], $current['path'])) {
             $message = trim($current['message'], "'\"");
             $plain = str_replace(['#^', '$#'], '', $message);
-            $plain = preg_replace('/\\\\([:\\(\\)\\.\\|])/', '$1', $plain) ?? $plain;
+            $plain = preg_replace('/\\\\([:\\(\\)\\.\\|+\\-=])/', '$1', $plain) ?? $plain;
             $plain = str_replace('\\\\', '\\', $plain);
             $class = $method = $atom = null;
             if (preg_match('/^Method ([A-Za-z0-9_\\\\]+)::([A-Za-z_][A-Za-z0-9_]*)\(\) should return ([A-Za-z0-9_\\\\]+) but returns \\3\|null\.$/', $plain, $match)) {
@@ -1100,6 +1109,300 @@ function processProposals(string $repo, string $head, string $baselineSha, array
     exit(0);
 }
 
+/** @param list<array{id:int|string|null,text:string,start:int,line:int}> $tokens */
+function nextSignificantIndex(array $tokens, int $index): ?int
+{
+    for ($i = $index + 1, $count = count($tokens); $i < $count; $i++) {
+        if (!insignificant($tokens[$i])) { return $i; }
+    }
+    return null;
+}
+
+/** @param list<array{id:int|string|null,text:string,start:int,line:int}> $tokens */
+function previousSignificantIndex(array $tokens, int $index): ?int
+{
+    for ($i = $index - 1; $i >= 0; $i--) {
+        if (!insignificant($tokens[$i])) { return $i; }
+    }
+    return null;
+}
+
+function harnessStateClass(string $path): string
+{
+    $stem = preg_replace('/\.php$/', '', basename($path)) ?? '';
+    $parts = preg_split('/[^A-Za-z0-9]+/', $stem, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    $class = implode('', array_map(static fn(string $part): string => ucfirst(strtolower($part)), $parts));
+    return $class . 'HarnessState';
+}
+
+/**
+ * @return array{line:int,old:string,new:string,source:string,increments:int}|array{reject:string}
+ */
+function inspectHarnessCounter(string $source, string $variable, string $stateClass): array
+{
+    if (str_contains($source, $stateClass)) { return ['reject' => 'state_class_collision']; }
+    $tokens = tokenSpans($source);
+    $depths = [];
+    $functionScopes = [];
+    $depth = 0;
+    $pendingFunction = false;
+    $functionDepths = [];
+    foreach ($tokens as $index => $token) {
+        $depths[$index] = $depth;
+        $functionScopes[$index] = $functionDepths !== [];
+        if ($token['id'] === T_FUNCTION) { $pendingFunction = true; }
+        if (($token['id'] === null && $token['text'] === '{')
+            || $token['id'] === T_CURLY_OPEN || $token['id'] === T_DOLLAR_OPEN_CURLY_BRACES) {
+            $depth++;
+            if ($pendingFunction && $token['id'] === null) {
+                $functionDepths[] = $depth;
+                $pendingFunction = false;
+            }
+        }
+        if ($token['id'] === null && $token['text'] === ';' && $pendingFunction) { $pendingFunction = false; }
+        if ($token['id'] === null && $token['text'] === '}') {
+            if ($functionDepths !== [] && end($functionDepths) === $depth) { array_pop($functionDepths); }
+            $depth--;
+        }
+    }
+    if ($depth !== 0) { return ['reject' => 'unbalanced_source']; }
+
+    $name = '$' . $variable;
+    $initializers = [];
+    $globalVariables = [];
+    $edits = [];
+    $increments = 0;
+    $assignmentIds = [
+        T_PLUS_EQUAL, T_MINUS_EQUAL, T_MUL_EQUAL, T_DIV_EQUAL, T_CONCAT_EQUAL,
+        T_MOD_EQUAL, T_AND_EQUAL, T_OR_EQUAL, T_XOR_EQUAL, T_SL_EQUAL,
+        T_SR_EQUAL, T_COALESCE_EQUAL,
+    ];
+
+    foreach ($tokens as $index => $token) {
+        if ($token['id'] === T_GLOBAL) {
+            $variableIndex = nextSignificantIndex($tokens, $index);
+            $semicolon = $variableIndex === null ? null : nextSignificantIndex($tokens, $variableIndex);
+            if ($variableIndex !== null && $tokens[$variableIndex]['id'] === T_VARIABLE
+                && $tokens[$variableIndex]['text'] === $name
+                && $semicolon !== null && $tokens[$semicolon]['text'] === ';') {
+                $lineStart = strrpos(substr($source, 0, $token['start']), "\n");
+                $lineStart = $lineStart === false ? 0 : $lineStart + 1;
+                $editStart = trim(substr($source, $lineStart, $token['start'] - $lineStart)) === ''
+                    ? $lineStart : $token['start'];
+                $globalVariables[$variableIndex] = true;
+                $edits[] = [
+                    'start' => $editStart,
+                    'end' => $tokens[$semicolon]['start'] + 1,
+                    'new' => '',
+                ];
+            } elseif ($variableIndex !== null && $tokens[$variableIndex]['id'] === T_VARIABLE
+                && $tokens[$variableIndex]['text'] === $name) {
+                return ['reject' => 'counter_global_not_exact'];
+            }
+        }
+    }
+
+    foreach ($tokens as $index => $token) {
+        if ($token['id'] === T_VARIABLE && $token['text'] === '$GLOBALS') {
+            $open = nextSignificantIndex($tokens, $index);
+            $key = $open === null ? null : nextSignificantIndex($tokens, $open);
+            $close = $key === null ? null : nextSignificantIndex($tokens, $key);
+            $increment = $close === null ? null : nextSignificantIndex($tokens, $close);
+            $literal = $key === null ? '' : trim($tokens[$key]['text'], "'\"");
+            if ($open !== null && $tokens[$open]['text'] === '[' && $literal === $variable
+                && $close !== null && $tokens[$close]['text'] === ']') {
+                if ($increment === null || $tokens[$increment]['id'] !== T_INC) {
+                    return ['reject' => 'counter_globals_use_not_increment'];
+                }
+                $edits[] = [
+                    'start' => $token['start'],
+                    'end' => $tokens[$increment]['start'] + strlen($tokens[$increment]['text']),
+                    'new' => $stateClass . '::$count++',
+                ];
+                $increments++;
+            }
+        }
+    }
+
+    foreach ($tokens as $index => $token) {
+        if ($token['id'] !== T_VARIABLE || $token['text'] !== $name || isset($globalVariables[$index])) {
+            continue;
+        }
+        $previous = previousSignificantIndex($tokens, $index);
+        $next = nextSignificantIndex($tokens, $index);
+        $afterNext = $next === null ? null : nextSignificantIndex($tokens, $next);
+        if (($depths[$index] ?? -1) === 0 && $next !== null && $tokens[$next]['text'] === '='
+            && $afterNext !== null && $tokens[$afterNext]['id'] === T_LNUMBER
+            && $tokens[$afterNext]['text'] === '0') {
+            $semicolon = nextSignificantIndex($tokens, $afterNext);
+            if ($semicolon === null || $tokens[$semicolon]['text'] !== ';') {
+                return ['reject' => 'counter_initializer_not_exact'];
+            }
+            $initializers[] = [$index, $semicolon];
+            continue;
+        }
+        if ($next !== null && $tokens[$next]['id'] === T_INC) {
+            $edits[] = [
+                'start' => $token['start'],
+                'end' => $tokens[$next]['start'] + strlen($tokens[$next]['text']),
+                'new' => $stateClass . '::$count++',
+            ];
+            $increments++;
+            continue;
+        }
+        $previousToken = $previous === null ? null : $tokens[$previous];
+        $nextToken = $next === null ? null : $tokens[$next];
+        if (($previousToken !== null && ($previousToken['id'] === T_INC || $previousToken['id'] === T_DEC
+                || $previousToken['text'] === '&'))
+            || ($nextToken !== null && ($nextToken['text'] === '=' || $nextToken['text'] === '&'
+                || $nextToken['id'] === T_DEC || in_array($nextToken['id'], $assignmentIds, true)))) {
+            return ['reject' => 'counter_write_not_exact'];
+        }
+        if ($functionScopes[$index] ?? false) {
+            return ['reject' => 'counter_function_read_not_exact'];
+        }
+    }
+
+    if (count($initializers) !== 1) { return ['reject' => 'counter_initializer_not_exact']; }
+    if ($increments === 0) { return ['reject' => 'counter_increment_missing']; }
+    [$startIndex, $endIndex] = $initializers[0];
+    $old = substr(
+        $source,
+        $tokens[$startIndex]['start'],
+        $tokens[$endIndex]['start'] + 1 - $tokens[$startIndex]['start'],
+    );
+    $new = "final class {$stateClass}\n{\n    public static int \$count = 0;\n}\n\n"
+        . $name . " =& {$stateClass}::\$count;";
+    $edits[] = [
+        'start' => $tokens[$startIndex]['start'],
+        'end' => $tokens[$endIndex]['start'] + 1,
+        'new' => $new,
+    ];
+    usort($edits, static fn(array $a, array $b): int => $b['start'] <=> $a['start']);
+    $transformed = $source;
+    $lastStart = strlen($source) + 1;
+    foreach ($edits as $edit) {
+        if ($edit['end'] > $lastStart) { return ['reject' => 'counter_edit_overlap']; }
+        $transformed = substr($transformed, 0, $edit['start']) . $edit['new'] . substr($transformed, $edit['end']);
+        $lastStart = $edit['start'];
+    }
+    return [
+        'line' => $tokens[$startIndex]['line'],
+        'old' => $old,
+        'new' => $new,
+        'source' => $transformed,
+        'increments' => $increments,
+    ];
+}
+
+/** @param array{path:string,id:string,count:int,message:string,class:?string,method:?string,atom:?string} $entry */
+function harnessDiagnostic(array $entry): bool
+{
+    return ($entry['id'] === 'postInc.type' && $entry['message'] === 'Cannot use ++ on mixed.')
+        || ($entry['id'] === 'identical.alwaysTrue'
+            && $entry['message'] === 'Strict comparison using === between 0 and 0 will always evaluate to true.')
+        || ($entry['id'] === 'deadCode.unreachable'
+            && $entry['message'] === 'Unreachable statement - code above always terminates.');
+}
+
+/**
+ * @param array{apply:bool,proposal_apply:bool,format:string,family:?string,repo:string,head:?string,sites:?int,diagnostics:?int,allows:list<string>,packet_input:?string,packet_file:?string,proposal_file:?string,packet_allows:list<string>} $options
+ * @param list<array{path:string,id:string,count:int,message:string,class:?string,method:?string,atom:?string}> $entries
+ */
+function processHarnessCounters(string $repo, string $head, string $baselineSha, array $entries, array $options): void
+{
+    $parsedAllows = array_map('parseAllow', $options['allows']);
+    $siteKeys = array_map(static fn(array $allow): string => $allow['path'] . ':' . $allow['method'], $parsedAllows);
+    if (count($siteKeys) !== count(array_unique($siteKeys))) { fail('duplicate allowlist site'); }
+    $records = [];
+    $writes = [];
+    $diagnosticCount = 0;
+    foreach ($parsedAllows as $allow) {
+        $path = $allow['path'];
+        $variable = $allow['method'];
+        $candidate = $repo . '/' . $path;
+        $resolved = realpath($candidate);
+        $inside = $resolved !== false && str_starts_with($resolved, $repo . DIRECTORY_SEPARATOR);
+        $file = $inside ? $resolved : $candidate;
+        $fileSha = $inside && !is_link($candidate) && is_file($file) ? hash_file('sha256', $file) : false;
+        if ($fileSha === false) { $fileSha = ''; }
+        $record = array_fill_keys(FIELDS, '');
+        $record = array_merge($record, [
+            'head' => $head, 'baseline_sha' => $baselineSha, 'path' => $path,
+            'method' => $variable, 'property' => 'count', 'id' => 'test-harness-static-counter',
+            'count' => 0, 'status' => 'rejected', 'file_sha' => $fileSha,
+        ]);
+        if ($head !== $options['head']) { $record['reject_reason'] = 'head_drift'; $records[] = $record; continue; }
+        if (!str_starts_with($path, 'tests/') || $fileSha === '' || !hash_equals($allow['sha'], $fileSha)) {
+            $record['reject_reason'] = $fileSha === '' || !hash_equals($allow['sha'], $fileSha)
+                ? 'file_hash_drift' : 'counter_path_not_test';
+            $records[] = $record;
+            continue;
+        }
+        $matches = array_values(array_filter($entries, static fn(array $entry): bool =>
+            $entry['path'] === $path && harnessDiagnostic($entry)));
+        $postIncrementCount = array_sum(array_map(static fn(array $entry): int =>
+            $entry['id'] === 'postInc.type' ? $entry['count'] : 0, $matches));
+        $count = array_sum(array_column($matches, 'count'));
+        $record['count'] = $count;
+        if ($count <= 0 || $postIncrementCount <= 0) {
+            $record['reject_reason'] = 'counter_baseline_not_exact';
+            $records[] = $record;
+            continue;
+        }
+        $source = file_get_contents($file);
+        if ($source === false) { $record['reject_reason'] = 'file_unreadable'; $records[] = $record; continue; }
+        $stateClass = harnessStateClass($path);
+        $inspection = inspectHarnessCounter($source, $variable, $stateClass);
+        if (isset($inspection['reject'])) {
+            $record['reject_reason'] = $inspection['reject'];
+            $records[] = $record;
+            continue;
+        }
+        if ($inspection['increments'] !== $postIncrementCount) {
+            $record['reject_reason'] = 'counter_increment_diagnostic_mismatch';
+            $records[] = $record;
+            continue;
+        }
+        $record['line'] = $inspection['line'];
+        $record['class'] = $stateClass;
+        $record['old'] = $inspection['old'];
+        $record['new'] = $inspection['new'];
+        $record['status'] = $options['apply'] ? 'applied' : 'eligible';
+        $record['reject_reason'] = '';
+        $records[] = $record;
+        $writes[$file] = ['source' => $inspection['source'], 'sha' => $allow['sha']];
+        $diagnosticCount += $count;
+    }
+    $eligible = count($writes);
+    $rejected = count($records) - $eligible;
+    $meta = [
+        'head' => $head, 'baseline_sha' => $baselineSha,
+        'mode' => $options['apply'] ? 'apply' : 'dry-run', 'family' => 'test-harness-static-counter',
+        'eligible_sites' => $eligible, 'diagnostics' => $diagnosticCount, 'rejected' => $rejected,
+    ];
+    if ($options['apply']) {
+        if ($rejected !== 0 || $eligible !== $options['sites'] || $diagnosticCount !== $options['diagnostics']) {
+            foreach ($records as &$record) {
+                if ($record['status'] === 'applied') { $record['status'] = 'eligible'; }
+            }
+            unset($record);
+            emit($records, $meta, $options['format']);
+            fail('apply preconditions failed; no files changed');
+        }
+        if (gitHead($repo) !== $options['head']) { fail('HEAD changed before write'); }
+        $contents = [];
+        $expected = [];
+        foreach ($writes as $file => $write) {
+            $contents[$file] = $write['source'];
+            $expected[$file] = $write['sha'];
+        }
+        atomicWrite($contents, $expected);
+    }
+    emit($records, $meta, $options['format']);
+    exit(0);
+}
+
 $options = options($argv);
 $repo = realpath($options['repo']);
 if ($repo === false) { fail('repository does not exist'); }
@@ -1113,6 +1416,9 @@ if ($options['packet_input'] !== null) {
 }
 if ($options['packet_file'] !== null) { processProposals($repo, $head, $baselineSha, $options); }
 $entries = baselineEntries($baseline);
+if ($options['family'] === 'test-harness-static-counter') {
+    processHarnessCounters($repo, $head, $baselineSha, $entries, $options);
+}
 $records = [];
 /** @var array<string,list<array{start:int,end:int,new:string}>> $edits */
 $edits = [];

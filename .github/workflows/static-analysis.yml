@@ -59,6 +59,8 @@ jobs:
 
       - name: Test PHPStan ratchet
         run: |
+          php tests/test-phpstan-codemod.php
+          php tests/test-phpstan-harness-codemod.php
           bash tests/test-phpstan-ratchet.sh
           bash tests/test-regenerate-phpstan-baseline.sh
 
