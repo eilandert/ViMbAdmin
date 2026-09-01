@@ -14,6 +14,14 @@ use Doctrine\ORM\EntityRepository;
  */
 class Alias extends EntityRepository
 {
+    private static function requiredAliasFilter(mixed $filter): string
+    {
+        if (!is_string($filter)) {
+            throw new \UnexpectedValueException('Alias filter must be a string.');
+        }
+        return $filter;
+    }
+
     /**
      * @param mixed $rows
      * @return array<int,array{id:int|string,address:string,goto:string,active:bool,domain:string}>
@@ -253,7 +261,7 @@ class Alias extends EntityRepository
 
     private function filteredAliasListQuery( mixed $filter, \Entities\Admin $admin, \Entities\Domain|int|null $domain, bool $ima ): \Doctrine\ORM\QueryBuilder
     {
-        $filter  = str_replace( "'", "", (string) $filter );
+        $filter  = str_replace( "'", "", self::requiredAliasFilter($filter) );
         $pattern = ( strpos( $filter, '*' ) === 0 )
             ? '%' . addcslashes( substr( $filter, 1 ), '%_\\' ) . '%'
             : addcslashes( $filter, '%_\\' ) . '%';

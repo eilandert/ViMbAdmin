@@ -73,12 +73,6 @@ parameters:
 			path: application/Entities/Mailbox.php
 
 		-
-			message: '#^Cannot cast mixed to string\.$#'
-			identifier: cast.string
-			count: 1
-			path: application/Repositories/Alias.php
-
-		-
 			message: '#^Cannot call method decreaseAliasCount\(\) on Entities\\Domain\|null\.$#'
 			identifier: method.nonObject
 			count: 1

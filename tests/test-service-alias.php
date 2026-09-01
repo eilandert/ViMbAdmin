@@ -454,6 +454,22 @@ $quotedParameters = $queryParameters($quotedFilterQuery);
 check('filtered list strips quotes and uses prefix mode', ($quotedParameters['s'] ?? null) === 'ohare%');
 check('super-admin filtered boundary omits ownership and mailbox filters', !str_contains($quotedFilterQuery->getDQL(), 'd2a') && !str_contains($quotedFilterQuery->getDQL(), 'a.address != a.goto'));
 
+$zeroFilterQuery = $invokeAliasQuery($filterMethod, $aliasRepository, '0', $superAdmin, null, true);
+$emptyFilterQuery = $invokeAliasQuery($filterMethod, $aliasRepository, '', $superAdmin, null, true);
+check('filtered list preserves the string zero', ($queryParameters($zeroFilterQuery)['s'] ?? null) === '0%');
+check('filtered list preserves the empty-string legacy wildcard', ($queryParameters($emptyFilterQuery)['s'] ?? null) === '%');
+
+foreach ([null, false, 1, 1.5, [], new \stdClass()] as $invalidFilter) {
+    $message = null;
+    try {
+        $invokeAliasQuery($filterMethod, $aliasRepository, $invalidFilter, $superAdmin, null, true);
+    } catch (\Throwable $exception) {
+        $message = $exception->getMessage();
+    }
+    check('filtered list rejects non-string input: ' . get_debug_type($invalidFilter),
+        $message === 'Alias filter must be a string.');
+}
+
 echo "\n";
 if ($failures === 0) {
     echo "OK: all Service_Alias assertions passed (PHP " . PHP_VERSION . ")\n";
