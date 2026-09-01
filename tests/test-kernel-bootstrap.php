@@ -97,6 +97,24 @@ check('malformed X-Forwarded-Prefix is rejected', Bootstrap::baseUrl() === '');
 unset($_SERVER['HTTP_X_FORWARDED_PREFIX']);
 check('config still wins over present SCRIPT_NAME dir', Bootstrap::baseUrl($cfg) === '/vimbadmin');
 
+$malformedBaseUrlRejected = false;
+try {
+    Bootstrap::baseUrl(['resources' => ['frontController' => ['baseUrl' => ['nested']]]]);
+} catch (LogicException $e) {
+    $malformedBaseUrlRejected = $e->getMessage() === 'resources.frontController.baseUrl must be a string';
+}
+check('malformed configured base URL fails closed before URL construction', $malformedBaseUrlRejected);
+
+$malformedSkinRejected = false;
+try {
+    (new ReflectionMethod(Bootstrap::class, 'skinCss'))->invoke(null, __DIR__ . '/../application', [
+        'resources' => ['smarty' => ['skin' => ['nested']]],
+    ]);
+} catch (LogicException $e) {
+    $malformedSkinRejected = $e->getMessage() === 'resources.smarty.skin must be a string';
+}
+check('malformed skin configuration fails closed before filesystem lookup', $malformedSkinRejected);
+
 // --- NativeResources presents the Container's bootstrap shape ---------------
 $em      = new stdClass();
 $view    = new stdClass();

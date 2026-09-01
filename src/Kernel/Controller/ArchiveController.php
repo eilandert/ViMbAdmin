@@ -37,6 +37,146 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  */
 final class ArchiveController extends AbstractController
 {
+    private static function positiveIntegerOrNull(mixed $value): ?int
+    {
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            return is_int($integer) ? $integer : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<array-key,mixed> $value
+     * @return array<string,mixed>
+     */
+    private static function requestArray(array $value): array
+    {
+        $scalarKeys = ['sEcho', 'iDisplayStart', 'iDisplayLength', 'sSearch', 'iSortCol_0', 'sSortDir_0'];
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                continue;
+            }
+            if (in_array($key, $scalarKeys, true) && !is_string($item)) {
+                throw new LogicException("DataTables parameter {$key} must be a string");
+            }
+            $result[$key] = $item;
+        }
+
+        return $result;
+    }
+
+    /** @return array<string,mixed> */
+    private static function stringKeyedArray(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new LogicException("{$name} must be an array");
+        }
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                throw new LogicException("{$name} must use string keys");
+            }
+            $result[$key] = $item;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array{bool,mixed}
+     */
+    private static function option(array $options, string ...$path): array
+    {
+        $value = $options;
+        $walked = [];
+        foreach ($path as $key) {
+            $value = self::stringKeyedArray(
+                $value,
+                'Configuration ' . ($walked === [] ? 'root' : implode('.', $walked)),
+            );
+            $walked[] = $key;
+            if (!array_key_exists($key, $value)) {
+                return [false, null];
+            }
+            $value = $value[$key];
+        }
+
+        return [true, $value];
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionBoolean(array $options, bool $default, string ...$path): bool
+    {
+        [$found, $value] = self::option($options, ...$path);
+        if (!$found) {
+            return $default;
+        }
+        if ($value === true || $value === 1 || $value === '1') {
+            return true;
+        }
+        if ($value === false || $value === 0 || $value === '0' || $value === '') {
+            return false;
+        }
+
+        throw new LogicException('Configuration ' . implode('.', $path) . ' must be boolean');
+    }
+
+    private static function nonNegativeInteger(mixed $value, string $name): int
+    {
+        if (is_int($value) && $value >= 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[0-9]+$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            if (is_int($integer)) {
+                return $integer;
+            }
+        }
+
+        throw new LogicException("{$name} must be a non-negative integer");
+    }
+
+    /** @return array{username:string,local_part:string,name:?string,password:string,quota:int,active:bool} */
+    private static function mailboxSnapshot(mixed $value): array
+    {
+        $snapshot = self::stringKeyedArray($value, 'Archive mailbox snapshot');
+        foreach (['username', 'local_part', 'name', 'password', 'quota', 'active'] as $key) {
+            if (!array_key_exists($key, $snapshot)) {
+                throw new LogicException("Archive mailbox snapshot missing {$key}");
+            }
+        }
+        if (!is_string($snapshot['username']) || $snapshot['username'] === '') {
+            throw new LogicException('Archive mailbox snapshot username must be a non-empty string');
+        }
+        if (!is_string($snapshot['local_part']) || $snapshot['local_part'] === '') {
+            throw new LogicException('Archive mailbox snapshot local_part must be a non-empty string');
+        }
+        if ($snapshot['name'] !== null && !is_string($snapshot['name'])) {
+            throw new LogicException('Archive mailbox snapshot name must be a string or null');
+        }
+        if (!is_string($snapshot['password']) || $snapshot['password'] === '') {
+            throw new LogicException('Archive mailbox snapshot password must be a non-empty string');
+        }
+        if (!is_bool($snapshot['active'])) {
+            throw new LogicException('Archive mailbox snapshot active must be boolean');
+        }
+
+        return [
+            'username' => $snapshot['username'],
+            'local_part' => $snapshot['local_part'],
+            'name' => $snapshot['name'],
+            'password' => $snapshot['password'],
+            'quota' => self::nonNegativeInteger($snapshot['quota'], 'Archive mailbox snapshot quota'),
+            'active' => $snapshot['active'],
+        ];
+    }
 
     /**
      * GET /archive and /archive/index — the auth-gated landing forwards to the list
@@ -73,9 +213,9 @@ final class ArchiveController extends AbstractController
             }
 
             if (!($storedDomain instanceof \Entities\Domain)) {
-                $did = $this->param('did');
-                if ($did) {
-                    $domain = $this->domainRepository()->find((int) $did);
+                $did = self::positiveIntegerOrNull($this->param('did'));
+                if ($did !== null) {
+                    $domain = $this->domainRepository()->find($did);
                     if ($domain && !$admin->isSuper() && !$admin->canManageDomain($domain)) {
                         return $this->redirect('auth/login');
                     }
@@ -86,8 +226,8 @@ final class ArchiveController extends AbstractController
             }
         }
 
-        $cfg      = $this->container->options()['defaults']['server_side']['pagination']['archive'] ?? [];
-        $archives = empty($cfg['enable'])
+        $paginate = self::optionBoolean($this->container->options(), false, 'defaults', 'server_side', 'pagination', 'archive', 'enable');
+        $archives = !$paginate
             ? $this->archiveRepository()->loadForArchiveList($admin, $domain)
             : [];
 
@@ -117,7 +257,7 @@ final class ArchiveController extends AbstractController
         $storedDomain = $session->get('domain');
         $domain = $storedDomain instanceof \Entities\Domain ? $storedDomain : null;
 
-        $q = DataTableQuery::fromArray($_GET);
+        $q = DataTableQuery::fromArray(self::requestArray($_GET));
         // Column index -> sortable field (matches JS column order; size / user-exists
         // / autoprune / controls fall back to archived date).
         $sortField = [0 => 'username', 1 => 'status', 2 => 'domain', 4 => 'archived_at'][$q->sortColumn] ?? 'archived_at';
@@ -283,18 +423,30 @@ final class ArchiveController extends AbstractController
         $mailbox = $em->getRepository('\\Entities\\Mailbox')->findOneBy(['username' => $user]);
         if (!$mailbox) {
             $domain = $archive->requiredDomain();
-            $snap = json_decode((string) $archive->getData(), true);
-            $m    = (is_array($snap) && isset($snap['mailbox'])) ? $snap['mailbox'] : null;
-            if (!$m) {
+            $data = $archive->getData();
+            $snap = is_string($data) ? json_decode($data, true) : null;
+            try {
+                $m = is_array($snap) && array_key_exists('mailbox', $snap)
+                    ? self::mailboxSnapshot($snap['mailbox']) : null;
+            } catch (\LogicException $e) {
+                $m = null;
+            }
+            if ($m === null) {
                 $this->flash(sprintf('Cannot restore %s: no mailbox snapshot stored with the archive.', $user), FlashMessages::ERROR);
+                return $this->redirect('archive/list');
+            }
+            $expectedSnapshotUsername = $m['local_part'] . '@' . $domain->requiredDomainName();
+            if ($m['username'] !== $user || $m['username'] !== $expectedSnapshotUsername) {
+                $this->flash(sprintf('Cannot restore %s: mailbox snapshot identity does not match the archive.', $user), FlashMessages::ERROR);
                 return $this->redirect('archive/list');
             }
 
             $mailbox = new \Entities\Mailbox();
-            $mailbox->setUsername($m['username'])
-                    ->setLocalPart($m['local_part'])
-                    ->setName($m['name'])
-                    ->setPassword($m['password'])   // original hash — password preserved
+            $mailbox->setUsername($m['username'])->setLocalPart($m['local_part']);
+            if ($m['name'] !== null) {
+                $mailbox->setName($m['name']);
+            }
+            $mailbox->setPassword($m['password'])   // original hash — password preserved
                     ->setQuota($m['quota'])
                     ->setActive($m['active'])
                     ->setDomain($domain)
@@ -381,12 +533,12 @@ final class ArchiveController extends AbstractController
 
     private function archiveFromParameter(string $parameter): ?\Entities\Archive
     {
-        $id = $this->param($parameter);
-        if (!$id) {
+        $id = self::positiveIntegerOrNull($this->param($parameter));
+        if ($id === null) {
             return null;
         }
 
-        $archive = $this->archiveRepository()->find((int) $id);
+        $archive = $this->archiveRepository()->find($id);
         return $archive instanceof \Entities\Archive ? $archive : null;
     }
 

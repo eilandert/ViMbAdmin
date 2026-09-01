@@ -25,12 +25,26 @@ $captcha = new OSS_Captcha_Image(0, 0, 6, 60);
 $id = $captcha->generate();
 $path = OSS_Captcha_Image::path($id);
 
+$captchaRangeRejected = false;
+try {
+    new OSS_Captcha_Image('6junk', 0, 6, 60);
+} catch (ValueError $exception) {
+    $captchaRangeRejected = $exception->getMessage() === 'Captcha dot noise is outside its permitted range';
+}
+check('malformed captcha noise is rejected before generation', $captchaRangeRejected);
+
 check('generated id is a 32-character hex value', preg_match('/^[a-f0-9]{32}$/', $id) === 1);
 check('generated image exists', $path !== null && is_file($path));
 check('generated image is a PNG', $path !== null && str_starts_with((string) mime_content_type($path), 'image/png'));
 check('wrong answer fails', OSS_Captcha_Image::_isValid($id, 'WRONG') === false);
-check('validation consumes the session value', !isset($_SESSION['OSS_Captcha_' . $id]));
+check('validation consumes the session value', count($_SESSION) === 0);
 check('validation removes the image', OSS_Captcha_Image::path($id) === null);
+
+$malformedAnswerId = (new OSS_Captcha_Image(0, 0, 6, 60))->generate();
+check('malformed answer consumes the session value and image',
+    OSS_Captcha_Image::_isValid($malformedAnswerId, ['array-answer']) === false
+    && count($_SESSION) === 0
+    && OSS_Captcha_Image::path($malformedAnswerId) === null);
 
 $expired = $root . '/captchas/' . str_repeat('a', 32) . '.png';
 file_put_contents($expired, 'expired');

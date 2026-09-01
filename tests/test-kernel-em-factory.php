@@ -77,7 +77,7 @@ final class TestKernelEmFactoryHarnessState
 }
 
 $failures =& TestKernelEmFactoryHarnessState::$count;
-function check(string $label, callable $fn): void {
+function emCheck(string $label, callable $fn): void {
 
     try {
         $fn();
@@ -86,6 +86,15 @@ function check(string $label, callable $fn): void {
         TestKernelEmFactoryHarnessState::$count++;
         printf("FAIL %s :: %s: %s\n", $label, get_class($e), $e->getMessage());
     }
+}
+
+function requireEntityManager(mixed $value): EntityManagerInterface
+{
+    if (!$value instanceof EntityManagerInterface) {
+        throw new QueryProbeFailure('factory did not return an EntityManagerInterface');
+    }
+
+    return $value;
 }
 
 // Register the Entities/Repositories autoloaders up front: repository probes
@@ -415,22 +424,79 @@ $em = null;
 
 // The attribute metadata driver needs no extra extension (reflection only), so
 // these asserts always run.
-check('factory builds an EntityManager', function () use ($options, &$em) {
+emCheck('factory builds an EntityManager', function () use ($options, &$em) {
     $em = EntityManagerFactory::create($options);
-    if (!$em instanceof EntityManagerInterface) {
-        throw new RuntimeException('not an EntityManagerInterface: ' . get_class($em));
+    $manager = requireEntityManager($em);
+    if ($manager->getConnection()->isConnected()) {
+        throw new RuntimeException('factory opened the database connection eagerly');
     }
 });
 
-check('metadata driver is the attribute driver over the Entities dir', function () use (&$em) {
-    $driver = $em->getConfiguration()->getMetadataDriverImpl();
+emCheck('malformed nested connection and cache maps fail before construction', function () use ($options) {
+    $badConnection = $options;
+    $badConnection['resources']['doctrine2']['connection']['options'] = ['driver' => ['pdo_sqlite']];
+    try {
+        EntityManagerFactory::create($badConnection);
+    } catch (LogicException $e) {
+        if ($e->getMessage() !== 'resources.doctrine2.connection.options.driver must be a non-empty string') {
+            throw new RuntimeException('unexpected connection error: ' . $e->getMessage());
+        }
+        $connectionRejected = true;
+    }
+    if (!($connectionRejected ?? false)) {
+        throw new RuntimeException('malformed connection driver was accepted');
+    }
+
+    $badMemory = $options;
+    $badMemory['resources']['doctrine2']['connection']['options']['memory'] = 'yes';
+    try {
+        EntityManagerFactory::create($badMemory);
+    } catch (LogicException $e) {
+        if ($e->getMessage() !== 'resources.doctrine2.connection.options.memory must be boolean') {
+            throw new RuntimeException('unexpected memory error: ' . $e->getMessage());
+        }
+        $memoryRejected = true;
+    }
+    if (!($memoryRejected ?? false)) {
+        throw new RuntimeException('malformed memory option was accepted');
+    }
+
+    $badDriverClass = $options;
+    $badDriverClass['resources']['doctrine2']['connection']['options']['driverClass'] = 'stdClass';
+    try {
+        EntityManagerFactory::create($badDriverClass);
+    } catch (LogicException $e) {
+        if ($e->getMessage() !== 'resources.doctrine2.connection.options.driverClass must implement Doctrine\\DBAL\\Driver') {
+            throw new RuntimeException('unexpected driverClass error: ' . $e->getMessage());
+        }
+        $driverClassRejected = true;
+    }
+    if (!($driverClassRejected ?? false)) {
+        throw new RuntimeException('invalid driverClass was accepted');
+    }
+
+    $badCache = $options;
+    $badCache['resources']['doctrine2cache']['namespace'] = ['cache-key'];
+    try {
+        EntityManagerFactory::create($badCache);
+    } catch (LogicException $e) {
+        if ($e->getMessage() !== 'resources.doctrine2cache.namespace must be a string') {
+            throw new RuntimeException('unexpected cache error: ' . $e->getMessage());
+        }
+        return;
+    }
+    throw new RuntimeException('malformed cache namespace was accepted');
+});
+
+emCheck('metadata driver is the attribute driver over the Entities dir', function () use (&$em) {
+    $driver = requireEntityManager($em)->getConfiguration()->getMetadataDriverImpl();
     if (!$driver instanceof AttributeDriver) {
         throw new RuntimeException('metadata driver is ' . get_debug_type($driver));
     }
 });
 
-check('proxy namespace + autogen flag applied', function () use (&$em, $options) {
-    $cfg = $em->getConfiguration();
+emCheck('proxy namespace + autogen flag applied', function () use (&$em, $options) {
+    $cfg = requireEntityManager($em)->getConfiguration();
     if ($cfg->getProxyNamespace() !== 'Proxies') {
         throw new RuntimeException('proxy namespace = ' . var_export($cfg->getProxyNamespace(), true));
     }
@@ -443,9 +509,7 @@ check('proxy namespace + autogen flag applied', function () use (&$em, $options)
         $modeOptions = $options;
         $modeOptions['resources']['doctrine2']['autogen_proxies'] = (string) $mode;
         $modeEm = EntityManagerFactory::create($modeOptions);
-        if (!$modeEm instanceof EntityManagerInterface) {
-            throw new RuntimeException('proxy-mode factory did not return an EntityManagerInterface');
-        }
+        $modeEm = requireEntityManager($modeEm);
         if ($modeEm->getConfiguration()->getAutoGenerateProxyClasses() !== $mode) {
             throw new RuntimeException("proxy mode $mode was not preserved");
         }
@@ -453,17 +517,30 @@ check('proxy namespace + autogen flag applied', function () use (&$em, $options)
 
     $invalidOptions = $options;
     $invalidOptions['resources']['doctrine2']['autogen_proxies'] = '5';
+    $invalidFiveRejected = false;
     try {
         EntityManagerFactory::create($invalidOptions);
     } catch (InvalidArgumentException) {
-        return;
+        $invalidFiveRejected = true;
+    }
+    if (!$invalidFiveRejected) {
+        throw new RuntimeException('invalid proxy mode 5 was accepted');
     }
 
-    throw new RuntimeException('invalid proxy mode was accepted');
+    $invalidOptions['resources']['doctrine2']['autogen_proxies'] = '1junk';
+    $invalidJunkRejected = false;
+    try {
+        EntityManagerFactory::create($invalidOptions);
+    } catch (InvalidArgumentException) {
+        $invalidJunkRejected = true;
+    }
+    if (!$invalidJunkRejected) {
+        throw new RuntimeException('lossy proxy mode string was accepted');
+    }
 });
 
-check('metadata cache is wired (no exception fetching it)', function () use (&$em) {
-    $cfg = $em->getConfiguration();
+emCheck('metadata cache is wired (no exception fetching it)', function () use (&$em) {
+    $cfg = requireEntityManager($em)->getConfiguration();
     foreach (['metadata' => $cfg->getMetadataCache(), 'query' => $cfg->getQueryCache(), 'result' => $cfg->getResultCache()] as $name => $cache) {
         if (!$cache instanceof CacheItemPoolInterface) {
             throw new RuntimeException("$name cache is " . get_debug_type($cache));
@@ -471,10 +548,10 @@ check('metadata cache is wired (no exception fetching it)', function () use (&$e
     }
 });
 
-check('a known entity attribute mapping loads through the driver', function () use (&$em) {
+emCheck('a known entity attribute mapping loads through the driver', function () use (&$em) {
     // Proves the driver reads the #[ORM\...] attributes on Entities\Admin and
     // produces class metadata (no DB needed).
-    $meta = $em->getClassMetadata('Entities\\Admin');
+    $meta = requireEntityManager($em)->getClassMetadata('Entities\\Admin');
     if ($meta->getTableName() === '') {
         throw new RuntimeException('Admin metadata has no table name');
     }
@@ -486,7 +563,7 @@ checkMailboxRepositoryQueryContract($em);
 checkMailboxTaskRepositoryContract($em);
 checkMcpTokenRepositoryContract($em);
 
-check('registerEntityAutoloaders loads an Entities class', function () use ($options) {
+emCheck('registerEntityAutoloaders loads an Entities class', function () use ($options) {
     EntityManagerFactory::registerEntityAutoloaders($options);
     if (!class_exists('Entities\\Admin')) {
         throw new RuntimeException('Entities\\Admin did not autoload');

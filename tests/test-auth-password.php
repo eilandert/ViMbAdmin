@@ -35,6 +35,7 @@ foreach ([OSS_Auth_Password::HASH_PLAIN, OSS_Auth_Password::HASH_PLAINTEXT] as $
 $bcryptHash = OSS_Auth_Password::hash('bcrypt-secret', ['pwhash' => 'bcrypt', 'hash_cost' => '04']);
 $check('bcrypt array configuration retains numeric-string cost', str_starts_with($bcryptHash, '$2a$04$'));
 $check('bcrypt array configuration verifies', OSS_Auth_Password::verify('bcrypt-secret', $bcryptHash, ['pwhash' => 'bcrypt', 'hash_cost' => 4]));
+$check('bcrypt verification uses the stored hash cost, not generation policy', OSS_Auth_Password::verify('bcrypt-secret', $bcryptHash, ['pwhash' => 'bcrypt', 'hash_cost' => 31]));
 $check('bcrypt rejects a wrong password', !OSS_Auth_Password::verify('wrong', $bcryptHash, ['pwhash' => 'bcrypt', 'hash_cost' => 4]));
 
 $defaultBcryptHash = OSS_Auth_Password::hash('default-cost', OSS_Auth_Password::HASH_BCRYPT);
@@ -42,6 +43,14 @@ $check('bcrypt string configuration retains default cost 12', str_starts_with($d
 $check('bcrypt string configuration verifies', OSS_Auth_Password::verify('default-cost', $defaultBcryptHash, OSS_Auth_Password::HASH_BCRYPT));
 $defaultArrayBcryptHash = OSS_Auth_Password::hash('default-array-cost', ['pwhash' => 'bcrypt']);
 $check('bcrypt array configuration retains default cost 12', str_starts_with($defaultArrayBcryptHash, '$2a$12$'));
+$check('bcrypt rejects malformed cost instead of coercing it', $throwsOss(
+    static fn(): string => OSS_Auth_Password::hash('malformed-cost', ['pwhash' => 'bcrypt', 'hash_cost' => '5junk']),
+    'Bcrypt cost must be an integer between 4 and 16'
+));
+$check('bcrypt rejects operationally excessive cost before hashing', $throwsOss(
+    static fn(): string => OSS_Auth_Password::hash('excessive-cost', ['pwhash' => 'bcrypt', 'hash_cost' => 17]),
+    'Bcrypt cost must be an integer between 4 and 16'
+));
 
 foreach (['crypt:md5' => '$1$', 'crypt:blowfish' => '$2a$12$', 'crypt:sha256' => '$5$', 'crypt:sha512' => '$6$'] as $mode => $prefix) {
     $hash = OSS_Auth_Password::hash('crypt-secret', $mode);

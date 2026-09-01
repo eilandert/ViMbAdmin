@@ -37,6 +37,120 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  */
 final class MaintenanceController extends AbstractController
 {
+    private static function requiredString(mixed $value, string $name): string
+    {
+        if (!is_string($value)) {
+            throw new LogicException("{$name} must be a string");
+        }
+
+        return $value;
+    }
+
+    /** @return array<string,mixed> */
+    private static function stringKeyedArray(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new LogicException("{$name} must be an array");
+        }
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                throw new LogicException("{$name} must use string keys");
+            }
+            $result[$key] = $item;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array{bool,mixed}
+     */
+    private static function option(array $options, string ...$path): array
+    {
+        $value = $options;
+        $walked = [];
+        foreach ($path as $key) {
+            $value = self::stringKeyedArray(
+                $value,
+                'Configuration ' . ($walked === [] ? 'root' : implode('.', $walked)),
+            );
+            $walked[] = $key;
+            if (!array_key_exists($key, $value)) {
+                return [false, null];
+            }
+            $value = $value[$key];
+        }
+
+        return [true, $value];
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionString(array $options, string $default, string ...$path): string
+    {
+        [$found, $value] = self::option($options, ...$path);
+        return $found ? self::requiredString($value, 'Configuration ' . implode('.', $path)) : $default;
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionInt(array $options, int $default, string ...$path): int
+    {
+        [$found, $value] = self::option($options, ...$path);
+        if (!$found) {
+            return $default;
+        }
+        if (is_int($value) && $value >= 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[0-9]+$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            if (is_int($integer)) {
+                return $integer;
+            }
+        }
+
+        throw new LogicException('Configuration ' . implode('.', $path) . ' must be a non-negative integer');
+    }
+
+    private static function binaryFlag(mixed $value, string $name): bool
+    {
+        if ($value === true || $value === 1 || $value === '1') {
+            return true;
+        }
+        if ($value === false || $value === 0 || $value === '0' || $value === '') {
+            return false;
+        }
+
+        throw new LogicException("{$name} must be zero or one");
+    }
+
+    private static function rowUsername(mixed $row, string $name): string
+    {
+        if (!is_array($row) || !array_key_exists('username', $row)) {
+            throw new LogicException("{$name} must contain a username");
+        }
+
+        return self::requiredString($row['username'], $name);
+    }
+
+    private static function postStringOrEmpty(mixed $value): string
+    {
+        return is_string($value) ? $value : '';
+    }
+
+    private static function optionalPostString(mixed $value, string $name): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        if (!is_string($value)) {
+            throw new LogicException("{$name} must be a string");
+        }
+
+        return $value;
+    }
+
     /**
      * GET /maintenance — the maintenance dashboard.
      */
@@ -162,11 +276,11 @@ final class MaintenanceController extends AbstractController
             return $guard;
         }
 
-        $days   = max(0, (int) ($this->container->options()['queue']['autoprune']['days'] ?? 90));
+        $days = self::optionInt($this->container->options(), 90, 'queue', 'autoprune', 'days');
         $cutoff = (new \DateTime())->modify('-' . $days . ' days');
         $candidates = $this->archiveRepository()->findAutoprune($cutoff);
 
-        if ((int) ($this->postData()['confirm'] ?? 0) !== 1) {
+        if (!self::binaryFlag($this->postData()['confirm'] ?? false, 'Prune confirmation')) {
             return $this->renderDashboard([
                 'confirmPruneExpired' => true,
                 'pruneExpiredCount'   => count($candidates),
@@ -193,7 +307,7 @@ final class MaintenanceController extends AbstractController
 
         $candidates = $this->archiveRepository()->findAutoprune(null);
 
-        if ((int) ($this->postData()['confirm'] ?? 0) !== 1) {
+        if (!self::binaryFlag($this->postData()['confirm'] ?? false, 'Prune confirmation')) {
             return $this->renderDashboard([
                 'confirmPruneAll' => true,
                 'pruneAllCount'   => count($candidates),
@@ -270,7 +384,7 @@ final class MaintenanceController extends AbstractController
             return $this->redirect('maintenance/index');
         }
 
-        if ((int) ($this->postData()['confirm'] ?? 0) !== 1) {
+        if (!self::binaryFlag($this->postData()['confirm'] ?? false, 'Schema confirmation')) {
             return $this->renderDashboard(['schemaSql' => $sql]);
         }
 
@@ -319,6 +433,12 @@ final class MaintenanceController extends AbstractController
             return $guard;
         }
 
+        $one = self::optionalPostString($this->postData()['username'] ?? null, 'Orphan username') ?? '';
+        if ($one === '' && !self::binaryFlag($this->postData()['confirm'] ?? false, 'Orphan import confirmation')) {
+            $this->flash('Re-scan and use "Import all" to import every unmanaged maildir.', FlashMessages::INFO);
+            return $this->redirect('maintenance/index');
+        }
+
         try {
             $orphans = $this->scanOrphans();
         } catch (\Throwable $e) {
@@ -326,16 +446,12 @@ final class MaintenanceController extends AbstractController
             return $this->redirect('maintenance/index');
         }
 
-        $one = (string) ($this->postData()['username'] ?? '');
         if ($one !== '') {
             if (!in_array($one, $orphans, true)) {
                 $this->flash('That maildir is no longer an unmanaged orphan.', FlashMessages::INFO);
                 return $this->redirect('maintenance/index');
             }
             $orphans = [$one];
-        } elseif ((int) ($this->postData()['confirm'] ?? 0) !== 1) {
-            $this->flash('Re-scan and use "Import all" to import every unmanaged maildir.', FlashMessages::INFO);
-            return $this->redirect('maintenance/index');
         }
 
         $em     = $this->em();
@@ -351,7 +467,8 @@ final class MaintenanceController extends AbstractController
             ->setParameter('open', [\Entities\MailboxTask::STATUS_PENDING, \Entities\MailboxTask::STATUS_RUNNING])
             ->setParameter('users', $orphans)
             ->getArrayResult() as $r) {
-            $alreadyQueued[$r['username']] = true;
+            $username = self::rowUsername($r, 'Queued orphan row');
+            $alreadyQueued[$username] = true;
         }
 
         foreach ($orphans as $user) {
@@ -395,11 +512,13 @@ final class MaintenanceController extends AbstractController
 
         $known = [];
         foreach ($this->em()->createQuery('SELECT m.username FROM \Entities\Mailbox m')->getArrayResult() as $r) {
-            $known[strtolower($r['username'])] = true;
+            $username = self::rowUsername($r, 'Mailbox row');
+            $known[strtolower($username)] = true;
         }
 
         $orphans = [];
         foreach ($dirs as $name) {
+            $name = self::safeMaildirName($name);
             if (isset($known[strtolower($name)])) {
                 continue;
             }
@@ -412,10 +531,20 @@ final class MaintenanceController extends AbstractController
         return $orphans;
     }
 
+    private static function safeMaildirName(mixed $value): string
+    {
+        if (!is_string($value) || $value === '' || $value === '.' || $value === '..'
+            || str_contains($value, '/') || str_contains($value, '\\')
+            || preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
+            throw new LogicException('Maildir name is not a safe path component');
+        }
+
+        return $value;
+    }
+
     private function maildirRoot(): string
     {
-        $root = isset($this->container->options()['doveadm']['maildir_root'])
-            ? trim((string) $this->container->options()['doveadm']['maildir_root']) : '';
+        $root = trim(self::optionString($this->container->options(), '', 'doveadm', 'maildir_root'));
         return $root !== '' ? rtrim($root, '/') : '/opt/myguard/dovecot/maildir';
     }
 
@@ -431,7 +560,7 @@ final class MaintenanceController extends AbstractController
             return $guard;
         }
 
-        if ((int) ($this->postData()['confirm'] ?? 0) !== 1) {
+        if (!self::binaryFlag($this->postData()['confirm'] ?? false, 'Bulk operation confirmation')) {
             return $this->renderDashboard([$confirmFlag => true]);
         }
 
@@ -537,7 +666,7 @@ final class MaintenanceController extends AbstractController
     private function postCsrfValid(): bool
     {
         return (new Csrf(new MagicPropertyStorage($this->container->session())))
-            ->isValid((string) ($this->postData()['csrf'] ?? ''));
+            ->isValid(self::postStringOrEmpty($this->postData()['csrf'] ?? null));
     }
 
     private function logMaintenance(\Entities\Admin $admin, string $message): void

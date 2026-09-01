@@ -79,6 +79,53 @@ $check('truthy randomid replaces the sequential id', str_contains($randomRendere
 $emptySmarty = new MessageSmartyDouble([]);
 $check('empty message collection renders empty output', smarty_function_OSS_Message(['randomid' => false], $emptySmarty) === '');
 
+$unsafeClassRejected = false;
+try {
+    $unsafeClassSmarty = new MessageSmartyDouble([
+        'OSS_Messages' => [new OSS_Message('unsafe', 'bad" onmouseover="alert(1)', false)],
+    ]);
+    smarty_function_OSS_Message([], $unsafeClassSmarty);
+} catch (InvalidArgumentException $exception) {
+    $unsafeClassRejected = $exception->getMessage() === 'OSS message class must be a safe CSS class token';
+}
+$check('message class injection is rejected before rendering', $unsafeClassRejected);
+
+$flashSession = ['Application' => ['flashMessages' => [['text' => ['not-text'], 'level' => 'error']]]];
+$_SESSION = $flashSession;
+$unsafeFlashRejected = false;
+try {
+    $unsafeFlashSmarty = new MessageSmartyDouble([]);
+    smarty_function_OSS_Message([], $unsafeFlashSmarty);
+} catch (InvalidArgumentException $exception) {
+    $unsafeFlashRejected = $exception->getMessage() === 'session flash message text must be a string';
+}
+$sessionSnapshot = $_SESSION;
+$flashRetained = json_encode($sessionSnapshot) === json_encode($flashSession);
+$check('malformed session flash is rejected before it is drained', $unsafeFlashRejected && $flashRetained);
+unset($_SESSION['Application']);
+
+$legacyAndNative = new MessageSmartyDouble([
+    'OSS_Messages' => [new OSS_Message('legacy', OSS_Message::INFO, false)],
+]);
+$_SESSION = [
+    'Application' => [
+        'OSS_Messages' => [new OSS_Message('session', OSS_Message::SUCCESS, false)],
+        'flashMessages' => [['text' => 'native', 'level' => 'warning', 'isHtml' => true]],
+    ],
+];
+$combined = smarty_function_OSS_Message([], $legacyAndNative);
+$check('combined legacy and native queues render once', substr_count($combined, 'legacy') === 1 && substr_count($combined, 'session') === 1 && substr_count($combined, 'native') === 1);
+$check('combined queues drain from one shared session snapshot', serialize($_SESSION) === serialize(['Application' => []]));
+
+$_SESSION = ['Application' => ['flashMessages' => [
+    ['text' => '<b>raw</b>', 'level' => 'success', 'isHtml' => true],
+    ['text' => '<b>escaped</b>', 'level' => 'success', 'isHtml' => false],
+]]];
+$escapedFlashSmarty = new MessageSmartyDouble([]);
+$escapedFlash = smarty_function_OSS_Message([], $escapedFlashSmarty);
+$check('native flash preserves raw HTML only when isHtml is true', str_contains($escapedFlash, '<b>raw</b>') && str_contains($escapedFlash, '&lt;b&gt;escaped&lt;/b&gt;') && !str_contains($escapedFlash, '<b>escaped</b>'));
+$_SESSION = [];
+
 echo "\n";
 $exitCode = $failures === 0 ? 0 : 1;
 echo $exitCode === 0

@@ -283,6 +283,35 @@ archiveIdentityCheck('restore domain failure precedes persist, flush, remove and
     $restoreManager->getUnitOfWork()->getScheduledEntityInsertions() === []
         && $restoreManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
 
+$nativeSnapshotDomain = (new \Entities\Domain())->setDomain('example.test')->setMailboxCount(1);
+$nativeSnapshotArchive = (new \Entities\Archive())
+    ->setUsername('box@example.test')
+    ->setDomain($nativeSnapshotDomain)
+    ->setStatus(\Entities\Archive::STATUS_ARCHIVED)
+    ->setData(json_encode([
+        'mailbox' => [
+            'username' => 'other@example.test', 'local_part' => 'other',
+            'name' => null, 'password' => '{CRYPT}hash', 'quota' => 1024, 'active' => true,
+        ],
+    ], JSON_THROW_ON_ERROR));
+$nativeSnapshotManager = archiveIdentityEntityManager([
+    'Entities\\Archive' => new ArchiveIdentityArchiveRepository($nativeSnapshotArchive),
+    'Entities\\Mailbox' => new ArchiveIdentityMailboxRepository(null),
+]);
+$nativeSnapshotSession = new ArchiveIdentitySession(['identity' => ['id' => 1], 'csrfToken' => 'test-token']);
+$nativeSnapshotController = new ArchiveController(
+    archiveIdentityContainer($nativeSnapshotManager, $nativeSnapshotSession, new ArchiveIdentityView(), true),
+    new RouteMatch('archive', 'restore', ArchiveController::class, 'restoreAction', [
+        'arid' => '7', 'csrf' => 'test-token',
+    ]),
+);
+$nativeSnapshotResponse = $nativeSnapshotController->restoreAction();
+archiveIdentityCheck('native restore rejects a mismatched snapshot identity before persistence',
+    $nativeSnapshotResponse->status === 302
+        && $nativeSnapshotDomain->getMailboxCount() === 1
+        && $nativeSnapshotManager->getUnitOfWork()->getScheduledEntityInsertions() === []
+        && $nativeSnapshotManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
+
 // MCP delete intentionally authorizes only when a domain is attached.
 $mcpArchive = (new \Entities\Archive())->setUsername('box@example.test');
 $mcpManager = archiveIdentityEntityManager([

@@ -46,6 +46,8 @@ file_put_contents($tmp . '/tpl/skinned.tpl', 'DEFAULT {$name}');
 file_put_contents($tmp . '/tpl/_skins/myskin/skinned.tpl', 'SKIN {$name}');
 file_put_contents($tmp . '/tpl/included.tpl', 'DEFAULT INCLUDE {$name}');
 file_put_contents($tmp . '/tpl/_skins/myskin/included.tpl', 'SKIN INCLUDE {$name}');
+file_put_contents($tmp . '/outside.tpl', 'OUTSIDE');
+@symlink($tmp . '/outside.tpl', $tmp . '/tpl/link.tpl');
 file_put_contents($tmp . '/tpl/plugin.tpl', '{$name|marker}');
 file_put_contents($tmp . '/plugins-two/modifier.marker.php', <<<'PHP'
 <?php
@@ -179,7 +181,7 @@ smartyViewCheck('skin fallback and tmplinclude compatibility', function () use (
     try {
         smarty_function_tmplinclude(['file' => '$_smarty_tpl->tpl_vars[unterminated'], $smarty);
     } catch (\Smarty\Exception $e) {
-        if ($e->getMessage() === 'Source: Missing  name') {
+        if ($e->getMessage() === 'tmplinclude template name must be a string') {
             $malformedRejected = true;
         } else {
             throw new RuntimeException('unexpected Smarty error: ' . $e->getMessage());
@@ -187,6 +189,37 @@ smartyViewCheck('skin fallback and tmplinclude compatibility', function () use (
     }
     if (!$malformedRejected) {
         throw new RuntimeException('expected missing-source Smarty error');
+    }
+
+    $pathTraversalRejected = false;
+    $smarty->assign('leak', 'original');
+    try {
+        smarty_function_tmplinclude(['file' => '../included.tpl', 'leak' => 'changed'], $smarty);
+    } catch (\Smarty\Exception $e) {
+        $pathTraversalRejected = $e->getMessage() === 'tmplinclude template name must be a safe relative path';
+    }
+    if (!$pathTraversalRejected || $smarty->getTemplateVars('leak') !== 'original') {
+        throw new RuntimeException('expected template traversal rejection');
+    }
+
+    $schemeRejected = false;
+    try {
+        smarty_function_tmplinclude(['file' => 'file:/etc/passwd'], $smarty);
+    } catch (\Smarty\Exception $e) {
+        $schemeRejected = $e->getMessage() === 'tmplinclude template name must be a safe relative path';
+    }
+    if (!$schemeRejected) {
+        throw new RuntimeException('expected template scheme rejection');
+    }
+
+    $symlinkRejected = false;
+    try {
+        smarty_function_tmplinclude(['file' => 'link.tpl'], $smarty);
+    } catch (\Smarty\Exception $e) {
+        $symlinkRejected = $e->getMessage() === 'Template file is outside configured template roots - [link.tpl]';
+    }
+    if (!$symlinkRejected) {
+        throw new RuntimeException('expected template symlink containment rejection');
     }
 });
 
@@ -197,6 +230,33 @@ smartyViewCheck('unknown skin throws', function () use ($mk) {
         return;
     }
     throw new RuntimeException('expected throw for unknown skin');
+});
+
+smartyViewCheck('skin traversal is rejected before filesystem lookup', function () use ($mk) {
+    try {
+        $mk()->setSkin('../outside');
+    } catch (\InvalidArgumentException $e) {
+        return;
+    }
+    throw new RuntimeException('expected skin traversal rejection');
+});
+
+smartyViewCheck('template schemes are rejected before Smarty resource lookup', function () use ($mk) {
+    try {
+        $mk()->resolveTemplate('file:/etc/passwd');
+    } catch (\InvalidArgumentException $e) {
+        return;
+    }
+    throw new RuntimeException('expected template scheme rejection');
+});
+
+smartyViewCheck('template symlinks outside the root are rejected', function () use ($mk) {
+    try {
+        $mk()->resolveTemplate('link.tpl');
+    } catch (\InvalidArgumentException $e) {
+        return;
+    }
+    throw new RuntimeException('expected template symlink rejection');
 });
 
 smartyViewCheck('fromOptions preserves valid, missing, and malformed options', function () use ($tmp) {
@@ -235,10 +295,12 @@ smartyViewCheck('fromOptions preserves valid, missing, and malformed options', f
         ['resources' => new stdClass()],
         ['resources' => ['smarty' => new stdClass()]],
     ] as $options) {
-        $engine = SmartyView::fromOptions($options)->getEngine();
-        if (!in_array($tmp . '/app/views/', (array) $engine->getTemplateDir(), true)) {
-            throw new RuntimeException('malformed options did not retain the default template directory');
+        try {
+            SmartyView::fromOptions($options);
+        } catch (\InvalidArgumentException) {
+            continue;
         }
+        throw new RuntimeException('malformed options were accepted');
     }
 });
 

@@ -188,6 +188,9 @@ jobs:
       - name: ViMbAdmin\Kernel\Controller\MaintenanceController
         run: php tests/test-maintenance-controller.php
 
+      - name: Native controller input and mutation-order boundaries
+        run: php tests/test-native-controller-input-shapes.php
+
       - name: ViMbAdmin\Kernel\Security\Auth
         run: php tests/test-kernel-auth.php
 
@@ -218,6 +221,9 @@ jobs:
       - name: Standalone captcha lifecycle
         run: php tests/test-captcha.php
 
+      - name: Security runtime input boundaries
+        run: php tests/test-security-runtime-input-shapes.php
+
       - name: Date utility behavior
         run: php tests/test-date.php
 
@@ -229,6 +235,9 @@ jobs:
 
       - name: Bcrypt password hashing behavior
         run: php tests/test-bcrypt.php
+
+      - name: OSS auth password behavior
+        run: php tests/test-auth-password.php
 
       - name: Native MCP transport
         run: php tests/test-kernel-mcp.php
@@ -311,6 +320,9 @@ jobs:
 
       - name: 'Native Smarty view (WALL #2)'
         run: php tests/test-kernel-smarty-view.php
+
+      - name: OSS Smarty message rendering boundaries
+        run: php tests/test-oss-message.php
 
   # ------------------------------------------------------------------ #
   # Schema drift — loads the shipped SQL into a real MariaDB and proves #
