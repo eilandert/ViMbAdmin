@@ -20,7 +20,7 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  * Native login / logout (docs/ZF1-REMOVAL.md) — the framework-free replacement
  * for the ZF1 framework-auth login, the deepest auth coupling.
  *
- * SECURITY: this re-uses the same vetted password and 2FA primitives rather
+ * SECURITY: this reuses the same vetted password and 2FA primitives rather
  * than re-implementing any of them — password verification
  * ({@see \OSS_Auth_Password::verify}), the brute-force gate
  * ({@see \ViMbAdmin_BruteForce}), and the two-factor gate
@@ -98,7 +98,7 @@ final class AuthController extends AbstractController
                 $admin    = $this->adminRepository()->findOneBy(['username' => $username]);
                 $authOpts = $options['resources']['auth']['oss'];
 
-                if ($admin !== null && \OSS_Auth_Password::verify((string) $values['password'], $admin->getPassword(), $authOpts)) {
+                if ($admin !== null && self::adminPasswordMatches($admin, (string) $values['password'], $authOpts)) {
                     return $this->completeLogin($admin, $bf, $options);
                 }
 
@@ -319,8 +319,19 @@ final class AuthController extends AbstractController
 
         return $this->view('auth/totp-setup.phtml', [
             'secret'    => $secret,
-            'qrDataUri' => $tfa->getQrDataUri($admin->getUsername(), $secret),
+            'qrDataUri' => $tfa->getQrDataUri($admin->requiredUsername(), $secret),
         ]);
+    }
+
+    private static function adminPasswordMatches(\Entities\Admin $admin, string $plain, mixed $options): bool
+    {
+        $hash = $admin->getPassword();
+        if ($hash === null || (!is_string($options) && !is_array($options))) {
+            return false;
+        }
+
+        /** @var array<string, mixed>|string $options */
+        return \OSS_Auth_Password::verify($plain, $hash, $options);
     }
 
     /**

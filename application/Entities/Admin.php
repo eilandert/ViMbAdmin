@@ -168,10 +168,20 @@ class Admin
     /**
      * Get username
      *
-     * @return string
+     * @return string|null
      */
     public function getUsername()
     {
+        return $this->username;
+    }
+
+    /** Return the identity for operations that require an initialized admin. */
+    public function requiredUsername(): string
+    {
+        if ($this->username === null) {
+            throw new \LogicException('Admin username cannot be null.');
+        }
+
         return $this->username;
     }
     
@@ -182,7 +192,7 @@ class Admin
      */
     public function getEmail()
     {
-        return $this->getUsername();
+        return $this->requiredUsername();
     }
                                    
     /**
@@ -192,7 +202,7 @@ class Admin
      */
     public function getFormattedName()
     {
-        return $this->getUsername();
+        return $this->requiredUsername();
     }
                                    
                                    
@@ -213,10 +223,20 @@ class Admin
     /**
      * Get password
      *
-     * @return string
+     * @return string|null
      */
     public function getPassword()
     {
+        return $this->password;
+    }
+
+    /** Return the credential for operations that require an initialized admin. */
+    public function requiredPassword(): string
+    {
+        if ($this->password === null) {
+            throw new \LogicException('Admin password cannot be null.');
+        }
+
         return $this->password;
     }
 
@@ -236,7 +256,7 @@ class Admin
     /**
      * Get super
      *
-     * @return boolean
+     * @return boolean|null
      */
     public function getSuper()
     {
@@ -244,13 +264,13 @@ class Admin
     }
 
     /**
-     * Alias fot getSuper
+     * Alias for getSuper
      *
      * @return boolean
      */
     public function isSuper()
     {
-        return $this->getSuper();
+        return (bool) $this->getSuper();
     }
 
     /**

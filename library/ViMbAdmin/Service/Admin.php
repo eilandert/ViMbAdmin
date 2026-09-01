@@ -68,7 +68,12 @@ class ViMbAdmin_Service_Admin
      */
     public function toggleSuper(\Entities\Admin $target, \Entities\Admin $actor): bool
     {
-        $target->setSuper( !$target->getSuper() );
+        $current = $target->getSuper();
+        if ($current === null) {
+            throw new \LogicException('Admin super flag cannot be null.');
+        }
+
+        $target->setSuper(!$current);
         $target->setModified( new \DateTime() );
 
         $super = (bool) $target->getSuper();

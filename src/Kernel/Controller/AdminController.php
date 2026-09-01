@@ -216,7 +216,7 @@ final class AdminController extends AbstractController
                 $session->set('totp_enrol_secret', $secret);
             }
             $vars['secret']    = $secret;
-            $vars['qrDataUri'] = $tfa->getQrDataUri($admin->getUsername(), $secret);
+            $vars['qrDataUri'] = $tfa->getQrDataUri($admin->requiredUsername(), $secret);
         }
 
         return $this->view('admin/two-factor.phtml', $vars);
@@ -261,7 +261,7 @@ final class AdminController extends AbstractController
                     'backupRemaining' => $tfa->backupCodesRemaining($target),
                     'revealSecret'    => $res['secret'],
                     'backupCodes'     => $res['backup'],
-                    'qrDataUri'       => $tfa->getQrDataUri($target->getUsername(), $res['secret']),
+                    'qrDataUri'       => $tfa->getQrDataUri($target->requiredUsername(), $res['secret']),
                 ]);
             }
 
@@ -420,7 +420,7 @@ final class AdminController extends AbstractController
                     return null; // required() reports the empty case
                 }
 
-                return \OSS_Auth_Password::verify((string) $value, $target->getPassword(), $authOptions)
+                return self::adminPasswordMatches($target, (string) $value, $authOptions)
                     ? null
                     : 'Invalid password.';
             };
@@ -445,6 +445,13 @@ final class AdminController extends AbstractController
         }
 
         return $form;
+    }
+
+    /** @param array<string, mixed> $options */
+    private static function adminPasswordMatches(\Entities\Admin $admin, string $plain, array $options): bool
+    {
+        $hash = $admin->getPassword();
+        return $hash !== null && \OSS_Auth_Password::verify($plain, $hash, $options);
     }
 
     /**

@@ -114,8 +114,13 @@ final class Auth
             throw new LogicException('Authenticated admin has an invalid type');
         }
 
+        $username = $admin->getUsername();
+        if (!is_string($username) || $username === '') {
+            throw new LogicException('Authenticated admin username is required');
+        }
+
         $this->session->set($this->identityKey, [
-            'username' => $admin->getUsername(),
+            'username' => $username,
             'user'     => $admin,
             'id'       => $admin->getId(),
         ]);

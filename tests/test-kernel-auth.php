@@ -32,6 +32,20 @@ final class AdminFake
     public function getSuper(): bool { return $this->super; }
 }
 
+final class NullUsernameAdminFake
+{
+    public function getId(): int { return 13; }
+    public function getUsername(): null { return null; }
+    public function getSuper(): bool { return false; }
+}
+
+final class EmptyUsernameAdminFake
+{
+    public function getId(): int { return 14; }
+    public function getUsername(): string { return ''; }
+    public function getSuper(): bool { return false; }
+}
+
 final class TestKernelAuthHarnessState
 {
     public static int $count = 0;
@@ -136,6 +150,30 @@ try {
 }
 check('wrong login object fails before writing identity',
     $invalidEstablishRejected && $invalidSession->get('identity') === null);
+
+$nullUsernameSession = new ArraySession([]);
+$nullUsernameEstablish = new Auth($nullUsernameSession, loaderFor([], $calls));
+$nullUsernameRejected = false;
+try {
+    $nullUsernameEstablish->establish(new NullUsernameAdminFake());
+} catch (Throwable $e) {
+    $nullUsernameRejected = $e instanceof LogicException
+        && $e->getMessage() === 'Authenticated admin username is required';
+}
+check('null admin username fails before writing identity',
+    $nullUsernameRejected && $nullUsernameSession->get('identity') === null);
+
+$emptyUsernameSession = new ArraySession([]);
+$emptyUsernameEstablish = new Auth($emptyUsernameSession, loaderFor([], $calls));
+$emptyUsernameRejected = false;
+try {
+    $emptyUsernameEstablish->establish(new EmptyUsernameAdminFake());
+} catch (Throwable $e) {
+    $emptyUsernameRejected = $e instanceof LogicException
+        && $e->getMessage() === 'Authenticated admin username is required';
+}
+check('empty admin username fails before writing identity',
+    $emptyUsernameRejected && $emptyUsernameSession->get('identity') === null);
 
 echo "\n";
 if ($failures === 0) {

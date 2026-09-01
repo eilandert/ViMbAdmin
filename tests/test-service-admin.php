@@ -179,6 +179,19 @@ $r  = (new ViMbAdmin_Service_Admin($em))->toggleSuper($t, $actor);
 check('toggleSuper(true) returns false',         $r === false);
 check('toggleSuper logged NORMAL',               $em->lastLog() && $em->lastLog()->getAction() === \Entities\Log::ACTION_ADMIN_NORMAL);
 
+$em = new FakeAdminObjectManager();
+$t  = makeAdminForService('unset-super@example.com');
+$unsetSuperError = null;
+try {
+    (new ViMbAdmin_Service_Admin($em))->toggleSuper($t, $actor);
+} catch (\LogicException $exception) {
+    $unsetSuperError = $exception->getMessage();
+}
+check('toggleSuper rejects an uninitialized privilege flag',
+    $unsetSuperError === 'Admin super flag cannot be null.');
+check('toggleSuper null failure leaves state and persistence untouched',
+    $t->getSuper() === null && $t->getModified() === null && $em->flushes === 0 && $em->persisted === []);
+
 // ---- assignDomain happy path -------------------------------------------- //
 $em  = new FakeAdminObjectManager();
 $t   = makeAdminForService('a@example.com');
@@ -253,7 +266,7 @@ check('create passes native boolean admin states',
     $created->getSuper() === true && $created->getActive() === true);
 check('create hashes and verifies the plaintext password',
     $created->getPassword() !== 'CreatePass123'
-        && OSS_Auth_Password::verify('CreatePass123', $created->getPassword(), $authOpts));
+        && OSS_Auth_Password::verify('CreatePass123', $created->requiredPassword(), $authOpts));
 check('create persists the log after the admin and flushes once',
     count($em->persisted) === 2
         && $em->persisted[1] instanceof \Entities\Log
@@ -267,7 +280,7 @@ $legacy = (new ViMbAdmin_Service_Admin($em))->create(
     'legacy@example.com', 'LegacyPass123', false, $actor, $legacyAuthOpts,
 );
 check('create retains legacy numeric-string bcrypt cost',
-    str_starts_with($legacy->getPassword(), '$2a$04$')
+    str_starts_with($legacy->requiredPassword(), '$2a$04$')
         && $legacy->getSuper() === false
         && $legacy->getActive() === true);
 
@@ -275,7 +288,7 @@ $em = new FakeAdminObjectManager();
 $defaultBcrypt = (new ViMbAdmin_Service_Admin($em))->create(
     'default@example.com', 'DefaultPass123', false, $actor, ['pwhash' => 'bcrypt'],
 );
-check('create retains bcrypt default cost 12', str_starts_with($defaultBcrypt->getPassword(), '$2a$12$'));
+check('create retains bcrypt default cost 12', str_starts_with($defaultBcrypt->requiredPassword(), '$2a$12$'));
 
 $em = new FakeAdminObjectManager();
 $createRejected = false;
@@ -298,7 +311,7 @@ $old = $me->getPassword();
 check('changePassword(self) flushed once',        $em->flushes === 1);
 check('changePassword(self) wrote NO log',         $em->lastLog() === null);
 check('changePassword(self) changed the hash',     $me->getPassword() !== $old);
-check('changePassword(self) new password verifies', OSS_Auth_Password::verify('NewPass456', $me->getPassword(), $authOpts));
+check('changePassword(self) new password verifies', OSS_Auth_Password::verify('NewPass456', $me->requiredPassword(), $authOpts));
 
 // ---- changePassword: super for another (logs PW_CHANGE) ----------------- //
 $em  = new FakeAdminObjectManager();
@@ -309,7 +322,7 @@ check('changePassword(other) flushed once',        $em->flushes === 1);
 check('changePassword(other) logged PW_CHANGE',    $em->lastLog() && $em->lastLog()->getAction() === \Entities\Log::ACTION_ADMIN_PW_CHANGE);
 check('changePassword(other) log binds actor',     $em->lastLog() && $em->lastLog()->getAdmin() === $actor);
 check('changePassword(other) log binds NO domain', $em->lastLog() && $em->lastLog()->getDomain() === null);
-check('changePassword(other) new password verifies', OSS_Auth_Password::verify('ForcedPass9', $tgt->getPassword(), $authOpts));
+check('changePassword(other) new password verifies', OSS_Auth_Password::verify('ForcedPass9', $tgt->requiredPassword(), $authOpts));
 
 $em = new FakeAdminObjectManager();
 $unchanged = makeAdminForService('unchanged@example.com');

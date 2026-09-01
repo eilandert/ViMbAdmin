@@ -13,24 +13,6 @@ parameters:
 			path: application/Entities/Admin.php
 
 		-
-			message: '#^Method Entities\\Admin\:\:getPassword\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getSuper\(\) should return bool but returns bool\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
-			message: '#^Method Entities\\Admin\:\:getUsername\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/Admin.php
-
-		-
 			message: '#^Parameter \#1 \$config of method Entities\\Admin\:\:_processKey\(\) expects array\<int\|string, mixed\>, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -2252,12 +2234,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#2 \$secret of method ViMbAdmin_TwoFactor\:\:getQrDataUri\(\) expects string, mixed given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Kernel/Controller/AuthController.php
-
-		-
-			message: '#^Parameter \#3 \$config of static method OSS_Auth_Password\:\:verify\(\) expects array\<string, mixed\>\|string, mixed given\.$#'
 			identifier: argument.type
 			count: 1
 			path: src/Kernel/Controller/AuthController.php
