@@ -63,7 +63,7 @@ class Log extends EntityRepository
     public function pagedForLogList( $admin, $domain, string $search, string $sortField, string $sortDir, int $start, int $length )
     {
         // Unfiltered total stable per scope -> cache briefly (the log is large).
-        $scopeKey = 'vimb_total_log_' . ( is_object( $admin ) ? $admin->getId() : 0 ) . '_' . ( $domain ? $domain->getId() : 0 );
+        $scopeKey = 'vimb_total_log_' . ( is_object( $admin ) ? $admin->getId() : 0 ) . '_' . ( $domain ? $domain->requiredId() : 0 );
         $total    = (int) $this->logCountQuery( $admin, $domain, '' )->getQuery()
             ->enableResultCache( 30, $scopeKey )->getSingleScalarResult();
         $filtered = $search === ''

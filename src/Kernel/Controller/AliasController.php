@@ -483,7 +483,7 @@ final class AliasController extends AbstractController
         ]);
         $domainField->setOptions(['' => ''] + $choices);
         if ($preferred !== null) {
-            $domainField->setValue((string) $preferred->getId());
+            $domainField->setValue((string) $preferred->requiredId());
         }
         $form->add($domainField);
 

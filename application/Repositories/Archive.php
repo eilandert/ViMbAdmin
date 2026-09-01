@@ -91,7 +91,7 @@ class Archive extends EntityRepository
         };
 
         // Unfiltered total stable per scope -> cache briefly.
-        $scopeKey = 'vimb_total_arc_' . $admin->getId() . '_' . ( $domain ? $domain->getId() : 0 );
+        $scopeKey = 'vimb_total_arc_' . $admin->getId() . '_' . ( $domain ? $domain->requiredId() : 0 );
         $total    = (int) $base()->select( 'COUNT(DISTINCT a.id)' )->getQuery()
             ->enableResultCache( 30, $scopeKey )->getSingleScalarResult();
         $filtered = $search === ''

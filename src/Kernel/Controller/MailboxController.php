@@ -381,8 +381,9 @@ final class MailboxController extends AbstractController
                     // Clamp the quota to the domain's per-mailbox maximum.
                     if ($domain->getMaxQuota() != 0
                         && ($mailbox->getQuota() <= 0 || $mailbox->getQuota() > $domain->getMaxQuota())) {
-                        $mailbox->setQuota($domain->getQuota());
-                        $this->flash('Mailbox quota set to ' . $domain->getQuota(), FlashMessages::INFO);
+                        $domainQuota = $domain->requiredQuota();
+                        $mailbox->setQuota($domainQuota);
+                        $this->flash('Mailbox quota set to ' . $domainQuota, FlashMessages::INFO);
                     }
 
                     // Plugin form sections write back onto the entity (e.g. the
@@ -477,6 +478,9 @@ final class MailboxController extends AbstractController
                 $this->flash($pErr, FlashMessages::ERROR);
             } else {
                 $domain = $mailbox->getDomain();
+                if (!$domain instanceof \Entities\Domain) {
+                    throw new \LogicException('Mailbox domain cannot be null.');
+                }
 
                 $mailbox->setName((string) $v['name']);
                 $mailbox->setAltEmail(($v['alt_email'] ?? '') !== '' ? (string) $v['alt_email'] : null);
@@ -485,8 +489,9 @@ final class MailboxController extends AbstractController
                 // Clamp the quota to the domain's per-mailbox maximum.
                 if ($domain->getMaxQuota() != 0
                     && ($mailbox->getQuota() <= 0 || $mailbox->getQuota() > $domain->getMaxQuota())) {
-                    $mailbox->setQuota($domain->getQuota());
-                    $this->flash('Mailbox quota set to ' . $domain->getQuota(), FlashMessages::INFO);
+                    $domainQuota = $domain->requiredQuota();
+                    $mailbox->setQuota($domainQuota);
+                    $this->flash('Mailbox quota set to ' . $domainQuota, FlashMessages::INFO);
                 }
 
                 $formHost->apply($mailbox, $v, $options, $em);
@@ -931,7 +936,7 @@ final class MailboxController extends AbstractController
         ]);
         $domainField->setOptions(['' => ''] + $choices);
         if ($preferred !== null) {
-            $domainField->setValue((string) $preferred->getId());
+            $domainField->setValue((string) $preferred->requiredId());
         }
         $form->add($domainField);
 
@@ -946,7 +951,7 @@ final class MailboxController extends AbstractController
 
         $quota = new Field('quota', 'Quota', 'text', [Validators::nonNegativeNumber()]);
         $quota->setValue($preferred !== null
-            ? (string) \OSS_Filter_FileSize::unfilter((int) $preferred->getQuota())
+            ? (string) \OSS_Filter_FileSize::unfilter($preferred->requiredQuota())
             : '0');
         $form->add($quota);
 

@@ -74,6 +74,9 @@ jobs:
       - name: ViMbAdmin_Service_Domain
         run: php tests/test-service-domain.php
 
+      - name: Domain required persistence fields
+        run: php tests/test-domain-required-fields.php
+
       - name: ViMbAdmin_Service_Admin
         run: php tests/test-service-admin.php
 
@@ -172,6 +175,9 @@ jobs:
 
       - name: ViMbAdmin_Plugin construction and configuration
         run: php tests/test-plugin.php
+
+      - name: Mailbox automatic alias identity boundaries
+        run: php tests/test-mailbox-automatic-aliases.php
 
       - name: ViMbAdmin plugin mutation context contract
         run: php tests/test-plugin-mutation-context.php

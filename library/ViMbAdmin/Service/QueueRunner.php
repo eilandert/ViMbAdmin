@@ -548,6 +548,10 @@ class ViMbAdmin_Service_QueueRunner
         $keepDomain = false;   // set true once an Archive row references $domain
 
         try {
+            if (!$domain instanceof \Entities\Domain) {
+                throw new \LogicException('Backup orphan domain could not be loaded.');
+            }
+
             $conn->insert('mailbox', [
                 'username'   => $user,
                 'password'   => '{PLAIN}!orphan-backup-no-login!',
@@ -555,7 +559,7 @@ class ViMbAdmin_Service_QueueRunner
                 'quota'      => 0,
                 'active'     => 0,
                 'created'    => (new \DateTime())->format('Y-m-d H:i:s'),
-                'Domain_id'  => $domain->getId(),
+                'Domain_id'  => $domain->requiredId(),
             ]);
             $tempId = (int) $conn->lastInsertId();
             $task->appendLog("backup-orphan: temp user row #{$tempId} created");
@@ -621,7 +625,9 @@ class ViMbAdmin_Service_QueueRunner
                     // transient Domain entity and would re-write Domain_id on the
                     // task's later flush (-> FK error against the deleted row).
                     $task->setDomain(null);
-                    try { $em->detach($domain); } catch (\Throwable $e) {}
+                    if ($domain instanceof \Entities\Domain) {
+                        try { $em->detach($domain); } catch (\Throwable $e) {}
+                    }
                     try {
                         $conn->delete('domain', ['id' => $tempDomainId]);
                         $task->appendLog('backup-orphan: transient domain row removed');

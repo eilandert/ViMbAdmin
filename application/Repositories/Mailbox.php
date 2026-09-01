@@ -130,7 +130,7 @@ class Mailbox extends EntityRepository
         };
 
         // Unfiltered total is stable per scope and hit on every paging draw -> cache it briefly.
-        $scopeKey = 'vimb_total_mb_' . $admin->getId() . '_' . ( $domain ? $domain->getId() : 0 );
+        $scopeKey = 'vimb_total_mb_' . $admin->getId() . '_' . ( $domain ? $domain->requiredId() : 0 );
         $total    = (int) $base()->select( 'COUNT(DISTINCT m.id)' )->getQuery()
             ->enableResultCache( 30, $scopeKey )->getSingleScalarResult();
         // No search -> filtered == total; skip the second COUNT entirely.

@@ -239,7 +239,7 @@ final class DomainController extends AbstractController
             'pageTitle' => 'Edit Domain: ' . $domain->getDomain(),
             'formHtml'  => (new FormRenderer())->render(
                 $form,
-                '/domain/edit/did/' . $domain->getId(),
+                '/domain/edit/did/' . $domain->requiredId(),
                 'Save'
             ),
         ]);
@@ -303,13 +303,13 @@ final class DomainController extends AbstractController
 
         if ($target === null) {
             $this->flash('Invalid or missing admin id.', FlashMessages::ERROR);
-            return $this->redirect('domain/admins/did/' . $domain->getId());
+            return $this->redirect('domain/admins/did/' . $domain->requiredId());
         }
 
         (new \ViMbAdmin_Service_Domain($this->em()))->removeAdmin($domain, $target, $admin);
 
         $this->flash('You have successfully removed the domain from admin ' . $target->getUsername());
-        return $this->redirect('domain/admins/did/' . $domain->getId());
+        return $this->redirect('domain/admins/did/' . $domain->requiredId());
     }
 
     /**
@@ -354,7 +354,7 @@ final class DomainController extends AbstractController
                 }
             }
 
-            return $this->redirect('domain/admins/did/' . $domain->getId());
+            return $this->redirect('domain/admins/did/' . $domain->requiredId());
         }
 
         if (count($remaining) === 0) {
@@ -365,7 +365,7 @@ final class DomainController extends AbstractController
             'domain'   => $domain,
             'formHtml' => (new FormRenderer())->render(
                 $form,
-                '/domain/assign-admin/did/' . $domain->getId(),
+                '/domain/assign-admin/did/' . $domain->requiredId(),
                 'Save'
             ),
         ]);
@@ -485,7 +485,7 @@ final class DomainController extends AbstractController
         $form->field('max_aliases')->setValue((string) $domain->getMaxAliases());
         $form->field('max_mailboxes')->setValue((string) $domain->getMaxMailboxes());
         $form->field('max_quota')->setValue((string) \OSS_Filter_FileSize::unfilter((int) $domain->getMaxQuota()));
-        $form->field('quota')->setValue((string) \OSS_Filter_FileSize::unfilter((int) $domain->getQuota()));
+        $form->field('quota')->setValue((string) \OSS_Filter_FileSize::unfilter($domain->requiredQuota()));
     }
 
     /**

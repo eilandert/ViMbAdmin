@@ -145,8 +145,16 @@ function automaticAliasThrows(string $message, \Closure $operation): bool {
     return false;
 }
 
-function makeContext(AutomaticAliasRepository $repository): AutomaticAliasMailboxContext {
+function automaticAliasDomain(bool $initialized = true): \Entities\Domain {
     $domain = (new \Entities\Domain())->setDomain('example.test');
+    if ($initialized) {
+        (new ReflectionMethod($domain, 'assignGeneratedId'))->invoke($domain, 17);
+    }
+    return $domain;
+}
+
+function makeContext(AutomaticAliasRepository $repository, bool $initialized = true): AutomaticAliasMailboxContext {
+    $domain = automaticAliasDomain($initialized);
     $mailbox = (new \Entities\Mailbox())->setUsername('user@example.test');
     return new AutomaticAliasMailboxContext(
         ['vimbadmin_plugins' => ['MailboxAutomaticAliases' => [
@@ -161,7 +169,7 @@ function makeContext(AutomaticAliasRepository $repository): AutomaticAliasMailbo
 }
 
 function makeAliasContext(AutomaticAliasRepository $repository, \Entities\Alias $alias): AutomaticAliasAliasContext {
-    $domain = (new \Entities\Domain())->setDomain('example.test')->setAliasCount(0);
+    $domain = automaticAliasDomain()->setAliasCount(0);
     return new AutomaticAliasAliasContext(
         ['vimbadmin_plugins' => ['MailboxAutomaticAliases' => [
             'defaultAliases' => ['postmaster'],
@@ -186,6 +194,24 @@ $failures += checkAutomaticAlias('creates the configured automatic alias', $alia
 $failures += checkAutomaticAlias('uses the configured goto mapping', $alias instanceof \Entities\Alias && $alias->getGoto() === 'root@example.test');
 $failures += checkAutomaticAlias('creates active aliases and flushes once', $alias instanceof \Entities\Alias && $alias->getActive() === true && $entityManager->flushes === 1);
 $failures += checkAutomaticAlias('reports the created alias', count($context->messages) === 1);
+
+$unpersistedContext = makeContext(new AutomaticAliasRepository(), false);
+$failures += checkAutomaticAlias(
+    'automatic alias lookup rejects a null domain id',
+    automaticAliasThrows(
+        'Domain id cannot be null.',
+        static function () use ($unpersistedContext): void {
+            (new ViMbAdminPlugin_MailboxAutomaticAliases($unpersistedContext))
+                ->mailbox_add_addPostflush($unpersistedContext, ['options' => []]);
+        },
+    ),
+);
+$failures += checkAutomaticAlias(
+    'null domain id fails before alias persistence or flush',
+    $unpersistedContext->getD2EM()->persisted === []
+        && $unpersistedContext->getD2EM()->flushes === 0
+        && $unpersistedContext->messages === [],
+);
 
 $repository = new AutomaticAliasRepository();
 $sourceAlias = (new \Entities\Alias())

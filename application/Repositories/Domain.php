@@ -59,14 +59,14 @@ class Domain extends EntityRepository
         if( $onlyNames )
         {
             foreach( $this->loadForAdmin( $admin ) as $domain )
-                $array[ $domain->getId() ] = $domain->getDomain();
+                $array[ $domain->requiredId() ] = $domain->getDomain();
             
         }
         else
         {
             foreach( $this->loadForAdmin( $admin ) as $domain )
             {
-                $array[ $domain->getId() ] = [
+                $array[ $domain->requiredId() ] = [
                     'domain'        => $domain->getDomain(),
                     'description'   => $domain->getDescription(),
                     'max_aliaseses' => $domain->getMaxAliases(),
@@ -74,7 +74,7 @@ class Domain extends EntityRepository
                     'max_mailboxes' => $domain->getMaxMailboxes(),
                     'alias_mailbox' => $domain->getMailboxCount(),
                     'max_quota'     => $domain->getMaxQuota(),
-                    'quota'         => $domain->getQuota(),
+                    'quota'         => $domain->requiredQuota(),
                     'transport'     => $domain->getTransport(),
                     'active'        => $domain->getActive(),
                     'homedir'       => $domain->getHomedir(),
@@ -318,11 +318,11 @@ class Domain extends EntityRepository
     {
         $domainNames = [];
         foreach( $this->findAll() as $domain )
-            $domainNames[ $domain->getId() ] = $domain->getActive() ? $domain->getDomain() : $domain->getDomain() . " (inactive)";
+            $domainNames[ $domain->requiredId() ] = $domain->getActive() ? $domain->getDomain() : $domain->getDomain() . " (inactive)";
 
         foreach( $admin->getDomains() as $domain )
-            if( isset( $domainNames[ $domain->getId() ] ) )
-                unset( $domainNames[ $domain->getId() ] );
+            if( isset( $domainNames[ $domain->requiredId() ] ) )
+                unset( $domainNames[ $domain->requiredId() ] );
         
         return $domainNames;
     }

@@ -112,11 +112,11 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
             if( $this->_token && !$this->_token->allowsDomain( $d->getDomain() ) )
                 continue;
             $out[] = [
-                'id'        => $d->getId(),
+                'id'        => $d->requiredId(),
                 'domain'    => $d->getDomain(),
                 'active'    => (bool) $d->getActive(),
                 'transport' => $d->getTransport(),
-                'quota'     => $d->getQuota(),
+                'quota'     => $d->requiredQuota(),
                 'maxquota'  => $d->getMaxQuota(),
                 'mailboxes' => $d->getMailboxCount(),
                 'aliases'   => $d->getAliasCount(),
@@ -210,7 +210,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $em = $this->em();
         $em->persist( $d );
         $em->flush();
-        return [ 'created' => true, 'domain' => $d->getDomain(), 'id' => $d->getId() ];
+        return [ 'created' => true, 'domain' => $d->getDomain(), 'id' => $d->requiredId() ];
     }
 
     /**

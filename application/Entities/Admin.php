@@ -513,7 +513,7 @@ class Admin
     public function canManageDomain( $domain )
     {
         foreach( $this->getDomains() as $d )
-            if( $domain->getId() == $d->getId() )
+            if( $domain->requiredId() == $d->requiredId() )
                 return true;
         
         return false;

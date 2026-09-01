@@ -299,10 +299,20 @@ class Domain
     /**
      * Get quota
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getQuota()
     {
+        return $this->quota;
+    }
+
+    /** Return the configured quota for operations that require an initialized domain. */
+    public function requiredQuota(): int
+    {
+        if ($this->quota === null) {
+            throw new \LogicException('Domain quota cannot be null.');
+        }
+
         return $this->quota;
     }
 
@@ -516,10 +526,20 @@ class Domain
     /**
      * Get id
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getId()
     {
+        return $this->id;
+    }
+
+    /** Return the persistence identity for operations that require a stored domain. */
+    public function requiredId(): int
+    {
+        if ($this->id === null) {
+            throw new \LogicException('Domain id cannot be null.');
+        }
+
         return $this->id;
     }
 

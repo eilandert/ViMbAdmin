@@ -175,7 +175,7 @@ class Alias extends EntityRepository
         };
 
         // Unfiltered total stable per scope (ima changes it) -> cache briefly.
-        $scopeKey = 'vimb_total_al_' . $admin->getId() . '_' . ( $domain ? $domain->getId() : 0 ) . '_' . (int) $ima;
+        $scopeKey = 'vimb_total_al_' . $admin->getId() . '_' . ( $domain ? $domain->requiredId() : 0 ) . '_' . (int) $ima;
         $total    = (int) $base()->select( 'COUNT(DISTINCT a.id)' )->getQuery()
             ->enableResultCache( 30, $scopeKey )->getSingleScalarResult();
         $filtered = $search === ''
