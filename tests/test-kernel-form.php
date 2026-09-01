@@ -45,6 +45,17 @@ function check(string $label, bool $ok): void {
 echo "== native form core ==\n";
 
 // --- validators ------------------------------------------------------- //
+$string = Validators::string();
+check('string: value -> ok',        $string('x') === null);
+check('string: empty -> ok',        $string('') === null);
+check('string: container -> error', $string(['x']) !== null);
+
+$invalidStringForm = new Form();
+$invalidStringForm->add(new Field('value', 'Value', 'text', [Validators::string()]));
+check('string: container form is invalid', !$invalidStringForm->isValid(['value' => ['x']]));
+check('string: renderer never stringifies a rejected container',
+    !str_contains((new FormRenderer())->render($invalidStringForm, '/test'), 'Array'));
+
 $req = Validators::required();
 check('required: empty -> error',   $req('') !== null);
 check('required: spaces -> error',  $req('   ') !== null);

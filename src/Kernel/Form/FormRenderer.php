@@ -91,15 +91,13 @@ final class FormRenderer
         }
 
         if ($field->type === 'textarea') {
-            $value = $field->value();
-            $value = $value === null ? '' : (string) $value;
+            $value = $this->fieldValue($field->value());
 
             return '<textarea name="' . $name . '" id="' . $name . '" rows="3">' . $this->esc($value) . '</textarea>';
         }
 
         if ($field->type === 'select') {
-            $current = $field->value();
-            $current = $current === null ? '' : (string) $current;
+            $current = $this->fieldValue($field->value());
 
             $html = '<select name="' . $name . '" id="' . $name . '">' . "\n";
             foreach ($field->options() as $optValue => $optLabel) {
@@ -113,8 +111,7 @@ final class FormRenderer
         }
 
         $type  = in_array($field->type, ['text', 'password', 'email', 'hidden'], true) ? $field->type : 'text';
-        $value = $field->value();
-        $value = $value === null ? '' : (string) $value;
+        $value = $this->fieldValue($field->value());
 
         // Never echo a submitted password back into the markup.
         if ($field->type === 'password') {
@@ -125,6 +122,12 @@ final class FormRenderer
 
         return '<input type="' . $type . '" name="' . $name . '" id="' . $name
             . '" value="' . $this->esc($value) . '"' . $readonly . ' />';
+    }
+
+    /** Render only request scalar shapes; malformed containers stay empty. */
+    private function fieldValue(mixed $value): string
+    {
+        return is_scalar($value) ? (string) $value : '';
     }
 
     /**

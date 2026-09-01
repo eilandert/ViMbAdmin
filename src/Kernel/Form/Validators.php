@@ -18,6 +18,14 @@ namespace ViMbAdmin\Kernel\Form;
  */
 final class Validators
 {
+    /** The value must be a string when present (empty passes for optional fields). */
+    public static function string(string $message = 'This field has an invalid type.'): callable
+    {
+        return static function (mixed $value) use ($message): ?string {
+            return $value === null || is_string($value) ? null : $message;
+        };
+    }
+
     /** The value must be present (non-empty after trimming strings). */
     public static function required(string $message = 'This field is required.'): callable
     {

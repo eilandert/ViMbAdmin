@@ -92,6 +92,9 @@ jobs:
       - name: Required admin authentication fields
         run: php tests/test-admin-auth-required-fields.php
 
+      - name: Auth controller input shapes
+        run: php tests/test-auth-controller-input-shapes.php
+
       - name: Mailbox task label contracts
         run: php tests/test-entity-mailbox-task-labels.php
 
