@@ -66,7 +66,7 @@ class DirectoryEntry
     private ?string $initials = null;
 
     /**
-     * @var \stdClass|null
+     * @var mixed
      */
     #[ORM\Column(type: 'object', nullable: true)]
     private mixed $jpegPhoto = null;
@@ -410,7 +410,7 @@ class DirectoryEntry
     /**
      * Set jpegPhoto
      *
-     * @param \stdClass $jpegPhoto
+     * @param mixed $jpegPhoto
      * @return DirectoryEntry
      */
     public function setJpegPhoto($jpegPhoto)
@@ -423,7 +423,7 @@ class DirectoryEntry
     /**
      * Get jpegPhoto
      *
-     * @return \stdClass 
+     * @return mixed
      */
     public function getJpegPhoto()
     {

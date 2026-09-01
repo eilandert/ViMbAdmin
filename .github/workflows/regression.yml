@@ -92,6 +92,9 @@ jobs:
       - name: Mailbox task label contracts
         run: php tests/test-entity-mailbox-task-labels.php
 
+      - name: Directory entry JPEG contract
+        run: php tests/test-entity-directory-entry-jpeg.php
+
       - name: Mailbox password action boundary
         run: php tests/test-auth-mailbox-password-boundary.php
 

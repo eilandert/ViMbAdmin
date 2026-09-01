@@ -73,12 +73,6 @@ parameters:
 			path: application/Entities/Alias.php
 
 		-
-			message: '#^Method Entities\\DirectoryEntry\:\:getJpegPhoto\(\) should return stdClass but returns stdClass\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DirectoryEntry.php
-
-		-
 			message: '#^Method Entities\\Domain\:\:_getPreferences\(\) should return list\<Entities\\DomainPreference\> but returns mixed\.$#'
 			identifier: return.type
 			count: 1
@@ -945,12 +939,6 @@ parameters:
 		-
 			message: '#^Method ViMbAdminPlugin_DirectoryEntry\:\:_disabled\(\) should return array\<string, bool\> but returns mixed\.$#'
 			identifier: return.type
-			count: 1
-			path: application/plugins/DirectoryEntry.php
-
-		-
-			message: '#^Parameter \#1 \$jpegPhoto of callable passed to call_user_func\(\) expects stdClass, mixed given\.$#'
-			identifier: argument.type
 			count: 1
 			path: application/plugins/DirectoryEntry.php
 
