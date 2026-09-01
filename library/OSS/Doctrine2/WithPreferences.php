@@ -50,6 +50,33 @@ use Doctrine\ORM\Mapping as ORM;
  */
 trait OSS_Doctrine2_WithPreferences
 {
+    private function _requiredPreferenceAttribute(?string $attribute): string
+    {
+        if ($attribute === null) {
+            throw new \LogicException('Preference attribute cannot be null.');
+        }
+
+        return $attribute;
+    }
+
+    private function _requiredPreferenceIndex(?int $index): int
+    {
+        if ($index === null) {
+            throw new \LogicException('Preference index cannot be null.');
+        }
+
+        return $index;
+    }
+
+    private function _requiredPreferenceValue(?string $value): string
+    {
+        if ($value === null) {
+            throw new \LogicException('Preference value cannot be null.');
+        }
+
+        return $value;
+    }
+
     protected function _getPreferenceEntityManager(): object
     {
         return \OSS_Runtime::entityManager();
@@ -98,7 +125,8 @@ trait OSS_Doctrine2_WithPreferences
     {
         foreach( $this->_getPreferences() as $pref )
         {
-            if( $pref->getAttribute() == $attribute && $pref->getIx() == $index )
+            if( $this->_requiredPreferenceAttribute($pref->getAttribute()) == $attribute
+                && $this->_requiredPreferenceIndex($pref->getIx()) == $index )
             {
                 if( !$includeExpired )
                 {
@@ -149,12 +177,13 @@ trait OSS_Doctrine2_WithPreferences
     {
         foreach( $this->_getPreferences() as $pref )
         {
-            if( $pref->getAttribute() == $attribute && $pref->getIx() == $index )
+            if( $this->_requiredPreferenceAttribute($pref->getAttribute()) == $attribute
+                && $this->_requiredPreferenceIndex($pref->getIx()) == $index )
             {
                 if( !$includeExpired && $pref->getExpire() != 0 && $pref->getExpire() < time() )
                     return false;
 
-                return $pref->getValue();
+                return $this->_requiredPreferenceValue($pref->getValue());
             }
         }
 
@@ -284,11 +313,13 @@ trait OSS_Doctrine2_WithPreferences
 
         foreach( $this->getPreferences() as $pref )
         {
-            if( $pref->getAttribute() == $attribute && $pref->getOp() == $operator )
+            $preferenceAttribute = $this->_requiredPreferenceAttribute($pref->getAttribute());
+            if( $preferenceAttribute == $attribute && $pref->getOp() == $operator )
             {
                 ++$count;
-                if( $pref->getIx() > $highest )
-                    $highest = $pref->getIx();
+                $preferenceIndex = $this->_requiredPreferenceIndex($pref->getIx());
+                if( $preferenceIndex > $highest )
+                    $highest = $preferenceIndex;
             }
         }
 
@@ -347,7 +378,8 @@ trait OSS_Doctrine2_WithPreferences
         $em = $this->_getPreferenceEntityManager();
         foreach( $this->_getPreferences() as $pref )
         {
-            if( $attribute !== null && $pref->getAttribute() != $attribute )
+            if( $attribute !== null
+                && $this->_requiredPreferenceAttribute($pref->getAttribute()) != $attribute )
                 continue;
 
             if( $pref->getExpire() != 0 && $pref->getExpire() < $asOf )
@@ -377,9 +409,9 @@ trait OSS_Doctrine2_WithPreferences
         $em = $this->_getPreferenceEntityManager();
         foreach( $this->_getPreferences() as $pref )
         {
-            if( $pref->getAttribute() == $attribute )
+            if( $this->_requiredPreferenceAttribute($pref->getAttribute()) == $attribute )
             {
-                if( $index === null || $pref->getIx() == $index )
+                if( $index === null || $this->_requiredPreferenceIndex($pref->getIx()) == $index )
                 {
                     $count++;
                     $this->getPreferences()->removeElement( $pref );
@@ -445,15 +477,21 @@ trait OSS_Doctrine2_WithPreferences
 
         foreach( $this->getPreferences() as $pref )
         {
-            if( $pref->getAttribute() == $attribute )
+            $preferenceAttribute = $this->_requiredPreferenceAttribute($pref->getAttribute());
+            if( $preferenceAttribute == $attribute )
             {
                 if( !$ignoreExpired && $pref->getExpire() != 0 && $pref->getExpire() < time() )
                     continue;
 
+                $preferenceIndex = $this->_requiredPreferenceIndex($pref->getIx());
+                $preferenceValue = $this->_requiredPreferenceValue($pref->getValue());
                 if( $withIndex )
-                    $values[ $pref->getIx() ] = [ 'p_index' => $pref->getIx(), 'p_value' => $pref->getValue() ];
+                    $values[ $preferenceIndex ] = [
+                        'p_index' => $preferenceIndex,
+                        'p_value' => $preferenceValue,
+                    ];
                 else
-                    $values[ $pref->getIx() ] = $pref->getValue();
+                    $values[ $preferenceIndex ] = $preferenceValue;
             }
         }
 
@@ -518,24 +556,31 @@ trait OSS_Doctrine2_WithPreferences
 
         foreach( $this->_getPreferences() as $pref )
         {
-            if( strpos( $pref->getAttribute(), $attribute ) === 0 )
+            $preferenceAttribute = $this->_requiredPreferenceAttribute($pref->getAttribute());
+            if( strpos( $preferenceAttribute, $attribute ) === 0 )
             {
-                if( $index == null || $pref->getIx() == $index )
+                $preferenceIndex = $this->_requiredPreferenceIndex($pref->getIx());
+                if( $index === null || $preferenceIndex == $index )
                 {
                     if( !$ignoreExpired && $pref->getExpire() != 0 && $pref->getExpire() < time() )
                         continue;
 
                     $key = null;
-                    if( strpos( $pref->getAttribute(), "." ) !== false )
-                        $key = substr( $pref->getAttribute(), strlen( $attribute )+1 );
+                    if( strpos( $preferenceAttribute, "." ) !== false )
+                        $key = substr( $preferenceAttribute, strlen( $attribute )+1 );
 
+                    $preferenceValue = $this->_requiredPreferenceValue($pref->getValue());
                     if( $key )
                     {
-                        $key = "{$pref->getIx()}.{$key}";
-                        $values = $this->_processKey( $values, $key, $pref->getValue() );
+                        $key = "{$preferenceIndex}.{$key}";
+                        $values = $this->_processKey(
+                            $values,
+                            $key,
+                            $preferenceValue
+                        );
                     }
                     else
-                        $values[ $pref->getIx() ] = $pref->getValue();
+                        $values[ $preferenceIndex ] = $preferenceValue;
                 }
             }
         }
@@ -562,9 +607,11 @@ trait OSS_Doctrine2_WithPreferences
         $em = $this->_getPreferenceEntityManager();
         foreach( $this->_getPreferences() as $pref )
         {
-            if( strpos( $pref->getAttribute(), $attribute ) === 0 )
+            $preferenceAttribute = $this->_requiredPreferenceAttribute($pref->getAttribute());
+            if( strpos( $preferenceAttribute, $attribute ) === 0 )
             {
-                if( $index == null || $pref->getIx() == $index)
+                $preferenceIndex = $this->_requiredPreferenceIndex($pref->getIx());
+                if( $index === null || $preferenceIndex == $index)
                 {
                     $this->getPreferences()->removeElement( $pref );
                     $em->remove( $pref );

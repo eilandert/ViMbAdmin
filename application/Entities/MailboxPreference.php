@@ -79,7 +79,7 @@ class MailboxPreference
     /**
      * Get attribute
      *
-     * @return string 
+     * @return string|null
      */
     public function getAttribute()
     {
@@ -102,7 +102,7 @@ class MailboxPreference
     /**
      * Get ix
      *
-     * @return integer 
+     * @return integer|null
      */
     public function getIx()
     {
@@ -148,7 +148,7 @@ class MailboxPreference
     /**
      * Get value
      *
-     * @return string 
+     * @return string|null
      */
     public function getValue()
     {

@@ -85,24 +85,6 @@ parameters:
 			path: application/Entities/Alias.php
 
 		-
-			message: '#^Method Entities\\AliasPreference\:\:getAttribute\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AliasPreference.php
-
-		-
-			message: '#^Method Entities\\AliasPreference\:\:getIx\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AliasPreference.php
-
-		-
-			message: '#^Method Entities\\AliasPreference\:\:getValue\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/AliasPreference.php
-
-		-
 			message: '#^Method Entities\\Archive\:\:getDomain\(\) should return Entities\\Domain but returns Entities\\Domain\|null\.$#'
 			identifier: return.type
 			count: 1
@@ -157,24 +139,6 @@ parameters:
 			path: application/Entities/Domain.php
 
 		-
-			message: '#^Method Entities\\DomainPreference\:\:getAttribute\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DomainPreference.php
-
-		-
-			message: '#^Method Entities\\DomainPreference\:\:getIx\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DomainPreference.php
-
-		-
-			message: '#^Method Entities\\DomainPreference\:\:getValue\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/DomainPreference.php
-
-		-
 			message: '#^Method Entities\\Mailbox\:\:_getPreferences\(\) should return list\<Entities\\MailboxPreference\> but returns mixed\.$#'
 			identifier: return.type
 			count: 1
@@ -203,24 +167,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: application/Entities/Mailbox.php
-
-		-
-			message: '#^Method Entities\\MailboxPreference\:\:getAttribute\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/MailboxPreference.php
-
-		-
-			message: '#^Method Entities\\MailboxPreference\:\:getIx\(\) should return int but returns int\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/MailboxPreference.php
-
-		-
-			message: '#^Method Entities\\MailboxPreference\:\:getValue\(\) should return string but returns string\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: application/Entities/MailboxPreference.php
 
 		-
 			message: '#^Method Entities\\MailboxTask\:\:getStatusLabel\(\) should return string but returns string\|null\.$#'
