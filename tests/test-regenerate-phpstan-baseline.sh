@@ -138,6 +138,18 @@ else
 	not_ok "diagnostic count sums baseline entries"
 fi
 
+printf 'parameters:\n\tignoreErrors: []\n' >"$source_baseline"
+run_generator bash "$generator"
+expect_status 0 "$generator_status" "write mode accepts an empty baseline"
+if cmp -s -- "$source_baseline" "$target" && grep -Fq 'diagnostics: 0' "$output"; then
+	ok "empty baseline is installed and counted"
+else
+	not_ok "empty baseline is installed and counted"
+fi
+
+write_fixture 2 3
+cp -- "$source_baseline" "$target"
+
 run_generator bash "$generator" --check
 expect_status 0 "$generator_status" "check accepts an exact baseline"
 

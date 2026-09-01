@@ -57,7 +57,7 @@ cleanup() {
 trap cleanup EXIT
 
 "${phpstan[@]}" analyse -c phpstan-level10.neon --no-progress \
-	--generate-baseline="$candidate"
+	--generate-baseline="$candidate" --allow-empty-baseline
 
 if [ ! -s "$candidate" ]; then
 	echo "PHPStan generated an empty baseline artifact" >&2
