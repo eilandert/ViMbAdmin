@@ -100,7 +100,22 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
      */
     private function _disabled( array $options ): array
     {
-        return $options['vimbadmin_plugins']['DirectoryEntry']['disabled_elements'] ?? [];
+        if (!array_key_exists('vimbadmin_plugins', $options)) return [];
+        if (!is_array($options['vimbadmin_plugins'])) throw new \TypeError('plugin options must be an array');
+        if (!array_key_exists('DirectoryEntry', $options['vimbadmin_plugins'])) return [];
+        if (!is_array($options['vimbadmin_plugins']['DirectoryEntry'])) throw new \TypeError('DirectoryEntry options must be an array');
+        if (!array_key_exists('disabled_elements', $options['vimbadmin_plugins']['DirectoryEntry'])) return [];
+        $disabled = $options['vimbadmin_plugins']['DirectoryEntry']['disabled_elements'];
+        if (!is_array($disabled)) throw new \TypeError('disabled_elements must be an array');
+        $result = [];
+        foreach ($disabled as $key => $value) {
+            if (!is_string($key)) throw new \TypeError('disabled element names must be strings');
+            if (is_bool($value)) $result[$key] = $value;
+            elseif (is_string($value) && ($value === '0' || $value === '1')) $result[$key] = $value === '1';
+            elseif (is_int($value) && ($value === 0 || $value === 1)) $result[$key] = $value === 1;
+            else throw new \TypeError('disabled element values must be boolean');
+        }
+        return $result;
     }
 
     /**
@@ -194,7 +209,10 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
     {
         $disabled = $this->_disabled( $options );
         $dentry   = $mailbox !== null ? $mailbox->getDirectoryEntry() : null;
-        $orgname  = $options['identity']['orgname'] ?? null;
+        $identity = array_key_exists('identity', $options) ? $options['identity'] : [];
+        if (!is_array($identity)) throw new \TypeError('identity options must be an array');
+        $orgname = array_key_exists('orgname', $identity) ? $identity['orgname'] : null;
+        if ($orgname !== null && !is_string($orgname)) throw new \TypeError('identity orgname must be a string');
 
         $fields = [];
         foreach( self::DE_ATTRS as $attr => $type )
@@ -211,7 +229,7 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
             if( $value !== null )
                 $field->setValue( $value );
             elseif( $attr === 'O' && $orgname )
-                $field->setValue( (string) $orgname );
+                $field->setValue( $orgname );
 
             $fields[] = $field;
         }
@@ -269,7 +287,9 @@ class ViMbAdminPlugin_DirectoryEntry extends ViMbAdmin_Plugin implements OSS_Plu
                 continue;
             }
 
-            $this->_setScalarAttribute( $dentry, $attr, (string) $values[ $key ] );
+            if (!is_string($values[$key]))
+                throw new \TypeError('DirectoryEntry field values must be strings');
+            $this->_setScalarAttribute( $dentry, $attr, $values[ $key ] );
         }
 
         // `mail` always tracks the mailbox address — set it AFTER the attribute

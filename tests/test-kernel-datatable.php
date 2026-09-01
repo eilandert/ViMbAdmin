@@ -99,7 +99,13 @@ dataTableCheck('length -1 (All) capped', DataTableQuery::fromArray(['iDisplayLen
 dataTableCheck('over-cap length capped', DataTableQuery::fromArray(['iDisplayLength' => '99999'])->length === DataTableQuery::MAX_LENGTH);
 dataTableCheck('zero length -> 10',      DataTableQuery::fromArray(['iDisplayLength' => '0'])->length === 10);
 dataTableCheck('bad sort dir -> ASC',    DataTableQuery::fromArray(['sSortDir_0' => 'nonsense'])->sortDir === 'ASC');
-dataTableCheck('echo cast to int',       DataTableQuery::fromArray(['sEcho' => '7; DROP'])->echo === 7);
+$malformedEchoRejected = false;
+try {
+    DataTableQuery::fromArray(['sEcho' => '7; DROP']);
+} catch (\TypeError) {
+    $malformedEchoRejected = true;
+}
+dataTableCheck('malformed echo fails closed', $malformedEchoRejected);
 
 // --- DataTableResult::envelope ---------------------------------------------
 $rows = [['id' => 1, 'username' => 'a@b.c'], ['id' => 2, 'username' => 'd@e.f']];

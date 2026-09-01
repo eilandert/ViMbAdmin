@@ -33,6 +33,20 @@ $check(
         === 'https://mail.example.test/vimbadmin/log/list/query/first last/active'
 );
 
+OSS_Runtime::configure(['utils' => ['genurl' => ['host_mode' => 'REPLACE', 'host_replace' => null]]], '/vimbadmin', new stdClass());
+$badReplacementRejected = false;
+try { OSS_Utils::genUrl('mailbox'); } catch (\TypeError) { $badReplacementRejected = true; }
+$check('malformed host replacement fails closed', $badReplacementRejected);
+OSS_Runtime::configure([], '/vimbadmin', new stdClass());
+$_SERVER['HTTP_X_FORWARDED_PROTO'] = 'javascript';
+$badProtocolRejected = false;
+try { OSS_Utils::genUrl('mailbox'); } catch (\TypeError) { $badProtocolRejected = true; }
+$check('malformed forwarded protocol fails closed', $badProtocolRejected);
+unset($_SERVER['HTTP_X_FORWARDED_PROTO']);
+$badParameterRejected = false;
+try { OSS_Utils::genUrl('mailbox', false, false, ['bad' => ['nested']]); } catch (\TypeError) { $badParameterRejected = true; }
+$check('container URL parameter fails closed', $badParameterRejected);
+
 $previousInternalErrors = libxml_use_internal_errors(true);
 libxml_clear_errors();
 

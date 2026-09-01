@@ -41,14 +41,26 @@ final class PluginHost
     {
         $pluginsDir ??= (defined('APPLICATION_PATH') ? APPLICATION_PATH : '') . '/plugins';
 
-        $options = method_exists($context, 'getOptions') ? (array) $context->getOptions() : [];
+        $options = [];
+        if (method_exists($context, 'getOptions')) {
+            $candidate = $context->getOptions();
+            if (!is_array($candidate)) {
+                throw new \TypeError('Plugin context options must be an array.');
+            }
+            foreach ($candidate as $key => $value) {
+                if (!is_string($key)) {
+                    throw new \TypeError('Plugin context option keys must be strings.');
+                }
+                $options[$key] = $value;
+            }
+        }
 
         foreach (glob(rtrim($pluginsDir, '/') . '/*.php') ?: [] as $file) {
             $name = basename($file, '.php');
 
             // Opt-in: a plugin runs only when `vimbadmin_plugins.<name>.enabled`
             // is explicitly true in application.ini. Absent or false = off.
-            if (empty($options['vimbadmin_plugins'][$name]['enabled'])) {
+            if (!$this->pluginEnabled($options, $name)) {
                 continue;
             }
 
@@ -84,5 +96,27 @@ final class PluginHost
     public function observerCount(): int
     {
         return count($this->observers);
+    }
+
+    /** @param array<string,mixed> $options */
+    private function pluginEnabled(array $options, string $name): bool
+    {
+        if (!array_key_exists('vimbadmin_plugins', $options)) {
+            return false;
+        }
+        $plugins = $options['vimbadmin_plugins'];
+        if ($plugins === null) {
+            throw new \TypeError('Plugin configuration must be an array.');
+        }
+        if (!is_array($plugins)) {
+            throw new \TypeError('Plugin configuration must be an array.');
+        }
+
+        $entry = $plugins[$name] ?? null;
+        if (!is_array($entry)) {
+            return false;
+        }
+
+        return in_array($entry['enabled'] ?? false, [true, 1, '1'], true);
     }
 }

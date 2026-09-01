@@ -111,7 +111,7 @@ $mkAlias = static function (bool $active): \Entities\Alias {
     $al = new \Entities\Alias();
     $al->setAddress("alias@example.com");
     $al->setGoto("target@example.com");
-    $al->setActive($active ? 1 : 0);
+    $al->setActive($active);
     return $al;
 };
 
@@ -134,9 +134,9 @@ check('alias is now active',                (bool) $al->getActive() === true);
 check('exactly one flush',                    $em->flushes === 1);
 check('a Log row was persisted',              $em->lastLog() instanceof \Entities\Log);
 check('log action is ACTIVATE',               $em->lastLog()?->getAction() === \Entities\Log::ACTION_ALIAS_ACTIVATE);
-check('preToggle saw pre-toggle state (0)',   $order[0] === 'preToggle:0');
-check('preFlush saw post-toggle state (1)',   $order[1] === 'preFlush:1');
-check('postFlush saw post-toggle state (1)',  $order[2] === 'postFlush:1');
+check('preToggle saw pre-toggle state (0)',   implode('|', $order) === 'preToggle:0|preFlush:1|postFlush:1');
+check('preFlush saw post-toggle state (1)',   implode('|', $order) === 'preToggle:0|preFlush:1|postFlush:1');
+check('postFlush saw post-toggle state (1)',  implode('|', $order) === 'preToggle:0|preFlush:1|postFlush:1');
 check('hook order preToggle<preFlush<postFlush', $order === ['preToggle:0', 'preFlush:1', 'postFlush:1']);
 
 // --- deactivate path -------------------------------------------------- //

@@ -57,7 +57,7 @@ echo "== Csrf over the namespace adapter ==\n";
 $ns2  = new MagicNamespaceFake();
 $csrf = new Csrf(new MagicPropertyStorage($ns2));
 $t = $csrf->token();
-check('token minted + stored on ns',  is_string($t) && strlen($t) === 64 && $ns2->__get('csrfToken') === $t);
+check('token minted + stored on ns',  strlen($t) === 64 && $ns2->__get('csrfToken') === $t);
 check('isValid(token) true',          $csrf->isValid($t) === true);
 check('isValid(bad) false',           $csrf->isValid('nope') === false);
 

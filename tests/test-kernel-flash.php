@@ -85,6 +85,16 @@ $f3->success('hi');
 check('custom key used',              is_array($s3->get('altFlash')) && $s3->get('flashMessages') === null);
 check('round-trips via session array',$f3->peek()[0]->text === 'hi' && $f3->peek()[0]->level === 'success');
 
+$malformed = new ArraySession();
+$malformed->set('flashMessages', [['text' => ['not-text']]]);
+$malformedRejected = false;
+try {
+    (new FlashMessages($malformed))->peek();
+} catch (\UnexpectedValueException) {
+    $malformedRejected = true;
+}
+check('malformed queued flash text fails closed', $malformedRejected);
+
 echo "\n";
 if (identical($failures, 0)) {
     echo "OK: all FlashMessages assertions passed (PHP " . PHP_VERSION . ")\n";

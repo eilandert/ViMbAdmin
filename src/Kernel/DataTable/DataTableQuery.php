@@ -43,19 +43,38 @@ final class DataTableQuery
      */
     public static function fromArray(array $p): self
     {
-        $echo   = (int) ($p['sEcho'] ?? 1);
-        $start  = max(0, (int) ($p['iDisplayStart'] ?? 0));
+        $echo   = self::integer($p['sEcho'] ?? null, 1, 'sEcho');
+        $start  = max(0, self::integer($p['iDisplayStart'] ?? null, 0, 'iDisplayStart'));
 
-        $length = (int) ($p['iDisplayLength'] ?? 10);
+        $length = self::integer($p['iDisplayLength'] ?? null, 10, 'iDisplayLength');
         // -1 ("All") and anything over the cap collapse to the cap; <=0 to 10.
         if ($length <= 0 || $length > self::MAX_LENGTH) {
             $length = $length === -1 ? self::MAX_LENGTH : ($length <= 0 ? 10 : self::MAX_LENGTH);
         }
 
-        $search = trim((string) ($p['sSearch'] ?? ''));
-        $sortCol = max(0, (int) ($p['iSortCol_0'] ?? 0));
-        $sortDir = strtoupper((string) ($p['sSortDir_0'] ?? 'asc')) === 'DESC' ? 'DESC' : 'ASC';
+        $searchValue = $p['sSearch'] ?? null;
+        if ($searchValue !== null && !is_string($searchValue)) {
+            throw new \TypeError('sSearch must be a string');
+        }
+        $search = trim($searchValue ?? '');
+        $sortCol = max(0, self::integer($p['iSortCol_0'] ?? null, 0, 'iSortCol_0'));
+        $sortDirection = $p['sSortDir_0'] ?? null;
+        if ($sortDirection !== null && !is_string($sortDirection)) {
+            throw new \TypeError('sSortDir_0 must be a string');
+        }
+        $sortDir = strtoupper($sortDirection ?? 'asc') === 'DESC' ? 'DESC' : 'ASC';
 
         return new self($echo, $start, $length, $search, $sortCol, $sortDir);
+    }
+
+    private static function integer(mixed $value, int $default, string $name): int
+    {
+        if ($value === null) return $default;
+        if (is_int($value)) return $value;
+        if (is_string($value) && preg_match('/^-?[0-9]+$/D', $value) === 1) {
+            $parsed = filter_var($value, FILTER_VALIDATE_INT);
+            if ($parsed !== false) return $parsed;
+        }
+        throw new \TypeError($name . ' must be an integer');
     }
 }

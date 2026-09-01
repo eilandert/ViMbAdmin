@@ -20,13 +20,25 @@ set_include_path(implode(PATH_SEPARATOR, [
     get_include_path(),
 ]));
 
-if (isset($_SERVER['argv'][1]) && $_SERVER['argv'][1] === '--database') {
-    if (($_SERVER['argv'][2] ?? 'default') !== 'default') {
+$argv = $_SERVER['argv'] ?? [];
+if (!is_array($argv)) {
+    fwrite(STDERR, "Invalid CLI argument vector.\n");
+    exit(1);
+}
+foreach ($argv as $argument) {
+    if (!is_string($argument)) {
+        fwrite(STDERR, "Invalid CLI argument.\n");
+        exit(1);
+    }
+}
+if (isset($argv[1]) && $argv[1] === '--database') {
+    if (($argv[2] ?? 'default') !== 'default') {
         fwrite(STDERR, "Only the default database connection is supported.\n");
         exit(1);
     }
-    array_splice($_SERVER['argv'], 1, 2);
+    array_splice($argv, 1, 2);
 }
+$_SERVER['argv'] = $argv;
 
 $container = \ViMbAdmin\Kernel\Bootstrap::boot($applicationPath, APPLICATION_ENV, 'cli');
 $entityManager = $container->entityManager();

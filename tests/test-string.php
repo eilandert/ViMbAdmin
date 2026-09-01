@@ -28,6 +28,7 @@ try {
 $check('invalid UTF-8 character sets are rejected', $invalidEncodingRejected);
 
 $check('field names retain the compatibility prefix', OSS_String::toValidFieldName(' Postal Code ') === 'cf_postal_code');
+$check('empty field names remain safely prefixed', OSS_String::toValidFieldName('') === 'cf_');
 $check('normalisation strips accents and spaces', OSS_String::normalise('Héllo World!') === 'helloworld');
 $check('normalisation can retain spaces', OSS_String::normalise('Hello World!', true) === 'hello world');
 

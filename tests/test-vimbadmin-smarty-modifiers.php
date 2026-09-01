@@ -35,6 +35,13 @@ $check('int negative decimal truncates toward zero', smarty_modifier_int(-3.9), 
 $check('int maximum boundary', smarty_modifier_int((string) PHP_INT_MAX), PHP_INT_MAX);
 $check('int minimum boundary', smarty_modifier_int((string) PHP_INT_MIN), PHP_INT_MIN);
 $check('int non-numeric string', smarty_modifier_int('mailbox'), 0);
+$intArrayRejected = false;
+try {
+    smarty_modifier_int(['42']);
+} catch (TypeError) {
+    $intArrayRejected = true;
+}
+$check('int rejects array input', $intArrayRejected, true);
 
 $check('yesno null', smarty_modifier_yesno(null), _('No'));
 $check('yesno zero', smarty_modifier_yesno(0), _('No'));

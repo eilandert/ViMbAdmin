@@ -65,8 +65,16 @@ final class LogController extends AbstractController
 
         // When server-side pagination is on the table is filled by /log/list-data;
         // ship the page without inlining every (unbounded) log row.
-        $cfg     = $this->container->options()['defaults']['server_side']['pagination']['log'] ?? [];
-        $logs    = empty($cfg['enable'])
+        $options = $this->container->options();
+        $defaults = array_key_exists('defaults', $options) ? self::stringMap($options['defaults'], 'defaults') : [];
+        $serverSide = array_key_exists('server_side', $defaults)
+            ? self::stringMap($defaults['server_side'], 'defaults.server_side') : [];
+        $pagination = array_key_exists('pagination', $serverSide)
+            ? self::stringMap($serverSide['pagination'], 'defaults.server_side.pagination') : [];
+        $cfg = array_key_exists('log', $pagination)
+            ? self::stringMap($pagination['log'], 'defaults.server_side.pagination.log') : [];
+        $enabled = array_key_exists('enable', $cfg) ? self::booleanValue($cfg['enable'], 'log pagination enable') : false;
+        $logs    = !$enabled
             ? $this->logRepository()->loadForLogList($targetAdmin, $domain)
             : [];
 
@@ -88,7 +96,7 @@ final class LogController extends AbstractController
         }
         [$targetAdmin, $domain] = $scope;
 
-        $q = DataTableQuery::fromArray($_GET);
+        $q = DataTableQuery::fromArray(self::stringMap($_GET, 'GET data'));
         // Column index -> sortable field (matches the JS column order; "Log"/data
         // column is not usefully sortable -> falls back to timestamp).
         $sortField = [0 => 'action', 2 => 'admin', 3 => 'domain', 4 => 'timestamp'][$q->sortColumn] ?? 'timestamp';
@@ -130,8 +138,9 @@ final class LogController extends AbstractController
         }
 
         $targetAdmin = null;
-        if ($aid = $this->param('aid')) {
-            $targetAdmin = $this->adminRepository()->find((int) $aid);
+        $aid = $this->param('aid');
+        if ($aid !== null && $aid !== '') {
+            $targetAdmin = $this->adminRepository()->find(self::positiveId($aid, 'aid'));
             if (!$targetAdmin) {
                 return $this->redirect('admin/list');
             }
@@ -154,8 +163,8 @@ final class LogController extends AbstractController
                 throw new LogicException('Stored domain has an invalid type');
             }
             $domain = $storedDomain;
-        } elseif ($did = $this->param('did')) {
-            $domain = $this->domainRepository()->find((int) $did);
+        } elseif (($did = $this->param('did')) !== null && $did !== '') {
+            $domain = $this->domainRepository()->find(self::positiveId($did, 'did'));
             if ($domain && !$admin->isSuper() && !$admin->canManageDomain($domain)) {
                 return $this->redirect('auth/login');
             }
@@ -210,5 +219,37 @@ final class LogController extends AbstractController
             throw new LogicException('Domain repository has an invalid type');
         }
         return $repository;
+    }
+
+    /** @return array<string,mixed> */
+    private static function stringMap(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new \TypeError($name . ' must be an array');
+        }
+        foreach ($value as $key => $_value) {
+            if (!is_string($key)) {
+                throw new \TypeError($name . ' must use string keys');
+            }
+        }
+        return $value;
+    }
+
+    private static function booleanValue(mixed $value, string $name): bool
+    {
+        if (is_bool($value)) return $value;
+        if (is_int($value) && ($value === 0 || $value === 1)) return $value === 1;
+        if (is_string($value) && ($value === '0' || $value === '1')) return $value === '1';
+        throw new \TypeError($name . ' must be boolean');
+    }
+
+    private static function positiveId(mixed $value, string $name): int
+    {
+        if (is_int($value) && $value > 0) return $value;
+        if (is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1) {
+            $id = filter_var($value, FILTER_VALIDATE_INT);
+            if ($id !== false && $id > 0) return $id;
+        }
+        throw new \TypeError($name . ' must be a positive integer');
     }
 }

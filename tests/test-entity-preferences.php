@@ -297,7 +297,24 @@ preferenceContractCheck(
     ),
 );
 
-preferenceContractCheck('fixed assertion count', PreferenceContractTestState::$checks === 24);
+$preferenceResultValidator = new \ReflectionMethod(PreferenceContractAdmin::class, '_validatedPreferenceResults');
+$preferenceResultValidator->setAccessible(true);
+$wrongPreferenceRejected = false;
+try {
+    $preferenceResultValidator->invoke(new PreferenceContractAdmin(), [new \Entities\AliasPreference()]);
+} catch (\UnexpectedValueException) {
+    $wrongPreferenceRejected = true;
+}
+preferenceContractCheck('query results reject a preference from the wrong entity family', $wrongPreferenceRejected);
+$nonObjectPreferenceRejected = false;
+try {
+    $preferenceResultValidator->invoke(new PreferenceContractAdmin(), [new stdClass()]);
+} catch (\UnexpectedValueException) {
+    $nonObjectPreferenceRejected = true;
+}
+preferenceContractCheck('query results reject an object outside the preference entity contract', $nonObjectPreferenceRejected);
+
+preferenceContractCheck('fixed assertion count', PreferenceContractTestState::$checks === 26);
 
 echo PreferenceContractTestState::$failures === 0
     ? "ALL PASSED\n"

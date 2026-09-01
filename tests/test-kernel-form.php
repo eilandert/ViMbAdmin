@@ -220,7 +220,9 @@ $roform->add(new Field('other', 'Other', 'text'));
 $roout = $renderer->render($roform, '/domain/edit/did/1');
 check('field: setReadonly is reported',       (new Field('x'))->setReadonly()->isReadonly());
 check('render: readonly attr on readonly field', preg_match('/name="domain"[^>]*readonly="readonly"/', $roout) === 1);
-check('render: non-readonly field has no readonly', !str_contains(substr($roout, strpos($roout, 'name="other"'), 80), 'readonly'));
+$otherOffset = strpos($roout, 'name="other"');
+check('render: non-readonly field has no readonly', $otherOffset !== false
+    && !str_contains(substr($roout, $otherOffset, 80), 'readonly'));
 
 echo "\n";
 if ($failures === 0) {

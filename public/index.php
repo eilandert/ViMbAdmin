@@ -17,7 +17,14 @@ set_include_path(implode(PATH_SEPARATOR, [
     get_include_path(),
 ]));
 
-$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+$requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+if (!is_string($requestUri)) {
+    http_response_code(400);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "Malformed request URI\n";
+    return;
+}
+$path = parse_url($requestUri, PHP_URL_PATH);
 $path = is_string($path) ? $path : '/';
 $router = new \ViMbAdmin\Kernel\Router(\ViMbAdmin\Kernel\Http\Kernel::nativeControllers());
 $probe = new \ViMbAdmin\Kernel\Http\Kernel($router);

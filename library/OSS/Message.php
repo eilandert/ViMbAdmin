@@ -128,6 +128,8 @@ class OSS_Message
      */
     public function getPlaintext()
     {
+        if (!is_string($this->message))
+            throw new \UnexpectedValueException('OSS message plaintext requires string content');
         if( $this->isHTML )
             return( strip_tags( $this->message ) );
         else
@@ -137,7 +139,7 @@ class OSS_Message
     /**
      * Get the message
      *
-     * @return string 
+     * @return mixed
      */
     public function getMessage()
     {

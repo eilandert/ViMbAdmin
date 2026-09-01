@@ -63,9 +63,6 @@
  * @subpackage Plugins
  */
 
-use InvalidArgumentException;
-use UnexpectedValueException;
-
 class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implements OSS_Plugin_Observer
 {
 
@@ -86,12 +83,24 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
         if( !is_array( $options ) )
             throw new UnexpectedValueException( 'MailboxAutomaticAliases controller getOptions() must return an array.' );
 
-        // read config parameters
-        $this->defaultAliases = isset( $options['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultAliases'] )
-            ? $options['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultAliases'] : [];
+        $plugins = array_key_exists('vimbadmin_plugins', $options) ? $options['vimbadmin_plugins'] : [];
+        if (!is_array($plugins)) throw new UnexpectedValueException('vimbadmin_plugins must be an array.');
+        $config = array_key_exists('MailboxAutomaticAliases', $plugins) ? $plugins['MailboxAutomaticAliases'] : [];
+        if (!is_array($config)) throw new UnexpectedValueException('MailboxAutomaticAliases options must be an array.');
 
-        $this->defaultMapping = isset( $options['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultMapping'] )
-           ? $options['vimbadmin_plugins']['MailboxAutomaticAliases']['defaultMapping'] : [];
+        $aliases = array_key_exists('defaultAliases', $config) ? $config['defaultAliases'] : [];
+        if (!is_array($aliases) || !array_is_list($aliases)) throw new UnexpectedValueException('defaultAliases must be a list.');
+        foreach ($aliases as $alias) {
+            if (!is_string($alias)) throw new UnexpectedValueException('defaultAliases entries must be strings.');
+        }
+        $this->defaultAliases = $aliases;
+
+        $mapping = array_key_exists('defaultMapping', $config) ? $config['defaultMapping'] : [];
+        if (!is_array($mapping)) throw new UnexpectedValueException('defaultMapping must be an array.');
+        foreach ($mapping as $key => $value) {
+            if (!is_string($key) || !is_string($value)) throw new UnexpectedValueException('defaultMapping must be a string map.');
+        }
+        $this->defaultMapping = $mapping;
     }
 
     /** @return array{address:string,goto:string} */

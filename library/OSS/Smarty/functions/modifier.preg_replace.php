@@ -59,6 +59,5 @@
  */
 function smarty_modifier_preg_replace( $string, $search, $replace )
 {
-    return preg_replace( $search, $replace, $string );
+    return preg_replace( $search, $replace, $string ) ?? '';
 }
-

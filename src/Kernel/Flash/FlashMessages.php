@@ -85,6 +85,34 @@ final class FlashMessages
     {
         $stored = $this->session->get($this->key);
 
-        return is_array($stored) ? array_values($stored) : [];
+        if ($stored === null) {
+            return [];
+        }
+        if (!is_array($stored) || !array_is_list($stored)) {
+            throw new \UnexpectedValueException('Flash message queue is malformed');
+        }
+
+        $queue = [];
+        foreach ($stored as $entry) {
+            if (!is_array($entry)) {
+                throw new \UnexpectedValueException('Flash message entry is malformed');
+            }
+            $message = [];
+            if (array_key_exists('text', $entry)) {
+                if (!is_string($entry['text'])) throw new \UnexpectedValueException('Flash message text is malformed');
+                $message['text'] = $entry['text'];
+            }
+            if (array_key_exists('level', $entry)) {
+                if (!is_string($entry['level'])) throw new \UnexpectedValueException('Flash message level is malformed');
+                $message['level'] = $entry['level'];
+            }
+            if (array_key_exists('isHtml', $entry)) {
+                if (!is_bool($entry['isHtml'])) throw new \UnexpectedValueException('Flash message HTML flag is malformed');
+                $message['isHtml'] = $entry['isHtml'];
+            }
+            $queue[] = $message;
+        }
+
+        return $queue;
     }
 }

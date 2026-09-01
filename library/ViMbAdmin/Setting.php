@@ -30,15 +30,18 @@ class ViMbAdmin_Setting
      */
     public static function get( $em, $name, $default = null )
     {
+        if( $default !== null && !is_string( $default ) )
+            throw new \InvalidArgumentException( 'Setting default must be a string or null' );
+        $fallback = $default;
         try
         {
             $val = $em->getConnection()->fetchOne(
                 'SELECT value FROM setting WHERE name = ?', [ $name ] );
-            return ( $val === false || $val === null ) ? $default : $val;
+            return ( $val === false || $val === null ) ? $fallback : ( is_string( $val ) ? $val : $fallback );
         }
         catch( \Throwable $e )
         {
-            return $default;
+            return $fallback;
         }
     }
 

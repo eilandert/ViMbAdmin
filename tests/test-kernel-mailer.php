@@ -91,5 +91,23 @@ check('untrusted-cert + auth build -> EsmtpTransport', $t instanceof EsmtpTransp
 $m = new Mailer(['ssl' => 'tls', 'host' => 'mail.example.net']);
 check('transport() caches (same instance)', $m->transport() === $m->transport());
 
+foreach (
+    [
+        ['type' => null],
+        ['ssl' => null],
+        ['host' => ['mail.example.net']],
+        ['port' => 0],
+        ['verify_peer' => 'maybe'],
+    ] as $invalidOptions
+) {
+    $rejected = false;
+    try {
+        Mailer::resolveConfig($invalidOptions);
+    } catch (\TypeError|\InvalidArgumentException) {
+        $rejected = true;
+    }
+    check('malformed mail transport option fails closed', $rejected);
+}
+
 echo $failures === 0 ? "ALL PASSED\n" : "FAILED ($failures)\n";
 exit($failures === 0 ? 0 : 1);

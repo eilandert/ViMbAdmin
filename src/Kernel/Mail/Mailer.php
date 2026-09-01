@@ -95,7 +95,12 @@ final class Mailer
      */
     public static function resolveConfig(array $o): array
     {
-        $type = strtolower(trim((string) ($o['type'] ?? 'smtp')));
+        $typeValue = array_key_exists('type', $o) ? $o['type'] : 'smtp';
+        if (!is_string($typeValue)) throw new \TypeError('mail transport type must be a string');
+        $type = strtolower(trim($typeValue));
+        if (!in_array($type, ['smtp', 'sendmail'], true)) {
+            throw new \InvalidArgumentException('Unsupported mail transport type');
+        }
 
         if ($type === 'sendmail') {
             return [
@@ -110,7 +115,12 @@ final class Mailer
             ];
         }
 
-        $ssl = strtolower(trim((string) ($o['ssl'] ?? '')));
+        $sslValue = array_key_exists('ssl', $o) ? $o['ssl'] : '';
+        if (!is_string($sslValue)) throw new \TypeError('mail transport ssl must be a string');
+        $ssl = strtolower(trim($sslValue));
+        if (!in_array($ssl, ['', 'none', 'ssl', 'tls', 'starttls'], true)) {
+            throw new \InvalidArgumentException('Unsupported mail transport SSL mode');
+        }
 
         // implicit TLS (smtps) vs opportunistic STARTTLS vs plaintext
         if ($ssl === 'ssl') {
@@ -124,17 +134,26 @@ final class Mailer
             $defaultPort = 587;
         }
 
-        $username = isset($o['username']) && $o['username'] !== '' ? (string) $o['username'] : null;
+        $username = null;
+        if (array_key_exists('username', $o) && $o['username'] !== null) {
+            if (!is_string($o['username'])) throw new \TypeError('mail username must be a string');
+            $username = $o['username'] !== '' ? $o['username'] : null;
+        }
+        $host = array_key_exists('host', $o) ? $o['host'] : 'localhost';
+        if (!is_string($host) || $host === '') throw new \TypeError('mail host must be a non-empty string');
+        $port = array_key_exists('port', $o) ? self::port($o['port']) : $defaultPort;
+        $password = array_key_exists('password', $o) ? $o['password'] : '';
+        if (!is_string($password)) throw new \TypeError('mail password must be a string');
 
         return [
             'type'           => 'smtp',
-            'host'           => (string) ($o['host'] ?? 'localhost'),
-            'port'           => (int) ($o['port'] ?? $defaultPort),
+            'host'           => $host,
+            'port'           => $port,
             'tls'            => $tls,
             'username'       => $username,
-            'password'       => (string) ($o['password'] ?? ''),
-            'verifyPeer'     => self::boolOpt($o['verify_peer'] ?? true),
-            'verifyPeerName' => self::boolOpt($o['verify_peer_name'] ?? true),
+            'password'       => $password,
+            'verifyPeer'     => array_key_exists('verify_peer', $o) ? self::boolOpt($o['verify_peer']) : true,
+            'verifyPeerName' => array_key_exists('verify_peer_name', $o) ? self::boolOpt($o['verify_peer_name']) : true,
         ];
     }
 
@@ -184,6 +203,20 @@ final class Mailer
             return $v;
         }
 
-        return filter_var($v, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
+        $parsed = filter_var($v, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($parsed === null) {
+            throw new \TypeError('mail TLS verification option must be boolean');
+        }
+        return $parsed;
+    }
+
+    private static function port(mixed $value): int
+    {
+        if (is_int($value) && $value > 0 && $value <= 65535) return $value;
+        if (is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1) {
+            $port = filter_var($value, FILTER_VALIDATE_INT);
+            if ($port !== false && $port > 0 && $port <= 65535) return $port;
+        }
+        throw new \TypeError('mail port must be an integer from 1 to 65535');
     }
 }

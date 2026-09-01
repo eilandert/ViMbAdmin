@@ -26,15 +26,19 @@ class ViMbAdmin_Net
      */
     public static function clientIp( array $server, string $mode = 'auto', array $proxies = [] ): string
     {
-        $remote = isset( $server['REMOTE_ADDR'] ) ? (string) $server['REMOTE_ADDR'] : '0.0.0.0';
+        $remoteValue = $server['REMOTE_ADDR'] ?? null;
+        if ($remoteValue !== null && !is_string($remoteValue)) return '0.0.0.0';
+        $remote = $remoteValue ?? '0.0.0.0';
         $mode   = strtolower( $mode );
 
         if( $mode === 'off' || $mode === '0' || $mode === 'false' )
             return $remote;
 
         $xff = '';
-        if( isset( $server['HTTP_X_FORWARDED_FOR'] ) )
-            $xff = (string) $server['HTTP_X_FORWARDED_FOR'];
+        if( isset( $server['HTTP_X_FORWARDED_FOR'] ) ) {
+            if (!is_string($server['HTTP_X_FORWARDED_FOR'])) return $remote;
+            $xff = $server['HTTP_X_FORWARDED_FOR'];
+        }
         if( $xff === '' )
             return $remote;
 
@@ -42,7 +46,8 @@ class ViMbAdmin_Net
             if( $mode === 'auto' )
                 return self::isPrivate( $ip );
             foreach( $proxies as $p ) {
-                $p = trim( (string) $p );
+                if (!is_string($p)) continue;
+                $p = trim($p);
                 if( $p !== '' && self::ipInCidr( $ip, $p ) )
                     return true;
             }

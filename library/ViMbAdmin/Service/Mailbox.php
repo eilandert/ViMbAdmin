@@ -187,7 +187,22 @@ class ViMbAdmin_Service_Mailbox
     ): \Entities\Mailbox {
         $username = $mailbox->requiredUsername();
         $password = $mailbox->requiredPassword();
+        if (!array_key_exists('defaults', $options) || !is_array($options['defaults']))
+            throw new \TypeError('defaults options must be an array');
+        if (!array_key_exists('mailbox', $options['defaults']) || !is_array($options['defaults']['mailbox']))
+            throw new \TypeError('defaults.mailbox options must be an array');
         $mb = $options['defaults']['mailbox'];
+        if (!array_key_exists('password_scheme', $mb))
+            throw new \TypeError('mailbox password scheme must be a string');
+        if ($mb['password_scheme'] === null)
+            throw new \OSS_Exception('Cannot hash password without a hash method');
+        if (!is_string($mb['password_scheme']))
+            throw new \TypeError('mailbox password scheme must be a string');
+        $mailboxAliases = array_key_exists('mailboxAliases', $options) ? $options['mailboxAliases'] : false;
+        if (!is_bool($mailboxAliases) && !($mailboxAliases === 0 || $mailboxAliases === 1)
+            && !($mailboxAliases === '0' || $mailboxAliases === '1'))
+            throw new \TypeError('mailboxAliases must be boolean');
+        $mailboxAliases = $mailboxAliases === true || $mailboxAliases === 1 || $mailboxAliases === '1';
 
         $mailbox->setDomain($domain);
         $mailbox->setActive(true);
@@ -205,7 +220,7 @@ class ViMbAdmin_Service_Mailbox
         // address already exists (e.g. an orphan from an earlier failed attempt)
         // — inserting a duplicate violates the unique key and rolls the create
         // back.
-        if (!empty($options['mailboxAliases']) && (int) $options['mailboxAliases'] === 1
+        if ($mailboxAliases
             && $this->em->getRepository('\\Entities\\Alias')->findOneBy(['address' => $username]) === null
         ) {
             $alias = new \Entities\Alias();

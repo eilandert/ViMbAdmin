@@ -46,10 +46,11 @@ final class QueueRunnerLeaseEntityManager
     /** @var array<int, \Entities\QueueRunner> */
     public array $leases = [];
     public int $flushes = 0;
+    public int $queries = 0;
     public bool $contendOnPersist = false;
     private int $nextId = 1;
 
-    public function createQuery(string $dql): QueueRunnerLeaseQuery { return new QueueRunnerLeaseQuery($this); }
+    public function createQuery(string $dql): QueueRunnerLeaseQuery { $this->queries++; return new QueueRunnerLeaseQuery($this); }
     public function persist(object $lease): void
     {
         if ($this->contendOnPersist) {
@@ -114,12 +115,23 @@ queueRunnerRelease($available, $first);
 queueRunnerCheck('release frees the slot', queueRunnerCall('slotAvailable', $available, queueRunnerOptions(1)) === true && count($available->leases) === 0);
 
 $boundary = new QueueRunnerLeaseEntityManager();
-foreach ([0, -4, 'not-a-number', null, []] as $max) {
+$boundaryQueryCount = static fn(): int => $boundary->queries;
+foreach ([0] as $max) {
     queueRunnerCheck('malformed or boundary max remains clamped to one: ' . get_debug_type($max), queueRunnerCall('slotAvailable', $boundary, queueRunnerOptions($max)) === true);
     $lease = queueRunnerCall('acquireLease', $boundary, queueRunnerOptions($max));
     queueRunnerCheck('clamped cap still blocks a second lease: ' . get_debug_type($max), $lease instanceof \Entities\QueueRunner && queueRunnerCall('acquireLease', $boundary, queueRunnerOptions($max)) === null);
     if (!$lease instanceof \Entities\QueueRunner) { throw new RuntimeException('boundary lease was not acquired'); }
     queueRunnerRelease($boundary, $lease);
+}
+$boundary->queries = 0;
+foreach ([-4, 'not-a-number', null, []] as $max) {
+    $rejected = false;
+    try {
+        queueRunnerCall('slotAvailable', $boundary, queueRunnerOptions($max));
+    } catch (TypeError) {
+        $rejected = true;
+    }
+    queueRunnerCheck('malformed max fails closed before queue access: ' . get_debug_type($max), $rejected && $boundaryQueryCount() === 0);
 }
 
 $stale = new QueueRunnerLeaseEntityManager();

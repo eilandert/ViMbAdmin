@@ -33,6 +33,7 @@ final class AuthMailboxPasswordSession implements SessionStorage
 #[AllowDynamicProperties]
 final class AuthMailboxPasswordView
 {
+    public function __set(string $key, mixed $value): void {}
     public function render(string $script): string { return 'rendered:' . $script; }
 }
 

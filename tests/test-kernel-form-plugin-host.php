@@ -86,7 +86,8 @@ PHP);
 
 // Opt-in: only Ext is enabled; Off is left off (no enabled flag).
 $options = ['vimbadmin_plugins' => [
-    'Ext' => ['enabled' => true],
+    // PHP's NORMAL INI scanner represents `enabled = true` as '1'.
+    'Ext' => ['enabled' => '1'],
     'Off' => ['enabled' => false],
 ]];
 $host = new FormPluginHost($options, $dir);
@@ -122,6 +123,13 @@ try {
 
 $emptyHost = new FormPluginHost([], $dir . '-missing');
 check('missing plugin directory yields no extensions', $emptyHost->extensionCount() === 0);
+$badFormOptionsRejected = false;
+try {
+    new FormPluginHost(['vimbadmin_plugins' => null], $dir);
+} catch (TypeError) {
+    $badFormOptionsRejected = true;
+}
+check('malformed form-plugin configuration fails before loading', $badFormOptionsRejected);
 
 @unlink("$dir/Ext.php"); @unlink("$dir/Plain.php"); @unlink("$dir/Off.php"); @rmdir($dir);
 
@@ -326,6 +334,14 @@ check('AI apply: configured value saved',       $aiMailbox->getPreference('xpiIn
 check('AI apply: unconfigured value ignored',   $aiMailbox->getPreference('xpiInfo.unconfigured') === false);
 $ai->nativeMailboxApply($aiMailbox, [], $aiOpts);
 check('AI apply: missing value preserves preference', $aiMailbox->getPreference('xpiInfo.ext_no') === '4321');
+$aiArrayRejected = false;
+try {
+    $ai->nativeMailboxApply($aiMailbox, ['plugin_additionalInfo_ext_no' => ['4321']], $aiOpts);
+} catch (TypeError) {
+    $aiArrayRejected = true;
+}
+check('AI apply: array value rejected before preference mutation', $aiArrayRejected
+    && $aiMailbox->getPreference('xpiInfo.ext_no') === '4321');
 
 // ============ Part D: DirectoryEntry native adapter ================== //
 require __DIR__ . '/../application/plugins/DirectoryEntry.php';

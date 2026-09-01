@@ -39,7 +39,7 @@ final class TestCacheBootstrapHarnessState
 }
 
 $failures =& TestCacheBootstrapHarnessState::$count;
-function check(string $label, callable $fn): void {
+function cacheBootstrapCheck(string $label, callable $fn): void {
 
     try {
         $fn();
@@ -60,19 +60,19 @@ function psr6RoundTrip(\Psr\Cache\CacheItemPoolInterface $pool, string $key, str
     }
 }
 
-check('ArrayAdapter PSR-6 save/get round-trip', function () {
+cacheBootstrapCheck('ArrayAdapter PSR-6 save/get round-trip', function () {
     psr6RoundTrip(new ArrayAdapter(), 'k', 'v-array');
 });
 
 if (extension_loaded('apcu') && (PHP_SAPI === 'cli' ? ini_get('apc.enable_cli') : apcu_enabled())) {
-    check('ApcuAdapter PSR-6 save/get round-trip', function () {
+    cacheBootstrapCheck('ApcuAdapter PSR-6 save/get round-trip', function () {
         psr6RoundTrip(new ApcuAdapter('vmbtest'), 'k2', 'v-apcu');
     });
 } else {
     echo "SKIP ApcuAdapter (apcu ext/cli not enabled)\n";
 }
 
-check('ORM3 Configuration accepts PSR-6 pools + native lazy + EntityManager constructible', function () {
+cacheBootstrapCheck('ORM3 Configuration accepts PSR-6 pools + native lazy + EntityManager constructible', function () {
     $pool   = new ArrayAdapter();
     $config = new Configuration();
     $config->enableNativeLazyObjects(true);
@@ -81,9 +81,11 @@ check('ORM3 Configuration accepts PSR-6 pools + native lazy + EntityManager cons
     $config->setResultCache($pool);
     $config->setProxyDir(sys_get_temp_dir());
     $config->setProxyNamespace('Proxies');
-    $config->setMetadataDriverImpl(
-        new Doctrine\ORM\Mapping\Driver\AttributeDriver([realpath(__DIR__ . '/../application/Entities')])
-    );
+    $entityPath = realpath(__DIR__ . '/../application/Entities');
+    if ($entityPath === false) {
+        throw new RuntimeException('entity path is unavailable');
+    }
+    $config->setMetadataDriverImpl(new Doctrine\ORM\Mapping\Driver\AttributeDriver([$entityPath]));
 
     // ORM 3 removed EntityManager::create(); construction now takes a DBAL
     // connection. Pin serverVersion so this never opens a socket.

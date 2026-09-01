@@ -155,6 +155,9 @@
             if( $ossm instanceof OSS_Message_Block )
             {
                 $class = $classValue( $ossm->getClass() );
+                $blockMessage = $ossm->getMessage();
+                if( !is_string( $blockMessage ) )
+                    throw new \UnexpectedValueException( 'OSS block message must be a string' );
                 $actions = $ossm->getActions();
                 if( $actions === null )
                     $actions = [];
@@ -162,7 +165,7 @@
 
     <div class="alert alert-block alert-{$class} fade in" id="oss-message-{$count}">
         <a class="close" href="#" data-dismiss="alert">×</a>
-        {$ossm->getMessage()}
+        {$blockMessage}
 END_MESSAGE;
                 if( count( $actions ) )
                 {

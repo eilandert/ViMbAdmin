@@ -212,8 +212,12 @@ class ViMbAdminPlugin_AdditionalInfo extends ViMbAdmin_Plugin implements OSS_Plu
         foreach( array_keys( $this->_elements( $options ) ) as $name )
         {
             $key = "plugin_additionalInfo_{$name}";
-            if( array_key_exists( $key, $values ) )
-                $mailbox->setPreference( 'xpiInfo.' . $name, (string) $values[ $key ] );
+            if( array_key_exists( $key, $values ) ) {
+                if( !is_string( $values[ $key ] ) )
+                    throw new TypeError( 'Additional-info values must be strings.' );
+
+                $mailbox->setPreference( 'xpiInfo.' . $name, $values[ $key ] );
+            }
         }
     }
 }

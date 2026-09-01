@@ -50,17 +50,17 @@ function smarty_prefilter_whitespace_control($string, \Smarty\Template $template
     $_rdelim = preg_quote($rdelim);
 
     // remove preceeding whitepsace preserving a single line-break
-    $string =  preg_replace('#\s*'. $_ldelim .'(?:-\+|\+-)#', "\n" . $ldelim, $string);
+    $string =  preg_replace('#\s*'. $_ldelim .'(?:-\+|\+-)#', "\n" . $ldelim, $string) ?? $string;
     // remove trailing whitespace preserving s single line-break
-    $string =  preg_replace('#(?:\+-|-\+)'. $_rdelim .'\s*#', $rdelim . "\n\n", $string);
+    $string =  preg_replace('#(?:\+-|-\+)'. $_rdelim .'\s*#', $rdelim . "\n\n", $string) ?? $string;
 
     // remove preceeding whitepsace
-    $string =  preg_replace('#\s*'. $_ldelim .'--|[^\S\r\n]*'. $_ldelim .'-#', $ldelim, $string);
+    $string =  preg_replace('#\s*'. $_ldelim .'--|[^\S\r\n]*'. $_ldelim .'-#', $ldelim, $string) ?? $string;
     // remove trailing whitespace
-    $string =  preg_replace('#--'. $_rdelim .'\s*|-'. $_rdelim .'[^\S\r\n]*#', $rdelim, $string);
+    $string =  preg_replace('#--'. $_rdelim .'\s*|-'. $_rdelim .'[^\S\r\n]*#', $rdelim, $string) ?? $string;
 
     // force trailing line-break
-    $string =  preg_replace('#\+'. $_rdelim .'(?:\s*[\r\n]|[^\S\r\n]*)#', $rdelim . "\n\n", $string);
+    $string =  preg_replace('#\+'. $_rdelim .'(?:\s*[\r\n]|[^\S\r\n]*)#', $rdelim . "\n\n", $string) ?? $string;
 
     return $string;
 }

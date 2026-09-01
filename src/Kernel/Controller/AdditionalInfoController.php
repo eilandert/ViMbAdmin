@@ -45,8 +45,12 @@ final class AdditionalInfoController extends AbstractController
             return $this->json([]);
         }
 
+        $type = $this->param('type', '');
+        if (!is_string($type)) {
+            return $this->json([]);
+        }
         $values = $this->mailboxPreferenceRepository()
-            ->loadPrefrenceValuesByAttribute('xpiInfo.' . (string) $this->param('type', ''), $admin);
+            ->loadPrefrenceValuesByAttribute('xpiInfo.' . $type, $admin);
 
         return $this->json($values);
     }

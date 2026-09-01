@@ -41,6 +41,9 @@ echo "== OSS message ==\n";
 $plain = new OSS_Message('<b>Saved</b>', OSS_Message::ALERT, true);
 $check('ALERT normalizes to warning', $plain->getClass() === OSS_Message::WARNING);
 $check('plaintext strips tags for HTML messages', $plain->getPlaintext() === 'Saved');
+$plaintextShapeRejected = false;
+try { (new OSS_Message(['not-text']))->getPlaintext(); } catch (\UnexpectedValueException) { $plaintextShapeRejected = true; }
+$check('plaintext rejects non-string message content', $plaintextShapeRejected);
 
 $block = new OSS_Message_Block('Block body', OSS_Message::SUCCESS, false);
 $check('block type is set', $block->getType() === OSS_Message::TYPE_BLOCK);

@@ -222,10 +222,10 @@ class OSS_String
     public static function toValidFieldName( $string )
     {
         $string = mb_strtolower( trim( $string ) );
-        $string = preg_replace( "/[^0-9a-z]+/u", '_', $string );
-        $string = preg_replace ("/[_]+/u", '_', $string );
+        $string = preg_replace( "/[^0-9a-z]+/u", '_', $string ) ?? '';
+        $string = preg_replace ("/[_]+/u", '_', $string ) ?? '';
 
-        if( $string[0] == '_' )
+        if( $string !== '' && $string[0] == '_' )
             $string = mb_substr( $string, 1 );
 
         if( mb_substr( $string, -1 ) == '_')
@@ -275,9 +275,9 @@ class OSS_String
             $retVal = '';
 
         if( !$keepSpaces )
-            $retVal = preg_replace( "/[^a-z]/", '', mb_strtolower( $retVal ) );
+            $retVal = preg_replace( "/[^a-z]/", '', mb_strtolower( $retVal ) ) ?? '';
         else
-            $retVal = preg_replace( "/[^a-z\s]/", '', mb_strtolower( $retVal ) );
+            $retVal = preg_replace( "/[^a-z\s]/", '', mb_strtolower( $retVal ) ) ?? '';
 
         return $retVal;
     }
@@ -328,7 +328,7 @@ class OSS_String
 
         if( !is_array( $input ) && !is_object( $input ) )
         {
-            $input = (string) $input;
+            $input = is_scalar( $input ) ? (string) $input : '';
             return stripslashes( $input );
         }
 
@@ -363,7 +363,7 @@ class OSS_String
 
         if( !is_array( $input ) && !is_object( $input ) )
         {
-            $input = (string) $input;
+            $input = is_scalar( $input ) ? (string) $input : '';
             return html_entity_decode( $input );
         }
 

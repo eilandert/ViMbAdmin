@@ -44,7 +44,8 @@ final class ViMbAdmin_Service_QueueRunner
     }
 }
 
-foreach (glob(__DIR__ . '/../src/Kernel/Cli/Command/*.php') as $cmd) {
+$commandFiles = glob(__DIR__ . '/../src/Kernel/Cli/Command/*.php') ?: [];
+foreach ($commandFiles as $cmd) {
     require $cmd;
 }
 require __DIR__ . '/../src/Kernel/Cli/CliKernel.php';
@@ -56,6 +57,7 @@ use ViMbAdmin\Kernel\Cli\Command\McpTokenGenerateCommand;
 use ViMbAdmin\Kernel\Cli\Command\McpTokenListCommand;
 use ViMbAdmin\Kernel\Cli\Command\McpTokenRevokeCommand;
 use ViMbAdmin\Kernel\Cli\Command\ResetTotpCommand;
+use ViMbAdmin\Kernel\Cli\CliCommand;
 use ViMbAdmin\Kernel\Cli\CliKernel;
 use ViMbAdmin\Kernel\Container;
 use ViMbAdmin\Kernel\Security\Auth;
@@ -418,7 +420,8 @@ check('commands() == registered set',    $got === $want);
 
 $cmd = new QueueRunCommand();
 check('QueueRunCommand name',            $cmd->name() === 'queue.cli-run');
-check('CliCommand contract',             $cmd instanceof \ViMbAdmin\Kernel\Cli\CliCommand);
+$implemented = class_implements($cmd) ?: [];
+check('CliCommand contract',             in_array(CliCommand::class, $implemented, true));
 
 echo "== queue run command ==\n";
 
@@ -438,6 +441,16 @@ check('verbose mode forwards the flag and prints the processed total', $status =
 
 [$status, $output] = runQueueCommand([-1], [], ['v' => true]);
 check('lease throttling stops the loop and reports zero processed', $status === 0 && $output === "Processed 0 task(s).\n" && CliQueueRunnerState::$drains === [[5, true]]);
+
+foreach ([['queue' => null], ['queue' => ['runner' => ['max_per_run' => 0]]]] as $badQueueOptions) {
+    $rejected = false;
+    try {
+        runQueueCommand([1], $badQueueOptions);
+    } catch (TypeError) {
+        $rejected = true;
+    }
+    check('malformed queue command options fail before draining', $rejected && CliQueueRunnerState::$drains === []);
+}
 
 $queueErrorPropagated = false;
 try {

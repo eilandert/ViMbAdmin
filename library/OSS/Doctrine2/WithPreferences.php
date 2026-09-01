@@ -433,9 +433,12 @@ trait OSS_Doctrine2_WithPreferences
     {
         $em = $this->_getPreferenceEntityManager();
 
-        return $em->createQuery( "DELETE \\Entities\\UserPreference up WHERE up.User = ?1" )
+        $count = $em->createQuery( "DELETE \\Entities\\UserPreference up WHERE up.User = ?1" )
             ->setParameter( 1, $this )
             ->execute();
+        if( !is_int( $count ) )
+            throw new \UnexpectedValueException( 'Preference deletion count is malformed' );
+        return $count;
     }
 
 
@@ -694,19 +697,21 @@ trait OSS_Doctrine2_WithPreferences
             $this->_getFullClassname(), $this->_getShortClassname(), $this->getId()
         );
 
-        return $this->_getPreferenceEntityManager()->createQuery( $query )->getResult();
+        return $this->_validatedPreferenceResults(
+            $this->_getPreferenceEntityManager()->createQuery( $query )->getResult()
+        );
     }
 
     /**
      * Assign the key's value to the property list. Handles the
      * nest separator for sub-properties.
      *
-     * @param  array  $config
+     * @param  array<int|string, mixed> $config
      * @param  string $key
      * @param  string $value
      * @return array
      */
-    private function _processKey($config, $key, $value)
+    private function _processKey(array $config, string $key, string $value): array
     {
         return $this->_processPreferenceKey($config, $key, $value);
     }
@@ -732,10 +737,11 @@ trait OSS_Doctrine2_WithPreferences
                         $config[ $pieces[0] ] = [];
                 }
                 elseif( !is_array( $config[$pieces[0]] ) )
-                {
-                    //die("Cannot create sub-key for '{$pieces[0]}' as key already exists");
-                }
-                $config[ $pieces[0] ] = $this->_processKey( $config[ $pieces[0] ], $pieces[1], $value );
+                    throw new \UnexpectedValueException( "Cannot create preference sub-key '{$pieces[0]}' over a scalar" );
+                $nested = $config[ $pieces[0] ];
+                if( !is_array( $nested ) )
+                    throw new \UnexpectedValueException( "Cannot create preference sub-key '{$pieces[0]}' over a scalar" );
+                $config[ $pieces[0] ] = $this->_processKey( $nested, $pieces[1], $value );
             }
             else
             {
@@ -747,6 +753,20 @@ trait OSS_Doctrine2_WithPreferences
             $config[$key] = $value;
         }
         return $config;
+    }
+
+    /** @return list<TPreference> */
+    private function _validatedPreferenceResults( mixed $result ): array
+    {
+        if( !is_array( $result ) || !array_is_list( $result ) )
+            throw new \UnexpectedValueException( 'Preference query result is malformed' );
+        $expected = $this->_getPreferenceEntityClassname();
+        foreach( $result as $preference )
+        {
+            if( !is_object( $preference ) || !is_a( $preference, $expected ) )
+                throw new \UnexpectedValueException( 'Preference query result contains an invalid entity' );
+        }
+        return $result;
     }
 
 }

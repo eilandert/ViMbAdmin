@@ -40,7 +40,11 @@ final class ResetTotpCommand implements CliCommand
         }
 
         $options = $container->options();
-        $tfa     = new \ViMbAdmin_TwoFactor('ViMbAdmin', (string) ($options['securitysalt'] ?? ''));
+        $salt = $options['securitysalt'] ?? '';
+        if( !is_string( $salt ) )
+            throw new \TypeError( 'TOTP security salt must be a string.' );
+
+        $tfa = new \ViMbAdmin_TwoFactor('ViMbAdmin', $salt);
         $entityManager = $container->entityManager();
         if (!$entityManager instanceof ObjectManager) {
             throw new LogicException('TOTP reset requires a Doctrine object manager.');

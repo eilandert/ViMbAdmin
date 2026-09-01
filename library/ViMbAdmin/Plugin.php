@@ -81,8 +81,12 @@ class ViMbAdmin_Plugin
     {
         // typically the update() function will be pretty simple
         $hookfn = "{$controller}_{$action}_{$hook}";
-        if( method_exists( $this, $hookfn ) )
-            return $this->$hookfn( $controllerObject, $params );
+        if( method_exists( $this, $hookfn ) ) {
+            $result = $this->$hookfn( $controllerObject, $params );
+            if (!is_bool($result))
+                throw new \TypeError('Plugin hook must return bool');
+            return $result;
+        }
             
         return true;
     }

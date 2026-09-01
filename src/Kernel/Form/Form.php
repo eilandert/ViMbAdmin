@@ -68,7 +68,7 @@ final class Form
             }
         }
 
-        $this->submittedToken = isset($data['csrf']) ? (string) $data['csrf'] : null;
+        $this->submittedToken = isset($data['csrf']) && is_string($data['csrf']) ? $data['csrf'] : null;
 
         return $this;
     }

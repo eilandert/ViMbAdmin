@@ -108,7 +108,7 @@ class OSS_Utils
     {
         $tempDir = OSS_Utils::getIniOption( 'temporary_directory' );
 
-        return ( $tempDir == '' ? sys_get_temp_dir() : $tempDir );
+        return is_string($tempDir) && $tempDir !== '' ? $tempDir : sys_get_temp_dir();
     }
 
 
@@ -152,16 +152,24 @@ class OSS_Utils
         }
         else 
         {
-            if( isset( $options['utils']['genurl']['host_mode'] ) )
+            $utils = array_key_exists('utils', $options) ? $options['utils'] : [];
+            if (!is_array($utils)) throw new \TypeError('utils options must be an array');
+            $genurl = array_key_exists('genurl', $utils) ? $utils['genurl'] : [];
+            if (!is_array($genurl)) throw new \TypeError('utils.genurl options must be an array');
+            if( array_key_exists('host_mode', $genurl) )
             {
-                switch( $options['utils']['genurl']['host_mode'] )
+                if (!is_string($genurl['host_mode'])) throw new \TypeError('genurl host mode must be a string');
+                switch( $genurl['host_mode'] )
                 {
                     case 'HTTP_X_FORWARDED_HOST':
                         $host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? 'localhost';
+                        if (!is_string($host)) throw new \TypeError('forwarded host must be a string');
                         break;
                         
                     case 'REPLACE':
-                        $host = $options['utils']['genurl']['host_replace'];
+                        if (!array_key_exists('host_replace', $genurl) || !is_string($genurl['host_replace']))
+                            throw new \TypeError('genurl host replacement must be a string');
+                        $host = $genurl['host_replace'];
                         break;
                         
                     default:
@@ -171,6 +179,8 @@ class OSS_Utils
             else
                 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
         }
+
+        if (!is_string($host)) throw new \TypeError('URL host must be a string');
 
         $url = $host . $url;
         
@@ -188,7 +198,10 @@ class OSS_Utils
             }
             elseif( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) )
             {
-                $protocol = $_SERVER['HTTP_X_FORWARDED_PROTO'];
+                if (!is_string($_SERVER['HTTP_X_FORWARDED_PROTO'])
+                    || !in_array(strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']), ['http', 'https'], true))
+                    throw new \TypeError('forwarded protocol must be http or https');
+                $protocol = strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']);
             }
 
             $url = "{$protocol}://{$url}";
@@ -205,8 +218,11 @@ class OSS_Utils
 
         if( sizeof( $params ) > 0 )
         {
-            foreach( $params as $var => $value )
-                $url .= "/{$var}/{$value}";
+            foreach( $params as $var => $value ) {
+                if (!is_scalar($value) && $value !== null)
+                    throw new \TypeError('URL parameter values must be scalar');
+                $url .= "/{$var}/" . ($value === null ? '' : (string) $value);
+            }
         }
 
         return $url;

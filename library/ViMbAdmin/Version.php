@@ -241,6 +241,11 @@ final class ViMbAdmin_Version
         return is_array( $json ) ? $json : null;
     }
 
+    private static function _nonEmptyString( mixed $value ): ?string
+    {
+        return is_string( $value ) && $value !== '' ? $value : null;
+    }
+
     /**
      * Latest release tag on GitHub (e.g. "v4.0.0"), or null. Falls back to the
      * newest tag if the repo has no formal "release".
@@ -250,12 +255,18 @@ final class ViMbAdmin_Version
     public static function latestRelease()
     {
         $rel = self::_github( 'releases/latest' );
-        if( is_array( $rel ) && !empty( $rel['tag_name'] ) )
-            return (string) $rel['tag_name'];
+        if( is_array( $rel ) ) {
+            $tag = self::_nonEmptyString( $rel['tag_name'] ?? null );
+            if( $tag !== null )
+                return $tag;
+        }
 
         $tags = self::_github( 'tags' );
-        if( is_array( $tags ) && isset( $tags[0]['name'] ) )
-            return (string) $tags[0]['name'];
+        if( is_array( $tags ) && isset( $tags[0] ) && is_array( $tags[0] ) ) {
+            $tag = self::_nonEmptyString( $tags[0]['name'] ?? null );
+            if( $tag !== null )
+                return $tag;
+        }
 
         return null;
     }
@@ -268,8 +279,11 @@ final class ViMbAdmin_Version
     public static function latestCommit()
     {
         $c = self::_github( 'commits/' . self::GITHUB_BRANCH );
-        if( is_array( $c ) && !empty( $c['sha'] ) )
-            return (string) $c['sha'];
+        if( is_array( $c ) ) {
+            $sha = self::_nonEmptyString( $c['sha'] ?? null );
+            if( $sha !== null )
+                return $sha;
+        }
         return null;
     }
 

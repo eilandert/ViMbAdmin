@@ -14,6 +14,8 @@ require __DIR__ . '/../src/Kernel/Security/Auth.php';
 require __DIR__ . '/../src/Kernel/Http/Response.php';
 require __DIR__ . '/../src/Kernel/RouteMatch.php';
 require __DIR__ . '/../src/Kernel/NativeResources.php';
+require __DIR__ . '/../library/ViMbAdmin/Demo.php';
+require __DIR__ . '/../src/Kernel/Mail/Mailer.php';
 require __DIR__ . '/../src/Kernel/Container.php';
 require __DIR__ . '/../src/Kernel/Mvc/AbstractController.php';
 require __DIR__ . '/../src/Kernel/Mvc/Dispatcher.php';
@@ -64,6 +66,7 @@ final class BootstrapFake
     }
     /** Real Bootstrap exposes getOptions(); AbstractController::admin() reads
      *  resources.session.idle_timeout through it. Empty options = idle disabled. */
+    /** @return array<string,mixed> */
     public function getOptions(): array { return []; }
 }
 
@@ -95,6 +98,15 @@ final class InvalidOptionsBootstrapFake
     }
 }
 
+final class MailerShapeBootstrapFake
+{
+    /** @param array<string,mixed> $options */
+    public function __construct(private array $options) {}
+    /** @return array<string,mixed> */
+    public function getOptions(): array { return $this->options; }
+    public function getResource(string $name): mixed { return null; }
+}
+
 /** Resource holder for idle-timeout boundary tests. */
 final class IdleBootstrapFake
 {
@@ -123,10 +135,12 @@ final class ProbeController extends AbstractController
 {
     public function showAction(): Response
     {
+        $admin = $this->admin();
+        $entityManager = $this->em();
         return $this->json([
             'type'  => $this->param('type', 'DEFAULT'),
-            'admin' => $this->admin()?->getId(),
-            'em'    => $this->em()->ping(),
+            'admin' => $admin instanceof AdminFake ? $admin->getId() : null,
+            'em'    => $entityManager instanceof EmFake ? $entityManager->ping() : null,
         ]);
     }
 
@@ -200,6 +214,25 @@ try {
     $wrongOptionsRejected = true;
 }
 check('container rejects a non-array options return', $wrongOptionsRejected);
+
+check(
+    'container mailer preserves the absent transport default',
+    get_debug_type((new Container(new BootstrapFake($em), $auth))->mailer()) === 'ViMbAdmin\\Kernel\\Mail\\Mailer'
+);
+$malformedMailerOptions = [
+    ['resources' => null],
+    ['resources' => ['mail' => null]],
+    ['resources' => ['mail' => ['transport' => null]]],
+];
+foreach ($malformedMailerOptions as $index => $options) {
+    $rejected = false;
+    try {
+        (new Container(new MailerShapeBootstrapFake($options), $auth))->mailer();
+    } catch (TypeError) {
+        $rejected = true;
+    }
+    check('container mailer rejects malformed nested option shape ' . $index, $rejected);
+}
 
 $dispatcher = new Dispatcher($container, ['probe' => ProbeController::class]);
 

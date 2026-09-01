@@ -43,7 +43,7 @@ $s    = new ArraySession();
 $csrf = new Csrf($s);
 
 $t1 = $csrf->token();
-check('token() returns non-empty string',     is_string($t1) && $t1 !== '');
+check('token() returns non-empty string',     $t1 !== '');
 check('token is 64 hex chars (32 bytes)',      strlen($t1) === 64 && ctype_xdigit($t1));
 check('token persisted to session',            $s->get('csrfToken') === $t1);
 

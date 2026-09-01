@@ -57,7 +57,7 @@ function check(string $label, bool $ok): void {
     if (!$ok) { TestKernelAuthHarnessState::$count++; }
 }
 
-/** Loader over a small id->admin table; records how many times it ran. */
+/** @param array<int,object> $table */
 function loaderFor(array $table, int &$calls): callable {
     return function (int $id) use ($table, &$calls): ?object { $calls++; return $table[$id] ?? null; };
 }
@@ -109,6 +109,14 @@ $malformed = new Auth(new ArraySession(['identity' => 'not-an-array']), loaderFo
 check('malformed identity -> null',      $malformed->identity() === null);
 check('malformed identity is rejected before loading',
     $malformed->isAuthenticated() === false && $malformed->admin() === null && $malformedCalls === 0);
+$badIdCalls = 0;
+$badId = new Auth(new ArraySession(['identity' => ['id' => ['5']]]), loaderFor([5 => $normal], $badIdCalls));
+check('malformed identity id is rejected before loading',
+    $badId->isAuthenticated() === false && $badId->admin() === null && $badIdCalls === 0);
+$stringIdCalls = 0;
+$stringId = new Auth(new ArraySession(['identity' => ['id' => '5']]), loaderFor([5 => $normal], $stringIdCalls));
+check('numeric-string identity id remains compatible',
+    $stringId->isAuthenticated() === true && $stringId->admin() === $normal && $stringIdCalls === 1);
 
 // --- repository returns the wrong object ------------------------------ //
 $wrongCalls = 0;

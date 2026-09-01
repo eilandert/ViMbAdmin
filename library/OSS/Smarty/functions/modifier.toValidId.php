@@ -57,5 +57,5 @@
  */
 function smarty_modifier_toValidId( $string )
 {
-    return preg_replace( "[^a-zA-Z-0-9\_]", '_', $string );
+    return preg_replace( "[^a-zA-Z-0-9\_]", '_', $string ) ?? '';
 }

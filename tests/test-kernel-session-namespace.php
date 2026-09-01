@@ -80,8 +80,9 @@ check('Zend_Auth namespace stored separately',
 // This is exactly how the Auth bridge will be built once the ZF1 namespace is
 // gone: MagicPropertyStorage(new SessionNamespace('Zend_Auth')).
 $store = new MagicPropertyStorage(new SessionNamespace('Zend_Auth'));
+$stored = $store->get('storage');
 check('storage->get sees the magic-property value',
-    $store->get('storage')['username'] === 'admin@example.com');
+    is_array($stored) && ($stored['username'] ?? null) === 'admin@example.com');
 check('storage->has true for present key', $store->has('storage'));
 $store->set('token', 'abc');
 check('storage->set writes through magic property',

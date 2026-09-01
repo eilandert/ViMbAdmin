@@ -111,6 +111,14 @@ checkMutationContext('queues the legacy error class while ignoring the block typ
 $context->addMessage('empty', '');
 $message = $flash->peek()[2] ?? null;
 checkMutationContext('queues success for an empty class at the boundary', $message !== null && $message->level === FlashMessages::SUCCESS);
+$messageRejected = false;
+try {
+    $context->addMessage(['not', 'text']);
+} catch (\TypeError) {
+    $messageRejected = true;
+}
+checkMutationContext('rejects container plugin messages without queueing',
+    $messageRejected && count($flash->peek()) === 3);
 
 $failures = MutationContextAssertions::$failures;
 echo $failures === 0 ? "\nALL PASSED\n" : "\n{$failures} FAILED\n";

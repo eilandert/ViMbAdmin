@@ -71,11 +71,13 @@ PHP);
 
 // Context double: only getOptions() is needed at construction time.
 $context = new class {
+    /** @return array<string,mixed> */
     public function getOptions(): array
     {
         // Opt-in: only Recorder + Veto are enabled; Disabled is left off.
         return ['vimbadmin_plugins' => [
-            'Recorder' => ['enabled' => true],
+            // PHP's NORMAL INI scanner represents `enabled = true` as '1'.
+            'Recorder' => ['enabled' => '1'],
             'Veto'     => ['enabled' => true],
             'Disabled' => ['enabled' => false],
         ]];
@@ -93,7 +95,7 @@ check('context passed to plugin ctor',         ($GLOBALS['rec_ctx'] ?? null) ===
 // notify dispatches to every observer, in order; returns true when none veto
 $ok = $host->notify('alias', 'toggleActive', 'preToggle', $context, ['active' => 1]);
 check('notify returns true when no veto',      $ok === true);
-check('notify reached the recorder',           in_array('alias_toggleActive_preToggle', $GLOBALS['rec_calls'], true));
+check('notify reached the recorder',           serialize($GLOBALS['rec_calls']) === serialize(['alias_toggleActive_preToggle']));
 check('notify forwarded the params',           ($GLOBALS['rec_last_params'] ?? null) === ['active' => 1]);
 
 // the veto plugin refuses a mailbox preToggle → notify short-circuits to false
@@ -103,6 +105,17 @@ check('notify returns false on veto',          $vetoed === false);
 // a non-vetoed hook still passes
 $passed = $host->notify('mailbox', 'toggleActive', 'postflush', $context);
 check('notify true for a non-vetoed hook',     $passed === true);
+
+$badOptionsContext = new class {
+    public function getOptions(): mixed { return ['vimbadmin_plugins' => null]; }
+};
+$badOptionsRejected = false;
+try {
+    new PluginHost($badOptionsContext, $dir);
+} catch (TypeError) {
+    $badOptionsRejected = true;
+}
+check('malformed plugin configuration fails before loading', $badOptionsRejected);
 
 // A legacy plugin class without update() is still discovered and only fails
 // when dispatch reaches it, matching the historical dynamic-call boundary.

@@ -24,12 +24,14 @@ final class NativeSessionStorage implements SessionStorage
 
     public function has(string $key): bool
     {
-        return isset($_SESSION[$this->namespace]) && array_key_exists($key, $_SESSION[$this->namespace]);
+        $namespace = $_SESSION[$this->namespace] ?? null;
+        return is_array($namespace) && array_key_exists($key, $namespace);
     }
 
     public function get(string $key): mixed
     {
-        return $_SESSION[$this->namespace][$key] ?? null;
+        $namespace = $_SESSION[$this->namespace] ?? null;
+        return is_array($namespace) ? ($namespace[$key] ?? null) : null;
     }
 
     public function set(string $key, mixed $value): void
@@ -42,6 +44,10 @@ final class NativeSessionStorage implements SessionStorage
 
     public function remove(string $key): void
     {
-        unset($_SESSION[$this->namespace][$key]);
+        $namespace = $_SESSION[$this->namespace] ?? null;
+        if (is_array($namespace)) {
+            unset($namespace[$key]);
+            $_SESSION[$this->namespace] = $namespace;
+        }
     }
 }

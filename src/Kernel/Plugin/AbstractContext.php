@@ -78,7 +78,11 @@ abstract class AbstractContext implements \ViMbAdmin_Plugin_MutationContext
     {
         // Kept for the legacy contract; native flash messages have no type axis.
         unset($type);
+        if (!is_string($message)) {
+            throw new \TypeError('Plugin messages must be strings.');
+        }
+
         $level = is_string($class) && $class !== '' ? $class : FlashMessages::SUCCESS;
-        $this->flash->add((string) $message, $level);
+        $this->flash->add($message, $level);
     }
 }

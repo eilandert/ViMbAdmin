@@ -45,7 +45,7 @@ final class FormPluginHost
             $name = basename($file, '.php');
 
             // Opt-in: load only when `vimbadmin_plugins.<name>.enabled` is true.
-            if (empty($this->options['vimbadmin_plugins'][$name]['enabled'])) {
+            if (!$this->pluginEnabled($name)) {
                 continue;
             }
 
@@ -120,5 +120,26 @@ final class FormPluginHost
     public function extensionCount(): int
     {
         return count($this->extensions);
+    }
+
+    private function pluginEnabled(string $name): bool
+    {
+        if (!array_key_exists('vimbadmin_plugins', $this->options)) {
+            return false;
+        }
+        $plugins = $this->options['vimbadmin_plugins'];
+        if ($plugins === null) {
+            throw new \TypeError('Plugin configuration must be an array.');
+        }
+        if (!is_array($plugins)) {
+            throw new \TypeError('Plugin configuration must be an array.');
+        }
+
+        $entry = $plugins[$name] ?? null;
+        if (!is_array($entry)) {
+            return false;
+        }
+
+        return in_array($entry['enabled'] ?? false, [true, 1, '1'], true);
     }
 }
