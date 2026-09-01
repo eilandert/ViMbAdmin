@@ -49,6 +49,114 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  */
 final class AliasController extends AbstractController
 {
+    private static function requiredString(mixed $value, string $name): string
+    {
+        if (!is_string($value)) {
+            throw new \LogicException("{$name} must be a string");
+        }
+        return $value;
+    }
+
+    private static function positiveIntegerOrNull(mixed $value): ?int
+    {
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            return is_int($integer) ? $integer : null;
+        }
+        return null;
+    }
+
+    private function positiveIdParam(string $key): ?int
+    {
+        return self::positiveIntegerOrNull($this->param($key));
+    }
+
+    private static function binaryInteger(mixed $value, int $default, string $name): int
+    {
+        if ($value === null) {
+            return $default;
+        }
+        if ($value === 0 || $value === '0' || $value === false || $value === '') {
+            return 0;
+        }
+        if ($value === 1 || $value === '1' || $value === true) {
+            return 1;
+        }
+        throw new \LogicException("{$name} must be zero or one");
+    }
+
+    /**
+     * @param array<mixed> $value
+     * @return array<string,mixed>
+     */
+    private static function requestArray(array $value): array
+    {
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                continue;
+            }
+            if (!is_string($item)) {
+                throw new \LogicException("DataTables parameter {$key} must be a string");
+            }
+            $result[$key] = $item;
+        }
+        return $result;
+    }
+
+    /** @return array<string,mixed> */
+    private static function stringKeyedArray(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new \LogicException("{$name} must be an array");
+        }
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                throw new \LogicException("{$name} must use string keys");
+            }
+            $result[$key] = $item;
+        }
+        return $result;
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array{bool,mixed}
+     */
+    private static function option(array $options, string ...$path): array
+    {
+        $value = $options;
+        $walked = [];
+        foreach ($path as $key) {
+            $value = self::stringKeyedArray($value, 'Configuration ' . ($walked === [] ? 'root' : implode('.', $walked)));
+            $walked[] = $key;
+            if (!array_key_exists($key, $value)) {
+                return [false, null];
+            }
+            $value = $value[$key];
+        }
+        return [true, $value];
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionBoolean(array $options, bool $default, string ...$path): bool
+    {
+        [$found, $value] = self::option($options, ...$path);
+        return $found ? self::binaryInteger($value, $default ? 1 : 0, 'Configuration ' . implode('.', $path)) === 1 : $default;
+    }
+
+    private static function requiredAliasDomain(\Entities\Alias $alias): \Entities\Domain
+    {
+        $domain = $alias->getDomain();
+        if ($domain === null) {
+            throw new \LogicException('Alias domain cannot be null.');
+        }
+        return $domain;
+    }
     /**
      * GET /alias and /alias/index — the auth-gated landing forwards to the list
      * (the native equivalent of the ZF1 indexAction `_forward('list')`).
@@ -77,8 +185,12 @@ final class AliasController extends AbstractController
         if ($this->param('unset', false)) {
             $session->remove('domain');
         } elseif (($domain = $this->storedDomain($session)) !== null) {
-        } elseif ($did = $this->param('did')) {
-            $domain = $this->domainRepository()->find((int) $did);
+        } elseif (($didValue = $this->param('did')) !== null) {
+            $did = self::positiveIntegerOrNull($didValue);
+            if ($did === null) {
+                return $this->redirect('alias/list');
+            }
+            $domain = $this->domainRepository()->find($did);
             if ($domain && !$admin->isSuper() && !$admin->canManageDomain($domain)) {
                 return $this->redirect('auth/login');
             }
@@ -87,12 +199,11 @@ final class AliasController extends AbstractController
             }
         }
 
-        $ima = (int) $this->param('ima', 0);
+        $ima = self::binaryInteger($this->param('ima'), 0, 'Include-mailbox-alias flag');
 
         $opts = $this->container->options();
 
-        $paginate = isset($opts['defaults']['server_side']['pagination']['enable'])
-            && $opts['defaults']['server_side']['pagination']['enable'];
+        $paginate = self::optionBoolean($opts, false, 'defaults', 'server_side', 'pagination', 'enable');
 
         $aliases = $paginate
             ? []
@@ -121,9 +232,9 @@ final class AliasController extends AbstractController
 
         $session = new MagicPropertyStorage($this->session());
         $domain  = $this->storedDomain($session);
-        $ima     = (int) $this->param('ima', 0);
+        $ima     = self::binaryInteger($this->param('ima'), 0, 'Include-mailbox-alias flag');
 
-        $q = DataTableQuery::fromArray($_GET);
+        $q = DataTableQuery::fromArray(self::requestArray($_GET));
         // Column index -> sortable field (matches JS column order; goto/controls
         // fall back to address).
         $sortField = [0 => 'address', 1 => 'domain', 2 => 'active'][$q->sortColumn] ?? 'address';
@@ -155,19 +266,22 @@ final class AliasController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $alias = ($alid = $this->param('alid'))
-            ? $this->aliasRepository()->find((int) $alid)
+        $alias = ($alid = $this->positiveIdParam('alid'))
+            ? $this->aliasRepository()->find($alid)
             : null;
-
         // loadAlias() authorises a non-super admin against the alias's domain.
-        if (!$alias || (!$admin->isSuper() && !$admin->canManageDomain($alias->getDomain()))) {
+        if ($alias === null) {
+            return new Response('ko');
+        }
+        $domain = self::requiredAliasDomain($alias);
+        if (!$admin->isSuper() && !$admin->canManageDomain($domain)) {
             return new Response('ko');
         }
 
         $context = new AliasContext(
             $this->em(),
             $admin,
-            $alias->getDomain(),
+            $domain,
             $alias,
             $this->container->options(),
             new FlashMessages(new MagicPropertyStorage($this->session())),
@@ -220,8 +334,8 @@ final class AliasController extends AbstractController
     {
         // Edit is served natively by editAction; redirect the legacy
         // add-with-alid alias there rather than punting to ZF1.
-        if ($alid = $this->param('alid')) {
-            return $this->redirect('alias/edit/alid/' . (int) $alid);
+        if ($alid = $this->positiveIdParam('alid')) {
+            return $this->redirect('alias/edit/alid/' . $alid);
         }
 
         $admin = $this->admin();
@@ -241,8 +355,9 @@ final class AliasController extends AbstractController
 
         // A preferred domain from `did` preselects the dropdown.
         $preferred = null;
-        if ($did = $this->param('did')) {
-            $d = $this->domainRepository()->find((int) $did);
+        $did = $this->positiveIdParam('did');
+        if ($did !== null) {
+            $d = $this->domainRepository()->find($did);
             if ($d !== null && ($admin->isSuper() || $admin->canManageDomain($d))) {
                 $preferred = $d;
             }
@@ -252,7 +367,8 @@ final class AliasController extends AbstractController
 
         if ($this->isPost() && $form->isValid($this->postData())) {
             $v      = $form->values();
-            $domain = $this->domainRepository()->find((int) $v['domain']);
+            $domainId = self::positiveIntegerOrNull($v['domain'] ?? null);
+            $domain = $domainId === null ? null : $this->domainRepository()->find($domainId);
 
             // The inArray rule already rejected a domain not offered; re-check
             // management server-side so a non-super admin cannot widen scope.
@@ -262,14 +378,14 @@ final class AliasController extends AbstractController
                 && $domain->getAliasCount() >= $domain->getMaxAliases()) {
                 $this->flash('You have used all of your allocated aliases.', FlashMessages::ERROR);
             } else {
-                [$gotos, $gErr] = $this->parseGotos((string) ($v['goto'] ?? ''));
+                [$gotos, $gErr] = $this->parseGotos(self::requiredString($v['goto'] ?? null, 'Alias destinations'));
 
                 if ($gErr !== null) {
                     $this->flash($gErr, FlashMessages::ERROR);
                 } else {
                     // _setAddress: assemble local_part@domain (blank local part is
                     // a catch-all @domain alias, which ZF1 does not email-validate).
-                    $localPart = strtolower(trim((string) $v['local_part']));
+                    $localPart = strtolower(trim(self::requiredString($v['local_part'] ?? null, 'Alias local part')));
                     $address   = sprintf('%s@%s', $localPart, $domain->requiredDomainName());
 
                     if ($localPart !== '' && filter_var($address, FILTER_VALIDATE_EMAIL) === false) {
@@ -303,7 +419,7 @@ final class AliasController extends AbstractController
                             },
                         );
 
-                        if ($this->param('did')) {
+                        if ($did !== null) {
                             (new MagicPropertyStorage($this->session()))->set('domain', $domain);
                         }
 
@@ -343,12 +459,16 @@ final class AliasController extends AbstractController
         }
 
         $em    = $this->em();
-        $alias = ($alid = $this->param('alid'))
-            ? $this->aliasRepository()->find((int) $alid)
+        $alias = ($alid = $this->positiveIdParam('alid'))
+            ? $this->aliasRepository()->find($alid)
             : null;
-
         // loadAlias() authorises a non-super admin against the alias's domain.
-        if (!$alias || (!$admin->isSuper() && !$admin->canManageDomain($alias->getDomain()))) {
+        if ($alias === null) {
+            $this->flash('Alias not found.', FlashMessages::ERROR);
+            return $this->redirect('alias/list');
+        }
+        $domain = self::requiredAliasDomain($alias);
+        if (!$admin->isSuper() && !$admin->canManageDomain($domain)) {
             $this->flash('Alias not found.', FlashMessages::ERROR);
             return $this->redirect('alias/list');
         }
@@ -360,7 +480,7 @@ final class AliasController extends AbstractController
         if ($this->isPost() && $form->isValid($this->postData())) {
             $v = $form->values();
 
-            [$gotos, $gErr] = $this->parseGotos((string) ($v['goto'] ?? ''));
+            [$gotos, $gErr] = $this->parseGotos(self::requiredString($v['goto'] ?? null, 'Alias destinations'));
 
             if ($gErr !== null) {
                 $this->flash($gErr, FlashMessages::ERROR);
@@ -370,7 +490,7 @@ final class AliasController extends AbstractController
                 $context = new AliasContext(
                     $em,
                     $admin,
-                    $alias->getDomain(),
+                    $domain,
                     $alias,
                     $options,
                     new FlashMessages(new MagicPropertyStorage($this->session())),
@@ -422,19 +542,22 @@ final class AliasController extends AbstractController
             return $this->redirect('alias/list');
         }
 
-        $alias = ($alid = $this->param('alid'))
-            ? $this->aliasRepository()->find((int) $alid)
+        $alias = ($alid = $this->positiveIdParam('alid'))
+            ? $this->aliasRepository()->find($alid)
             : null;
-
         // loadAlias() authorises a non-super admin against the alias's domain.
-        if (!$alias || (!$admin->isSuper() && !$admin->canManageDomain($alias->getDomain()))) {
+        if ($alias === null) {
+            return $this->redirect('alias/list');
+        }
+        $domain = self::requiredAliasDomain($alias);
+        if (!$admin->isSuper() && !$admin->canManageDomain($domain)) {
             return $this->redirect('alias/list');
         }
 
         $context = new AliasContext(
             $this->em(),
             $admin,
-            $alias->getDomain(),
+            $domain,
             $alias,
             $this->container->options(),
             new FlashMessages(new MagicPropertyStorage($this->session())),
@@ -474,7 +597,9 @@ final class AliasController extends AbstractController
         // (ZF1 `setRequired(false)`); the assembled address is validated on POST.
         // localPart() passes on empty, so the catch-all case is preserved while a
         // non-blank value must be a syntactically valid local part.
-        $form->add(new Field('local_part', 'Local Part', 'text', [Validators::localPart()]));
+        $form->add(new Field('local_part', 'Local Part', 'text', [
+            Validators::string(), Validators::localPart(),
+        ]));
 
         $domainKeys  = array_map('strval', array_keys($choices));
         $domainField = new Field('domain', 'Domain', 'select', [
@@ -489,7 +614,7 @@ final class AliasController extends AbstractController
 
         // One destination per line (or comma-separated) — the JS-free replacement
         // for the ZF1 goto[] multi-input widget. Parsed/validated on POST.
-        $form->add(new Field('goto', 'Goto (one address per line)', 'textarea'));
+        $form->add(new Field('goto', 'Goto (one address per line)', 'textarea', [Validators::string()]));
 
         return $form;
     }
@@ -503,7 +628,7 @@ final class AliasController extends AbstractController
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
 
-        $goto = new Field('goto', 'Goto (one address per line)', 'textarea');
+        $goto = new Field('goto', 'Goto (one address per line)', 'textarea', [Validators::string()]);
         $goto->setValue(implode("\n", array_filter(array_map('trim', explode(',', $aliasGoto)))));
         $form->add($goto);
 

@@ -92,6 +92,9 @@ jobs:
       - name: Domain controller input shapes
         run: php tests/test-domain-controller-shapes.php
 
+      - name: Admin, alias and two-factor input contracts
+        run: php tests/test-admin-alias-twofactor-shapes.php
+
       - name: Required mailbox password and auth boundary
         run: php tests/test-mailbox-required-password.php
 

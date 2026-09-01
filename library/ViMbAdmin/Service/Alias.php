@@ -49,6 +49,16 @@ class ViMbAdmin_Service_Alias
         return ['address' => $address, 'goto' => $goto];
     }
 
+    private function requiredAliasDomain(\Entities\Alias $alias): \Entities\Domain
+    {
+        $domain = $alias->getDomain();
+        if ($domain === null) {
+            throw new \LogicException('Alias domain cannot be null.');
+        }
+
+        return $domain;
+    }
+
     /**
      * Toggle an alias's active flag, threading the plugin hooks.
      *
@@ -221,6 +231,7 @@ class ViMbAdmin_Service_Alias
         ?callable $postFlush = null
     ): bool {
         $identity = $this->requiredAliasIdentity($alias);
+        $domain = $this->requiredAliasDomain($alias);
 
         foreach ($alias->getPreferences() as $pref) {
             $this->em->remove($pref);
@@ -233,7 +244,7 @@ class ViMbAdmin_Service_Alias
         $this->em->remove($alias);
 
         if ($identity['address'] != $identity['goto']) {
-            $alias->getDomain()->setAliasCount($alias->getDomain()->getAliasCount() - 1);
+            $domain->setAliasCount($domain->getAliasCount() - 1);
         }
 
         $this->log(

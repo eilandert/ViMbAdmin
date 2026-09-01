@@ -360,6 +360,25 @@ check(
         && $invalidDeleteDomain->getAliasCount() === 8,
 );
 
+$emOrphanDelete = new FakeObjectManager();
+$orphanDelete = (new \Entities\Alias())
+    ->setAddress('orphan@example.com')
+    ->setGoto('target@example.net');
+$orphanDelete->addPreference(new \Entities\AliasPreference());
+check(
+    'delete rejects a null alias domain before preference removal',
+    aliasOperationThrows(
+        'Alias domain cannot be null.',
+        static fn (): mixed => (new ViMbAdmin_Service_Alias($emOrphanDelete))->delete($orphanDelete, $actor),
+    ),
+);
+check(
+    'delete relation failure has no side effects',
+    $emOrphanDelete->removed === []
+        && $emOrphanDelete->persisted === []
+        && $emOrphanDelete->flushes === 0,
+);
+
 // --- delete: self-alias does NOT touch the count ---------------------- //
 $emDS = new FakeObjectManager();
 $domDS = $mkDomain(3);

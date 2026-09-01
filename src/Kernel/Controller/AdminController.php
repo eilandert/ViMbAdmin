@@ -38,6 +38,114 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  */
 final class AdminController extends AbstractController
 {
+    private static function requiredString(mixed $value, string $name): string
+    {
+        if (!is_string($value)) {
+            throw new LogicException("{$name} must be a string");
+        }
+
+        return $value;
+    }
+
+    private static function postStringOrEmpty(mixed $value): string
+    {
+        return is_string($value) ? $value : '';
+    }
+
+    private static function sessionSecret(mixed $value): ?string
+    {
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    private static function checkboxBoolean(mixed $value, string $name): bool
+    {
+        if ($value === true || $value === 1 || $value === '1') {
+            return true;
+        }
+        if ($value === false || $value === 0 || $value === '0' || $value === '') {
+            return false;
+        }
+        throw new LogicException("{$name} must be boolean");
+    }
+
+    private static function positiveIntegerOrNull(mixed $value): ?int
+    {
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+        if (is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1) {
+            $integer = filter_var($value, FILTER_VALIDATE_INT);
+            return is_int($integer) ? $integer : null;
+        }
+
+        return null;
+    }
+
+    private function positiveIdParam(string $key): ?int
+    {
+        return self::positiveIntegerOrNull($this->param($key));
+    }
+
+    /** @return array<string,mixed> */
+    private static function stringKeyedArray(mixed $value, string $name): array
+    {
+        if (!is_array($value)) {
+            throw new LogicException("{$name} must be an array");
+        }
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                throw new LogicException("{$name} must use string keys");
+            }
+            $result[$key] = $item;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array{bool,mixed}
+     */
+    private static function option(array $options, string ...$path): array
+    {
+        $value = $options;
+        $walked = [];
+        foreach ($path as $key) {
+            $value = self::stringKeyedArray(
+                $value,
+                'Configuration ' . ($walked === [] ? 'root' : implode('.', $walked)),
+            );
+            $walked[] = $key;
+            if (!array_key_exists($key, $value)) {
+                return [false, null];
+            }
+            $value = $value[$key];
+        }
+
+        return [true, $value];
+    }
+
+    /** @param array<string,mixed> $options */
+    private static function optionString(array $options, string $default, string ...$path): string
+    {
+        [$found, $value] = self::option($options, ...$path);
+        return $found ? self::requiredString($value, 'Configuration ' . implode('.', $path)) : $default;
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array<string,mixed>
+     */
+    private static function requiredOptionArray(array $options, string ...$path): array
+    {
+        [$found, $value] = self::option($options, ...$path);
+        if (!$found) {
+            throw new LogicException('Configuration ' . implode('.', $path) . ' is required');
+        }
+
+        return self::stringKeyedArray($value, 'Configuration ' . implode('.', $path));
+    }
 
     /**
      * GET /admin and /admin/index — the auth-gated landing forwards to the list
@@ -87,8 +195,8 @@ final class AdminController extends AbstractController
             return $this->redirect('admin/list');
         }
 
-        $target = ($aid = $this->param('aid'))
-            ? $this->adminRepository()->find((int) $aid)
+        $target = ($aid = $this->positiveIdParam('aid'))
+            ? $this->adminRepository()->find($aid)
             : null;
 
         if (!$target) {
@@ -130,11 +238,11 @@ final class AdminController extends AbstractController
             $values = $form->values();
 
             (new \ViMbAdmin_Service_Admin($this->em()))->create(
-                (string) $values['username'],
-                (string) $values['password'],
-                (bool) $values['super'],
+                self::requiredString($values['username'] ?? null, 'Admin username'),
+                self::requiredString($values['password'] ?? null, 'Admin password'),
+                self::checkboxBoolean($values['super'] ?? null, 'Super administrator flag'),
                 $admin,
-                $this->container->options()['resources']['auth']['oss']
+                self::requiredOptionArray($this->container->options(), 'resources', 'auth', 'oss')
             );
 
             $this->flash('You have successfully added a new administrator to the system.');
@@ -163,15 +271,15 @@ final class AdminController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $tfa     = new \ViMbAdmin_TwoFactor('ViMbAdmin', (string) ($this->container->options()['securitysalt'] ?? ''));
+        $tfa     = new \ViMbAdmin_TwoFactor('ViMbAdmin', self::optionString($this->container->options(), '', 'securitysalt'));
         $session = new MagicPropertyStorage($this->session());
 
         if ($this->isPost() && $this->postCsrfValid()) {
-            $op   = (string) ($this->postData()['op'] ?? '');
-            $code = trim((string) ($this->postData()['code'] ?? ''));
+            $op   = self::postStringOrEmpty($this->postData()['op'] ?? null);
+            $code = trim(self::postStringOrEmpty($this->postData()['code'] ?? null));
 
             if ($op === 'enable' && !$tfa->isEnabled($admin)) {
-                $secret = $session->get('totp_enrol_secret');
+                $secret = self::sessionSecret($session->get('totp_enrol_secret'));
                 if ($secret && $tfa->verifyCode($secret, $code)) {
                     $backup = $tfa->enable($admin, $secret);
                     $this->em()->flush();
@@ -210,8 +318,8 @@ final class AdminController extends AbstractController
         $vars    = ['enabled' => $enabled, 'backupRemaining' => $tfa->backupCodesRemaining($admin)];
 
         if (!$enabled) {
-            $secret = $session->get('totp_enrol_secret');
-            if (!$secret) {
+            $secret = self::sessionSecret($session->get('totp_enrol_secret'));
+            if ($secret === null) {
                 $secret = $tfa->createSecret();
                 $session->set('totp_enrol_secret', $secret);
             }
@@ -236,8 +344,8 @@ final class AdminController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $target = ($aid = $this->param('aid'))
-            ? $this->adminRepository()->find((int) $aid)
+        $target = ($aid = $this->positiveIdParam('aid'))
+            ? $this->adminRepository()->find($aid)
             : null;
         if (!$target) {
             return $this->redirect('admin/list');
@@ -246,10 +354,10 @@ final class AdminController extends AbstractController
             return $this->redirect('admin/two-factor');
         }
 
-        $tfa = new \ViMbAdmin_TwoFactor('ViMbAdmin', (string) ($this->container->options()['securitysalt'] ?? ''));
+        $tfa = new \ViMbAdmin_TwoFactor('ViMbAdmin', self::optionString($this->container->options(), '', 'securitysalt'));
 
         if ($this->isPost() && $this->postCsrfValid()) {
-            $op = (string) ($this->postData()['op'] ?? '');
+            $op = self::postStringOrEmpty($this->postData()['op'] ?? null);
 
             if (($op === 'provision') || ($op === 'regen-secret' && $tfa->isEnabled($target))) {
                 $res = $tfa->provision($target);
@@ -302,7 +410,7 @@ final class AdminController extends AbstractController
     private function postCsrfValid(): bool
     {
         return (new Csrf(new MagicPropertyStorage($this->container->session())))
-            ->isValid((string) ($this->postData()['csrf'] ?? ''));
+            ->isValid(self::postStringOrEmpty($this->postData()['csrf'] ?? null));
     }
 
     /**
@@ -347,8 +455,8 @@ final class AdminController extends AbstractController
 
         $redirectUrl = $admin->isSuper() ? 'admin/list' : 'domain/list';
 
-        $target = ($aid = $this->param('aid'))
-            ? $this->adminRepository()->find((int) $aid)
+        $target = ($aid = $this->positiveIdParam('aid'))
+            ? $this->adminRepository()->find($aid)
             : null;
 
         if ($target === null) {
@@ -371,13 +479,13 @@ final class AdminController extends AbstractController
             return $this->redirect($redirectUrl);
         }
 
-        $authOptions = $this->container->options()['resources']['auth']['oss'];
+        $authOptions = self::requiredOptionArray($this->container->options(), 'resources', 'auth', 'oss');
         $form        = $this->buildPasswordForm($self, $target, $authOptions);
 
         if ($this->isPost() && $form->isValid($this->postData())) {
             (new \ViMbAdmin_Service_Admin($this->em()))->changePassword(
                 $target,
-                (string) $form->values()['password'],
+                self::requiredString($form->values()['password'] ?? null, 'Admin password'),
                 $admin,
                 $self,
                 $authOptions
@@ -420,7 +528,7 @@ final class AdminController extends AbstractController
                     return null; // required() reports the empty case
                 }
 
-                return self::adminPasswordMatches($target, (string) $value, $authOptions)
+                return self::adminPasswordMatches($target, self::requiredString($value, 'Current password'), $authOptions)
                     ? null
                     : 'Invalid password.';
             };
@@ -470,8 +578,8 @@ final class AdminController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $target = ($aid = $this->param('aid'))
-            ? $this->adminRepository()->find((int) $aid)
+        $target = ($aid = $this->positiveIdParam('aid'))
+            ? $this->adminRepository()->find($aid)
             : null;
 
         if ($target === null) {
@@ -496,8 +604,8 @@ final class AdminController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $target = ($aid = $this->param('aid'))
-            ? $this->adminRepository()->find((int) $aid)
+        $target = ($aid = $this->positiveIdParam('aid'))
+            ? $this->adminRepository()->find($aid)
             : null;
 
         if ($target === null) {
@@ -505,8 +613,8 @@ final class AdminController extends AbstractController
             return $this->redirect('admin/list');
         }
 
-        $domain = ($did = $this->param('did'))
-            ? $this->domainRepository()->find((int) $did)
+        $domain = ($did = $this->positiveIdParam('did'))
+            ? $this->domainRepository()->find($did)
             : null;
 
         if ($domain === null) {
@@ -538,8 +646,8 @@ final class AdminController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $target = ($aid = $this->param('aid'))
-            ? $this->adminRepository()->find((int) $aid)
+        $target = ($aid = $this->positiveIdParam('aid'))
+            ? $this->adminRepository()->find($aid)
             : null;
 
         if ($target === null) {
@@ -551,7 +659,8 @@ final class AdminController extends AbstractController
         $form      = $this->buildAssignDomainForm($remaining);
 
         if ($this->isPost() && $form->isValid($this->postData())) {
-            $domain = $this->domainRepository()->find((int) $form->values()['domain']);
+            $domainId = self::positiveIntegerOrNull($form->values()['domain'] ?? null);
+            $domain = $domainId === null ? null : $this->domainRepository()->find($domainId);
 
             if ($domain !== null) {
                 try {
@@ -630,8 +739,8 @@ final class AdminController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        $target = ($aid = $this->param('aid'))
-            ? $this->adminRepository()->find((int) $aid)
+        $target = ($aid = $this->positiveIdParam('aid'))
+            ? $this->adminRepository()->find($aid)
             : null;
 
         if (!$target || $admin->getId() == $target->getId()) {
