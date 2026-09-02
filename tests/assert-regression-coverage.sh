@@ -17,6 +17,12 @@ for runner in "$unit_runner" "$phpstan_runner"; do
   }
 done
 
+if ! grep -qF "git ls-files 'tests/test-*.php'" "$unit_runner" || \
+  ! grep -qF "php \"\$test\"" "$unit_runner"; then
+  printf 'Unit test runner does not discover and execute tracked PHP tests.\n' >&2
+  exit 1
+fi
+
 if ! grep -qF "git ls-files 'tests/test-phpstan-*.php'" "$phpstan_runner" || \
   ! grep -qF "php \"\$test\"" "$phpstan_runner"; then
   printf 'PHPStan test runner does not discover and execute tracked PHPStan tests.\n' >&2

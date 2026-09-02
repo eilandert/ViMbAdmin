@@ -79,6 +79,20 @@ run_guard
   exit 1
 }
 
+# shellcheck disable=SC2016 # Match the runner's literal loop variable.
+sed -i '/^[[:space:]]*php "\$test"$/d' "$test_root/tests/run-unit-tests.sh"
+run_guard
+[[ $guard_status -ne 0 ]] || {
+  printf 'Coverage guard accepted a unit runner that discovers tests without executing them.\n' >&2
+  exit 1
+}
+grep -qF 'Unit test runner does not discover and execute tracked PHP tests.' \
+  "$test_root/output" || {
+  cat "$test_root/output" >&2
+  exit 1
+}
+cp -- "$runner" "$test_root/tests/run-unit-tests.sh"
+
 expect_unreachable() {
   local test=$1
 
