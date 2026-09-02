@@ -17,8 +17,15 @@ tmp="$(mktemp -d /tmp/vimbadmin-residual-stored-xss.XXXXXX)"
 trap 'rm -rf "$tmp"' EXIT
 
 cp public/js/min.bundle-v16.js "$tmp/min.bundle-v16.js"
-php tests/render-residual-stored-xss-fixture.php \
-    "$tmp/regression.html" "file://$tmp/min.bundle-v16.js"
+bundle_uri="file://$tmp/min.bundle-v16.js"
+if [[ -n ${PHP_RENDERER:-} ]]; then
+    PHP_CONTAINER_WRITE_DIR=$tmp \
+        "$PHP_RENDERER" tests/render-residual-stored-xss-fixture.php \
+        "$tmp/regression.html" "$bundle_uri"
+else
+    php tests/render-residual-stored-xss-fixture.php \
+        "$tmp/regression.html" "$bundle_uri"
+fi
 
 cat <<'HTML' >> "$tmp/regression.html"
 <script>

@@ -34,7 +34,7 @@ if [[ ${1:-} == install ]]; then
 fi
 
 readonly writable_dir=${PHP_CONTAINER_WRITE_DIR:-}
-if [[ ! $writable_dir =~ ^/tmp/vimbadmin-alias-destination\.[[:alnum:]]+$ ]] \
+if [[ ! $writable_dir =~ ^/tmp/vimbadmin-(alias-destination|residual-stored-xss)\.[[:alnum:]]+$ ]] \
 	|| [[ -L $writable_dir ]] \
 	|| [[ ! -d $writable_dir || ! -w $writable_dir ]] \
 	|| [[ $(stat -c '%u:%a' "$writable_dir") != "$(id -u):700" ]]; then

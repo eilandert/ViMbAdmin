@@ -36,6 +36,7 @@ require_php 'docker run --rm --network bridge --cap-drop ALL'
 require_php 'exec docker run --rm --network none --cap-drop ALL'
 require_php "--mount \"type=bind,src=${dollar}workspace,dst=${dollar}workspace,readonly\""
 require_php "--mount \"type=bind,src=${dollar}writable_dir,dst=${dollar}writable_dir\""
+require_php 'vimbadmin-(alias-destination|residual-stored-xss)'
 
 if grep -Eq -- '(^|[[:space:]])--(privileged|cap-add)([=[:space:]]|$)|apt(-get)?[[:space:]]+(install|update)' "$runner"; then
     echo 'FAIL: Chrome container runner must not elevate or install host packages' >&2

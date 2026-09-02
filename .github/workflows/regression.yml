@@ -57,6 +57,7 @@ jobs:
 
       - name: Mailbox purge and log rendering (residual stored-XSS regression)
         run: >-
+          PHP_RENDERER="$GITHUB_WORKSPACE/.github/scripts/run-static-php-container.sh"
           CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
           bash tests/test-residual-stored-xss-rendering.sh
 
