@@ -14,6 +14,16 @@ if (!is_file($autoload)) {
 }
 require $autoload;
 
+// This focused fixture does not exercise translations. The pinned PHP 8.4
+// browser-support image intentionally omits gettext, so provide the identity
+// behavior that the rendered template needs without masking production gates.
+if (!function_exists('_')) {
+    function _(string $message): string
+    {
+        return $message;
+    }
+}
+
 $output = $argv[1];
 $bundleUri = $argv[2];
 $tmp = dirname($output);

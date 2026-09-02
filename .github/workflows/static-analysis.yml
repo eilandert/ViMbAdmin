@@ -12,13 +12,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: phpstan-${{ github.ref }}
+  group: stan-${{ github.event_name }}-${{ github.event.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   phpstan:
     name: PHPStan
-    runs-on: [self-hosted, builder02, docker]
+    runs-on: ubuntu-24.04
     container:
       image: >-
         mirror.gcr.io/library/php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
@@ -32,6 +32,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Trust checkout for tracked-file and base operations
@@ -61,6 +62,9 @@ jobs:
             exit 2
           fi
           printf 'PHPSTAN_BASE_SHA=%s\n' "$base" >>"$GITHUB_ENV"
+
+      - name: Assert pull-request runner isolation
+        run: bash .github/scripts/assert-pr-runner-isolation.sh
 
       # The merge ref can omit its event-time base object when the base branch
       # moves before this job starts. Fetch that immutable object explicitly so

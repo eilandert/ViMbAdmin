@@ -6,6 +6,7 @@ readonly finding_contract=$PWD/.github/scripts/assert-semgrep-findings.sh
 fixture_root=$(mktemp -d "${TMPDIR:-/tmp}/vimbadmin-workflow-runtime.XXXXXX")
 readonly fixture_root
 readonly fixture=$fixture_root/security.yml
+readonly regression_fixture=$fixture_root/regression.yml
 
 cleanup() {
   rm -rf -- "$fixture_root"
@@ -13,7 +14,9 @@ cleanup() {
 trap cleanup EXIT
 
 run_contract() {
-  WORKFLOW_RUNTIME_SECURITY_WORKFLOW="$fixture" bash "$contract" \
+  WORKFLOW_RUNTIME_SECURITY_WORKFLOW="$fixture" \
+    WORKFLOW_RUNTIME_REGRESSION_WORKFLOW="$regression_fixture" \
+    bash "$contract" \
     >"$fixture_root/output" 2>&1
 }
 
@@ -45,7 +48,19 @@ expect_actionlint_valid_rejected() {
 }
 
 cp -- .github/workflows/security.yml "$fixture"
+cp -- .github/workflows/regression.yml "$regression_fixture"
 run_contract
+
+sed -i '/      - name: Smarty 5 JS-template escaping/i\
+      - name: Disallowed PHP setup action\
+        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f\
+' "$regression_fixture"
+if command -v actionlint >/dev/null; then
+  actionlint "$regression_fixture"
+fi
+expect_rejected 'an action blocked by repository policy' \
+  'The repository action policy does not allow shivammathur/setup-php.'
+cp -- .github/workflows/regression.yml "$regression_fixture"
 
 sed -i '/          persist-credentials: false/c\        env:\n          persist-credentials: false' "$fixture"
 expect_rejected 'persist-credentials under env' \

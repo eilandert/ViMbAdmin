@@ -3,19 +3,24 @@ set -euo pipefail
 
 readonly workflows=(
   .github/workflows/ci.yml
-  .github/workflows/regression.yml
+  "${WORKFLOW_RUNTIME_REGRESSION_WORKFLOW:-.github/workflows/regression.yml}"
   .github/workflows/static-analysis.yml
   .github/workflows/security.yml
 )
 
 readonly php_workflows=(
   .github/workflows/ci.yml
-  .github/workflows/regression.yml
+  "${WORKFLOW_RUNTIME_REGRESSION_WORKFLOW:-.github/workflows/regression.yml}"
   .github/workflows/static-analysis.yml
 )
 
-if grep -HnE 'shivammathur/setup-php|runs-on:.*lxc' "${workflows[@]}"; then
-  printf 'Disallowed PHP setup action or unavailable runner target found.\n' >&2
+if grep -HnE 'runs-on:.*lxc' "${workflows[@]}"; then
+  printf 'Unavailable runner target found.\n' >&2
+  exit 1
+fi
+
+if grep -HnF 'shivammathur/setup-php@' "${workflows[@]}"; then
+  printf 'The repository action policy does not allow shivammathur/setup-php.\n' >&2
   exit 1
 fi
 
@@ -201,7 +206,7 @@ if ! awk '
   }
   function finish_checkout() {
     if (!in_checkout) return
-    if (field != 3) failed = 1
+    if (field != 4) failed = 1
     in_checkout = 0
   }
   {
@@ -230,7 +235,9 @@ if ! awk '
     if (field == 0 && $0 == "        with:") field = 1
     else if (field == 1 && $0 == "          fetch-depth: 0") field = 2
     else if (field == 2 &&
-             $0 == "          persist-credentials: false") field = 3
+             $0 == "          ref: ${{ github.event.pull_request.head.sha || github.sha }}") field = 3
+    else if (field == 3 &&
+             $0 == "          persist-credentials: false") field = 4
     else failed = 1
   }
   END {
