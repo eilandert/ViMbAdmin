@@ -109,6 +109,58 @@ if ! awk '
   exit 1
 fi
 
+if ! awk '
+  function indent(line, leading) {
+    leading = line
+    sub(/[^ ].*$/, "", leading)
+    return length(leading)
+  }
+  function trim(line) {
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+    return line
+  }
+  function is_non_bash_shell(line, quote, separator, position, key, value) {
+    line = trim(line)
+    quote = substr(line, 1, 1)
+    if (quote == "\"" || quote == sprintf("%c", 39)) {
+      separator = quote ":"
+      position = index(line, separator)
+      if (!position) return 0
+      key = substr(line, 2, position - 2)
+      value = substr(line, position + 2)
+    } else {
+      position = index(line, ":")
+      if (!position) return 0
+      key = substr(line, 1, position - 1)
+      value = substr(line, position + 1)
+    }
+    return trim(key) == "shell" && trim(value) != "bash"
+  }
+  $0 ~ /^  semgrep:[[:space:]]*$/ {
+    in_semgrep = 1
+    next
+  }
+  in_semgrep && $0 !~ /^[[:space:]]*$/ && indent($0) <= 2 {
+    in_semgrep = 0
+    in_steps = 0
+  }
+  !in_semgrep { next }
+  $0 ~ /^    steps:[[:space:]]*$/ {
+    in_steps = 1
+    next
+  }
+  in_steps && $0 !~ /^[[:space:]]*$/ && indent($0) <= 4 {
+    in_steps = 0
+  }
+  in_steps && indent($0) == 8 && is_non_bash_shell($0) {
+    failed = 1
+  }
+  END { exit failed ? 1 : 0 }
+' "$security_workflow"; then
+  printf 'Security Semgrep steps may only override their shell with Bash.\n' >&2
+  exit 1
+fi
+
 for required in \
   'fetch-depth: 0' \
   'select-semgrep-baseline.sh' \
@@ -116,6 +168,7 @@ for required in \
   'BEFORE_SHA' \
   'HEAD_SHA' \
   '--baseline-commit' \
+  'assert-semgrep-findings.sh' \
   'tests/test-semgrep-baseline.sh'; do
   if ! grep -qF -- "$required" "$security_workflow"; then
     printf 'Security workflow is missing baseline policy component: %s\n' \
@@ -145,44 +198,41 @@ if ! awk '
   }
   function finish_checkout() {
     if (!in_checkout) return
-    if (with_count != 1 || credentials_count != 1) failed = 1
+    if (field != 3) failed = 1
     in_checkout = 0
   }
   {
     current_indent = indent($0)
-    if ($0 ~ /^[[:space:]]+-[[:space:]]+uses:[[:space:]]+actions\/checkout@/) {
+    if (in_checkout && $0 !~ /^[[:space:]]*$/ &&
+        current_indent <= checkout_indent) finish_checkout()
+
+    if (index($0, "actions/checkout@")) {
+      checkout_occurrences++
+      if ($0 !~ /^      - uses: actions\/checkout@/) {
+        failed = 1
+        next
+      }
+      ref = $0
+      sub(/^      - uses: actions\/checkout@/, "", ref)
+      if (length(ref) != 40 || ref !~ /^[0-9a-f]+$/) failed = 1
       finish_checkout()
       in_checkout = 1
-      seen_checkout = 1
       checkout_indent = current_indent
-      with_count = 0
-      credentials_count = 0
-      in_with = 0
+      field = 0
       next
-    }
-    if (in_checkout && $0 !~ /^[[:space:]]*$/ && current_indent <= checkout_indent) {
-      finish_checkout()
     }
     if (!in_checkout) next
-    if ($0 ~ /^[[:space:]]+with:[[:space:]]*$/) {
-      if (current_indent != checkout_indent + 2) failed = 1
-      with_count++
-      in_with = current_indent == checkout_indent + 2
-      with_indent = current_indent
-      next
-    }
-    if (in_with && $0 !~ /^[[:space:]]*$/ && current_indent <= with_indent) in_with = 0
-    if ($0 ~ /^[[:space:]]+persist-credentials:/) {
-      if (!in_with || current_indent != with_indent + 2 ||
-          $0 !~ /^[[:space:]]+persist-credentials:[[:space:]]*false[[:space:]]*$/) {
-        failed = 1
-      }
-      credentials_count++
-    }
+    if ($0 ~ /^[[:space:]]*$/) next
+
+    if (field == 0 && $0 == "        with:") field = 1
+    else if (field == 1 && $0 == "          fetch-depth: 0") field = 2
+    else if (field == 2 &&
+             $0 == "          persist-credentials: false") field = 3
+    else failed = 1
   }
   END {
     finish_checkout()
-    exit seen_checkout && !failed ? 0 : 1
+    exit checkout_occurrences == 1 && !failed ? 0 : 1
   }
 ' "$security_workflow"; then
   printf 'Security workflow checkout must disable persisted credentials.\n' >&2

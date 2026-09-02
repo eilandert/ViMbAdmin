@@ -17,8 +17,73 @@ for runner in "$unit_runner" "$phpstan_runner"; do
   }
 done
 
-if ! grep -qF "git ls-files 'tests/test-*.php'" "$unit_runner" || \
-  ! grep -qF "php \"\$test\"" "$unit_runner"; then
+unit_runner_executes_tracked_tests() {
+  local harness_root runner_path stub_path output
+  local git_log php_log
+
+  harness_root=$(mktemp -d "${TMPDIR:-/tmp}/vimbadmin-unit-runner.XXXXXX")
+  runner_path=$PWD/$unit_runner
+  stub_path=$harness_root/bin
+  output=$harness_root/output
+  git_log=$harness_root/git.log
+  php_log=$harness_root/php.log
+  mkdir -p "$stub_path" "$harness_root/tests"
+  : > "$git_log"
+  : > "$php_log"
+  : > "$harness_root/tests/test-untracked-sentinel.php"
+
+  cat > "$stub_path/git" <<'SH'
+#!/bin/sh
+if [ "$#" -ne 2 ] || [ "$1" != ls-files ] || \
+  [ "$2" != 'tests/test-*.php' ]; then
+  printf 'Unexpected git argv in unit runner.\n' >&2
+  exit 97
+fi
+printf '%s\n' 'ls-files tests/test-*.php' >> "$VIMBADMIN_RUNNER_GIT_LOG"
+printf '%s\n' \
+  'tests/test-runner-contract-b.php' \
+  'tests/test-runner-contract-a.php'
+SH
+
+  cat > "$stub_path/php" <<'SH'
+#!/bin/sh
+if [ "$#" -ne 1 ]; then
+  printf 'Unexpected php argv in unit runner: %s\n' "$*" >&2
+  exit 98
+fi
+case "$1" in
+  tests/test-runner-contract-a.php|tests/test-runner-contract-b.php) ;;
+  *)
+    printf 'Unexpected php argv in unit runner: %s\n' "$*" >&2
+    exit 98
+    ;;
+esac
+printf '%s\n' "$1" >> "$VIMBADMIN_RUNNER_PHP_LOG"
+SH
+  chmod +x "$stub_path/git" "$stub_path/php"
+
+  if ! (cd "$harness_root" && \
+    PATH="$stub_path:/usr/bin:/bin" \
+    VIMBADMIN_RUNNER_GIT_LOG="$git_log" \
+    VIMBADMIN_RUNNER_PHP_LOG="$php_log" \
+    "$runner_path") > "$output" 2>&1; then
+    rm -rf -- "$harness_root"
+    return 1
+  fi
+
+  if [[ $(wc -l < "$git_log") -ne 1 ]] || \
+    ! grep -qxF 'ls-files tests/test-*.php' "$git_log" || \
+    [[ $(wc -l < "$php_log") -ne 2 ]] || \
+    [[ $(grep -cxF 'tests/test-runner-contract-a.php' "$php_log") -ne 1 ]] || \
+    [[ $(grep -cxF 'tests/test-runner-contract-b.php' "$php_log") -ne 1 ]]; then
+    rm -rf -- "$harness_root"
+    return 1
+  fi
+
+  rm -rf -- "$harness_root"
+}
+
+if ! unit_runner_executes_tracked_tests; then
   printf 'Unit test runner does not discover and execute tracked PHP tests.\n' >&2
   exit 1
 fi
@@ -28,125 +93,6 @@ if ! grep -qF "git ls-files 'tests/test-phpstan-*.php'" "$phpstan_runner" || \
   printf 'PHPStan test runner does not discover and execute tracked PHPStan tests.\n' >&2
   exit 1
 fi
-
-workflow_has_shell_command() {
-  local workflow=$1 command=$2
-
-  awk -v command="$command" '
-    function indent(line, leading) {
-      leading = line
-      sub(/[^ ].*$/, "", leading)
-      return length(leading)
-    }
-    function is_command(line) {
-      sub(/[[:space:]]+#.*/, "", line)
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
-      return line == command
-    }
-    {
-      current_indent = indent($0)
-      if ($0 ~ /^[[:space:]]*(-[[:space:]]+)?run:[[:space:]]*/) {
-        run_indent = current_indent
-        line = $0
-        sub(/^[[:space:]]*(-[[:space:]]+)?run:[[:space:]]*/, "", line)
-        in_run_block = line ~ /^[>|]/
-        if (is_command(line)) found = 1
-        next
-      }
-      if (in_run_block && $0 !~ /^[[:space:]]*$/ && current_indent <= run_indent) {
-        in_run_block = 0
-      }
-      if (in_run_block && is_command($0)) found = 1
-    }
-    END { exit found ? 0 : 1 }
-  ' "$workflow"
-}
-
-workflow_has_php_test_command() {
-  local workflow=$1 test=$2
-
-  awk -v test="$test" '
-    function indent(line, leading) {
-      leading = line
-      sub(/[^ ].*$/, "", leading)
-      return length(leading)
-    }
-    function is_php_test_command(line, fields, count, field_index) {
-      sub(/[[:space:]]+#.*/, "", line)
-      count = split(line, fields, /[[:space:]]+/)
-      if (fields[1] != "php") return 0
-      for (field_index = 2; field_index < count; field_index++) {
-        if (fields[field_index] == "-d" || fields[field_index] == "--define") {
-          field_index++
-          continue
-        }
-        if (fields[field_index] ~ /^-d[^[:space:]]+$/ ||
-            fields[field_index] ~ /^--define=[^[:space:]]+$/) continue
-        return 0
-      }
-      return fields[count] == test
-    }
-    {
-      current_indent = indent($0)
-      if ($0 ~ /^[[:space:]]*(-[[:space:]]+)?run:[[:space:]]*/) {
-        run_indent = current_indent
-        line = $0
-        sub(/^[[:space:]]*(-[[:space:]]+)?run:[[:space:]]*/, "", line)
-        in_run_block = line ~ /^[>|]/
-        if (is_php_test_command(line)) found = 1
-        next
-      }
-      if (in_run_block && $0 !~ /^[[:space:]]*$/ && current_indent <= run_indent) {
-        in_run_block = 0
-      }
-      if (in_run_block && is_php_test_command($0)) found = 1
-    }
-    END { exit found ? 0 : 1 }
-  ' "$workflow"
-}
-
-workflow_has_phpstan_test_loop() {
-  awk '
-    function indent(line, leading) {
-      leading = line
-      sub(/[^ ].*$/, "", leading)
-      return length(leading)
-    }
-    function normalized(line) {
-      sub(/[[:space:]]+#.*/, "", line)
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
-      return line
-    }
-    function inspect(line) {
-      line = normalized(line)
-      if (loop_state == 0 && line == "for test in tests/test-phpstan-*.php; do") {
-        loop_state = 1
-      } else if (loop_state == 1 && line == "php \"$test\"") {
-        loop_state = 2
-      } else if (loop_state == 2 && line == "done") {
-        found = 1
-      }
-    }
-    {
-      current_indent = indent($0)
-      if ($0 ~ /^[[:space:]]*(-[[:space:]]+)?run:[[:space:]]*/) {
-        run_indent = current_indent
-        line = $0
-        sub(/^[[:space:]]*(-[[:space:]]+)?run:[[:space:]]*/, "", line)
-        in_run_block = line ~ /^[>|]/
-        loop_state = 0
-        if (in_run_block) inspect(line)
-        next
-      }
-      if (in_run_block && $0 !~ /^[[:space:]]*$/ && current_indent <= run_indent) {
-        in_run_block = 0
-        loop_state = 0
-      }
-      if (in_run_block) inspect($0)
-    }
-    END { exit found ? 0 : 1 }
-  ' "$static_workflow"
-}
 
 workflow_has_unconditional_owner_step() {
   local workflow=$1 kind=$2 target=$3
@@ -161,6 +107,18 @@ workflow_has_unconditional_owner_step() {
       sub(/[[:space:]]#.*/, "", line)
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
       return line
+    }
+    function inspect_field(line) {
+      line = normalize(line)
+      if (line == "" || line ~ /^name:[[:space:]]*/ ||
+          line ~ /^env:[[:space:]]*/) return
+      if (line ~ /^run:[[:space:]]*/) {
+        run_count++
+        sub(/^run:[[:space:]]*/, "", line)
+        run = line
+        return
+      }
+      approved_shape = 0
     }
     function matches_owner(line, fields, count, field_index) {
       line = normalize(line)
@@ -179,39 +137,39 @@ workflow_has_unconditional_owner_step() {
       return fields[count] == target
     }
     function finish_step() {
-      if (in_step && run_count == 1 && !has_if && matches_owner(run)) found = 1
+      if (in_step && approved_shape && run_count == 1 &&
+          matches_owner(run)) found = 1
       in_step = 0
     }
     {
       current_indent = indent($0)
-      if ($0 ~ /^[[:space:]]+-[[:space:]]+/) {
-        if (!in_step || current_indent <= step_indent) {
-          finish_step()
-          in_step = 1
-          step_indent = current_indent
-          has_if = 0
-          run_count = 0
-          line = $0
-          sub(/^[[:space:]]+-[[:space:]]+/, "", line)
-          if (line ~ /^if:[[:space:]]*/) {
-            has_if = 1
-          } else if (line ~ /^run:[[:space:]]*/) {
-            run_count = 1
-            sub(/^run:[[:space:]]*/, "", line)
-            run = line
-          }
-        }
+
+      if (in_step && $0 !~ /^[[:space:]]*$/ &&
+          current_indent <= step_indent) finish_step()
+      if (in_steps && $0 !~ /^[[:space:]]*$/ &&
+          current_indent <= steps_indent) in_steps = 0
+
+      if ($0 ~ /^[[:space:]]+steps:[[:space:]]*$/) {
+        in_steps = 1
+        steps_indent = current_indent
         next
       }
-      if (in_step && $0 !~ /^[[:space:]]*$/ && current_indent <= step_indent) finish_step()
-      if (!in_step || current_indent != step_indent + 2) next
-      if ($0 ~ /^[[:space:]]+if:[[:space:]]*/) has_if = 1
-      if ($0 ~ /^[[:space:]]+run:[[:space:]]*/) {
-        run_count++
+      if (!in_steps) next
+
+      if (current_indent == steps_indent + 2 &&
+          $0 ~ /^[[:space:]]+-[[:space:]]+/) {
+        finish_step()
+        in_step = 1
+        step_indent = current_indent
+        approved_shape = 1
+        run_count = 0
         line = $0
-        sub(/^[[:space:]]+run:[[:space:]]*/, "", line)
-        run = line
+        sub(/^[[:space:]]+-[[:space:]]+/, "", line)
+        inspect_field(line)
+        next
       }
+      if (!in_step || current_indent != step_indent + 2) next
+      inspect_field($0)
     }
     END {
       finish_step()

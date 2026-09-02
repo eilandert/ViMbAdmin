@@ -44,35 +44,7 @@ jobs:
         run: bash tests/test-semgrep-baseline.sh
 
       - name: Verify Semgrep findings fail the job (negative control)
-        run: |
-          fixture=
-          result=
-          cleanup() {
-            rm -f -- "${fixture:-}" "${result:-}"
-          }
-          trap cleanup EXIT
-          fixture_seed=$(mktemp "${TMPDIR:-/tmp}/semgrep-negative.XXXXXX")
-          fixture="${fixture_seed}.php"
-          mv -- "$fixture_seed" "$fixture"
-          result=$(mktemp "${TMPDIR:-/tmp}/semgrep-negative.XXXXXX")
-          printf '%s\n' "<?php system(\$_GET[\"code\"]);" > "$fixture"
-          set +e
-          semgrep scan \
-            --config p/php \
-            --config p/security-audit \
-            --config p/secrets \
-            --json --output "$result" --error "$fixture"
-          status=$?
-          set -e
-          if [[ $status -ne 1 ]]; then
-            echo "::error::Semgrep negative control returned $status."
-            echo '::error::Expected finding status 1.'
-            exit 1
-          fi
-          if ! grep -q '"check_id"' "$result"; then
-            echo '::error::Semgrep negative control produced no finding.'
-            exit 1
-          fi
+        run: bash .github/scripts/assert-semgrep-findings.sh
 
       - name: Run Semgrep
         env:

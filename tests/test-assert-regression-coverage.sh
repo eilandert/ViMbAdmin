@@ -21,24 +21,32 @@ chmod +x "$test_root/tests/assert-regression-coverage.sh" \
   "$test_root/tests/run-phpstan-tests.sh"
 
 cat >"$test_root/.github/workflows/regression.yml" <<'YAML'
+name: Regression fixture
+on: push
 jobs:
   unit:
+    runs-on: ubuntu-latest
     steps:
       - run: bash tests/run-unit-tests.sh
   cache:
+    runs-on: ubuntu-latest
     steps:
       - run: php tests/test-cache-bootstrap.php
       - run: php tests/test-kernel-em-factory.php
       - run: php tests/test-kernel-smarty-view.php
       - run: php tests/test-oss-message.php
   schema:
+    runs-on: ubuntu-latest
     steps:
       - run: php tests/test-schema-no-pending.php
 YAML
 
 cat >"$test_root/.github/workflows/static-analysis.yml" <<'YAML'
+name: Static-analysis fixture
+on: push
 jobs:
   static:
+    runs-on: ubuntu-latest
     steps:
       - run: bash tests/run-phpstan-tests.sh
 YAML
@@ -62,6 +70,14 @@ git -C "$test_root" add tests .github regression.yml.valid static-analysis.yml.v
 git -C "$test_root" commit -q --no-gpg-sign -m fixture
 
 run_guard() {
+  if command -v actionlint >/dev/null; then
+    actionlint "$test_root/.github/workflows/regression.yml" \
+      "$test_root/.github/workflows/static-analysis.yml" \
+      >"$test_root/actionlint-output" 2>&1 || {
+      cat "$test_root/actionlint-output" >&2
+      exit 1
+    }
+  fi
   if (cd "$test_root" && bash tests/assert-regression-coverage.sh) >"$test_root/output" 2>&1; then
     guard_status=0
   else
@@ -84,6 +100,70 @@ sed -i '/^[[:space:]]*php "\$test"$/d' "$test_root/tests/run-unit-tests.sh"
 run_guard
 [[ $guard_status -ne 0 ]] || {
   printf 'Coverage guard accepted a unit runner that discovers tests without executing them.\n' >&2
+  exit 1
+}
+grep -qF 'Unit test runner does not discover and execute tracked PHP tests.' \
+  "$test_root/output" || {
+  cat "$test_root/output" >&2
+  exit 1
+}
+cp -- "$runner" "$test_root/tests/run-unit-tests.sh"
+
+cat > "$test_root/tests/run-unit-tests.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly excluded_tests=(
+  tests/test-cache-bootstrap.php
+  tests/test-kernel-em-factory.php
+  tests/test-kernel-smarty-view.php
+  tests/test-oss-message.php
+  tests/test-schema-no-pending.php
+)
+if [[ ${1:-} == --print-excluded-tests ]]; then
+  printf '%s\n' "${excluded_tests[@]}"
+  exit 0
+fi
+
+# git ls-files 'tests/test-*.php'
+if false; then
+  test=tests/test-runner-contract.php
+  php "$test"
+fi
+SH
+chmod +x "$test_root/tests/run-unit-tests.sh"
+run_guard
+[[ $guard_status -ne 0 ]] || {
+  printf 'Coverage guard accepted discovery and execution prose in dead code.\n' >&2
+  exit 1
+}
+grep -qF 'Unit test runner does not discover and execute tracked PHP tests.' \
+  "$test_root/output" || {
+  cat "$test_root/output" >&2
+  exit 1
+}
+cp -- "$runner" "$test_root/tests/run-unit-tests.sh"
+
+sed -i "s|git ls-files 'tests/test-\\*.php'|find tests -name 'test-*.php' -print|" \
+  "$test_root/tests/run-unit-tests.sh"
+run_guard
+[[ $guard_status -ne 0 ]] || {
+  printf 'Coverage guard accepted filesystem discovery of an untracked test.\n' >&2
+  exit 1
+}
+grep -qF 'Unit test runner does not discover and execute tracked PHP tests.' \
+  "$test_root/output" || {
+  cat "$test_root/output" >&2
+  exit 1
+}
+cp -- "$runner" "$test_root/tests/run-unit-tests.sh"
+
+# shellcheck disable=SC2016 # Duplicate the literal runner invocation.
+sed -i '/^[[:space:]]*php "$test"$/a\  php "$test"' \
+  "$test_root/tests/run-unit-tests.sh"
+run_guard
+[[ $guard_status -ne 0 ]] || {
+  printf 'Coverage guard accepted duplicate execution of a tracked test.\n' >&2
   exit 1
 }
 grep -qF 'Unit test runner does not discover and execute tracked PHP tests.' \
@@ -171,12 +251,34 @@ expect_owner_rejected 'unit runner with an initial conditional field' \
   'Regression workflow does not invoke the unit test runner.'
 
 cp -- "$test_root/regression.yml.valid" "$test_root/.github/workflows/regression.yml"
+sed -i 's|      - run: bash tests/run-unit-tests.sh|      - run: bash tests/run-unit-tests.sh\n        "if": false|' \
+  "$test_root/.github/workflows/regression.yml"
+expect_owner_rejected 'unit runner with a quoted trailing condition' \
+  'Regression workflow does not invoke the unit test runner.'
+
+cp -- "$test_root/regression.yml.valid" "$test_root/.github/workflows/regression.yml"
+sed -i "s|      - run: bash tests/run-unit-tests.sh|      - 'if': false\\n        run: bash tests/run-unit-tests.sh|" \
+  "$test_root/.github/workflows/regression.yml"
+expect_owner_rejected 'unit runner with a quoted initial condition' \
+  'Regression workflow does not invoke the unit test runner.'
+
+cp -- "$test_root/regression.yml.valid" "$test_root/.github/workflows/regression.yml"
 sed -i 's|      - run: php tests/test-cache-bootstrap.php|      - run: php tests/test-cache-bootstrap.php\n        if: ${{ false }}|' \
   "$test_root/.github/workflows/regression.yml"
 expect_unreachable tests/test-cache-bootstrap.php
 
 cp -- "$test_root/regression.yml.valid" "$test_root/.github/workflows/regression.yml"
 sed -i 's|      - run: php tests/test-cache-bootstrap.php|      - if: ${{ false }}\n        run: php tests/test-cache-bootstrap.php|' \
+  "$test_root/.github/workflows/regression.yml"
+expect_unreachable tests/test-cache-bootstrap.php
+
+cp -- "$test_root/regression.yml.valid" "$test_root/.github/workflows/regression.yml"
+sed -i 's|      - run: php tests/test-cache-bootstrap.php|      - run: php tests/test-cache-bootstrap.php\n        "if": false|' \
+  "$test_root/.github/workflows/regression.yml"
+expect_unreachable tests/test-cache-bootstrap.php
+
+cp -- "$test_root/regression.yml.valid" "$test_root/.github/workflows/regression.yml"
+sed -i "s|      - run: php tests/test-cache-bootstrap.php|      - 'if': false\\n        run: php tests/test-cache-bootstrap.php|" \
   "$test_root/.github/workflows/regression.yml"
 expect_unreachable tests/test-cache-bootstrap.php
 
@@ -190,6 +292,18 @@ cp -- "$test_root/static-analysis.yml.valid" "$test_root/.github/workflows/stati
 sed -i 's|      - run: bash tests/run-phpstan-tests.sh|      - if: ${{ false }}\n        run: bash tests/run-phpstan-tests.sh|' \
   "$test_root/.github/workflows/static-analysis.yml"
 expect_owner_rejected 'PHPStan runner with an initial conditional field' \
+  'Static-analysis workflow does not invoke the PHPStan test runner.'
+
+cp -- "$test_root/static-analysis.yml.valid" "$test_root/.github/workflows/static-analysis.yml"
+sed -i 's|      - run: bash tests/run-phpstan-tests.sh|      - run: bash tests/run-phpstan-tests.sh\n        "if": false|' \
+  "$test_root/.github/workflows/static-analysis.yml"
+expect_owner_rejected 'PHPStan runner with a quoted trailing condition' \
+  'Static-analysis workflow does not invoke the PHPStan test runner.'
+
+cp -- "$test_root/static-analysis.yml.valid" "$test_root/.github/workflows/static-analysis.yml"
+sed -i "s|      - run: bash tests/run-phpstan-tests.sh|      - 'if': false\\n        run: bash tests/run-phpstan-tests.sh|" \
+  "$test_root/.github/workflows/static-analysis.yml"
+expect_owner_rejected 'PHPStan runner with a quoted initial condition' \
   'Static-analysis workflow does not invoke the PHPStan test runner.'
 
 cp -- "$test_root/regression.yml.valid" "$test_root/.github/workflows/regression.yml"
