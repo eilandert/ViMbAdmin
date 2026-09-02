@@ -3,7 +3,7 @@ name: Security scan (SAST)
 on:
   push:
     branches: [master]
-  pull_request_target:
+  pull_request:
     branches: [master]
   schedule:
     # Weekly re-scan so new Semgrep rules catch latent issues.
@@ -15,7 +15,7 @@ permissions:
   security-events: write   # upload SARIF to the GitHub Security tab
 
 concurrency:
-  group: semgrep-${{ github.event.pull_request.number || github.ref }}
+  group: sast-${{ github.event_name }}-${{ github.event.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -73,7 +73,7 @@ jobs:
 
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938  # yamllint disable-line rule:line-length
-        if: always() && github.event_name != 'pull_request_target'
+        if: always() && github.event_name != 'pull_request'
         with:
           sarif_file: semgrep.sarif
           category: semgrep
