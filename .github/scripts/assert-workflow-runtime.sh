@@ -139,6 +139,7 @@ if ! awk '
   }
   $0 ~ /^  semgrep:[[:space:]]*$/ {
     in_semgrep = 1
+    saw_semgrep = 1
     next
   }
   in_semgrep && $0 !~ /^[[:space:]]*$/ && indent($0) <= 2 {
