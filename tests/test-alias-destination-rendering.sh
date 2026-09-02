@@ -6,17 +6,18 @@ cd "$(dirname "$0")/.."
 
 browser="${CHROMIUM_BIN:-}"
 if [[ -z "$browser" ]]; then
-    browser="$(command -v chromium || command -v chromium-browser || true)"
+    browser="$(command -v chromium || command -v chromium-browser || command -v google-chrome || true)"
 fi
 if [[ -z "$browser" ]]; then
     echo "FAIL: Chromium is required for the alias destination rendering regression" >&2
     exit 2
 fi
 
-tmp="$(mktemp -d)"
+tmp="$(mktemp -d /tmp/vimbadmin-alias-destination.XXXXXX)"
 trap 'rm -rf "$tmp"' EXIT
 
-bundle_uri="file://$(pwd)/public/js/min.bundle-v16.js"
+cp public/js/min.bundle-v16.js "$tmp/min.bundle-v16.js"
+bundle_uri="file://$tmp/min.bundle-v16.js"
 php tests/render-alias-list-fixture.php "$tmp/regression.html" "$bundle_uri"
 
 # Execute the production formatter rather than a test copy. The surrounding
