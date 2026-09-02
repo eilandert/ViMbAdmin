@@ -53,7 +53,7 @@
             <tr>
                 <td>{$alias->getAddress()}</td>
                 <td>
-                    <div id="alias-goto-{$alias->getId()}" {if $alias->getGoto()|strlen > 50 } class="have-tooltip-long" title="{$alias->getGoto()|regex_replace:"/[,]/":", "}"{/if}>
+                    <div id="alias-goto-{$alias->getId()}" {if $alias->getGoto()|strlen > 50 } title="{$alias->getGoto()|regex_replace:"/[,]/":", "}"{/if}>
                         {$alias->getGoto()|shorten:50}
                     </div>
                 </td>
