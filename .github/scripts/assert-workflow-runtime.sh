@@ -3,14 +3,14 @@ set -euo pipefail
 
 readonly workflows=(
   .github/workflows/ci.yml
-  .github/workflows/regression.yml
+  "${WORKFLOW_RUNTIME_REGRESSION_WORKFLOW:-.github/workflows/regression.yml}"
   .github/workflows/static-analysis.yml
   .github/workflows/security.yml
 )
 
 readonly php_workflows=(
   .github/workflows/ci.yml
-  .github/workflows/regression.yml
+  "${WORKFLOW_RUNTIME_REGRESSION_WORKFLOW:-.github/workflows/regression.yml}"
   .github/workflows/static-analysis.yml
 )
 
@@ -19,14 +19,8 @@ if grep -HnE 'runs-on:.*lxc' "${workflows[@]}"; then
   exit 1
 fi
 
-readonly setup_php_ref='shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f'
-setup_php_refs=$(grep -hFc "$setup_php_ref" "${workflows[@]}" \
-  | awk '{ total += $1 } END { print total + 0 }')
-readonly setup_php_refs
-if [[ $setup_php_refs -ne 1 ]] \
-  || grep -HnE 'shivammathur/setup-php@' "${workflows[@]}" \
-    | grep -vF "$setup_php_ref"; then
-  printf 'GitHub-hosted PHP setup must use the approved immutable ref exactly once.\n' >&2
+if grep -HnF 'shivammathur/setup-php@' "${workflows[@]}"; then
+  printf 'The repository action policy does not allow shivammathur/setup-php.\n' >&2
   exit 1
 fi
 

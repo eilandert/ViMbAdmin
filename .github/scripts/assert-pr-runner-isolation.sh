@@ -9,17 +9,46 @@ readonly workflows=(
 	"$workflow_dir/static-analysis.yml"
 )
 
-if [[ ${GITHUB_EVENT_NAME:-} == pull_request_target ]] &&
+if [[ ${GITHUB_EVENT_NAME:-} == pull_request ]] &&
 	[[ ${RUNNER_ENVIRONMENT:-} != github-hosted ]]; then
 	printf 'Pull-request code must run on a GitHub-hosted runner; got %s.\n' \
 		"${RUNNER_ENVIRONMENT:-unset}" >&2
 	exit 1
 fi
 
-if grep -HnE '^[[:space:]]+pull_request:' "${workflows[@]}"; then
-	printf 'Untrusted checks must use base-controlled pull_request_target workflows.\n' >&2
+if grep -HnE '^[[:space:]]+pull_request_target:' "${workflows[@]}"; then
+	printf 'Untrusted checks must use the ordinary pull_request event.\n' >&2
 	exit 1
 fi
+
+for workflow in "${workflows[@]}"; do
+	if ! grep -qE '^[[:space:]]+pull_request:' "$workflow"; then
+		printf '%s must declare the ordinary pull_request event.\n' "$workflow" >&2
+		exit 1
+	fi
+	if ! awk '
+      $0 == "concurrency:" {
+        blocks++
+        in_concurrency = 1
+        next
+      }
+      in_concurrency && $0 ~ /^[^[:space:]#]/ {
+        in_concurrency = 0
+      }
+      in_concurrency && $0 ~ /^  group:/ {
+        groups++
+        if ($0 ~ /^  group:[^#]*\$\{\{[[:space:]]*github\.event_name[[:space:]]*\}\}/) {
+          isolated_groups++
+        }
+      }
+      END {
+        exit (blocks == 1 && groups == 1 && isolated_groups == 1) ? 0 : 1
+      }
+    ' "$workflow"; then
+		printf '%s must isolate concurrency groups by event name.\n' "$workflow" >&2
+		exit 1
+	fi
+done
 
 if grep -HnE 'runs-on:.*self-hosted|runs-on:.*builder02' "${workflows[@]}"; then
 	printf 'A pull-request workflow targets a persistent self-hosted runner.\n' >&2
