@@ -36,6 +36,22 @@ jobs:
       - name: 2FA session-hygiene invariants (audit 2026-07-10 MAJOR)
         run: bash tests/lint-2fa-session-hygiene.sh
 
+  browser:
+    name: Browser rendering security regression
+    runs-on: [self-hosted, builder02, docker]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Install template dependencies
+        run: >-
+          composer install --no-interaction --no-progress --prefer-dist
+          --no-dev --no-scripts
+
+      - name: Alias destinations render as text (stored-XSS regression)
+        run: bash tests/test-alias-destination-rendering.sh
+
   # ------------------------------------------------------------------ #
   # Framework-free service unit tests (Phase 1 of docs/ZF1-REMOVAL.md).#
   # No DB: the services depend on the minimal ObjectManager port and   #

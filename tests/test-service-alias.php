@@ -242,6 +242,28 @@ check('create logged ACTION_ALIAS_ADD',       $emC->lastLog()?->getAction() === 
 check('create flushed once',                  $emC->flushes === 1);
 check('create hook order around flush',       $orderC === ['preFlush:0', 'postFlush:1']);
 
+// A quoted local part can legally contain markup-looking bytes. Persistence
+// must retain that valid address verbatim; HTML safety belongs to the list view.
+$storedDestination = '"<svg/onload=document.body.dataset.pwned=1>"@example.com';
+$emStored = new FakeObjectManager();
+$domStored = $mkDomain(0);
+$aliasStored = (new \Entities\Alias())
+    ->setAddress('stored-xss-regression@example.com')
+    ->setGoto($storedDestination);
+$createdStored = (new ViMbAdmin_Service_Alias($emStored))->create(
+    $aliasStored,
+    $domStored,
+    $actor,
+);
+check('quoted markup-like destination is a valid RFC email', filter_var($storedDestination, FILTER_VALIDATE_EMAIL) === $storedDestination);
+check(
+    'create persists the exact markup-like destination',
+    $createdStored === $aliasStored
+        && $aliasStored->getGoto() === $storedDestination
+        && in_array($aliasStored, $emStored->persisted, true)
+        && $emStored->flushes === 1,
+);
+
 // --- create: preFlush failure stops flush and postFlush -------------- //
 $emE = new FakeObjectManager();
 $domE = $mkDomain(2);

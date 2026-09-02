@@ -23,7 +23,6 @@ $(document).ready( function()
         'fnDrawCallback': function() {
             $( "a[id|='delete-alias']" ).unbind().bind( 'click', deleteAlias );
             $( "a[id|='modal-dialog']" ).unbind().bind( 'click', tt_openModalDialog );
-            $( '.have-tooltip-long' ).tooltip("destroy").tooltip( { html: true, trigger: 'hover', placement: 'top' } );
             $( '.have-tooltip' ).tooltip("destroy").tooltip( { html: true, delay: { show: 500, hide: 2 }, trigger: 'hover' } );
             $( '.oss-dropdown' ).each( ossDropdown );
             if( vm_prefs['iLength'] != $( "select[name|='list_table_length']" ).val() )
@@ -149,14 +148,18 @@ function formatActive( id, active )
 
 function formatGoto( id, goto )
 {
-    var str = '<div id="alias-goto-' + id + '" ';
+    var element = document.createElement( 'div' );
+    var visibleGoto = goto;
+
+    element.id = 'alias-goto-' + id;
     if( goto.length  > 50 )
     {
-        str += 'class="have-tooltip-long" title="' + goto.replace( /[,]/g, ", ") + '"';
-        goto = goto.substr( 0, 50 ) + '...'; 
+        element.title = goto.replace( /[,]/g, ", " );
+        visibleGoto = goto.substr( 0, 50 ) + '...';
     }
-    str += '>' + goto + '</div>';
-    return str;
+    element.textContent = visibleGoto;
+
+    return element.outerHTML;
 }
 
 function formatControlls( id )

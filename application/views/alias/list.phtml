@@ -60,7 +60,7 @@
                 <span id="toggle-active-{$alias.id}" onclick="toggleActive( 'toggle-active-{$alias.id}', {$alias.id} );" class="btn btn-mini {if $alias.active}btn-success{else}btn-danger{/if}">{$alias.active|yesno}</span>
             </td>
             <td>
-                <div id="alias-goto-{$alias.id}" {if $alias.goto|strlen > 50 } class="have-tooltip-long" title="{$alias.goto|regex_replace:"/[,]/":", "}"{/if}>
+                <div id="alias-goto-{$alias.id}" {if $alias.goto|strlen > 50 } title="{$alias.goto|regex_replace:"/[,]/":", "}"{/if}>
                 {$alias.goto|shorten:50}
                 </div>
             </td>
