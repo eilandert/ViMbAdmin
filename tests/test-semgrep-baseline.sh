@@ -51,12 +51,12 @@ expect_failure() {
 }
 
 check_output 'push selects the pre-change commit' "$parent_sha" push '' "$parent_sha"
-check_output 'pull requests select the immutable base commit' "$parent_sha" pull_request_target "$parent_sha" ''
+check_output 'pull requests select the immutable base commit' "$parent_sha" pull_request "$parent_sha" ''
 check_empty 'scheduled scans remain full scans' schedule
 check_empty 'manual scans remain full scans' workflow_dispatch
 expect_failure 'push requires a pre-change commit' push '' ''
 expect_failure 'push rejects HEAD as its own baseline' push '' "$head_sha"
-expect_failure 'pull requests reject an unavailable base' pull_request_target deadbeef ''
+expect_failure 'pull requests reject an unavailable base' pull_request deadbeef ''
 expect_failure 'unknown events fail closed' repository_dispatch "$parent_sha" ''
 
 printf 'ALL PASSED\n'

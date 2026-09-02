@@ -4,6 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 readonly runner=.github/scripts/run-headless-chrome.sh
+readonly php_runner=.github/scripts/run-static-php-container.sh
 readonly dollar='$'
 
 require() {
@@ -21,6 +22,20 @@ require "    --env \"HOME=${dollar}fixture_dir\""
 require "    --mount \"type=bind,src=${dollar}fixture_dir,dst=${dollar}fixture_dir\""
 require "    \"${dollar}image\" google-chrome --no-sandbox \"${dollar}@\""
 require 'vimbadmin-(alias-destination|residual-stored-xss)'
+
+require_php() {
+    local pattern=$1
+    if ! grep -Fq -- "$pattern" "$php_runner"; then
+        echo "FAIL: Static PHP container runner must contain: $pattern" >&2
+        exit 1
+    fi
+}
+
+require_php "readonly image='cimg/php@sha256:338e32e3a9ae908deab383e1731e4d5b2640cb2685684a748ee466db158b206d'"
+require_php 'docker run --rm --network bridge --cap-drop ALL'
+require_php 'exec docker run --rm --network none --cap-drop ALL'
+require_php "--mount \"type=bind,src=${dollar}workspace,dst=${dollar}workspace,readonly\""
+require_php "--mount \"type=bind,src=${dollar}writable_dir,dst=${dollar}writable_dir\""
 
 if grep -Eq -- '(^|[[:space:]])--(privileged|cap-add)([=[:space:]]|$)|apt(-get)?[[:space:]]+(install|update)' "$runner"; then
     echo 'FAIL: Chrome container runner must not elevate or install host packages' >&2
