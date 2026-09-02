@@ -253,15 +253,25 @@ try {
 }
 bruteForceCheck('whitelisted sources skip persistence when clearing state', $whitelistClearSucceeded);
 
+$deleteDirectory = $root . '/delete-failure';
+bruteForceCreateDirectory($deleteDirectory);
+$deleteIp = '192.0.2.83';
+$deleteState = $deleteDirectory . '/' . hash('sha256', $deleteIp) . '.json';
+bruteForceCreateDirectory($deleteState);
+$deleteFailure = new ViMbAdmin_BruteForce(null, ['statedir' => $deleteDirectory]);
+$_SERVER['REMOTE_ADDR'] = $deleteIp;
+bruteForceCheck('state removal failure denies persistence', bruteForcePersistenceDenied(
+    static function() use ($deleteFailure): void {
+        $deleteFailure->clear('delete-failure', null);
+    },
+));
+
 $writeIp = '192.0.2.79';
-$writeState = '/proc/' . hash('sha256', $writeIp) . '.json';
-if (!is_dir('/proc') || @file_put_contents($writeState . '.probe', 'x') !== false) {
-    if (is_file($writeState . '.probe')) {
-        unlink($writeState . '.probe');
-    }
-    throw new RuntimeException('could not establish the brute-force write-failure fixture');
-}
-$writeFailure = new ViMbAdmin_BruteForce(null, ['statedir' => '/proc']);
+$writeDirectory = $root . '/write-failure';
+bruteForceCreateDirectory($writeDirectory);
+$writeState = $writeDirectory . '/' . hash('sha256', $writeIp) . '.json';
+bruteForceCreateDirectory($writeState . '.' . getmypid() . '.tmp');
+$writeFailure = new ViMbAdmin_BruteForce(null, ['statedir' => $writeDirectory]);
 $writeDenied = bruteForcePersistenceDenied(static function() use ($writeFailure, $writeIp): void {
     (new ReflectionMethod($writeFailure, '_save'))->invoke($writeFailure, $writeIp, [
         'attempts' => 1,
@@ -289,7 +299,7 @@ $renameDenied = bruteForcePersistenceDenied(static function() use ($renameFailur
 bruteForceCheck('atomic rename failure denies persistence and removes the temporary file',
     $renameDenied && !is_file($renameState . '.' . getmypid() . '.tmp'));
 
-bruteForceCheck('fixed assertion count', BruteForceAtomicStateAssertions::$checks === 10);
+bruteForceCheck('fixed assertion count', BruteForceAtomicStateAssertions::$checks === 11);
 
 bruteForceRemoveTree($root);
 $failures = BruteForceAtomicStateAssertions::$failures;

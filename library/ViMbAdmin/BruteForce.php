@@ -208,7 +208,7 @@ class ViMbAdmin_BruteForce
      *
      * @param mixed $username
      * @param mixed $request
-     * @throws RuntimeException when state cannot be locked
+     * @throws RuntimeException when state cannot be removed or locked
      * @return void
      */
     public function clear( $username, $request )
@@ -373,7 +373,10 @@ class ViMbAdmin_BruteForce
     {
         $file = $this->_file( $ip );
         if( file_exists( $file ) && !@unlink( $file ) )
+        {
             error_log( 'ViMbAdmin_BruteForce: could not clear state file ' . $file );
+            throw new RuntimeException( 'bruteforce state persistence unavailable' );
+        }
     }
 
     // ---- helpers -------------------------------------------------------
