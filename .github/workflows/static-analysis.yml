@@ -4,7 +4,7 @@ name: Static analysis
 on:  # yamllint disable-line rule:truthy
   push:
     branches: [master]
-  pull_request:
+  pull_request_target:
     branches: [master]
   workflow_dispatch:
 
@@ -12,13 +12,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: phpstan-${{ github.ref }}
+  group: phpstan-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   phpstan:
     name: PHPStan
-    runs-on: [self-hosted, builder02, docker]
+    runs-on: ubuntu-24.04
     container:
       image: >-
         mirror.gcr.io/library/php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
@@ -32,13 +32,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Assert pull-request runner isolation
+        run: bash .github/scripts/assert-pr-runner-isolation.sh
 
       # The merge ref can omit its event-time base object when the base branch
       # moves before this job starts. Fetch that immutable object explicitly so
       # the ratchet compares against the reviewed base, not a moving ref.
       - name: Fetch PHPStan pull-request base
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request_target'
         env:
           PHPSTAN_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |

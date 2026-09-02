@@ -14,8 +14,19 @@ readonly php_workflows=(
   .github/workflows/static-analysis.yml
 )
 
-if grep -HnE 'shivammathur/setup-php|runs-on:.*lxc' "${workflows[@]}"; then
-  printf 'Disallowed PHP setup action or unavailable runner target found.\n' >&2
+if grep -HnE 'runs-on:.*lxc' "${workflows[@]}"; then
+  printf 'Unavailable runner target found.\n' >&2
+  exit 1
+fi
+
+readonly setup_php_ref='shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f'
+setup_php_refs=$(grep -hFc "$setup_php_ref" "${workflows[@]}" \
+  | awk '{ total += $1 } END { print total + 0 }')
+readonly setup_php_refs
+if [[ $setup_php_refs -ne 1 ]] \
+  || grep -HnE 'shivammathur/setup-php@' "${workflows[@]}" \
+    | grep -vF "$setup_php_ref"; then
+  printf 'GitHub-hosted PHP setup must use the approved immutable ref exactly once.\n' >&2
   exit 1
 fi
 
@@ -201,7 +212,7 @@ if ! awk '
   }
   function finish_checkout() {
     if (!in_checkout) return
-    if (field != 3) failed = 1
+    if (field != 4) failed = 1
     in_checkout = 0
   }
   {
@@ -230,7 +241,9 @@ if ! awk '
     if (field == 0 && $0 == "        with:") field = 1
     else if (field == 1 && $0 == "          fetch-depth: 0") field = 2
     else if (field == 2 &&
-             $0 == "          persist-credentials: false") field = 3
+             $0 == "          ref: ${{ github.event.pull_request.head.sha || github.sha }}") field = 3
+    else if (field == 3 &&
+             $0 == "          persist-credentials: false") field = 4
     else failed = 1
   }
   END {

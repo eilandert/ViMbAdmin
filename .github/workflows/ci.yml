@@ -4,7 +4,7 @@ name: CI
 on:  # yamllint disable-line rule:truthy
   push:
     branches: [master]
-  pull_request:
+  pull_request_target:
     branches: [master]
   workflow_dispatch:
 
@@ -12,13 +12,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   lint:
     name: PHP syntax lint (PHP ${{ matrix.php }})
-    runs-on: [self-hosted, builder02, docker]
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -37,7 +37,14 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Assert pull-request runner isolation
+        run: bash .github/scripts/assert-pr-runner-isolation.sh
+
+      - name: Test pull-request runner isolation policy
+        run: bash tests/test-pr-runner-isolation.sh
 
       - name: Setup container tools
         run: bash .github/scripts/setup-php-container.sh tools
@@ -58,7 +65,7 @@ jobs:
 
   audit:
     name: Dependency security audit
-    runs-on: [self-hosted, builder02, docker]
+    runs-on: ubuntu-24.04
     container:
       image: >-
         mirror.gcr.io/library/php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
@@ -68,7 +75,11 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Assert pull-request runner isolation
+        run: bash .github/scripts/assert-pr-runner-isolation.sh
 
       - name: Setup container tools
         run: bash .github/scripts/setup-php-container.sh tools
