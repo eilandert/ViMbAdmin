@@ -19,9 +19,9 @@ printf '%s\n' '<?php system($_GET["code"]);' > "$fixture"
 
 set +e
 semgrep scan \
-  --config .semgrep-rules/php.yml \
-  --config .semgrep-rules/security-audit.yml \
-  --config .semgrep-rules/secrets.yml \
+  --config p/php \
+  --config p/security-audit \
+  --config p/secrets \
   --json --output "$result" --error "$fixture"
 status=$?
 set -e

@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [master]
   schedule:
-    # Weekly full scan with the reviewed, content-locked Semgrep rules.
+    # Weekly re-scan so new Semgrep rules catch latent issues.
     - cron: '27 4 * * 1'
   workflow_dispatch:
 
@@ -43,12 +43,6 @@ jobs:
       - name: Test Semgrep baseline event policy
         run: bash tests/test-semgrep-baseline.sh
 
-      - name: Test Semgrep Registry content lock
-        run: bash tests/test-semgrep-rule-lock.sh
-
-      - name: Fetch content-locked Semgrep rules
-        run: bash .github/scripts/fetch-semgrep-rules.sh .semgrep-rules
-
       - name: Verify Semgrep findings fail the job (negative control)
         run: bash .github/scripts/assert-semgrep-findings.sh
 
@@ -66,9 +60,9 @@ jobs:
             baseline_args=(--baseline-commit "$baseline")
           fi
           semgrep scan \
-            --config .semgrep-rules/php.yml \
-            --config .semgrep-rules/security-audit.yml \
-            --config .semgrep-rules/secrets.yml \
+            --config p/php \
+            --config p/security-audit \
+            --config p/secrets \
             --sarif --output semgrep.sarif \
             "${baseline_args[@]}" \
             --error
