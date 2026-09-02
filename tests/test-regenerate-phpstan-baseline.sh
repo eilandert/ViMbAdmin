@@ -182,6 +182,49 @@ else
 	not_ok "base-relative rejection names diagnostic growth"
 fi
 
+write_fixture 2 3
+cp -- "$source_baseline" "$target"
+run_generator env GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request \
+	PHPSTAN_BASE_SHA="$migration_base" bash "$generator" --check
+expect_status 0 "$generator_status" \
+	"pull-request event accepts its immutable base SHA"
+
+run_generator env GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request \
+	PHPSTAN_BASE_SHA='' bash "$generator" --check
+expect_status 2 "$generator_status" \
+	"pull-request event rejects a missing immutable base SHA"
+if grep -Fq 'PHPStan immutable base revision is unavailable' "$output"; then
+	ok "missing pull-request base reports an actionable diagnostic"
+else
+	not_ok "missing pull-request base reports an actionable diagnostic"
+fi
+
+run_generator env GITHUB_ACTIONS=true GITHUB_EVENT_NAME=push \
+	PHPSTAN_EVENT_BEFORE="$migration_base" bash "$generator" --check
+expect_status 0 "$generator_status" \
+	"push event accepts its immutable before SHA"
+
+zero_sha=$(printf '0%.0s' {1..40})
+run_generator env GITHUB_ACTIONS=true GITHUB_EVENT_NAME=push \
+	PHPSTAN_EVENT_BEFORE="$zero_sha" bash "$generator" --check
+expect_status 0 "$generator_status" \
+	"first push accepts the empty-tree immutable base"
+
+run_generator env GITHUB_ACTIONS=true GITHUB_EVENT_NAME=push \
+	PHPSTAN_EVENT_BEFORE='' bash "$generator" --check
+expect_status 2 "$generator_status" \
+	"push event rejects a missing immutable before SHA"
+if grep -Fq 'PHPStan immutable base revision is unavailable' "$output"; then
+	ok "missing push base reports an actionable diagnostic"
+else
+	not_ok "missing push base reports an actionable diagnostic"
+fi
+
+run_generator env GITHUB_ACTIONS=true GITHUB_EVENT_NAME=workflow_dispatch \
+	PHPSTAN_BASE_SHA='' bash "$generator" --check
+expect_status 0 "$generator_status" \
+	"manual event uses its immutable workflow SHA"
+
 write_fixture 1160 0
 cp -- "$source_baseline" "$target"
 run_generator env PHPSTAN_BASE_REF="$migration_base" bash "$generator" --check

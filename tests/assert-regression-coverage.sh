@@ -10,12 +10,46 @@ readonly phpstan_runner=tests/run-phpstan-tests.sh
 readonly static_workflow=.github/workflows/static-analysis.yml
 readonly regression_workflow=.github/workflows/regression.yml
 
+static_workflow_has_phpstan_runtime_contract() {
+  local trust_line owner_line required
+
+  trust_line=$(grep -nF \
+    "git config --global --add safe.directory \"\$GITHUB_WORKSPACE\"" \
+    "$static_workflow" | head -n1 | cut -d: -f1)
+  owner_line=$(grep -nF \
+    'name: Assert every tracked PHP test has a CI owner' \
+    "$static_workflow" | head -n1 | cut -d: -f1)
+  if [[ -z $trust_line || -z $owner_line || $trust_line -ge $owner_line ]]; then
+    printf 'Static-analysis workflow must trust Git before tracked-file discovery.\n' \
+      >&2
+    return 1
+  fi
+
+  for required in \
+    'name: Select immutable PHPStan base' \
+    "pull_request) base=\"\$PHPSTAN_PULL_REQUEST_BASE_SHA\"" \
+    "push) base=\"\$PHPSTAN_PUSH_BEFORE_SHA\"" \
+    "workflow_dispatch) base=\"\$PHPSTAN_WORKFLOW_SHA\"" \
+    'PHPStan immutable base revision is unavailable' \
+    'PHPSTAN_BASE_SHA=' \
+    "\$GITHUB_ENV" \
+    "git fetch --no-tags --depth=1 origin \"\$PHPSTAN_BASE_SHA\""; do
+    if ! grep -qF -- "$required" "$static_workflow"; then
+      printf 'Static-analysis workflow is missing PHPStan base component: %s\n' \
+        "$required" >&2
+      return 1
+    fi
+  done
+}
+
 for runner in "$unit_runner" "$phpstan_runner"; do
   [[ -x $runner ]] || {
     printf 'Test runner is missing or not executable: %s\n' "$runner" >&2
     exit 1
   }
 done
+
+static_workflow_has_phpstan_runtime_contract || exit 1
 
 unit_runner_executes_tracked_tests() {
   local harness_root runner_path stub_path output
