@@ -151,7 +151,18 @@ expect_owner_rejected 'conditional unit runner' \
   'Regression workflow does not invoke the unit test runner.'
 
 cp -- "$test_root/regression.yml.valid" "$test_root/.github/workflows/regression.yml"
+sed -i 's|      - run: bash tests/run-unit-tests.sh|      - if: ${{ false }}\n        run: bash tests/run-unit-tests.sh|' \
+  "$test_root/.github/workflows/regression.yml"
+expect_owner_rejected 'unit runner with an initial conditional field' \
+  'Regression workflow does not invoke the unit test runner.'
+
+cp -- "$test_root/regression.yml.valid" "$test_root/.github/workflows/regression.yml"
 sed -i 's|      - run: php tests/test-cache-bootstrap.php|      - run: php tests/test-cache-bootstrap.php\n        if: ${{ false }}|' \
+  "$test_root/.github/workflows/regression.yml"
+expect_unreachable tests/test-cache-bootstrap.php
+
+cp -- "$test_root/regression.yml.valid" "$test_root/.github/workflows/regression.yml"
+sed -i 's|      - run: php tests/test-cache-bootstrap.php|      - if: ${{ false }}\n        run: php tests/test-cache-bootstrap.php|' \
   "$test_root/.github/workflows/regression.yml"
 expect_unreachable tests/test-cache-bootstrap.php
 
@@ -159,6 +170,12 @@ cp -- "$test_root/static-analysis.yml.valid" "$test_root/.github/workflows/stati
 sed -i 's|      - run: bash tests/run-phpstan-tests.sh|      - run: bash tests/run-phpstan-tests.sh\n        if: ${{ false }}|' \
   "$test_root/.github/workflows/static-analysis.yml"
 expect_owner_rejected 'conditional PHPStan runner' \
+  'Static-analysis workflow does not invoke the PHPStan test runner.'
+
+cp -- "$test_root/static-analysis.yml.valid" "$test_root/.github/workflows/static-analysis.yml"
+sed -i 's|      - run: bash tests/run-phpstan-tests.sh|      - if: ${{ false }}\n        run: bash tests/run-phpstan-tests.sh|' \
+  "$test_root/.github/workflows/static-analysis.yml"
+expect_owner_rejected 'PHPStan runner with an initial conditional field' \
   'Static-analysis workflow does not invoke the PHPStan test runner.'
 
 cp -- "$test_root/regression.yml.valid" "$test_root/.github/workflows/regression.yml"

@@ -187,7 +187,9 @@ workflow_has_unconditional_owner_step() {
           run_count = 0
           line = $0
           sub(/^[[:space:]]+-[[:space:]]+/, "", line)
-          if (line ~ /^run:[[:space:]]*/) {
+          if (line ~ /^if:[[:space:]]*/) {
+            has_if = 1
+          } else if (line ~ /^run:[[:space:]]*/) {
             run_count = 1
             sub(/^run:[[:space:]]*/, "", line)
             run = line
