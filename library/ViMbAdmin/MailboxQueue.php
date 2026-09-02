@@ -32,33 +32,51 @@ class ViMbAdmin_MailboxQueue
      * @param int $priority
      * @return \Entities\MailboxTask|null  null if an open task already exists
      */
-    public static function enqueue( $em, \Entities\Mailbox $mailbox, $type, $by = null, $priority = 0 )
+    public static function enqueue( $em, \Entities\Mailbox $mailbox, $type, ?\Entities\Admin $by = null, $priority = 0 )
     {
         $username = $mailbox->requiredUsername();
-        $existing = $em->createQueryBuilder()
-            ->select( 't' )
-            ->from( '\\Entities\\MailboxTask', 't' )
-            ->where( 't.username = :u' )
-            ->andWhere( 't.type = :t' )
-            ->andWhere( 't.status IN (:open)' )
-            ->setParameter( 'u', $username )
-            ->setParameter( 't', $type )
-            ->setParameter( 'open', [ \Entities\MailboxTask::STATUS_PENDING, \Entities\MailboxTask::STATUS_RUNNING ] )
-            ->setMaxResults( 1 )
-            ->getQuery()->getOneOrNullResult();
+        $domain = $mailbox->getDomain();
+        $domainId = $domain !== null ? $domain->getId() : null;
+        $requestedById = $by !== null ? $by->getId() : null;
+        if( ( $domain !== null && $domainId === null ) || ( $by !== null && $requestedById === null ) )
+            throw new \LogicException( 'Mailbox task associations must be persisted before enqueue.' );
 
-        if( $existing )
+        $connection = $em->getConnection();
+
+        try
+        {
+            $affected = $connection->insert( 'mailbox_task', [
+                'type'       => $type,
+                'username'   => $username,
+                'status'     => \Entities\MailboxTask::STATUS_PENDING,
+                'priority'   => (int) $priority,
+                'created_at' => ( new \DateTime() )->format( 'Y-m-d H:i:s' ),
+                'Domain_id'  => $domainId,
+                'Admin_id'   => $requestedById,
+            ] );
+        }
+        catch( \Doctrine\DBAL\Exception\UniqueConstraintViolationException $e )
+        {
+            // The generated open_task discriminator makes the database the
+            // race arbiter. If the winner commits before the wait timeout, a
+            // concurrent identical enqueue reaches this duplicate-key path;
+            // lock timeouts and deadlocks deliberately remain operational errors.
             return null;
+        }
 
-        $task = new \Entities\MailboxTask();
-        $task->setType( $type )
-             ->setUsername( $username )
-             ->setStatus( \Entities\MailboxTask::STATUS_PENDING )
-             ->setPriority( (int) $priority )
-             ->setCreatedAt( new \DateTime() )
-             ->setDomain( $mailbox->getDomain() )
-             ->setRequestedBy( $by );
-        $em->persist( $task );
+        if( $affected !== 1 )
+            throw new \RuntimeException( 'Mailbox task insert affected an unexpected number of rows.' );
+
+        $id = filter_var( $connection->lastInsertId(), FILTER_VALIDATE_INT, [
+            'options' => [ 'min_range' => 1 ],
+        ] );
+        if( $id === false )
+            throw new \UnexpectedValueException( 'Mailbox task insert returned an invalid identifier.' );
+
+        $task = $em->find( '\\Entities\\MailboxTask', $id );
+        if( !$task instanceof \Entities\MailboxTask || !$task->isOpen() )
+            throw new \UnexpectedValueException( 'Inserted mailbox task could not be reloaded.' );
+
         return $task;
     }
 }
