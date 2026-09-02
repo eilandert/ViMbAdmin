@@ -4,7 +4,7 @@ name: Regression tests
 on:  # yamllint disable-line rule:truthy
   push:
     branches: [master]
-  pull_request:
+  pull_request_target:
     branches: [master]
   workflow_dispatch:
 
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: regression-${{ github.ref }}
+  group: regression-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -21,11 +21,22 @@ jobs:
   # ------------------------------------------------------------------ #
   static:
     name: Static and browser regression
-    runs-on: [self-hosted, builder02, docker]
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Assert pull-request runner isolation
+        run: bash .github/scripts/assert-pr-runner-isolation.sh
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f
+        with:
+          php-version: '8.4'
+          extensions: ctype, dom, gettext, iconv, intl, mbstring, pdo, sodium
+          tools: composer:v2
 
       - name: Smarty 5 JS-template escaping (alias [+] button regression)
         run: bash tests/lint-template-escaping.sh
@@ -60,7 +71,7 @@ jobs:
   # ------------------------------------------------------------------ #
   unit:
     name: Service unit tests (PHP ${{ matrix.php }})
-    runs-on: [self-hosted, builder02, docker]
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -79,7 +90,11 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Assert pull-request runner isolation
+        run: bash .github/scripts/assert-pr-runner-isolation.sh
 
       - name: Trust checkout for tracked-test discovery
         run: |
@@ -103,7 +118,7 @@ jobs:
   # ------------------------------------------------------------------ #
   cache-wiring:
     name: Cache wiring (PHP ${{ matrix.php }})
-    runs-on: [self-hosted, builder02, docker]
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -122,7 +137,11 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Assert pull-request runner isolation
+        run: bash .github/scripts/assert-pr-runner-isolation.sh
 
       - name: Setup PHP container
         run: bash .github/scripts/setup-php-container.sh cache
@@ -167,7 +186,7 @@ jobs:
   # ------------------------------------------------------------------ #
   schema-drift:
     name: Schema has no phantom pending changes
-    runs-on: [self-hosted, builder02, docker]
+    runs-on: ubuntu-24.04
     container:
       image: >-
         mirror.gcr.io/library/php@sha256:19667d836740e24a3ba340532c7349ab59bb961b86f20e3c85a58150644e5e55
@@ -189,7 +208,11 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Assert pull-request runner isolation
+        run: bash .github/scripts/assert-pr-runner-isolation.sh
 
       - name: Setup PHP container
         run: bash .github/scripts/setup-php-container.sh runtime
