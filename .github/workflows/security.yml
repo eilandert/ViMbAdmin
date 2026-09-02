@@ -47,10 +47,50 @@ jobs:
       - name: Test Semgrep baseline event policy
         run: bash tests/test-semgrep-baseline.sh
 
-      - name: Verify Semgrep findings fail the job (negative control)
-        run: bash .github/scripts/assert-semgrep-findings.sh
+      - name: Test immutable Semgrep rule policy
+        run: python3 tests/test-semgrep-rule-lock.py
 
-      - name: Run Semgrep
+      - name: Verify locked Semgrep findings fail the job (negative control)
+        id: semgrep_locked_negative
+        if: github.event_name == 'pull_request'
+        run: >-
+          bash .github/scripts/assert-semgrep-findings.sh
+          --config .semgrep/locked
+
+      - name: Verify current Semgrep findings fail the job (negative control)
+        id: semgrep_current_negative
+        if: github.event_name != 'pull_request'
+        run: >-
+          bash .github/scripts/assert-semgrep-findings.sh
+          --config p/php
+          --config p/security-audit
+          --config p/secrets
+
+      - name: Run locked Semgrep rules for pull requests
+        id: semgrep_locked
+        if: github.event_name == 'pull_request'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          baseline=$(bash .github/scripts/select-semgrep-baseline.sh \
+            "$EVENT_NAME" "$PR_BASE_SHA" "$BEFORE_SHA" "$HEAD_SHA")
+          baseline_args=()
+          if [[ -n $baseline ]]; then
+            baseline_args=(--baseline-commit "$baseline")
+          fi
+          semgrep scan \
+            --config .semgrep/locked \
+            --exclude '.semgrep/locked/**' \
+            --sarif --output semgrep.sarif \
+            "${baseline_args[@]}" \
+            --error
+
+      - name: Run current Semgrep rules outside pull requests
+        id: semgrep_current
+        if: github.event_name != 'pull_request'
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -67,6 +107,7 @@ jobs:
             --config p/php \
             --config p/security-audit \
             --config p/secrets \
+            --exclude '.semgrep/locked/**' \
             --sarif --output semgrep.sarif \
             "${baseline_args[@]}" \
             --error
