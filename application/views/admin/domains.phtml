@@ -54,7 +54,12 @@
         Are you sure you want to remove <em id="purge_admin_name">{$targetAdmin->getUsername()}</em> from <em id="purge_domain_name"></em> ?
     </div>
     <div id="pdfooter" class="modal-footer">
-        <a class="btn btn-danger" id="purge_dialog_delete" href="#">Remove</a>
+        <form id="remove_domain_form" method="post" action="{genUrl controller='admin' action='remove-domain'}" style="display: inline;">
+            <input type="hidden" name="aid" value="{$targetAdmin->getId()}" />
+            <input type="hidden" name="did" value="" />
+            <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
+            <button class="btn btn-danger" id="purge_dialog_delete" type="submit">Remove</button>
+        </form>
         <button id="purge_dialog_cancel" class="btn">Cancel</button>
     </div>
 </div>

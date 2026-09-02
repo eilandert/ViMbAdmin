@@ -43,7 +43,8 @@ function removeDomain( event ){
         show: true
     });
 
-    $( '#purge_dialog_delete' ).attr( 'href', element.attr( "href" ) );
+    var did = element.attr( 'id' ).replace( 'remove-domain-', '' );
+    $( '#remove_domain_form input[name="did"]' ).val( did );
 
     $( '#purge_dialog_cancel' ).click( function(){
         delDialog.modal('hide');

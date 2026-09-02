@@ -29,11 +29,11 @@ $(document).ready( function()
 
 
 function toggleActive( elid, id ){
-    ossToggle( $( '#' + elid ), "{genUrl controller='admin' action='ajax-toggle-active'}", { "aid": id } );
+    ossToggle( $( '#' + elid ), "{genUrl controller='admin' action='ajax-toggle-active'}", { "aid": id, "csrf": "{$csrfToken}" } );
 };
 
 function toggleSuper( elid, id ){
-    if( ossToggle( $( '#' + elid ), "{genUrl controller='admin' action='ajax-toggle-super'}", { "aid": id } ) )
+    if( ossToggle( $( '#' + elid ), "{genUrl controller='admin' action='ajax-toggle-super'}", { "aid": id, "csrf": "{$csrfToken}" } ) )
         $( '#admin_domains_' + id ).hide();
     else
         $( '#admin_domains_' + id ).show();

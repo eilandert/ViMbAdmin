@@ -250,7 +250,7 @@ final class AliasController extends AbstractController
     }
 
     /**
-     * GET /alias/ajax-toggle-active/alid/<id> — flip an alias's active flag.
+     * POST /alias/ajax-toggle-active — flip an alias's active flag.
      *
      * Mirrors the ZF1 action: resolve the alias from `alid`, refuse a missing one
      * or a domain the admin cannot manage (`loadAlias` authorisation), then toggle
@@ -264,6 +264,10 @@ final class AliasController extends AbstractController
         $admin = $this->admin();
         if ($admin === null) {
             return $this->redirect('auth/login');
+        }
+
+        if (!$this->postBodyCsrfValid()) {
+            return new Response('ko');
         }
 
         $alias = ($alid = $this->positiveIdParam('alid'))

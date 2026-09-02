@@ -62,7 +62,7 @@ $(document).ready( function()
 }); // document onready
 
 function toggleActive( elid, id ){
-    ossToggle( $( '#' + elid ), "{genUrl controller='alias' action='ajax-toggle-active'}", { "alid": id } );
+    ossToggle( $( '#' + elid ), "{genUrl controller='alias' action='ajax-toggle-active'}", { "alid": id, "csrf": "{$csrfToken}" } );
 };
 
 

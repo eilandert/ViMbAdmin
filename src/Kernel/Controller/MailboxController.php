@@ -480,7 +480,7 @@ final class MailboxController extends AbstractController
     }
 
     /**
-     * GET /mailbox/ajax-toggle-active/mid/<id> — flip a mailbox's active flag.
+     * POST /mailbox/ajax-toggle-active — flip a mailbox's active flag.
      *
      * Mirrors the ZF1 action: resolve the mailbox from `mid`, refuse a missing
      * one or a domain the admin cannot manage (`loadMailbox` authorisation),
@@ -494,6 +494,10 @@ final class MailboxController extends AbstractController
         $admin = $this->admin();
         if ($admin === null) {
             return $this->redirect('auth/login');
+        }
+
+        if (!$this->postBodyCsrfValid()) {
+            return new Response('ko');
         }
 
         $mailbox = ($mid = $this->positiveIdParam('mid')) !== null

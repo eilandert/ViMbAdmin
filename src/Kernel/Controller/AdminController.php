@@ -591,17 +591,22 @@ final class AdminController extends AbstractController
     }
 
     /**
-     * GET /admin/remove-domain/aid/<id>/did/<id> — unassign a domain from an admin
+     * POST /admin/remove-domain — unassign a domain from an admin
      * (super only). Faithful port: a missing admin or domain flashes + redirects
      * (to admin/list and the admin's domains page respectively); otherwise the
      * detach + log + flush run through the Phase-1 ViMbAdmin_Service_Admin::
-     * removeDomain. Like ZF1 this carries no CSRF token (super-gated GET link).
+     * removeDomain. The confirmation form carries the ids and CSRF token in its
+     * POST body, so a cross-site GET cannot reach either repository lookup.
      */
     public function removeDomainAction(): Response
     {
         $admin = $this->admin();
         if ($admin === null || !$admin->isSuper()) {
             return $this->redirect('auth/login');
+        }
+
+        if (!$this->postBodyCsrfValid()) {
+            return $this->redirect('admin/list');
         }
 
         $target = ($aid = $this->positiveIdParam('aid'))
@@ -707,12 +712,11 @@ final class AdminController extends AbstractController
     }
 
     /**
-     * GET /admin/ajax-toggle-active/aid/<id> — flip an admin's active flag.
+     * POST /admin/ajax-toggle-active — flip an admin's active flag.
      * Mirrors the ZF1 action: prints "ko" when the target is missing or is the
      * caller themselves, otherwise toggles via the framework-free
-     * ViMbAdmin_Service_Admin and prints "ok". Like the ZF1 ajax toggles it
-     * carries no CSRF token (it is super-gated and self-toggle is refused); the
-     * JS reads the bare ok/ko body.
+     * ViMbAdmin_Service_Admin and prints "ok". The JS sends the session CSRF
+     * token in the POST body; failures retain the bare "ko" contract.
      */
     public function ajaxToggleActiveAction(): Response
     {
@@ -720,7 +724,7 @@ final class AdminController extends AbstractController
     }
 
     /**
-     * GET /admin/ajax-toggle-super/aid/<id> — flip an admin's super flag.
+     * POST /admin/ajax-toggle-super — flip an admin's super flag.
      */
     public function ajaxToggleSuperAction(): Response
     {
@@ -737,6 +741,10 @@ final class AdminController extends AbstractController
         $admin = $this->admin();
         if ($admin === null || !$admin->isSuper()) {
             return $this->redirect('auth/login');
+        }
+
+        if (!$this->postBodyCsrfValid()) {
+            return new Response('ko');
         }
 
         $target = ($aid = $this->positiveIdParam('aid'))

@@ -78,7 +78,7 @@ $(document).ready( function() {
 }); // document onready
 
 function toggleActive(elid, id) {
-    ossToggle( $( '#' + elid ), "{genUrl controller='mailbox' action='ajax-toggle-active'}", { "mid": id } );
+    ossToggle( $( '#' + elid ), "{genUrl controller='mailbox' action='ajax-toggle-active'}", { "mid": id, "csrf": "{$csrfToken}" } );
 };
 
 {if !isset($options.defaults.list_size.disabled) || !$options.defaults.list_size.disabled}
