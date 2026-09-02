@@ -65,6 +65,7 @@ printf 'Workflow runtime contract holds for %d PHP container jobs.\n' \
   "$expected_php_containers"
 
 readonly security_workflow=${WORKFLOW_RUNTIME_SECURITY_WORKFLOW:-.github/workflows/security.yml}
+readonly semgrep_finding_contract=.github/scripts/assert-semgrep-findings.sh
 if grep -HnE '\|\|[[:space:]]*true' "$security_workflow"; then
   printf 'Security Semgrep workflow must not mask command failures.\n' >&2
   exit 1
@@ -164,6 +165,14 @@ if ! awk '
   exit 1
 fi
 
+# Registry aliases are floating inputs. Reject their operand tokens regardless
+# of shell quoting, --config= spelling, or YAML block-line continuation.
+if grep -qE -- '(^|[^[:alnum:]_.-])(p|r)/[[:alnum:]_.-]+' \
+  "$security_workflow" "$semgrep_finding_contract"; then
+  printf 'Security workflow must not use floating Semgrep Registry inputs.\n' >&2
+  exit 1
+fi
+
 for required in \
   'fetch-depth: 0' \
   'select-semgrep-baseline.sh' \
@@ -172,7 +181,12 @@ for required in \
   'HEAD_SHA' \
   '--baseline-commit' \
   'assert-semgrep-findings.sh' \
-  'tests/test-semgrep-baseline.sh'; do
+  'tests/test-semgrep-baseline.sh' \
+  'tests/test-semgrep-rule-lock.sh' \
+  'fetch-semgrep-rules.sh' \
+  '--config .semgrep-rules/php.yml' \
+  '--config .semgrep-rules/security-audit.yml' \
+  '--config .semgrep-rules/secrets.yml'; do
   if ! grep -qF -- "$required" "$security_workflow"; then
     printf 'Security workflow is missing baseline policy component: %s\n' \
       "$required" >&2

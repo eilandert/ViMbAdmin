@@ -47,6 +47,45 @@ expect_actionlint_valid_rejected() {
 cp -- .github/workflows/security.yml "$fixture"
 run_contract
 
+if grep -qE '(^|[^[:alnum:]_.-])(p|r)/[[:alnum:]_.-]+' \
+  "$finding_contract"; then
+  printf 'Semgrep finding contract contains a floating Registry input.\n' >&2
+  exit 1
+fi
+
+sed -i 's|--config .semgrep-rules/php.yml|--config p/php|' "$fixture"
+expect_rejected 'floating Semgrep Registry input' \
+  'Security workflow must not use floating Semgrep Registry inputs.'
+
+cp -- .github/workflows/security.yml "$fixture"
+sed -i 's|--config .semgrep-rules/php.yml|--config=p/php|' "$fixture"
+expect_rejected 'equals-form floating Semgrep Registry input' \
+  'Security workflow must not use floating Semgrep Registry inputs.'
+
+cp -- .github/workflows/security.yml "$fixture"
+sed -i 's|--config .semgrep-rules/php.yml|--config "p/php"|' "$fixture"
+expect_rejected 'quoted floating Semgrep Registry input' \
+  'Security workflow must not use floating Semgrep Registry inputs.'
+
+cp -- .github/workflows/security.yml "$fixture"
+awk '
+  /--config \.semgrep-rules\/php\.yml/ {
+    print "            --config \\"
+    print "              \"r/php\" \\"
+    next
+  }
+  { print }
+' "$fixture" > "$fixture.tmp"
+mv -- "$fixture.tmp" "$fixture"
+expect_rejected 'continued quoted floating Semgrep Registry input' \
+  'Security workflow must not use floating Semgrep Registry inputs.'
+
+cp -- .github/workflows/security.yml "$fixture"
+sed -i '/fetch-semgrep-rules.sh/d' "$fixture"
+expect_rejected 'missing Semgrep content-lock fetch' \
+  'Security workflow is missing baseline policy component: fetch-semgrep-rules.sh'
+
+cp -- .github/workflows/security.yml "$fixture"
 sed -i '/          persist-credentials: false/c\        env:\n          persist-credentials: false' "$fixture"
 expect_rejected 'persist-credentials under env' \
   'Security workflow checkout must disable persisted credentials.'
