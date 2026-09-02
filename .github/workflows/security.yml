@@ -24,21 +24,51 @@ jobs:
     runs-on: [self-hosted, builder02, docker]
     # CodeQL has no PHP support; Semgrep is the SAST engine for this codebase.
     container:
-      image: semgrep/semgrep
+      image: >-
+        semgrep/semgrep@sha256:b94b53d02fd4a022f9eac4e2af1380f5c3c4c21400e79d3336bdff1d1db5e796
+    defaults:
+      run:
+        shell: bash
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Trust checkout for Semgrep Git operations
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git -C "$GITHUB_WORKSPACE" rev-parse --is-inside-work-tree >/dev/null
+
+      - name: Test Semgrep baseline event policy
+        run: bash tests/test-semgrep-baseline.sh
+
+      - name: Verify Semgrep findings fail the job (negative control)
+        run: bash .github/scripts/assert-semgrep-findings.sh
 
       - name: Run Semgrep
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
         run: |
+          baseline=$(bash .github/scripts/select-semgrep-baseline.sh \
+            "$EVENT_NAME" "$PR_BASE_SHA" "$BEFORE_SHA" "$HEAD_SHA")
+          baseline_args=()
+          if [[ -n $baseline ]]; then
+            baseline_args=(--baseline-commit "$baseline")
+          fi
           semgrep scan \
             --config p/php \
             --config p/security-audit \
             --config p/secrets \
             --sarif --output semgrep.sarif \
-            --error || true
+            "${baseline_args[@]}" \
+            --error
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938  # yamllint disable-line rule:line-length
         if: always()
         with:
           sarif_file: semgrep.sarif

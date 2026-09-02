@@ -64,6 +64,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Trust checkout for tracked-test discovery
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git -C "$GITHUB_WORKSPACE" rev-parse --is-inside-work-tree >/dev/null
+
       - name: Setup PHP container
         run: bash .github/scripts/setup-php-container.sh runtime
 
@@ -71,194 +76,8 @@ jobs:
         run: >-
           composer install --no-interaction --no-progress --prefer-dist --no-dev
 
-      - name: ViMbAdmin_Service_Domain
-        run: php tests/test-service-domain.php
-
-      - name: Domain required persistence fields
-        run: php tests/test-domain-required-fields.php
-
-      - name: ViMbAdmin_Service_Admin
-        run: php tests/test-service-admin.php
-
-      - name: ViMbAdmin_Service_Mailbox
-        run: php tests/test-service-mailbox.php
-
-      - name: Required mailbox username and queue boundary
-        run: php tests/test-mailbox-required-username.php
-
-      - name: Mailbox controller input shapes
-        run: php tests/test-mailbox-controller-shapes.php
-
-      - name: Domain controller input shapes
-        run: php tests/test-domain-controller-shapes.php
-
-      - name: Admin, alias and two-factor input contracts
-        run: php tests/test-admin-alias-twofactor-shapes.php
-
-      - name: Required mailbox password and auth boundary
-        run: php tests/test-mailbox-required-password.php
-
-      - name: Required admin authentication fields
-        run: php tests/test-admin-auth-required-fields.php
-
-      - name: Auth controller input shapes
-        run: php tests/test-auth-controller-input-shapes.php
-
-      - name: Mailbox task label contracts
-        run: php tests/test-entity-mailbox-task-labels.php
-
-      - name: Directory entry JPEG contract
-        run: php tests/test-entity-directory-entry-jpeg.php
-
-      - name: Mailbox password action boundary
-        run: php tests/test-auth-mailbox-password-boundary.php
-
-      - name: ViMbAdmin_Service_Alias
-        run: php tests/test-service-alias.php
-
-      - name: ViMbAdmin_Service_Archive
-        run: php tests/test-service-archive.php
-
-      - name: Archive identity caller boundaries
-        run: php tests/test-archive-identity-boundaries.php
-
-      - name: Doctrine preference repositories
-        run: php tests/test-repository-preferences.php
-
-      - name: Doctrine repository result shapes
-        run: php tests/test-repository-doctrine-result-shapes.php
-
-      - name: Doctrine entity result boundaries
-        run: php tests/test-repository-entity-results.php
-
-      - name: Doctrine execute result boundaries
-        run: php tests/test-repository-execute-results.php
-
-      - name: Mailbox task status-count hydration
-        run: php tests/test-repository-mailbox-task-status-counts.php
-
-      - name: Domain usage hydration
-        run: php tests/test-repository-domain-usage.php
-
-      - name: Mailbox quota and last-login hydration
-        run: php tests/test-repository-mailbox-quota-usage.php
-
-      - name: Nullable entity preference contracts
-        run: php tests/test-entity-preferences.php
-
-      - name: ViMbAdmin_Schema constructor contract
-        run: php tests/test-schema-constructor.php
-
-      - name: ViMbAdmin\Kernel\Router
-        run: php tests/test-kernel-router.php
-
-      - name: MCP create input validation (audit 2026-07-10 MAJOR)
-        run: php tests/test-mcp-input-validation.php
-
-      - name: MCP request and configuration shapes
-        run: php tests/test-mcp-input-shapes.php
-
-      - name: MCP authentication boundaries
-        run: php tests/test-mcp-authentication.php
-
-      - name: MCP destructive rate limit
-        run: php tests/test-mcp-rate-limit.php
-
-      - name: QueueRunner path-safety guard (audit 2026-07-10 MAJOR)
-        run: php tests/test-queuerunner-path-safe.php
-
-      - name: QueueRunner lease concurrency
-        run: php tests/test-queuerunner-leases.php
-
-      - name: ViMbAdmin\Kernel\Security\Csrf
-        run: php tests/test-kernel-csrf.php
-
-      - name: ViMbAdmin\Kernel\DataTable (server-side pagination protocol)
-        run: php tests/test-kernel-datatable.php
-
-      - name: ViMbAdmin\Kernel\Flash\FlashMessages
-        run: php tests/test-kernel-flash.php
-
-      - name: ViMbAdmin\Kernel\Session\MagicPropertyStorage
-        run: php tests/test-kernel-session-adapter.php
-
-      - name: ViMbAdmin\Kernel\Http\Kernel
-        run: php tests/test-kernel-http.php
-
-      - name: ViMbAdmin\Kernel\Controller\MaintenanceController
-        run: php tests/test-maintenance-controller.php
-
-      - name: Native controller input and mutation-order boundaries
-        run: php tests/test-native-controller-input-shapes.php
-
-      - name: ViMbAdmin\Kernel\Security\Auth
-        run: php tests/test-kernel-auth.php
-
-      - name: ViMbAdmin\Kernel native dispatch (Container + Dispatcher)
-        run: php tests/test-kernel-dispatch.php
-
-      - name: ViMbAdmin\Kernel\Form (native form core)
-        run: php tests/test-kernel-form.php
-
-      - name: ViMbAdmin\Kernel\Config (native INI loader)
-        run: php tests/test-kernel-config.php
-
-      - name: ViMbAdmin\Kernel\Session\SessionNamespace (native session)
-        run: php tests/test-kernel-session-namespace.php
-
-      - name: ViMbAdmin\Kernel\Bootstrap (native bootstrap, pure pieces)
-        run: php tests/test-kernel-bootstrap.php
-
-      - name: ViMbAdmin\Kernel\Mail\Mailer (native mail sender)
-        run: php tests/test-kernel-mailer.php
-
-      - name: ViMbAdmin\Kernel\Cli\CliKernel (native CLI dispatcher)
-        run: php tests/test-kernel-cli.php
-
-      - name: Native entry point and removed routes
-        run: php tests/test-native-entrypoint.php
-
-      - name: Standalone captcha lifecycle
-        run: php tests/test-captcha.php
-
-      - name: Security runtime input boundaries
-        run: php tests/test-security-runtime-input-shapes.php
-
-      - name: Date utility behavior
-        run: php tests/test-date.php
-
-      - name: OSS utility behavior
-        run: php tests/test-oss-utils.php
-
-      - name: String utility behavior
-        run: php tests/test-string.php
-
-      - name: Bcrypt password hashing behavior
-        run: php tests/test-bcrypt.php
-
-      - name: OSS auth password behavior
-        run: php tests/test-auth-password.php
-
-      - name: Native MCP transport
-        run: php tests/test-kernel-mcp.php
-
-      - name: Controller and MCP identity boundaries
-        run: php tests/test-controller-alias-identity.php
-
-      - name: ViMbAdmin_Dovecot::passwordVerify (scheme-prefixed hashes)
-        run: php tests/test-dovecot-password.php
-
-      - name: ViMbAdmin_Plugin construction and configuration
-        run: php tests/test-plugin.php
-
-      - name: Mailbox automatic alias identity boundaries
-        run: php tests/test-mailbox-automatic-aliases.php
-
-      - name: ViMbAdmin plugin mutation context contract
-        run: php tests/test-plugin-mutation-context.php
-
-      - name: ViMbAdmin kernel form plugin host
-        run: php tests/test-kernel-form-plugin-host.php
+      - name: Run all framework-free PHP regression tests
+        run: bash tests/run-unit-tests.sh
 
   # ------------------------------------------------------------------ #
   # Dependency + cache wiring — proves a composer bump (symfony/cache, #
@@ -323,6 +142,7 @@ jobs:
 
       - name: OSS Smarty message rendering boundaries
         run: php tests/test-oss-message.php
+
 
   # ------------------------------------------------------------------ #
   # Schema drift — loads the shipped SQL into a real MariaDB and proves #
