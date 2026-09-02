@@ -502,12 +502,15 @@ final class AuthController extends AbstractController
         $code = self::stringOrDefault($this->postData()['code'] ?? null, '', 'Authentication code');
         if ($this->isPost() && trim($code) !== '') {
             if ($tfa->verifyCode($secret, trim($code))) {
+                // Keep the fallible brute-force boundary before enrolment mutates
+                // one-time credentials or commits them to the database.
+                $this->bruteForce($options)->clear($admin->getUsername(), null);
+
                 $backup = $tfa->enable($admin, $secret);
                 $tfa->clearForce($admin);
                 $this->em()->flush();
                 $session->remove('totp_setup_secret');
 
-                $this->bruteForce($options)->clear($admin->getUsername(), null);
                 // The enable/flush boundary may observe a concurrent
                 // deactivation.  In that case grantPendingLogin revokes the
                 // pending session and its redirect must win over this view.

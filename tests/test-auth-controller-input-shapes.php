@@ -96,11 +96,12 @@ final class AuthInputShapeAdmin extends \Entities\Admin
         $stateDirectory = $this->breakBruteForceStateOnPasswordRead;
         if ($stateDirectory !== null) {
             $this->breakBruteForceStateOnPasswordRead = null;
-            foreach (glob($stateDirectory . '/*') ?: [] as $stateFile) {
-                unlink($stateFile);
+            $entries = scandir($stateDirectory);
+            if (!is_array($entries)) {
+                throw new RuntimeException('could not inspect late brute-force persistence fixture');
             }
-            if (is_file($stateDirectory . '/.lock')) {
-                unlink($stateDirectory . '/.lock');
+            foreach (array_diff($entries, ['.', '..']) as $entry) {
+                unlink($stateDirectory . '/' . $entry);
             }
             if (!rmdir($stateDirectory)
                 || file_put_contents($stateDirectory, 'not a directory') === false) {
@@ -290,6 +291,29 @@ function authInputShapeBruteForceAttempts(string $stateDirectory, string $ip): ?
         : null;
 }
 
+function authInputShapeLogin(AuthController $controller, string $password): \ViMbAdmin\Kernel\Http\Response
+{
+    $requestMethod = $_SERVER['REQUEST_METHOD'] ?? null;
+    $post = $_POST;
+    $_SERVER['REQUEST_METHOD'] = 'POST';
+    $_POST = [
+        'csrf' => 'csrf-sentinel',
+        'username' => 'admin@example.test',
+        'password' => $password,
+    ];
+
+    try {
+        return $controller->loginAction();
+    } finally {
+        if ($requestMethod === null) {
+            unset($_SERVER['REQUEST_METHOD']);
+        } else {
+            $_SERVER['REQUEST_METHOD'] = $requestMethod;
+        }
+        $_POST = $post;
+    }
+}
+
 echo "== auth controller input shapes ==\n";
 
 $malformedPending = authInputShapeController('1junk');
@@ -391,14 +415,12 @@ $persistenceFault = authInputShapeController(
         ],
     ]),
 );
-$_POST['password'] = AUTH_INPUT_TEST_CREDENTIAL;
 $persistenceException = null;
 try {
-    $persistenceFault['controller']->loginAction();
+    authInputShapeLogin($persistenceFault['controller'], AUTH_INPUT_TEST_CREDENTIAL);
 } catch (RuntimeException $exception) {
     $persistenceException = $exception;
 } finally {
-    unset($_POST['password']);
     if (is_file($persistenceParent)) {
         unlink($persistenceParent);
     }
@@ -417,14 +439,12 @@ $latePersistenceFault = authInputShapeController(
     'login',
     authInputShapeLoginOptions($latePersistenceState),
 );
-$_POST['password'] = AUTH_INPUT_TEST_CREDENTIAL;
 $latePersistenceException = null;
 try {
-    $latePersistenceFault['controller']->loginAction();
+    authInputShapeLogin($latePersistenceFault['controller'], AUTH_INPUT_TEST_CREDENTIAL);
 } catch (RuntimeException $exception) {
     $latePersistenceException = $exception;
 } finally {
-    unset($_POST['password']);
     if (is_file($latePersistenceState)) {
         unlink($latePersistenceState);
     }
@@ -596,6 +616,56 @@ foreach (['totp', 'totp-setup'] as $pendingAction) {
             ]]);
 }
 
+$totpClearState = __DIR__ . '/../var/tmp/test-totp-clear-failure-' . getmypid();
+if (!mkdir($totpClearState, 0700, true)) {
+    throw new RuntimeException('could not create TOTP clear-failure fixture');
+}
+$totpClearStateFile = $totpClearState . '/' . hash('sha256', $testIp) . '.json';
+if (!mkdir($totpClearStateFile, 0700)) {
+    throw new RuntimeException('could not create TOTP clear-failure state entry');
+}
+$totpClearAdmin = authInputShapeAdmin(true, [
+    \ViMbAdmin_TwoFactor::PREF_FORCE => '1',
+]);
+$totpClearFailure = authInputShapeController(
+    41,
+    $totpClearAdmin,
+    'totp-setup',
+    authInputShapeLoginOptions($totpClearState, [
+        'securitysalt' => str_repeat('s', 64),
+        'bruteforce' => ['enabled' => '1', 'statedir' => $totpClearState],
+    ]),
+);
+$totpClearSecret = 'JBSWY3DPEHPK3PXP';
+$totpClearFailure['session']->set('totp_setup_secret', $totpClearSecret);
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_POST = [
+    'code' => (new \RobThree\Auth\TwoFactorAuth(
+        new \RobThree\Auth\Providers\Qr\BaconQrCodeProvider(2, '#ffffff', '#000000', 'svg'),
+        'ViMbAdmin',
+    ))->getCode($totpClearSecret),
+];
+$totpClearException = null;
+try {
+    $totpClearFailure['controller']->totpSetupAction();
+} catch (RuntimeException $exception) {
+    $totpClearException = $exception;
+} finally {
+    rmdir($totpClearStateFile);
+    if (is_file($totpClearState . '/.lock')) {
+        unlink($totpClearState . '/.lock');
+    }
+    rmdir($totpClearState);
+}
+authInputShapeCheck('TOTP enrolment remains untouched when brute-force state cannot be cleared',
+    $totpClearException?->getMessage() === 'bruteforce state persistence unavailable'
+        && !$totpClearAdmin->hasTestPreference(\ViMbAdmin_TwoFactor::PREF_SECRET)
+        && !$totpClearAdmin->hasTestPreference(\ViMbAdmin_TwoFactor::PREF_BACKUP)
+        && $totpClearAdmin->hasTestPreference(\ViMbAdmin_TwoFactor::PREF_FORCE)
+        && $totpClearFailure['listener']->flushes === 0
+        && $totpClearFailure['session']->get('identity') === null
+        && $totpClearFailure['session']->get('totp_setup_secret') === $totpClearSecret);
+
 $deactivatedDuringSetupAdmin = authInputShapeAdmin(true, [
     \ViMbAdmin_TwoFactor::PREF_FORCE => '1',
 ]);
@@ -625,7 +695,7 @@ authInputShapeCheck('deactivation during TOTP enrolment revokes the pending logi
         && $deactivatedDuringSetup['session']->get('totp_setup_secret') === null
         && !str_contains($deactivatedDuringSetupResponse->body, 'Two-factor is now enabled.'));
 
-authInputShapeCheck('fixed assertion count', AuthInputShapeState::$checks === 22);
+authInputShapeCheck('fixed assertion count', AuthInputShapeState::$checks === 23);
 
 echo AuthInputShapeState::$failures === 0
     ? "ALL PASSED\n"
