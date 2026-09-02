@@ -18,7 +18,7 @@ if [[ -z "$profile" || "${profile##*/}" != profile ]]; then
 fi
 
 readonly fixture_dir=${profile%/profile}
-if [[ ! $fixture_dir =~ ^/tmp/vimbadmin-alias-destination\.[[:alnum:]]+$ ]] \
+if [[ ! $fixture_dir =~ ^/tmp/vimbadmin-(alias-destination|residual-stored-xss)\.[[:alnum:]]+$ ]] \
     || [[ -L $fixture_dir ]] \
     || [[ ! -d $fixture_dir || ! -w $fixture_dir ]] \
     || [[ $(stat -c '%u:%a' "$fixture_dir") != "$(id -u):700" ]]; then
