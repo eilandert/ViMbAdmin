@@ -4,7 +4,7 @@ name: Regression tests
 on:  # yamllint disable-line rule:truthy
   push:
     branches: [master]
-  pull_request_target:
+  pull_request:
     branches: [master]
   workflow_dispatch:
 
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: regression-${{ github.event.pull_request.number || github.ref }}
+  group: reg-${{ github.event_name }}-${{ github.event.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -31,13 +31,6 @@ jobs:
       - name: Assert pull-request runner isolation
         run: bash .github/scripts/assert-pr-runner-isolation.sh
 
-      - name: Set up PHP 8.4
-        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f
-        with:
-          php-version: '8.4'
-          extensions: ctype, dom, gettext, iconv, intl, mbstring, pdo, sodium
-          tools: composer:v2
-
       - name: Smarty 5 JS-template escaping (alias [+] button regression)
         run: bash tests/lint-template-escaping.sh
 
@@ -50,17 +43,15 @@ jobs:
       - name: Containerized Chrome runner hardening
         run: bash tests/test-headless-chrome-container.sh
 
-      - name: Install template dependencies
+      - name: Install template dependencies with PHP 8.4
         # The browser fixture renders Smarty only; it neither connects to MySQL
-        # nor processes images. Keep these two host-only extension exceptions
+        # nor translates messages. Keep this image-only extension exception
         # narrow so Composer still validates every other production requirement.
-        run: >-
-          composer install --no-interaction --no-progress --prefer-dist
-          --no-dev --no-scripts --ignore-platform-req=ext-gd
-          --ignore-platform-req=ext-pdo_mysql
+        run: bash .github/scripts/run-static-php-container.sh install
 
       - name: Alias destinations render as text (stored-XSS regression)
         run: >-
+          PHP_RENDERER="$GITHUB_WORKSPACE/.github/scripts/run-static-php-container.sh"
           CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
           bash tests/test-alias-destination-rendering.sh
 
@@ -269,3 +260,13 @@ jobs:
           DB_PASS: ci
           SKIP_CREATE: '1'
         run: php tests/test-schema-no-pending.php
+
+      - name: Mailbox-task enqueue is atomic under concurrent transactions
+        env:
+          DB_HOST: mariadb
+          DB_PORT: '3306'
+          DB_NAME: vimbadmin
+          DB_USER: root
+          DB_PASS: ci
+          VIMBADMIN_DESTRUCTIVE_DB_TESTS: '1'
+        run: php tests/test-mailbox-queue-atomic-mariadb.php

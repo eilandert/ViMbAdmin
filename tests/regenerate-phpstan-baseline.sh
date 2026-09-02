@@ -125,6 +125,10 @@ if [ "$mode" != dry-run ]; then
 			base='HEAD'
 		fi
 	fi
+	if [ -z "$base" ]; then
+		echo "PHPStan immutable base revision is unavailable" >&2
+		exit 2
+	fi
 
 	if [[ $base =~ ^0{40}$ ]]; then
 		base=$($git_bin hash-object -t tree /dev/null)

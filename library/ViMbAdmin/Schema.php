@@ -95,6 +95,53 @@ class ViMbAdmin_Schema
     }
 
     /**
+     * Stop before any DDL when an existing queue cannot accept the new unique
+     * open-task index. Operators must reconcile duplicates explicitly; an
+     * automatic status change could cancel work that is already running.
+     *
+     * @param string[] $sql
+     */
+    private function assertMailboxTaskOpenUniquenessCanMigrate( array $sql ): void
+    {
+        $needsIndex = false;
+        foreach( $sql as $stmt )
+        {
+            if( stripos( $stmt, 'mailbox_task_open_unique' ) !== false )
+            {
+                $needsIndex = true;
+                break;
+            }
+        }
+        if( !$needsIndex )
+            return;
+
+        $conn = $this->_em->getConnection();
+        $db = $conn->getDatabase();
+        if( $db === null || $db === '' )
+            throw new \RuntimeException(
+                'Cannot verify mailbox_task open-task uniqueness: no database is selected.' );
+
+        $haveTable = self::countValue( $conn->fetchOne(
+            'SELECT COUNT(*) FROM information_schema.TABLES'
+            . ' WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?',
+            [ $db, 'mailbox_task' ] ) );
+        if( $haveTable === 0 )
+            return;
+
+        $duplicates = self::countValue( $conn->fetchOne(
+            'SELECT COUNT(*) FROM ('
+            . ' SELECT username, type FROM mailbox_task'
+            . ' WHERE status IN (?, ?) GROUP BY username, type HAVING COUNT(*) > 1'
+            . ' ) duplicate_open_tasks',
+            \Entities\MailboxTask::OPEN_STATUSES ) );
+        if( $duplicates !== 0 )
+            throw new \RuntimeException( sprintf(
+                'Cannot add mailbox_task_open_unique: found %d duplicate open username/type group(s);'
+                . ' resolve the duplicate PENDING/RUNNING tasks before updating the schema.',
+                $duplicates ) );
+    }
+
+    /**
      * Hand-written migration statements that Doctrine's schema-tool cannot
      * generate (FKs on read-only/unassociated tables, collation alignment).
      * Returned only when not yet applied, so they integrate with the normal
@@ -184,6 +231,8 @@ class ViMbAdmin_Schema
      */
     public function apply( array $sql )
     {
+        $this->assertMailboxTaskOpenUniquenessCanMigrate( $sql );
+
         $conn = $this->_em->getConnection();
         $done = 0;
         foreach( $sql as $stmt )

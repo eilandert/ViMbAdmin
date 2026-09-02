@@ -4,7 +4,7 @@ name: Static analysis
 on:  # yamllint disable-line rule:truthy
   push:
     branches: [master]
-  pull_request_target:
+  pull_request:
     branches: [master]
   workflow_dispatch:
 
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: phpstan-${{ github.event.pull_request.number || github.ref }}
+  group: stan-${{ github.event_name }}-${{ github.event.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,6 +35,34 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
+      - name: Trust checkout for tracked-file and base operations
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git -C "$GITHUB_WORKSPACE" rev-parse --is-inside-work-tree >/dev/null
+
+      - name: Select immutable PHPStan base
+        env:
+          PHPSTAN_PULL_REQUEST_BASE_SHA: >-
+            ${{ github.event.pull_request.base.sha }}
+          PHPSTAN_PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PHPSTAN_WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          case "$GITHUB_EVENT_NAME" in
+            pull_request) base="$PHPSTAN_PULL_REQUEST_BASE_SHA" ;;
+            push) base="$PHPSTAN_PUSH_BEFORE_SHA" ;;
+            workflow_dispatch) base="$PHPSTAN_WORKFLOW_SHA" ;;
+            *)
+              echo "PHPStan immutable base revision is unavailable for" \
+                "$GITHUB_EVENT_NAME" >&2
+              exit 2
+              ;;
+          esac
+          if [ -z "$base" ]; then
+            echo "PHPStan immutable base revision is unavailable" >&2
+            exit 2
+          fi
+          printf 'PHPSTAN_BASE_SHA=%s\n' "$base" >>"$GITHUB_ENV"
+
       - name: Assert pull-request runner isolation
         run: bash .github/scripts/assert-pr-runner-isolation.sh
 
@@ -42,11 +70,10 @@ jobs:
       # moves before this job starts. Fetch that immutable object explicitly so
       # the ratchet compares against the reviewed base, not a moving ref.
       - name: Fetch PHPStan pull-request base
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request'
         env:
           PHPSTAN_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git fetch --no-tags --depth=1 origin "$PHPSTAN_BASE_SHA"
           git cat-file -e "${PHPSTAN_BASE_SHA}^{commit}"
 
@@ -72,6 +99,5 @@ jobs:
 
       - name: Run PHPStan
         env:
-          PHPSTAN_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PHPSTAN_EVENT_BEFORE: ${{ github.event.before }}
         run: bash tests/lint-phpstan-ratchet.sh

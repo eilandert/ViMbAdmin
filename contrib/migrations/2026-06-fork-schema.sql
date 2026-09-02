@@ -26,6 +26,9 @@
 --    3. dovecot_quota.username collation alignment + ON DELETE CASCADE FKs
 --       dovecot_quota / dovecot_last_login -> mailbox(username).
 --    4. archive.autoprune column.
+--    5. queue_runner lease table.
+--    6. retirement of the per-mailbox storage-location columns.
+--    7. database-atomic open mailbox-task deduplication.
 --
 --  NB: the dovecot_last_login, mailbox_task, mcp_token and archive tables (and
 --  admin.last_login) are created by the entity mappings via the schema-tool on
@@ -216,3 +219,61 @@ SET @col_mail := ( SELECT COUNT(*) FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mailbox' AND COLUMN_NAME = 'maildir' );
 SET @d := IF( @col_mail = 1, 'ALTER TABLE `mailbox` DROP COLUMN `maildir`', 'DO 0' );
 PREPARE _x FROM @d; EXECUTE _x; DEALLOCATE PREPARE _x;
+
+
+-- ---------------------------------------------------------------------
+-- 7) Database-atomic mailbox-task deduplication
+-- ---------------------------------------------------------------------
+-- A nullable generated discriminator lets MariaDB enforce at most one open
+-- task per (username, type): PENDING/RUNNING rows carry 1 and conflict, while
+-- terminal rows carry NULL and remain as unrestricted history. Adding the
+-- unique index must not partially migrate a database that already contains
+-- duplicate open tasks. Stop before either DDL statement and leave every row
+-- intact for explicit reconciliation.
+SET @have_mailbox_task := (
+    SELECT COUNT(*) FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mailbox_task'
+);
+SET @check := IF( @have_mailbox_task = 0,
+    'SET @duplicate_open_tasks = 0',
+    'SELECT COUNT(*) INTO @duplicate_open_tasks FROM (
+       SELECT `username`, `type` FROM `mailbox_task`
+       WHERE `status` IN (''PENDING'', ''RUNNING'')
+       GROUP BY `username`, `type` HAVING COUNT(*) > 1
+     ) AS duplicate_open_task_groups' );
+PREPARE _m FROM @check; EXECUTE _m; DEALLOCATE PREPARE _m;
+
+SET @ddl := IF( @duplicate_open_tasks = 0,
+    'DO 0 /* mailbox_task open-task identities are unique */',
+    'SELECT * FROM `ERROR_duplicate_open_mailbox_tasks_resolve_before_schema_update`' );
+PREPARE _m FROM @ddl; EXECUTE _m; DEALLOCATE PREPARE _m;
+
+SET @have := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME   = 'mailbox_task'
+      AND COLUMN_NAME  = 'open_task'
+);
+SET @ddl := IF( @have_mailbox_task = 0,
+    'DO 0 /* mailbox_task is created by the entity schema */',
+    IF( @have = 0,
+        -- STORED generated columns may rebuild the table; apply during a
+        -- maintenance window when mailbox_task has accumulated large history.
+        'ALTER TABLE `mailbox_task` ADD `open_task` TINYINT(1)
+           GENERATED ALWAYS AS (IF(`status` IN (''PENDING'', ''RUNNING''), 1, NULL)) STORED',
+        'DO 0 /* mailbox_task.open_task already present */' ) );
+PREPARE _m FROM @ddl; EXECUTE _m; DEALLOCATE PREPARE _m;
+
+SET @have := (
+    SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME   = 'mailbox_task'
+      AND INDEX_NAME   = 'mailbox_task_open_unique'
+);
+SET @ddl := IF( @have_mailbox_task = 0,
+    'DO 0 /* mailbox_task is created by the entity schema */',
+    IF( @have = 0,
+        'ALTER TABLE `mailbox_task` ADD UNIQUE INDEX `mailbox_task_open_unique`
+           (`username`, `type`, `open_task`)',
+        'DO 0 /* mailbox_task_open_unique already present */' ) );
+PREPARE _m FROM @ddl; EXECUTE _m; DEALLOCATE PREPARE _m;

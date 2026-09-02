@@ -39,6 +39,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: php tests/test-schema-no-pending.php
+  mailbox-queue:
+    runs-on: ubuntu-latest
+    steps:
+      - run: php tests/test-mailbox-queue-atomic-mariadb.php
 YAML
 
 cat >"$test_root/.github/workflows/static-analysis.yml" <<'YAML'
@@ -48,6 +52,37 @@ jobs:
   static:
     runs-on: ubuntu-latest
     steps:
+      - name: Trust checkout for tracked-file and base operations
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git -C "$GITHUB_WORKSPACE" rev-parse --is-inside-work-tree >/dev/null
+      - name: Select immutable PHPStan base
+        env:
+          PHPSTAN_PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PHPSTAN_PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PHPSTAN_WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          case "$GITHUB_EVENT_NAME" in
+            pull_request) base="$PHPSTAN_PULL_REQUEST_BASE_SHA" ;;
+            push) base="$PHPSTAN_PUSH_BEFORE_SHA" ;;
+            workflow_dispatch) base="$PHPSTAN_WORKFLOW_SHA" ;;
+            *)
+              echo "PHPStan immutable base revision is unavailable for $GITHUB_EVENT_NAME" >&2
+              exit 2
+              ;;
+          esac
+          if [ -z "$base" ]; then
+            echo "PHPStan immutable base revision is unavailable" >&2
+            exit 2
+          fi
+          printf 'PHPSTAN_BASE_SHA=%s\n' "$base" >>"$GITHUB_ENV"
+      - name: Fetch PHPStan pull-request base
+        if: github.event_name == 'pull_request'
+        env:
+          PHPSTAN_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: git fetch --no-tags --depth=1 origin "$PHPSTAN_BASE_SHA"
+      - name: Assert every tracked PHP test has a CI owner
+        run: bash tests/assert-regression-coverage.sh
       - run: bash tests/run-phpstan-tests.sh
 YAML
 
@@ -58,6 +93,7 @@ for test in \
   test-cache-bootstrap.php \
   test-kernel-em-factory.php \
   test-kernel-smarty-view.php \
+  test-mailbox-queue-atomic-mariadb.php \
   test-oss-message.php \
   test-schema-no-pending.php \
   test-date.php; do
@@ -94,6 +130,43 @@ run_guard
   cat "$test_root/output" >&2
   exit 1
 }
+
+cp -- "$test_root/static-analysis.yml.valid" "$test_root/.github/workflows/static-analysis.yml"
+sed -i '/git config --global --add safe.directory/d' \
+  "$test_root/.github/workflows/static-analysis.yml"
+run_guard
+[[ $guard_status -ne 0 ]] || {
+  printf 'Coverage guard accepted PHPStan tracked-file discovery without Git trust.\n' >&2
+  exit 1
+}
+grep -qF 'Static-analysis workflow must trust Git before tracked-file discovery.' \
+  "$test_root/output" || {
+  cat "$test_root/output" >&2
+  exit 1
+}
+
+for event_shape in \
+  "pull_request) base=\"\$PHPSTAN_PULL_REQUEST_BASE_SHA\"" \
+  "push) base=\"\$PHPSTAN_PUSH_BEFORE_SHA\"" \
+  "workflow_dispatch) base=\"\$PHPSTAN_WORKFLOW_SHA\""; do
+  cp -- "$test_root/static-analysis.yml.valid" \
+    "$test_root/.github/workflows/static-analysis.yml"
+  sed -i "\\|$event_shape|d" \
+    "$test_root/.github/workflows/static-analysis.yml"
+  run_guard
+  [[ $guard_status -ne 0 ]] || {
+    printf 'Coverage guard accepted PHPStan without event base shape: %s\n' \
+      "$event_shape" >&2
+    exit 1
+  }
+  grep -qF 'Static-analysis workflow is missing PHPStan base component:' \
+    "$test_root/output" || {
+    cat "$test_root/output" >&2
+    exit 1
+  }
+done
+
+cp -- "$test_root/static-analysis.yml.valid" "$test_root/.github/workflows/static-analysis.yml"
 
 # shellcheck disable=SC2016 # Match the runner's literal loop variable.
 sed -i '/^[[:space:]]*php "\$test"$/d' "$test_root/tests/run-unit-tests.sh"

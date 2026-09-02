@@ -7,7 +7,7 @@ before_sha=${3-}
 head_sha=${4:?head SHA is required}
 
 case "$event_name" in
-  pull_request_target) baseline_sha=$pr_base_sha ;;
+  pull_request) baseline_sha=$pr_base_sha ;;
   push) baseline_sha=$before_sha ;;
   schedule|workflow_dispatch)
     # Scheduled and manually dispatched scans are deliberately full scans.
