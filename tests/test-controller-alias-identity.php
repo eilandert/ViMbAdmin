@@ -328,6 +328,13 @@ $aliasController = new AliasController(
     controllerAliasIdentityContainer($aliasEntityManager, $aliasSession, $aliasView),
     new RouteMatch('alias', 'edit', AliasController::class, 'editAction', ['alid' => '7']),
 );
+$storedDestination = '"<svg/onload=document.body.dataset.pwned=1>"@example.com';
+$parsedDestinations = (new ReflectionMethod(AliasController::class, 'parseGotos'))
+    ->invoke($aliasController, $storedDestination);
+controllerAliasIdentityCheck(
+    'alias form accepts the exact RFC-valid markup-like destination',
+    $parsedDestinations === [[$storedDestination], null],
+);
 $aliasError = null;
 try {
     $aliasController->editAction();

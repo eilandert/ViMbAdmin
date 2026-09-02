@@ -17,10 +17,10 @@ concurrency:
 
 jobs:
   # ------------------------------------------------------------------ #
-  # Static regression lints — no DB, no install. Fast first signal.    #
+  # Static/browser regressions — no DB. Fast first signal.             #
   # ------------------------------------------------------------------ #
   static:
-    name: Static regression lints
+    name: Static and browser regression
     runs-on: [self-hosted, builder02, docker]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -35,6 +35,23 @@ jobs:
 
       - name: 2FA session-hygiene invariants (audit 2026-07-10 MAJOR)
         run: bash tests/lint-2fa-session-hygiene.sh
+
+      - name: Containerized Chrome runner hardening
+        run: bash tests/test-headless-chrome-container.sh
+
+      - name: Install template dependencies
+        # The browser fixture renders Smarty only; it neither connects to MySQL
+        # nor processes images. Keep these two host-only extension exceptions
+        # narrow so Composer still validates every other production requirement.
+        run: >-
+          composer install --no-interaction --no-progress --prefer-dist
+          --no-dev --no-scripts --ignore-platform-req=ext-gd
+          --ignore-platform-req=ext-pdo_mysql
+
+      - name: Alias destinations render as text (stored-XSS regression)
+        run: >-
+          CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
+          bash tests/test-alias-destination-rendering.sh
 
   # ------------------------------------------------------------------ #
   # Framework-free service unit tests (Phase 1 of docs/ZF1-REMOVAL.md).#

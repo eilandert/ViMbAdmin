@@ -119,6 +119,20 @@ $json = DataTableResult::json($q, 100, 42, $rows);
 $back = dataTableEnvelope(json_decode($json, true));
 dataTableCheck('json round-trips',       $back['iTotalDisplayRecords'] === 42 && $back['aaData'][1]['username'] === 'd@e.f');
 
+$storedDestination = '"<svg/onload=document.body.dataset.pwned=1>"@example.com';
+$aliasRows = [[
+    'id' => 41,
+    'address' => 'alias@example.com',
+    'goto' => $storedDestination,
+    'active' => true,
+    'domain' => 'example.com',
+]];
+$aliasBack = dataTableEnvelope(json_decode(DataTableResult::json($q, 1, 1, $aliasRows), true));
+dataTableCheck(
+    'alias list JSON returns the exact markup-like destination',
+    ($aliasBack['aaData'][0]['goto'] ?? null) === $storedDestination,
+);
+
 echo DataTableTestState::$failures === 0
     ? "\nALL PASSED\n"
     : "\n" . DataTableTestState::$failures . " FAILED\n";
