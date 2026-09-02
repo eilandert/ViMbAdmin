@@ -81,6 +81,34 @@ expect_rejected 'continued quoted floating Semgrep Registry input' \
   'Security workflow must not use floating Semgrep Registry inputs.'
 
 cp -- .github/workflows/security.yml "$fixture"
+awk '
+  /--config \.semgrep-rules\/php\.yml/ {
+    print "            --config p\\"
+    print "          /php \\"
+    next
+  }
+  { print }
+' "$fixture" > "$fixture.tmp"
+mv -- "$fixture.tmp" "$fixture"
+expect_actionlint_valid_rejected 'escaped-newline floating Semgrep Registry input' \
+  'Security workflow must not use floating Semgrep Registry inputs.'
+
+cp -- .github/workflows/security.yml "$fixture"
+awk '
+  /--config \.semgrep-rules\/php\.yml/ {
+    print "            --config \"p\"\\"
+    print "          \"/php\" \\"
+    next
+  }
+  { print }
+' "$fixture" > "$fixture.tmp"
+mv -- "$fixture.tmp" "$fixture"
+sed -i '/          semgrep scan/i\          # shellcheck disable=SC2140' \
+  "$fixture"
+expect_actionlint_valid_rejected 'quoted-concatenation Registry input' \
+  'Security workflow must not use floating Semgrep Registry inputs.'
+
+cp -- .github/workflows/security.yml "$fixture"
 sed -i '/fetch-semgrep-rules.sh/d' "$fixture"
 expect_rejected 'missing Semgrep content-lock fetch' \
   'Security workflow is missing baseline policy component: fetch-semgrep-rules.sh'

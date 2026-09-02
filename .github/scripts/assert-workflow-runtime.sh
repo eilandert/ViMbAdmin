@@ -165,10 +165,21 @@ if ! awk '
   exit 1
 fi
 
-# Registry aliases are floating inputs. Reject their operand tokens regardless
-# of shell quoting, --config= spelling, or YAML block-line continuation.
-if grep -qE -- '(^|[^[:alnum:]_.-])(p|r)/[[:alnum:]_.-]+' \
-  "$security_workflow" "$semgrep_finding_contract"; then
+# Registry aliases are floating inputs. Normalize shell continuations and
+# adjacent quotes before looking for their operand tokens.
+if awk '
+  {
+    line = $0
+    while (sub(/\\$/, "", line)) {
+      if ((getline continuation) <= 0) break
+      sub(/^[[:space:]]*/, "", continuation)
+      line = line continuation
+    }
+    gsub(/["'\''"]/, "", line)
+    print line
+  }
+' "$security_workflow" "$semgrep_finding_contract" \
+  | grep -qE -- '(^|[^[:alnum:]_.-])(p|r)/[[:alnum:]_.-]+'; then
   printf 'Security workflow must not use floating Semgrep Registry inputs.\n' >&2
   exit 1
 fi
