@@ -25,6 +25,9 @@
  */
 class ViMbAdmin_BruteForce
 {
+    private const LOCK_TIMEOUT_NANOSECONDS = 1_000_000_000;
+    private const LOCK_RETRY_MICROSECONDS = 1000;
+
     /** @return array<string,mixed> */
     private static function stringMap( mixed $value, string $name ): array
     {
@@ -134,6 +137,7 @@ class ViMbAdmin_BruteForce
      * locked out. Call early in the login flow (_preLogin).
      *
      * @throws never returns when locked (sends 429 + exits)
+     * @throws RuntimeException when state cannot be read or locked
      * @param mixed $request
      * @return void
      */
@@ -146,7 +150,10 @@ class ViMbAdmin_BruteForce
         if( $this->_isWhitelisted( $ip ) )
             return;
 
-        $rec = $this->_load( $ip );
+        $rec = $this->_withLock(
+            function() use ( $ip ): array { return $this->_load( $ip ); },
+            false
+        );
         if( $rec['locked_until'] > time() )
         {
             header( 'HTTP/1.1 429 Too Many Requests' );
@@ -164,6 +171,7 @@ class ViMbAdmin_BruteForce
      *
      * @param mixed $username
      * @param mixed $request
+     * @throws RuntimeException when state cannot be persisted or locked
      * @return void
      */
     public function record( $username, $request )
@@ -175,22 +183,24 @@ class ViMbAdmin_BruteForce
         if( $this->_isWhitelisted( $ip ) )
             return;
 
-        $rec = $this->_load( $ip );
+        $this->_withLock( function() use ( $ip ): void {
+            $rec = $this->_load( $ip );
 
-        // reset the counter if the window has elapsed since the first hit
-        if( $rec['first'] === 0 || ( time() - $rec['first'] ) > $this->_window )
-        {
-            $rec['first']    = time();
-            $rec['attempts'] = 0;
-        }
+            // reset the counter if the window has elapsed since the first hit
+            if( $rec['first'] === 0 || ( time() - $rec['first'] ) > $this->_window )
+            {
+                $rec['first']    = time();
+                $rec['attempts'] = 0;
+            }
 
-        $rec['attempts']++;
-        $rec['last'] = time();
+            $rec['attempts']++;
+            $rec['last'] = time();
 
-        if( $rec['attempts'] >= $this->_max )
-            $rec['locked_until'] = time() + $this->_lockout;
+            if( $rec['attempts'] >= $this->_max )
+                $rec['locked_until'] = time() + $this->_lockout;
 
-        $this->_save( $ip, $rec );
+            $this->_save( $ip, $rec );
+        } );
     }
 
     /**
@@ -198,19 +208,26 @@ class ViMbAdmin_BruteForce
      *
      * @param mixed $username
      * @param mixed $request
+     * @throws RuntimeException when state cannot be locked
      * @return void
      */
     public function clear( $username, $request )
     {
         if( !$this->_enabled )
             return;
-        $this->_delete( $this->_ip( $request ) );
+        $ip = $this->_ip( $request );
+        if( $this->_isWhitelisted( $ip ) )
+            return;
+        $this->_withLock( function() use ( $ip ): void {
+            $this->_delete( $ip );
+        } );
     }
 
     /**
-     * Is this source currently locked? (no side effects)
+     * Is this source currently locked? (does not change attempt state)
      *
      * @param mixed $request
+     * @throws RuntimeException when state cannot be read or locked
      * @return bool
      */
     public function isLocked( $request )
@@ -220,7 +237,11 @@ class ViMbAdmin_BruteForce
         $ip = $this->_ip( $request );
         if( $this->_isWhitelisted( $ip ) )
             return false;
-        return $this->_load( $ip )['locked_until'] > time();
+        $rec = $this->_withLock(
+            function() use ( $ip ): array { return $this->_load( $ip ); },
+            false
+        );
+        return $rec['locked_until'] > time();
     }
 
     // ---- storage (one JSON file per IP under the state dir) ------------
@@ -241,8 +262,47 @@ class ViMbAdmin_BruteForce
     {
         if( !is_string( $this->_statedir ) )
             throw new LogicException( 'bruteforce state directory is not configured' );
-        if( !is_dir( $this->_statedir ) )
-            @mkdir( $this->_statedir, 0750, true );
+        if( !is_dir( $this->_statedir )
+            && ( !@mkdir( $this->_statedir, 0750, true ) && !is_dir( $this->_statedir ) ) )
+            throw new RuntimeException( 'bruteforce state persistence unavailable' );
+    }
+
+    /**
+     * Serialize state mutations on one stable inode. The JSON files are
+     * atomically replaced, so locking them directly would leave a waiter on a
+     * stale pre-rename inode. One directory lock also keeps attacker-selected
+     * source addresses from creating an unbounded set of lock sidecars.
+     *
+     * @template T
+     * @param callable():T $operation
+     * @param bool $exclusive
+     * @return T
+     */
+    private function _withLock( callable $operation, $exclusive = true )
+    {
+        $this->_ensureDir();
+        $lockFile = $this->_statedir . '/.lock';
+        $handle = @fopen( $lockFile, 'c' );
+        if( $handle === false )
+            throw new RuntimeException( 'bruteforce state persistence unavailable' );
+
+        try
+        {
+            $mode = ( $exclusive ? LOCK_EX : LOCK_SH ) | LOCK_NB;
+            $deadline = hrtime( true ) + self::LOCK_TIMEOUT_NANOSECONDS;
+            while( !@flock( $handle, $mode ) )
+            {
+                if( hrtime( true ) >= $deadline )
+                    throw new RuntimeException( 'bruteforce state persistence unavailable' );
+                usleep( self::LOCK_RETRY_MICROSECONDS );
+            }
+            return $operation();
+        }
+        finally
+        {
+            @flock( $handle, LOCK_UN );
+            fclose( $handle );
+        }
     }
 
     /**
@@ -254,10 +314,12 @@ class ViMbAdmin_BruteForce
         $default = [ 'attempts' => 0, 'first' => 0, 'last' => 0, 'locked_until' => 0 ];
 
         $f = $this->_file( $ip );
-        if( is_readable( $f ) )
+        if( file_exists( $f ) )
         {
             $json = @file_get_contents( $f );
-            $d = is_string( $json ) ? json_decode( $json, true ) : null;
+            if( !is_string( $json ) )
+                throw new RuntimeException( 'bruteforce state persistence unavailable' );
+            $d = json_decode( $json, true );
             if( is_array( $d ) ) {
                 foreach( $default as $key => $_zero ) {
                     if( !isset( $d[$key] ) || !is_int( $d[$key] ) || $d[$key] < 0 ) {
@@ -285,8 +347,22 @@ class ViMbAdmin_BruteForce
         $this->_ensureDir();
         $f   = $this->_file( $ip );
         $tmp = $f . '.' . getmypid() . '.tmp';
-        if( @file_put_contents( $tmp, json_encode( $rec ), LOCK_EX ) !== false )
-            @rename( $tmp, $f );   // atomic replace
+        $encoded = json_encode( $rec );
+        if( !is_string( $encoded ) )
+            throw new RuntimeException( 'bruteforce state persistence unavailable' );
+
+        try
+        {
+            if( @file_put_contents( $tmp, $encoded, LOCK_EX ) !== strlen( $encoded ) )
+                throw new RuntimeException( 'bruteforce state persistence unavailable' );
+            if( !@rename( $tmp, $f ) )
+                throw new RuntimeException( 'bruteforce state persistence unavailable' );
+        }
+        finally
+        {
+            if( file_exists( $tmp ) )
+                @unlink( $tmp );
+        }
     }
 
     /**
@@ -295,7 +371,9 @@ class ViMbAdmin_BruteForce
      */
     private function _delete( $ip )
     {
-        @unlink( $this->_file( $ip ) );
+        $file = $this->_file( $ip );
+        if( file_exists( $file ) && !@unlink( $file ) )
+            error_log( 'ViMbAdmin_BruteForce: could not clear state file ' . $file );
     }
 
     // ---- helpers -------------------------------------------------------

@@ -78,10 +78,37 @@ final class AuthInputShapeAdmin extends \Entities\Admin
     /** @var array<string,string> */
     private array $testPreferences = [];
     private bool $deactivateDuringTwoFactorEnable = false;
+    private ?string $breakBruteForceStateOnPasswordRead = null;
 
     public function deactivateDuringTwoFactorEnable(): void
     {
         $this->deactivateDuringTwoFactorEnable = true;
+    }
+
+    public function breakBruteForceStateOnPasswordRead(string $stateDirectory): void
+    {
+        $this->breakBruteForceStateOnPasswordRead = $stateDirectory;
+    }
+
+    public function getPassword()
+    {
+        $password = parent::getPassword();
+        $stateDirectory = $this->breakBruteForceStateOnPasswordRead;
+        if ($stateDirectory !== null) {
+            $this->breakBruteForceStateOnPasswordRead = null;
+            foreach (glob($stateDirectory . '/*') ?: [] as $stateFile) {
+                unlink($stateFile);
+            }
+            if (is_file($stateDirectory . '/.lock')) {
+                unlink($stateDirectory . '/.lock');
+            }
+            if (!rmdir($stateDirectory)
+                || file_put_contents($stateDirectory, 'not a directory') === false) {
+                throw new RuntimeException('could not create late brute-force persistence fault');
+            }
+        }
+
+        return $password;
     }
 
     public function getPreference($attribute, $index = 0, $includeExpired = false)
@@ -347,6 +374,68 @@ authInputShapeCheck('inactive password login grants no identity or second-factor
         && $inactive['session']->get('totp_pending_admin_id') === null
         && $inactive['listener']->flushes === 0);
 
+$persistenceParent = sys_get_temp_dir() . '/vimbadmin-bruteforce-denied-' . bin2hex(random_bytes(8));
+if (file_put_contents($persistenceParent, 'not a directory') === false) {
+    throw new RuntimeException('could not create brute-force persistence fault fixture');
+}
+$persistenceState = $persistenceParent . '/state';
+$persistenceFault = authInputShapeController(
+    null,
+    authInputShapeAdmin(true),
+    'login',
+    authInputShapeLoginOptions($persistenceState, [
+        'bruteforce' => [
+            'enabled' => '1',
+            'max_attempts' => '2',
+            'statedir' => $persistenceState,
+        ],
+    ]),
+);
+$_POST['password'] = AUTH_INPUT_TEST_CREDENTIAL;
+$persistenceException = null;
+try {
+    $persistenceFault['controller']->loginAction();
+} catch (RuntimeException $exception) {
+    $persistenceException = $exception;
+} finally {
+    unset($_POST['password']);
+    if (is_file($persistenceParent)) {
+        unlink($persistenceParent);
+    }
+}
+authInputShapeCheck('brute-force persistence failure denies authentication before credential lookup',
+    $persistenceException?->getMessage() === 'bruteforce state persistence unavailable'
+        && $persistenceFault['session']->get('identity') === null
+        && $persistenceFault['repository']->findOneByCalls === 0);
+
+$latePersistenceState = sys_get_temp_dir() . '/vimbadmin-bruteforce-late-denied-' . bin2hex(random_bytes(8));
+$latePersistenceAdmin = authInputShapeAdmin(true);
+$latePersistenceAdmin->breakBruteForceStateOnPasswordRead($latePersistenceState);
+$latePersistenceFault = authInputShapeController(
+    null,
+    $latePersistenceAdmin,
+    'login',
+    authInputShapeLoginOptions($latePersistenceState),
+);
+$_POST['password'] = AUTH_INPUT_TEST_CREDENTIAL;
+$latePersistenceException = null;
+try {
+    $latePersistenceFault['controller']->loginAction();
+} catch (RuntimeException $exception) {
+    $latePersistenceException = $exception;
+} finally {
+    unset($_POST['password']);
+    if (is_file($latePersistenceState)) {
+        unlink($latePersistenceState);
+    }
+}
+authInputShapeCheck('late brute-force persistence failure denies session establishment',
+    $latePersistenceException?->getMessage() === 'bruteforce state persistence unavailable'
+        && $latePersistenceFault['repository']->findOneByCalls === 1
+        && $latePersistenceFault['session']->get('identity') === null
+        && $latePersistenceFault['session']->get('logged_in_via') === null
+        && $latePersistenceFault['listener']->flushes === 0);
+
 $enabledInactiveAdmin = authInputShapeAdmin(false, [
     \ViMbAdmin_TwoFactor::PREF_SECRET => 'encrypted-secret',
 ]);
@@ -515,6 +604,7 @@ $deactivatedDuringSetup = authInputShapeController(
     41,
     $deactivatedDuringSetupAdmin,
     'totp-setup',
+    ['securitysalt' => str_repeat('s', 64), 'bruteforce' => ['enabled' => '0']],
 );
 $setupSecret = 'JBSWY3DPEHPK3PXP';
 $deactivatedDuringSetup['session']->set('totp_setup_secret', $setupSecret);
@@ -535,7 +625,7 @@ authInputShapeCheck('deactivation during TOTP enrolment revokes the pending logi
         && $deactivatedDuringSetup['session']->get('totp_setup_secret') === null
         && !str_contains($deactivatedDuringSetupResponse->body, 'Two-factor is now enabled.'));
 
-authInputShapeCheck('fixed assertion count', AuthInputShapeState::$checks === 20);
+authInputShapeCheck('fixed assertion count', AuthInputShapeState::$checks === 22);
 
 echo AuthInputShapeState::$failures === 0
     ? "ALL PASSED\n"

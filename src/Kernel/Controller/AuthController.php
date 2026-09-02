@@ -950,6 +950,12 @@ final class AuthController extends AbstractController
             return $this->redirect('auth/totp-setup');
         }
 
+        // Clearing the failed-attempt state can still fail on a late storage
+        // or lock fault. Keep that boundary before session regeneration and
+        // identity establishment so an error cannot leave an authenticated
+        // session behind.
+        $bf->clear($admin->getUsername(), null);
+
         // Session-fixation defence: fresh id on successful authentication.
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_regenerate_id(true);
@@ -962,7 +968,6 @@ final class AuthController extends AbstractController
 
         $session->set('logged_in_via', 'auth');
 
-        $bf->clear($admin->getUsername(), null);
         $admin->setLastLogin(new \DateTime());
         $this->em()->flush();
 
