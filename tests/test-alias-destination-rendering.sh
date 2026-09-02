@@ -18,7 +18,13 @@ trap 'rm -rf "$tmp"' EXIT
 
 cp public/js/min.bundle-v16.js "$tmp/min.bundle-v16.js"
 bundle_uri="file://$tmp/min.bundle-v16.js"
-php tests/render-alias-list-fixture.php "$tmp/regression.html" "$bundle_uri"
+if [[ -n ${PHP_RENDERER:-} ]]; then
+    PHP_CONTAINER_WRITE_DIR=$tmp \
+        "$PHP_RENDERER" tests/render-alias-list-fixture.php \
+        "$tmp/regression.html" "$bundle_uri"
+else
+    php tests/render-alias-list-fixture.php "$tmp/regression.html" "$bundle_uri"
+fi
 
 # Execute the production formatter rather than a test copy. The surrounding
 # Smarty template is not JavaScript until rendered, so select its standalone
