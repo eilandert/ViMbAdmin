@@ -70,6 +70,45 @@ if grep -HnE '\|\|[[:space:]]*true' "$security_workflow"; then
   exit 1
 fi
 
+if ! awk '
+  function indent(line, leading) {
+    leading = line
+    sub(/[^ ].*$/, "", leading)
+    return length(leading)
+  }
+  $0 ~ /^  semgrep:[[:space:]]*$/ {
+    in_semgrep = 1
+    next
+  }
+  in_semgrep && $0 !~ /^[[:space:]]*$/ && indent($0) <= 2 {
+    in_semgrep = 0
+  }
+  !in_semgrep { next }
+  $0 ~ /^    defaults:[[:space:]]*$/ {
+    in_defaults = 1
+    next
+  }
+  in_defaults && $0 !~ /^[[:space:]]*$/ && indent($0) <= 4 {
+    in_defaults = 0
+    in_run = 0
+  }
+  !in_defaults { next }
+  $0 ~ /^      run:[[:space:]]*$/ {
+    in_run = 1
+    next
+  }
+  in_run && $0 !~ /^[[:space:]]*$/ && indent($0) <= 6 {
+    in_run = 0
+  }
+  in_run && $0 ~ /^        shell:[[:space:]]*bash[[:space:]]*$/ {
+    found = 1
+  }
+  END { exit found ? 0 : 1 }
+' "$security_workflow"; then
+  printf 'Security Semgrep workflow must run every inline command with Bash.\n' >&2
+  exit 1
+fi
+
 for required in \
   'fetch-depth: 0' \
   'select-semgrep-baseline.sh' \
