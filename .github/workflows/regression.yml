@@ -31,13 +31,6 @@ jobs:
       - name: Assert pull-request runner isolation
         run: bash .github/scripts/assert-pr-runner-isolation.sh
 
-      - name: Set up PHP 8.4
-        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f
-        with:
-          php-version: '8.4'
-          extensions: ctype, dom, gettext, iconv, intl, mbstring, pdo, sodium
-          tools: composer:v2
-
       - name: Smarty 5 JS-template escaping (alias [+] button regression)
         run: bash tests/lint-template-escaping.sh
 
@@ -50,17 +43,15 @@ jobs:
       - name: Containerized Chrome runner hardening
         run: bash tests/test-headless-chrome-container.sh
 
-      - name: Install template dependencies
+      - name: Install template dependencies with PHP 8.4
         # The browser fixture renders Smarty only; it neither connects to MySQL
-        # nor processes images. Keep these two host-only extension exceptions
+        # nor translates messages. Keep this image-only extension exception
         # narrow so Composer still validates every other production requirement.
-        run: >-
-          composer install --no-interaction --no-progress --prefer-dist
-          --no-dev --no-scripts --ignore-platform-req=ext-gd
-          --ignore-platform-req=ext-pdo_mysql
+        run: bash .github/scripts/run-static-php-container.sh install
 
       - name: Alias destinations render as text (stored-XSS regression)
         run: >-
+          PHP_RENDERER="$GITHUB_WORKSPACE/.github/scripts/run-static-php-container.sh"
           CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
           bash tests/test-alias-destination-rendering.sh
 

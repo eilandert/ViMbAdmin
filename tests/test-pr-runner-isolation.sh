@@ -77,8 +77,16 @@ grep -qF 'must declare the ordinary pull_request event' "$fixture_root/output"
 cp -- .github/workflows/ci.yml "$fixture_root/workflows/ci.yml"
 sed -i '0,/\${{ github.event_name }}-/s///' \
 	"$fixture_root/workflows/ci.yml"
+sed -i '/^  cancel-in-progress: true$/a\
+\
+env:\
+  UNRELATED_EVENT: ${{ github.event_name }}' \
+	"$fixture_root/workflows/ci.yml"
+if command -v actionlint >/dev/null; then
+	actionlint "$fixture_root/workflows/ci.yml"
+fi
 if run_contract pull_request github-hosted; then
-	printf 'Isolation guard accepted a cross-event concurrency collision.\n' >&2
+	printf 'Isolation guard accepted an event-agnostic concurrency group masked by an unrelated expression.\n' >&2
 	exit 1
 fi
 grep -qF 'must isolate concurrency groups by event name' "$fixture_root/output"

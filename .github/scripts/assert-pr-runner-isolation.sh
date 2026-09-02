@@ -26,7 +26,25 @@ for workflow in "${workflows[@]}"; do
 		printf '%s must declare the ordinary pull_request event.\n' "$workflow" >&2
 		exit 1
 	fi
-	if ! grep -qE '\$\{\{[[:space:]]+github\.event_name[[:space:]]+\}\}' "$workflow"; then
+	if ! awk '
+      $0 == "concurrency:" {
+        blocks++
+        in_concurrency = 1
+        next
+      }
+      in_concurrency && $0 ~ /^[^[:space:]#]/ {
+        in_concurrency = 0
+      }
+      in_concurrency && $0 ~ /^  group:/ {
+        groups++
+        if ($0 ~ /^  group:[^#]*\$\{\{[[:space:]]*github\.event_name[[:space:]]*\}\}/) {
+          isolated_groups++
+        }
+      }
+      END {
+        exit (blocks == 1 && groups == 1 && isolated_groups == 1) ? 0 : 1
+      }
+    ' "$workflow"; then
 		printf '%s must isolate concurrency groups by event name.\n' "$workflow" >&2
 		exit 1
 	fi
