@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use ViMbAdmin\Kernel\DataTable\DataTableQuery;
@@ -1593,10 +1594,10 @@ final class MailboxController extends AbstractController
         }
     }
 
-    protected function em(): \Doctrine\ORM\EntityManager
+    protected function em(): EntityManagerInterface
     {
         $em = parent::em();
-        if (!$em instanceof \Doctrine\ORM\EntityManager) {
+        if (!$em instanceof EntityManagerInterface) {
             throw new \LogicException('Doctrine entity manager resource has an invalid type');
         }
         return $em;

@@ -35,8 +35,12 @@ final class FormPluginHost
         // A plugin constructor may read getOptions() off the object it is handed
         // (it never keeps a reference), so pass a minimal options carrier.
         $ctorContext = new class ($this->options) {
+            /** @var array<string,mixed> */
+            private array $options;
+
             /** @param array<string,mixed> $options */
-            public function __construct(private array $options) {}
+            public function __construct(array $options) { $this->options = $options; }
+
             /** @return array<string,mixed> */
             public function getOptions(): array { return $this->options; }
         };
@@ -49,7 +53,8 @@ final class FormPluginHost
                 continue;
             }
 
-            require_once $file;
+            $pluginPath = rtrim($pluginsDir, '/') . '/' . $name;
+            require_once $pluginPath . '.php';
             $class = 'ViMbAdminPlugin_' . $name;
             if (class_exists($class)) {
                 $plugin = new $class($ctorContext);

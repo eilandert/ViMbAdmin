@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
+use Doctrine\ORM\EntityManagerInterface;
 use ViMbAdmin\Kernel\DataTable\DataTableQuery;
 use ViMbAdmin\Kernel\DataTable\DataTableResult;
 use ViMbAdmin\Kernel\Flash\FlashMessages;
@@ -710,10 +711,10 @@ final class AliasController extends AbstractController
         return $domain instanceof \Entities\Domain ? $domain : null;
     }
 
-    protected function em(): \Doctrine\ORM\EntityManager
+    protected function em(): EntityManagerInterface
     {
         $em = parent::em();
-        if (!$em instanceof \Doctrine\ORM\EntityManager) {
+        if (!$em instanceof EntityManagerInterface) {
             throw new \LogicException('Doctrine entity manager resource has an invalid type');
         }
         return $em;
