@@ -95,6 +95,11 @@ sed -i '/      - name: Test Semgrep baseline event policy/a\        "shell": /bi
 expect_actionlint_valid_rejected 'quoted non-Bash Semgrep step override' \
   'Security Semgrep steps may only override their shell with Bash.'
 
+cp -- .github/workflows/security.yml "$fixture"
+sed -i 's/^    steps:$/    "steps":/' "$fixture"
+expect_actionlint_valid_rejected 'quoted Semgrep steps key' \
+  'Security Semgrep steps may only override their shell with Bash.'
+
 stub_path=$fixture_root/bin
 finding_tmp=$fixture_root/finding-tmp
 mv_failure_tmp=$fixture_root/mv-failure-tmp
@@ -122,10 +127,13 @@ SH
 cat > "$stub_path/mv" <<'SH'
 #!/bin/sh
 if [ "${VIMBADMIN_MV_FAIL:-0}" = 1 ]; then
+  shift
   printf '%s\n' "$1" >> "$VIMBADMIN_MV_LOG"
   exit 91
 fi
-exec /usr/bin/mv "$@"
+PATH=/usr/bin:/bin
+export PATH
+exec mv "$@"
 SH
 chmod +x "$stub_path/semgrep" "$stub_path/mv"
 
@@ -169,10 +177,15 @@ if run_finding_contract "$mv_failure_tmp" 1 1 1; then
   exit 1
 fi
 [[ $(wc -l < "$fixture_root/mv.log") -eq 1 ]] || {
-  printf 'The injected mv failure was not reached exactly once.\n' >&2
+  printf 'The injected mv failure did not identify exactly one fixture seed.\n' >&2
   exit 1
 }
 while IFS= read -r seed; do
+  [[ $seed == "$mv_failure_tmp"/semgrep-negative.* ]] || {
+    printf 'The injected mv failure did not identify a fixture seed: %s\n' \
+      "$seed" >&2
+    exit 1
+  }
   [[ ! -e $seed ]] || {
     printf 'Semgrep fixture seed survived an mv failure: %s\n' "$seed" >&2
     exit 1

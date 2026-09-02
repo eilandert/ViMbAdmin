@@ -78,6 +78,7 @@ if ! awk '
   }
   $0 ~ /^  semgrep:[[:space:]]*$/ {
     in_semgrep = 1
+    saw_semgrep = 1
     next
   }
   in_semgrep && $0 !~ /^[[:space:]]*$/ && indent($0) <= 2 {
@@ -147,6 +148,7 @@ if ! awk '
   !in_semgrep { next }
   $0 ~ /^    steps:[[:space:]]*$/ {
     in_steps = 1
+    saw_steps = 1
     next
   }
   in_steps && $0 !~ /^[[:space:]]*$/ && indent($0) <= 4 {
@@ -155,7 +157,7 @@ if ! awk '
   in_steps && indent($0) == 8 && is_non_bash_shell($0) {
     failed = 1
   }
-  END { exit failed ? 1 : 0 }
+  END { exit (failed || !saw_semgrep || !saw_steps) ? 1 : 0 }
 ' "$security_workflow"; then
   printf 'Security Semgrep steps may only override their shell with Bash.\n' >&2
   exit 1
