@@ -77,6 +77,12 @@ final class AuthInputShapeAdmin extends \Entities\Admin
 {
     /** @var array<string,string> */
     private array $testPreferences = [];
+    private bool $deactivateDuringTwoFactorEnable = false;
+
+    public function deactivateDuringTwoFactorEnable(): void
+    {
+        $this->deactivateDuringTwoFactorEnable = true;
+    }
 
     public function getPreference($attribute, $index = 0, $includeExpired = false)
     {
@@ -86,6 +92,9 @@ final class AuthInputShapeAdmin extends \Entities\Admin
     public function setPreference($attribute, $value, $operator = '=', $expires = 0, $index = 0)
     {
         $this->testPreferences[$attribute] = $value;
+        if ($this->deactivateDuringTwoFactorEnable && $attribute === \ViMbAdmin_TwoFactor::PREF_BACKUP) {
+            $this->setActive(false);
+        }
         return $this;
     }
 
@@ -498,7 +507,35 @@ foreach (['totp', 'totp-setup'] as $pendingAction) {
             ]]);
 }
 
-authInputShapeCheck('fixed assertion count', AuthInputShapeState::$checks === 19);
+$deactivatedDuringSetupAdmin = authInputShapeAdmin(true, [
+    \ViMbAdmin_TwoFactor::PREF_FORCE => '1',
+]);
+$deactivatedDuringSetupAdmin->deactivateDuringTwoFactorEnable();
+$deactivatedDuringSetup = authInputShapeController(
+    41,
+    $deactivatedDuringSetupAdmin,
+    'totp-setup',
+);
+$setupSecret = 'JBSWY3DPEHPK3PXP';
+$deactivatedDuringSetup['session']->set('totp_setup_secret', $setupSecret);
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_POST = [
+    'code' => (new \RobThree\Auth\TwoFactorAuth(
+        new \RobThree\Auth\Providers\Qr\BaconQrCodeProvider(2, '#ffffff', '#000000', 'svg'),
+        'ViMbAdmin',
+    ))->getCode($setupSecret),
+];
+$deactivatedDuringSetupResponse = $deactivatedDuringSetup['controller']->totpSetupAction();
+authInputShapeCheck('deactivation during TOTP enrolment revokes the pending login without rendering backup codes',
+    $deactivatedDuringSetupResponse->status === 302
+        && ($deactivatedDuringSetupResponse->headers['Location'] ?? null) === '/auth/login'
+        && $deactivatedDuringSetup['session']->get('identity') === null
+        && $deactivatedDuringSetup['session']->get('totp_pending_admin_id') === null
+        && $deactivatedDuringSetup['session']->get('totp_pending_via') === null
+        && $deactivatedDuringSetup['session']->get('totp_setup_secret') === null
+        && !str_contains($deactivatedDuringSetupResponse->body, 'Two-factor is now enabled.'));
+
+authInputShapeCheck('fixed assertion count', AuthInputShapeState::$checks === 20);
 
 echo AuthInputShapeState::$failures === 0
     ? "ALL PASSED\n"

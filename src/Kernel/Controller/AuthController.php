@@ -508,6 +508,13 @@ final class AuthController extends AbstractController
                 $session->remove('totp_setup_secret');
 
                 $this->bruteForce($options)->clear($admin->getUsername(), null);
+                // The enable/flush boundary may observe a concurrent
+                // deactivation.  In that case grantPendingLogin revokes the
+                // pending session and its redirect must win over this view.
+                if (!$this->pendingAdminIsStillActive($admin)) {
+                    return $this->grantPendingLogin($admin, $session);
+                }
+
                 // Grant the identity, but render the one-time backup codes first.
                 $this->grantPendingLogin($admin, $session);
 
@@ -858,6 +865,12 @@ final class AuthController extends AbstractController
     private static function adminIsActive(\Entities\Admin $admin): bool
     {
         return $admin->getActive() === true;
+    }
+
+    /** The entity may have changed while a successful TOTP enrolment ran. */
+    private function pendingAdminIsStillActive(\Entities\Admin $admin): bool
+    {
+        return self::adminIsActive($admin);
     }
 
     /** The TOTP code form. CSRF-guarded (also gated by the pending-session id). */
