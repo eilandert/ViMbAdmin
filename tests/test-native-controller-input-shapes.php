@@ -134,7 +134,10 @@ $orderSession = new NativeControllerOrderSession([
     'csrfToken' => 'native-controller-test-token',
 ]);
 $orderResources = new NativeControllerOrderResources($orderSession);
-$orderAdmin = (new Entities\Admin())->setUsername('admin@example.test')->setSuper(true);
+$orderAdmin = (new Entities\Admin())
+    ->setUsername('admin@example.test')
+    ->setSuper(true)
+    ->setActive(true);
 $orderController = new MaintenanceController(
     new Container($orderResources, new Auth($orderSession, static fn(int $id): Entities\Admin => $orderAdmin)),
     new RouteMatch('maintenance', 'backup-orphans', MaintenanceController::class, 'backupOrphansAction', []),

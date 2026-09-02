@@ -88,6 +88,9 @@ By layer. Stock upstream had **none** of the application-layer items below.
 - **Passwords.** Admin passwords bcrypt-hashed, compared in **constant time**
   (`hash_equals`). Mailbox passwords hashed **natively in PHP** in a
   Dovecot-accepted scheme — no `doveadm pw` shell-out.
+- **Administrator deactivation is immediate.** Inactive administrators cannot
+  start or finish password/2FA login, and an existing identity is revoked on
+  its next request.
 - **Session-fixation defence** — session id regenerated on every successful
   login (and again after the 2FA step).
 - **Brute-force protection** — per-source-IP attempt counter with lockout

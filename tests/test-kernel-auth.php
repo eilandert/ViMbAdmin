@@ -23,13 +23,14 @@ final class ArraySession implements SessionStorage
     public function remove(string $key): void { unset($this->data[$key]); }
 }
 
-/** Stand-in for \Entities\Admin (only getSuper()/getId() are used). */
+/** Stand-in for the active administrator identity contract. */
 final class AdminFake
 {
-    public function __construct(private int $id, private bool $super) {}
+    public function __construct(private int $id, private bool $super, private bool $active = true) {}
     public function getId(): int { return $this->id; }
     public function getUsername(): string { return "u{$this->id}@x"; }
     public function getSuper(): bool { return $this->super; }
+    public function getActive(): bool { return $this->active; }
 }
 
 final class NullUsernameAdminFake
@@ -37,6 +38,7 @@ final class NullUsernameAdminFake
     public function getId(): int { return 13; }
     public function getUsername(): null { return null; }
     public function getSuper(): bool { return false; }
+    public function getActive(): bool { return true; }
 }
 
 final class EmptyUsernameAdminFake
@@ -44,6 +46,7 @@ final class EmptyUsernameAdminFake
     public function getId(): int { return 14; }
     public function getUsername(): string { return ''; }
     public function getSuper(): bool { return false; }
+    public function getActive(): bool { return true; }
 }
 
 final class TestKernelAuthHarnessState
@@ -66,6 +69,7 @@ echo "== ViMbAdmin\\Kernel\\Security\\Auth ==\n";
 
 $normal = new AdminFake(5, false);
 $super  = new AdminFake(9, true);
+$inactive = new AdminFake(10, true, false);
 
 // --- authenticated normal admin --------------------------------------- //
 $calls = 0;
@@ -83,6 +87,14 @@ $calls = 0;
 $s = new Auth(new ArraySession(['identity' => ['id' => 9]]), loaderFor([9 => $super], $calls));
 check('super isSuper true',             $s->isSuper() === true);
 check('super isAuthorised(super) true', $s->isAuthorised(true) === true);
+
+// --- deactivated admin revokes a previously valid identity ------------ //
+$inactiveSession = new ArraySession(['identity' => ['id' => 10]]);
+$inactiveAuth = new Auth($inactiveSession, loaderFor([10 => $inactive], $calls));
+check('inactive identity is initially present', $inactiveAuth->isAuthenticated() === true);
+check('inactive admin is denied on first reload', $inactiveAuth->admin() === null);
+check('inactive admin reload revokes the session identity',
+    $inactiveSession->has('identity') === false && $inactiveAuth->isAuthenticated() === false);
 
 // --- not authenticated (no identity) ---------------------------------- //
 $calls = 0;
@@ -146,6 +158,18 @@ check('establish -> admin() resolves',  $e->admin() === $normal);
 $e->clear();
 check('clear removes the identity',     $sess->get('identity') === null);
 check('clear -> anonymous',             $e->isAuthenticated() === false && $e->admin() === null);
+
+$inactiveEstablishSession = new ArraySession([]);
+$inactiveEstablish = new Auth($inactiveEstablishSession, loaderFor([], $calls));
+$inactiveEstablishRejected = false;
+try {
+    $inactiveEstablish->establish($inactive);
+} catch (Throwable $e) {
+    $inactiveEstablishRejected = $e instanceof LogicException
+        && $e->getMessage() === 'Authenticated admin must be active';
+}
+check('inactive admin cannot establish a new identity',
+    $inactiveEstablishRejected && $inactiveEstablishSession->has('identity') === false);
 
 $invalidSession = new ArraySession([]);
 $invalidEstablish = new Auth($invalidSession, loaderFor([], $calls));

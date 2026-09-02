@@ -54,7 +54,10 @@ function domainShapeController(string $action, array $params): array
 {
     $session = new DomainShapeSession(['identity' => ['id' => 1], 'csrfToken' => 'csrf-sentinel']);
     $bootstrap = new DomainShapeBootstrap($session);
-    $admin = (new Entities\Admin())->setUsername('admin@example.test')->setSuper(true);
+    $admin = (new Entities\Admin())
+        ->setUsername('admin@example.test')
+        ->setSuper(true)
+        ->setActive(true);
     $container = new Container($bootstrap, new Auth($session, static fn(int $id): Entities\Admin => $admin));
     $method = lcfirst(str_replace(' ', '', ucwords(str_replace('-', ' ', $action)))) . 'Action';
 

@@ -84,6 +84,7 @@ final class LogControllerTestAdmin extends \Entities\Admin
     ) {
         parent::__construct();
         $this->setSuper($super);
+        $this->setActive(true);
     }
 
     public function getId(): int { return $this->testId; }

@@ -83,6 +83,7 @@ final class ArchiveIdentityAdmin extends \Entities\Admin
     public function getId(): int { return 1; }
     public function getUsername(): string { return 'admin@example.test'; }
     public function getSuper(): bool { return $this->super; }
+    public function getActive(): bool { return true; }
     public function isSuper(): bool { return $this->super; }
 }
 

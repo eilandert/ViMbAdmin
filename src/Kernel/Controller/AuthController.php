@@ -52,6 +52,8 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  */
 final class AuthController extends AbstractController
 {
+    private const LOGIN_ERROR = 'Invalid username or password. Please try again.';
+
     private static function requiredString(mixed $value, string $name): string
     {
         if (!is_string($value)) {
@@ -293,11 +295,11 @@ final class AuthController extends AbstractController
                     $admin,
                     self::requiredString($values['password'] ?? null, 'Login password'),
                     $authOpts,
-                )) {
+                ) && self::adminIsActive($admin)) {
                     return $this->completeLogin($admin, $bf, $options);
                 }
 
-                $this->flash('Invalid username or password. Please try again.', FlashMessages::ERROR);
+                $this->flash(self::LOGIN_ERROR, FlashMessages::ERROR);
             }
         }
 
@@ -420,8 +422,9 @@ final class AuthController extends AbstractController
         }
 
         $admin = $this->adminRepository()->find($pendingId);
-        if (!$admin) {
-            $session->remove('totp_pending_admin_id');
+        if (!$admin || !self::adminIsActive($admin)) {
+            $this->abandonPendingLogin($session);
+            $this->flash(self::LOGIN_ERROR, FlashMessages::ERROR);
             return $this->redirect('auth/login');
         }
 
@@ -474,8 +477,9 @@ final class AuthController extends AbstractController
         }
 
         $admin = $this->adminRepository()->find($pendingId);
-        if (!$admin) {
-            $session->remove('totp_pending_admin_id');
+        if (!$admin || !self::adminIsActive($admin)) {
+            $this->abandonPendingLogin($session);
+            $this->flash(self::LOGIN_ERROR, FlashMessages::ERROR);
             return $this->redirect('auth/login');
         }
 
@@ -813,6 +817,12 @@ final class AuthController extends AbstractController
      */
     private function grantPendingLogin(\Entities\Admin $admin, MagicPropertyStorage $session): Response
     {
+        if (!self::adminIsActive($admin)) {
+            $this->abandonPendingLogin($session);
+            $this->flash(self::LOGIN_ERROR, FlashMessages::ERROR);
+            return $this->redirect('auth/login');
+        }
+
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_regenerate_id(true);
         }
@@ -834,6 +844,20 @@ final class AuthController extends AbstractController
         }
 
         return $this->redirect($target);
+    }
+
+    private function abandonPendingLogin(MagicPropertyStorage $session): void
+    {
+        $session->remove('totp_pending_admin_id');
+        $session->remove('totp_pending_via');
+        $session->remove('totp_setup_secret');
+        $session->remove('totp_verified');
+        $session->remove('postAuthRedirect');
+    }
+
+    private static function adminIsActive(\Entities\Admin $admin): bool
+    {
+        return $admin->getActive() === true;
     }
 
     /** The TOTP code form. CSRF-guarded (also gated by the pending-session id). */
