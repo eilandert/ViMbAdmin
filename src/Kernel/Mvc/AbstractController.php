@@ -203,6 +203,22 @@ abstract class AbstractController
     }
 
     /**
+     * Whether this is a POST carrying a valid CSRF token in its body.
+     *
+     * Unlike {@see csrfValid()}, this deliberately does not accept route or
+     * query-string input. Use it for mutations whose token must travel with the
+     * POST body rather than for legacy CSRF-guarded confirmation links.
+     */
+    protected function postBodyCsrfValid(): bool
+    {
+        $token = $_POST['csrf'] ?? null;
+
+        return $this->isPost()
+            && is_string($token)
+            && (new Csrf(new MagicPropertyStorage($this->container->session())))->isValid($token);
+    }
+
+    /**
      * The native mail sender (replaces the ZF1 `getMailer()`), built from the
      * `resources.mail.transport.*` options. Used by the mailer-dependent actions
      * (auth lost-password / reset-password, mailbox email-settings).

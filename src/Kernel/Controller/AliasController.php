@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
+use Doctrine\ORM\EntityManagerInterface;
 use ViMbAdmin\Kernel\DataTable\DataTableQuery;
 use ViMbAdmin\Kernel\DataTable\DataTableResult;
 use ViMbAdmin\Kernel\Flash\FlashMessages;
@@ -250,7 +251,7 @@ final class AliasController extends AbstractController
     }
 
     /**
-     * GET /alias/ajax-toggle-active/alid/<id> — flip an alias's active flag.
+     * POST /alias/ajax-toggle-active — flip an alias's active flag.
      *
      * Mirrors the ZF1 action: resolve the alias from `alid`, refuse a missing one
      * or a domain the admin cannot manage (`loadAlias` authorisation), then toggle
@@ -264,6 +265,10 @@ final class AliasController extends AbstractController
         $admin = $this->admin();
         if ($admin === null) {
             return $this->redirect('auth/login');
+        }
+
+        if (!$this->postBodyCsrfValid()) {
+            return new Response('ko');
         }
 
         $alias = ($alid = $this->positiveIdParam('alid'))
@@ -706,10 +711,10 @@ final class AliasController extends AbstractController
         return $domain instanceof \Entities\Domain ? $domain : null;
     }
 
-    protected function em(): \Doctrine\ORM\EntityManager
+    protected function em(): EntityManagerInterface
     {
         $em = parent::em();
-        if (!$em instanceof \Doctrine\ORM\EntityManager) {
+        if (!$em instanceof EntityManagerInterface) {
             throw new \LogicException('Doctrine entity manager resource has an invalid type');
         }
         return $em;
