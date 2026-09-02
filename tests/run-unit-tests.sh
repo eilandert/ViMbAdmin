@@ -8,6 +8,7 @@ readonly excluded_tests=(
   tests/test-cache-bootstrap.php
   tests/test-kernel-em-factory.php
   tests/test-kernel-smarty-view.php
+  tests/test-mailbox-queue-atomic-mariadb.php
   tests/test-oss-message.php
   tests/test-schema-no-pending.php
 )

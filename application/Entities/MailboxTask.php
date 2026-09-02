@@ -18,6 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: \Repositories\MailboxTask::class)]
 #[ORM\Table(name: 'mailbox_task')]
 #[ORM\Index(name: 'mailbox_task_status_idx', columns: ['status'])]
+#[ORM\UniqueConstraint(name: 'mailbox_task_open_unique', columns: ['username', 'type', 'open_task'])]
 class MailboxTask
 {
     // ---- task types -----------------------------------------------------
@@ -72,6 +73,9 @@ class MailboxTask
     const STATUS_FAILED    = "FAILED";
     const STATUS_CANCELLED = "CANCELLED";
 
+    /** Statuses represented by a non-null generated open_task marker. */
+    const OPEN_STATUSES = [ self::STATUS_PENDING, self::STATUS_RUNNING ];
+
     /** @var array<string, string> */
     public static $STATUSES = [
         self::STATUS_PENDING   => "Pending",
@@ -103,6 +107,22 @@ class MailboxTask
     /** @var string */
     #[ORM\Column(type: 'string', length: 32)]
     private ?string $status = null;
+
+    /**
+     * Nullable generated discriminator for the open-task unique constraint.
+     * MariaDB permits multiple NULLs in a unique index, so terminal rows keep
+     * their full history while PENDING/RUNNING rows conflict per username/type.
+     */
+    #[ORM\Column(
+        name: 'open_task',
+        type: 'boolean',
+        nullable: true,
+        insertable: false,
+        updatable: false,
+        columnDefinition: "TINYINT(1) GENERATED ALWAYS AS (IF(`status` IN ('PENDING', 'RUNNING'), 1, NULL)) STORED",
+        generated: 'ALWAYS',
+    )]
+    private ?bool $open_task = null;
 
     /** @var integer */
     #[ORM\Column(type: 'integer')]
@@ -167,11 +187,18 @@ class MailboxTask
 
     /** @return string|null */
     public function getStatus()             { return $this->status; }
+    /** @return bool */
+    public function isOpen()                { return $this->open_task === true; }
     /**
      * @param string $v
      * @return $this
      */
-    public function setStatus( $v )         { $this->status = $v; return $this; }
+    public function setStatus( $v )
+    {
+        $this->status = $v;
+        $this->open_task = in_array( $v, self::OPEN_STATUSES, true ) ? true : null;
+        return $this;
+    }
 
     /** @return int */
     public function getPriority()           { return $this->priority; }

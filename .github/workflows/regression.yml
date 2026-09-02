@@ -260,3 +260,13 @@ jobs:
           DB_PASS: ci
           SKIP_CREATE: '1'
         run: php tests/test-schema-no-pending.php
+
+      - name: Mailbox-task enqueue is atomic under concurrent transactions
+        env:
+          DB_HOST: mariadb
+          DB_PORT: '3306'
+          DB_NAME: vimbadmin
+          DB_USER: root
+          DB_PASS: ci
+          VIMBADMIN_DESTRUCTIVE_DB_TESTS: '1'
+        run: php tests/test-mailbox-queue-atomic-mariadb.php

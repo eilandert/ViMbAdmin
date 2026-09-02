@@ -39,6 +39,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: php tests/test-schema-no-pending.php
+  mailbox-queue:
+    runs-on: ubuntu-latest
+    steps:
+      - run: php tests/test-mailbox-queue-atomic-mariadb.php
 YAML
 
 cat >"$test_root/.github/workflows/static-analysis.yml" <<'YAML'
@@ -89,6 +93,7 @@ for test in \
   test-cache-bootstrap.php \
   test-kernel-em-factory.php \
   test-kernel-smarty-view.php \
+  test-mailbox-queue-atomic-mariadb.php \
   test-oss-message.php \
   test-schema-no-pending.php \
   test-date.php; do
