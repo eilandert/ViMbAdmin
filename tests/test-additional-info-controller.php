@@ -128,6 +128,7 @@ $check('anonymous requests return an empty JSON list without touching Doctrine',
 
 $admin = new \Entities\Admin();
 $admin->setUsername('operator@example.test');
+$admin->setActive(true);
 $repository = new AdditionalInfoTestRepository(['Sales', 'Support']);
 $response = additionalInfoController(
     additionalInfoEntityManager($repository),

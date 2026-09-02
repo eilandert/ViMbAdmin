@@ -54,6 +54,7 @@ $check('anonymous users are redirected to login',
 $admin = new \Entities\Admin();
 $admin->setUsername('operator@example.test');
 $admin->setSuper(false);
+$admin->setActive(true);
 $normal = maintenanceController(
     new MaintenanceTestSession(['identity' => ['id' => 7]]),
     static fn(int $id): object => $admin,

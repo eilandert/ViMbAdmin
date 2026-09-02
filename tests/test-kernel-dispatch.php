@@ -44,10 +44,11 @@ final class ArraySession implements SessionStorage
 /** Stand-in for \Entities\Admin at the strict Auth identity boundary. */
 final class AdminFake
 {
-    public function __construct(private int $id, private bool $super) {}
+    public function __construct(private int $id, private bool $super, private bool $active = true) {}
     public function getId(): int { return $this->id; }
     public function getUsername(): string { return "admin{$this->id}@example.test"; }
     public function getSuper(): bool { return $this->super; }
+    public function getActive(): bool { return $this->active; }
 }
 
 /** Fake Doctrine EM: getResource('doctrine2') returns this. */

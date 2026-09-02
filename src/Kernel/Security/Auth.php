@@ -80,8 +80,9 @@ final class Auth
     }
 
     /**
-     * The logged-in admin entity, loaded once via the loader, or null if there
-     * is no identity or the loader finds nothing.
+     * The logged-in active admin entity, loaded once via the loader, or null if
+     * there is no identity, the loader finds nothing, or the admin has been
+     * deactivated. A deactivated admin's identity is removed immediately.
      */
     public function admin(): ?object
     {
@@ -97,9 +98,15 @@ final class Auth
                         !method_exists($admin, 'getUsername')
                         || !method_exists($admin, 'getId')
                         || !method_exists($admin, 'getSuper')
+                        || !method_exists($admin, 'getActive')
                     )
                 ) {
                     throw new LogicException('Authenticated admin has an invalid type');
+                }
+
+                if ($admin !== null && !self::adminIsActive($admin)) {
+                    $this->clear();
+                    return null;
                 }
                 $this->admin = $admin;
             }
@@ -124,7 +131,7 @@ final class Auth
     }
 
     /**
-     * Establish a session for an authenticated admin: write the identity array
+     * Establish a session for an active authenticated admin: write the identity array
      * (the same `['username','user','id']` shape the legacy auth layer stored)
      * into the session storage this service reads, and reset the per-request
      * cache so a subsequent {@see admin()} reflects the new identity.
@@ -138,8 +145,13 @@ final class Auth
             !method_exists($admin, 'getUsername')
             || !method_exists($admin, 'getId')
             || !method_exists($admin, 'getSuper')
+            || !method_exists($admin, 'getActive')
         ) {
             throw new LogicException('Authenticated admin has an invalid type');
+        }
+
+        if (!self::adminIsActive($admin)) {
+            throw new LogicException('Authenticated admin must be active');
         }
 
         $username = $admin->getUsername();
@@ -155,6 +167,15 @@ final class Auth
 
         $this->loaded = false;
         $this->admin  = null;
+    }
+
+    private static function adminIsActive(object $admin): bool
+    {
+        if (!method_exists($admin, 'getActive')) {
+            throw new LogicException('Authenticated admin has an invalid type');
+        }
+
+        return $admin->getActive() === true;
     }
 
     /**
