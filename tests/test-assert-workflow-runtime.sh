@@ -136,7 +136,7 @@ finding_tmp=$fixture_root/finding-tmp
 mv_failure_tmp=$fixture_root/mv-failure-tmp
 mkdir -p "$stub_path" "$finding_tmp" "$mv_failure_tmp"
 
-cat > "$stub_path/semgrep" <<'SH'
+cat >"$stub_path/semgrep" <<'SH'
 #!/bin/sh
 output=
 while [ "$#" -gt 0 ]; do
@@ -155,7 +155,7 @@ fi
 exit "${VIMBADMIN_SEMGREP_STATUS:?missing Semgrep status}"
 SH
 
-cat > "$stub_path/mv" <<'SH'
+cat >"$stub_path/mv" <<'SH'
 #!/bin/sh
 if [ "${VIMBADMIN_MV_FAIL:-0}" = 1 ]; then
   shift
@@ -202,12 +202,12 @@ grep -qF 'Semgrep negative control produced no finding.' \
   exit 1
 }
 
-: > "$fixture_root/mv.log"
+: >"$fixture_root/mv.log"
 if run_finding_contract "$mv_failure_tmp" 1 1 1; then
   printf 'Semgrep negative control accepted an mv failure.\n' >&2
   exit 1
 fi
-[[ $(wc -l < "$fixture_root/mv.log") -eq 1 ]] || {
+[[ $(wc -l <"$fixture_root/mv.log") -eq 1 ]] || {
   printf 'The injected mv failure did not identify exactly one fixture seed.\n' >&2
   exit 1
 }
@@ -221,7 +221,7 @@ while IFS= read -r seed; do
     printf 'Semgrep fixture seed survived an mv failure: %s\n' "$seed" >&2
     exit 1
   }
-done < "$fixture_root/mv.log"
+done <"$fixture_root/mv.log"
 if find "$mv_failure_tmp" -maxdepth 1 -name 'semgrep-negative.*' \
   -print -quit | grep -q .; then
   printf 'Semgrep temporary files survived an mv failure.\n' >&2

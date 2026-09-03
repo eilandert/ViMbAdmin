@@ -15,7 +15,7 @@ mv -- "$fixture_seed" "$fixture"
 fixture_seed=
 result=$(mktemp "${TMPDIR:-/tmp}/semgrep-negative.XXXXXX")
 # shellcheck disable=SC2016 # This is the literal PHP fixture source.
-printf '%s\n' '<?php system($_GET["code"]);' > "$fixture"
+printf '%s\n' '<?php system($_GET["code"]);' >"$fixture"
 
 set +e
 semgrep scan \

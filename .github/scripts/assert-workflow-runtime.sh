@@ -41,8 +41,8 @@ if [[ -z $runtime_images ]]; then
   exit 1
 fi
 
-if invalid_runtime_images=$(printf '%s\n' "$runtime_images" \
-  | grep -vE '^(mirror\.gcr\.io/library/(php|mariadb)@sha256:[0-9a-f]{64}|\$\{\{ matrix\.image \}\})$'); then
+if invalid_runtime_images=$(printf '%s\n' "$runtime_images" |
+  grep -vE '^(mirror\.gcr\.io/library/(php|mariadb)@sha256:[0-9a-f]{64}|\$\{\{ matrix\.image \}\})$'); then
   printf 'Workflow runtime images must use approved registry-mirror digests:\n%s\n' \
     "$invalid_runtime_images" >&2
   exit 1
@@ -94,8 +94,8 @@ if ! grep -qF "git fetch --no-tags --depth=1 origin \"\$PHPSTAN_BASE_SHA\"" \
   exit 1
 fi
 
-actual_php_containers=$(grep -hEc '^[[:space:]]+container:' "${php_workflows[@]}" \
-  | awk '{ total += $1 } END { print total + 0 }')
+actual_php_containers=$(grep -hEc '^[[:space:]]+container:' "${php_workflows[@]}" |
+  awk '{ total += $1 } END { print total + 0 }')
 
 if [[ $actual_php_containers -eq 0 ]]; then
   printf 'PHP workflows must declare at least one container job.\n' >&2
@@ -103,8 +103,8 @@ if [[ $actual_php_containers -eq 0 ]]; then
 fi
 
 actual_checkout_preparations=$(grep -hEc \
-  'name: Prepare PHP container for checkout' "${php_workflows[@]}" \
-  | awk '{ total += $1 } END { print total + 0 }')
+  'name: Prepare PHP container for checkout' "${php_workflows[@]}" |
+  awk '{ total += $1 } END { print total + 0 }')
 
 if [[ $actual_checkout_preparations -ne $actual_php_containers ]]; then
   printf 'Every PHP container job needs one checkout preparation (%d jobs, %d preparations).\n' \
@@ -231,15 +231,15 @@ for required in \
   fi
 done
 
-if grep -HnE '^[[:space:]]*(- )?uses:' "$security_workflow" \
-  | grep -vE '@[0-9a-f]{40}([[:space:]]+#.*)?$'; then
+if grep -HnE '^[[:space:]]*(- )?uses:' "$security_workflow" |
+  grep -vE '@[0-9a-f]{40}([[:space:]]+#.*)?$'; then
   printf 'Security workflow actions and images must use immutable refs.\n' >&2
   exit 1
 fi
 
-if ! grep -qE 'semgrep/semgrep@sha256:[0-9a-f]{64}' "$security_workflow" || \
-  grep -HnE 'semgrep/semgrep[^[:space:]#]*' "$security_workflow" \
-    | grep -vE '@sha256:[0-9a-f]{64}([[:space:]]+#.*)?$'; then
+if ! grep -qE 'semgrep/semgrep@sha256:[0-9a-f]{64}' "$security_workflow" ||
+  grep -HnE 'semgrep/semgrep[^[:space:]#]*' "$security_workflow" |
+  grep -vE '@sha256:[0-9a-f]{64}([[:space:]]+#.*)?$'; then
   printf 'Security workflow actions and images must use immutable refs.\n' >&2
   exit 1
 fi

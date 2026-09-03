@@ -15,28 +15,28 @@ f="$(dirname "$0")/../src/Kernel/Controller/AuthController.php"
 rc=0
 
 if ! grep -q 'session_destroy()' "$f"; then
-	echo "FAIL: AuthController logout no longer calls session_destroy() — totp_verified can survive logout"
-	rc=1
+  echo "FAIL: AuthController logout no longer calls session_destroy() — totp_verified can survive logout"
+  rc=1
 else
-	echo "  ok   logout wipes the session (session_destroy present)"
+  echo "  ok   logout wipes the session (session_destroy present)"
 fi
 
 # The removal must sit inside completeLogin, above the gate that reads it.
 # Accept both the legacy magic-property syntax and the equivalent
 # SessionStorage API used by MagicPropertyStorage.
 remove_line=$(grep -nF \
-	-e "unset(\$session->totp_verified" \
-	-e "\$session->remove('totp_verified')" \
-	"$f" | head -1 | cut -d: -f1 || true)
+  -e "unset(\$session->totp_verified" \
+  -e "\$session->remove('totp_verified')" \
+  "$f" | head -1 | cut -d: -f1 || true)
 gate_line=$(grep -nF \
-	-e "!\$session->totp_verified" \
-	-e "!\$session->get('totp_verified')" \
-	"$f" | head -1 | cut -d: -f1 || true)
+  -e "!\$session->totp_verified" \
+  -e "!\$session->get('totp_verified')" \
+  "$f" | head -1 | cut -d: -f1 || true)
 if [ -z "$remove_line" ] || [ -z "$gate_line" ] || [ "$remove_line" -ge "$gate_line" ]; then
-	echo "FAIL: completeLogin must remove totp_verified before the 2FA gate reads it"
-	rc=1
+  echo "FAIL: completeLogin must remove totp_verified before the 2FA gate reads it"
+  rc=1
 else
-	echo "  ok   completeLogin resets totp_verified before the gate (line $remove_line < $gate_line)"
+  echo "  ok   completeLogin resets totp_verified before the gate (line $remove_line < $gate_line)"
 fi
 
 [ "$rc" -eq 0 ] && echo "OK: 2FA session-hygiene invariants hold"

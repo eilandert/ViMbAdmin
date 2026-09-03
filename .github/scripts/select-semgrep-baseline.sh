@@ -7,16 +7,16 @@ before_sha=${3-}
 head_sha=${4:?head SHA is required}
 
 case "$event_name" in
-  pull_request) baseline_sha=$pr_base_sha ;;
-  push) baseline_sha=$before_sha ;;
-  schedule|workflow_dispatch)
-    # Scheduled and manually dispatched scans are deliberately full scans.
-    exit 0
-    ;;
-  *)
-    printf 'Unsupported Semgrep event: %s\n' "$event_name" >&2
-    exit 1
-    ;;
+pull_request) baseline_sha=$pr_base_sha ;;
+push) baseline_sha=$before_sha ;;
+schedule | workflow_dispatch)
+  # Scheduled and manually dispatched scans are deliberately full scans.
+  exit 0
+  ;;
+*)
+  printf 'Unsupported Semgrep event: %s\n' "$event_name" >&2
+  exit 1
+  ;;
 esac
 
 if [[ -z ${baseline_sha:-} || $baseline_sha == "$head_sha" || $baseline_sha =~ ^0+$ ]]; then

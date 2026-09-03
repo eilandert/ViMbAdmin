@@ -37,21 +37,21 @@ shopt -s nullglob
 echo "== JS templates: json/array values must be nofilter or escape:'javascript' =="
 
 for f in application/views/*/js/*.js; do
-    # Lines that look like a JS array/object source being fed a Smarty var:
-    #   source: {$emails}      |  data: {$rows}   |  = {$foo}.split(   etc.
-    # i.e. a {$var} that sits where a JSON literal is expected.
-    hits=$(grep -nE '(source|data|aaData|aoColumns)[[:space:]]*:[[:space:]]*\{\$[A-Za-z_][^}]*\}' "$f" 2>/dev/null \
-           | grep -vE 'nofilter|escape:'"'"'javascript'"'"'' || true)
-    if [ -n "$hits" ]; then
-        echo "  $f:"
-        echo "$hits" | sed 's/^/    /'
-        echo "    -> emit json_encode() arrays with |nofilter (raw) in a JS context."
-        fail=1
-    fi
+  # Lines that look like a JS array/object source being fed a Smarty var:
+  #   source: {$emails}      |  data: {$rows}   |  = {$foo}.split(   etc.
+  # i.e. a {$var} that sits where a JSON literal is expected.
+  hits=$(grep -nE '(source|data|aaData|aoColumns)[[:space:]]*:[[:space:]]*\{\$[A-Za-z_][^}]*\}' "$f" 2>/dev/null |
+    grep -vE 'nofilter|escape:'"'"'javascript'"'"'' || true)
+  if [ -n "$hits" ]; then
+    echo "  $f:"
+    echo "$hits" | sed 's/^/    /'
+    echo "    -> emit json_encode() arrays with |nofilter (raw) in a JS context."
+    fail=1
+  fi
 done
 
 if [ "$fail" -eq 0 ]; then
-    echo "  OK: no json/array Smarty var emitted unescaped into a JS literal"
+  echo "  OK: no json/array Smarty var emitted unescaped into a JS literal"
 fi
 
 exit $fail

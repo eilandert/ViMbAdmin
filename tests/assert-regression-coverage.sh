@@ -51,7 +51,7 @@ done
 
 static_workflow_has_phpstan_runtime_contract || exit 1
 
-unit_runner_executes_tracked_tests() {
+unit_runner_executes_tracked_tests_and_subset() {
   local harness_root runner_path stub_path output
   local git_log php_log
 
@@ -62,11 +62,11 @@ unit_runner_executes_tracked_tests() {
   git_log=$harness_root/git.log
   php_log=$harness_root/php.log
   mkdir -p "$stub_path" "$harness_root/tests"
-  : > "$git_log"
-  : > "$php_log"
-  : > "$harness_root/tests/test-untracked-sentinel.php"
+  : >"$git_log"
+  : >"$php_log"
+  : >"$harness_root/tests/test-untracked-sentinel.php"
 
-  cat > "$stub_path/git" <<'SH'
+  cat >"$stub_path/git" <<'SH'
 #!/bin/sh
 if [ "$#" -ne 2 ] || [ "$1" != ls-files ] || \
   [ "$2" != 'tests/test-*.php' ]; then
@@ -79,7 +79,7 @@ printf '%s\n' \
   'tests/test-runner-contract-a.php'
 SH
 
-  cat > "$stub_path/php" <<'SH'
+  cat >"$stub_path/php" <<'SH'
 #!/bin/sh
 if [ "$#" -ne 1 ]; then
   printf 'Unexpected php argv in unit runner: %s\n' "$*" >&2
@@ -96,20 +96,39 @@ printf '%s\n' "$1" >> "$VIMBADMIN_RUNNER_PHP_LOG"
 SH
   chmod +x "$stub_path/git" "$stub_path/php"
 
-  if ! (cd "$harness_root" && \
+  if ! (cd "$harness_root" &&
     PATH="$stub_path:/usr/bin:/bin" \
-    VIMBADMIN_RUNNER_GIT_LOG="$git_log" \
-    VIMBADMIN_RUNNER_PHP_LOG="$php_log" \
-    "$runner_path") > "$output" 2>&1; then
+      VIMBADMIN_RUNNER_GIT_LOG="$git_log" \
+      VIMBADMIN_RUNNER_PHP_LOG="$php_log" \
+      "$runner_path") >"$output" 2>&1; then
     rm -rf -- "$harness_root"
     return 1
   fi
 
-  if [[ $(wc -l < "$git_log") -ne 1 ]] || \
-    ! grep -qxF 'ls-files tests/test-*.php' "$git_log" || \
-    [[ $(wc -l < "$php_log") -ne 2 ]] || \
-    [[ $(grep -cxF 'tests/test-runner-contract-a.php' "$php_log") -ne 1 ]] || \
+  if [[ $(wc -l <"$git_log") -ne 1 ]] ||
+    ! grep -qxF 'ls-files tests/test-*.php' "$git_log" ||
+    [[ $(wc -l <"$php_log") -ne 2 ]] ||
+    [[ $(grep -cxF 'tests/test-runner-contract-a.php' "$php_log") -ne 1 ]] ||
     [[ $(grep -cxF 'tests/test-runner-contract-b.php' "$php_log") -ne 1 ]]; then
+    rm -rf -- "$harness_root"
+    return 1
+  fi
+
+  : >"$git_log"
+  : >"$php_log"
+  if ! (cd "$harness_root" &&
+    PATH="$stub_path:/usr/bin:/bin" \
+      VIMBADMIN_RUNNER_GIT_LOG="$git_log" \
+      VIMBADMIN_RUNNER_PHP_LOG="$php_log" \
+      "$runner_path" tests/test-runner-contract-b.php) \
+    >"$output" 2>&1; then
+    rm -rf -- "$harness_root"
+    return 1
+  fi
+
+  if [[ $(wc -l <"$git_log") -ne 1 ]] ||
+    [[ $(wc -l <"$php_log") -ne 1 ]] ||
+    ! grep -qxF 'tests/test-runner-contract-b.php' "$php_log"; then
     rm -rf -- "$harness_root"
     return 1
   fi
@@ -117,12 +136,12 @@ SH
   rm -rf -- "$harness_root"
 }
 
-if ! unit_runner_executes_tracked_tests; then
-  printf 'Unit test runner does not discover and execute tracked PHP tests.\n' >&2
+if ! unit_runner_executes_tracked_tests_and_subset; then
+  printf 'Unit test runner discovery or requested subset is incorrect.\n' >&2
   exit 1
 fi
 
-if ! grep -qF "git ls-files 'tests/test-phpstan-*.php'" "$phpstan_runner" || \
+if ! grep -qF "git ls-files 'tests/test-phpstan-*.php'" "$phpstan_runner" ||
   ! grep -qF "php \"\$test\"" "$phpstan_runner"; then
   printf 'PHPStan test runner does not discover and execute tracked PHPStan tests.\n' >&2
   exit 1
@@ -236,12 +255,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if ! git ls-files 'tests/test-*.php' | sort > "$manifest"; then
+if ! git ls-files 'tests/test-*.php' | sort >"$manifest"; then
   printf 'Could not enumerate tracked PHP tests.\n' >&2
   exit 1
 fi
 
-if ! "$unit_runner" --print-excluded-tests > "$excluded_manifest"; then
+if ! "$unit_runner" --print-excluded-tests >"$excluded_manifest"; then
   printf 'Could not enumerate unit-runner exclusions.\n' >&2
   exit 1
 fi
@@ -265,23 +284,23 @@ while IFS= read -r test; do
     exit 1
   }
   excluded_tests[$test]=1
-done < "$excluded_manifest"
+done <"$excluded_manifest"
 
 while IFS= read -r test; do
   case "$test" in
-    tests/test-phpstan-*.php)
-      workflow_has_unconditional_owner_step "$static_workflow" command \
-        'bash tests/run-phpstan-tests.sh' || exit 1
-      ;;
-    *)
-      if [[ -n ${excluded_tests[$test]+x} ]]; then
+  tests/test-phpstan-*.php)
+    workflow_has_unconditional_owner_step "$static_workflow" command \
+      'bash tests/run-phpstan-tests.sh' || exit 1
+    ;;
+  *)
+    if [[ -n ${excluded_tests[$test]+x} ]]; then
       workflow_runs_php_test "$test" || exit 1
-      else
+    else
       # The unit runner's tracked-test glob covers all remaining tests.
       grep -qF "git ls-files 'tests/test-*.php'" "$unit_runner" || exit 1
-      fi
-      ;;
+    fi
+    ;;
   esac
-done < "$manifest"
+done <"$manifest"
 
 printf 'All tracked PHP regression tests are assigned to a CI job.\n'

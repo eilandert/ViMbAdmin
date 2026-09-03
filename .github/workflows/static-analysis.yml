@@ -101,3 +101,38 @@ jobs:
         env:
           PHPSTAN_EVENT_BEFORE: ${{ github.event.before }}
         run: bash tests/lint-phpstan-ratchet.sh
+
+  psalm-taint:
+    name: Psalm taint analysis
+    runs-on: ubuntu-24.04
+    container:
+      image: >-
+        mirror.gcr.io/library/php@sha256:9cc9310a457019cd6b682109eb3c5dd8bf73498e7d3b9ee5c33d0d0b83d0faf3
+    steps:
+      - name: Prepare PHP container for checkout
+        run: apt-get update && apt-get install --yes git
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert pull-request runner isolation
+        run: bash .github/scripts/assert-pr-runner-isolation.sh
+
+      - name: Setup PHP container
+        run: bash .github/scripts/setup-php-container.sh static
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Generate Doctrine proxies
+        run: php bin/generate-proxies.php
+
+      - name: Verify Psalm taint baseline regeneration
+        run: |
+          bash tests/test-regenerate-psalm-taint-baseline.sh
+          bash tests/regenerate-psalm-taint-baseline.sh --check
+
+      - name: Psalm taint analysis
+        run: psalm --no-progress --taint-analysis

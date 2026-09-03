@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<psalm
+    errorLevel="8"
+    resolveFromConfigFile="true"
+    findUnusedBaselineEntry="false"
+    findUnusedCode="false"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    errorBaseline="psalm-taint-baseline.xml"
+>
+    <!--
+        Psalm is configured only for interprocedural taint analysis. Its type
+        and dead-code lenses are intentionally unused; PHPStan owns the type
+        lens for this repository. Invoke Psalm's taint-analysis mode.
+    -->
+    <projectFiles>
+        <directory name="src" />
+        <directory name="library" />
+        <directory name="application" />
+        <ignoreFiles>
+            <directory name="vendor" />
+        </ignoreFiles>
+        <ignoreFiles allowMissingFiles="true">
+            <directory name="application/Proxies" />
+        </ignoreFiles>
+    </projectFiles>
+
+    <issueHandlers>
+        <!--
+            Every BruteForce state filename is derived from hash('sha256',
+            $ip) in _file(). Psalm does not model hash() as a filename
+            sanitizer, so these TaintedFile reports are false positives.
+        -->
+        <TaintedFile>
+            <errorLevel type="suppress">
+                <file name="library/ViMbAdmin/BruteForce.php" />
+            </errorLevel>
+        </TaintedFile>
+    </issueHandlers>
+</psalm>
