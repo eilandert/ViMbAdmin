@@ -2,9 +2,9 @@
 
 namespace Repositories;
 
-use DateTime;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\QueryBuilder;
+use UnexpectedValueException;
 
 /**
  * MailboxTask repository.
@@ -17,6 +17,104 @@ use Doctrine\ORM\QueryBuilder;
  */
 class MailboxTask extends EntityRepository
 {
+    /**
+     * Mark abandoned RUNNING tasks terminal. The guarded bulk update makes the
+     * transition race-safe with a runner completing at the same time. Ownership
+     * is decided by the foreign-key-backed lease, never by task age.
+     */
+    public function reapStaleRunning(): int
+    {
+        $message = '[' . gmdate( 'Y-m-d H:i:s' ) . "] FAILED: runner exited before task completion\n";
+        $affected = $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE mailbox_task t LEFT JOIN queue_runner r ON r.id = t.QueueRunner_id'
+            . ' SET t.status = :failed, t.abandoned = 1, t.finished_at = CURRENT_TIMESTAMP,'
+            . " t.log = CONCAT(COALESCE(t.log, ''), :message)"
+            . ' WHERE t.status = :running AND r.id IS NULL',
+            [
+                'failed'  => \Entities\MailboxTask::STATUS_FAILED,
+                'message' => $message,
+                'running' => \Entities\MailboxTask::STATUS_RUNNING,
+            ]
+        );
+
+        if( !is_int( $affected ) || $affected < 0 )
+            throw new UnexpectedValueException( 'Stale mailbox task reaper returned an invalid affected-row count.' );
+        return $affected;
+    }
+
+    /**
+     * Atomically delete a terminal/pending task, or an ownerless RUNNING task.
+     * A task whose runner lease still exists cannot pass this database guard.
+     */
+    public function deleteUnlessActive( \Entities\MailboxTask $task ): bool
+    {
+        $affected = $this->getEntityManager()->getConnection()->executeStatement(
+            'DELETE t FROM mailbox_task t LEFT JOIN queue_runner r ON r.id = t.QueueRunner_id'
+            . ' WHERE t.id = :id AND (t.status <> :running OR r.id IS NULL)',
+            [
+                'id'      => $task->getId(),
+                'running' => \Entities\MailboxTask::STATUS_RUNNING,
+            ]
+        );
+        if( !is_int( $affected ) || $affected < 0 || $affected > 1 )
+            throw new UnexpectedValueException( 'Mailbox task delete returned an invalid affected-row count.' );
+        if( $affected === 1 )
+            $this->getEntityManager()->detach( $task );
+        return $affected === 1;
+    }
+
+    /**
+     * Publish terminal ORM state only while the task still names this live
+     * lease. The task row lock also fences concurrent FK nulling/lease reap.
+     *
+     * @param callable():void $publish
+     */
+    public function publishIfOwned(
+        \Entities\MailboxTask $task,
+        \Entities\QueueRunner $runner,
+        callable $publish
+    ): bool {
+        $connection = $this->getEntityManager()->getConnection();
+        $connection->beginTransaction();
+        try {
+            $runnerId = $runner->getId();
+            if( !is_int( $runnerId ) || $runnerId < 1 )
+                throw new \LogicException( 'Runner lease must be persisted before terminal publication.' );
+            $liveOwner = $connection->fetchOne(
+                'SELECT id FROM queue_runner WHERE id = ? FOR UPDATE',
+                [ $runnerId ]
+            );
+            if( $liveOwner !== $runnerId && $liveOwner !== (string) $runnerId )
+            {
+                $connection->rollBack();
+                return false;
+            }
+            $owner = $connection->fetchOne(
+                'SELECT t.QueueRunner_id FROM mailbox_task t'
+                . ' WHERE t.id = ? AND t.status = ? FOR UPDATE',
+                [ $task->getId(), \Entities\MailboxTask::STATUS_RUNNING ]
+            );
+            $owned = $owner === $runnerId;
+            if( is_string( $owner ) && preg_match( '/^[1-9][0-9]*$/D', $owner ) === 1 )
+                $owned = filter_var( $owner, FILTER_VALIDATE_INT ) === $runnerId;
+            if( !$owned )
+            {
+                $connection->rollBack();
+                return false;
+            }
+            $publish();
+            $this->getEntityManager()->flush();
+            $connection->commit();
+            return true;
+        }
+        catch( \Throwable $e )
+        {
+            if( $connection->isTransactionActive() )
+                $connection->rollBack();
+            throw $e;
+        }
+    }
+
     /** @return array<string,int> */
     private static function requiredStatusCounts(mixed $rows): array
     {
@@ -86,15 +184,16 @@ class MailboxTask extends EntityRepository
      * @param \Entities\MailboxTask $task
      * @return bool
      */
-    public function claim( \Entities\MailboxTask $task )
+    public function claim( \Entities\MailboxTask $task, \Entities\QueueRunner $runner )
     {
         $conn = $this->getEntityManager()->getConnection();
         $affected = $conn->executeStatement(
-            'UPDATE mailbox_task SET status = :running, started_at = :now'
+            'UPDATE mailbox_task SET status = :running, abandoned = 0,'
+            . ' started_at = CURRENT_TIMESTAMP, QueueRunner_id = :runner'
             . ' WHERE id = :id AND status = :pending',
             [
                 'running' => \Entities\MailboxTask::STATUS_RUNNING,
-                'now'     => ( new DateTime() )->format( 'Y-m-d H:i:s' ),
+                'runner'  => $runner->getId(),
                 'id'      => $task->getId(),
                 'pending' => \Entities\MailboxTask::STATUS_PENDING,
             ]

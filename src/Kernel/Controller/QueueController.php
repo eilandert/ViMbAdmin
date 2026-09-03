@@ -243,24 +243,26 @@ final class QueueController extends AbstractController
 
         $task = $this->taskFromPost();
 
-        if ($task && $task->getStatus() === \Entities\MailboxTask::STATUS_FAILED) {
+        if ($task && $task->getStatus() === \Entities\MailboxTask::STATUS_FAILED && !$task->isAbandoned()) {
             $task->setStatus(\Entities\MailboxTask::STATUS_PENDING)
                  ->setFinishedAt(null)
                  ->appendLog('retry queued by ' . $admin->getFormattedName());
             $this->em()->flush();
             $this->flash('Task re-queued.');
         } else {
-            $this->flash('Task not found or not in a failed state.', FlashMessages::ERROR);
+            $this->flash('Task not found or not safely retryable.', FlashMessages::ERROR);
         }
 
         return $this->redirect('queue/index');
     }
 
     /**
-     * POST /queue/delete — delete a task that is not currently RUNNING (super only).
+     * POST /queue/delete — delete a task unless it is actively RUNNING (super only).
      *
-     * Faithful port of the ZF1 `deleteAction`: any task not in the RUNNING state is
-     * removed; a running task (or a missing one) flashes the refusal.
+     * Terminal and pending tasks are removable. RUNNING tasks are removable only
+     * after their owning runner lease is gone. The repository performs the owner
+     * check and delete atomically so active work is never deleted after a stale
+     * application-side read.
      */
     public function deleteAction(): Response
     {
@@ -271,22 +273,22 @@ final class QueueController extends AbstractController
 
         $task = $this->taskFromPost();
 
-        if ($task && $task->getStatus() !== \Entities\MailboxTask::STATUS_RUNNING) {
-            $this->em()->remove($task);
-            $this->em()->flush();
+        if ($task && $this->mailboxTaskRepository()->deleteUnlessActive($task)) {
             $this->flash('Task deleted.');
         } else {
-            $this->flash('Task not found, or it is currently running.', FlashMessages::ERROR);
+            $this->flash('Task not found, or it is still actively running.', FlashMessages::ERROR);
         }
 
         return $this->redirect('queue/index');
     }
 
     /**
-     * POST /queue/clear — delete all finished (DONE/FAILED/CANCELLED) tasks.
+     * POST /queue/clear — delete all safely finished tasks.
      *
      * Faithful port of the ZF1 `clearAction`: super-gated POST+CSRF, a bulk DQL
-     * delete of the terminal-state rows, then flashes how many were cleared.
+     * delete of terminal-state rows, then flashes how many were cleared. Failed
+     * tasks reaped from an abandoned runner retain their deduplication fence
+     * until an operator explicitly deletes that individual task.
      */
     public function clearAction(): Response
     {
@@ -296,7 +298,7 @@ final class QueueController extends AbstractController
         }
 
         $n = $this->em()->createQuery(
-            'DELETE FROM \\Entities\\MailboxTask t WHERE t.status IN (:done)')
+            'DELETE FROM \\Entities\\MailboxTask t WHERE t.status IN (:done) AND t.abandoned = false')
             ->setParameter('done', [
                 \Entities\MailboxTask::STATUS_DONE,
                 \Entities\MailboxTask::STATUS_FAILED,
@@ -373,10 +375,12 @@ final class QueueController extends AbstractController
         $result = $runner->runOne($task, function(?\Throwable $error) use ($task, $admin): void {
             if ($error === null) {
                 $task->setStatus(\Entities\MailboxTask::STATUS_DONE);
+                $task->setRunner(null);
                 $task->appendLog('done (run-now by ' . $admin->getFormattedName() . ')');
                 $this->flash(sprintf('Task #%d completed.', $task->getId()));
             } else {
                 $task->setStatus(\Entities\MailboxTask::STATUS_FAILED);
+                $task->setRunner(null);
                 $task->appendLog('FAILED: ' . $error->getMessage());
                 $this->flash(sprintf('Task #%d failed: %s', $task->getId(), $error->getMessage()), FlashMessages::ERROR);
             }
