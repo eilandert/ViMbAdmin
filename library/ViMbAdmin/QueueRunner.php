@@ -204,7 +204,7 @@ class ViMbAdmin_QueueRunner
      * @template T
      * @param \Doctrine\DBAL\Connection $connection
      * @param callable():T $operation
-     * @return T
+     * @return T|null null when the database mutex timed out
      */
     private static function withAcquireLock($connection, callable $operation)
     {
@@ -212,8 +212,10 @@ class ViMbAdmin_QueueRunner
             'SELECT GET_LOCK(?, ?)',
             [ self::ACQUIRE_LOCK_NAME, self::ACQUIRE_LOCK_TIMEOUT ]
         );
+        if( $locked === 0 || $locked === '0' )
+            return null;
         if( $locked !== 1 && $locked !== '1' )
-            throw new \RuntimeException( 'Could not acquire the runner lease database mutex.' );
+            throw new \UnexpectedValueException( 'Runner lease database mutex returned an invalid result.' );
 
         try
         {

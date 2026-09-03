@@ -55,6 +55,7 @@ class ViMbAdmin_Doveadm
     /** Maximum time the multi-handle loop may wait before renewing liveness. */
     const TRANSFER_POLL_SECONDS = 1.0;
     private const CURL_MULTI_OK = 0;
+    private const CURL_MULTI_CALL_AGAIN = -1;
 
     private static function stringValue( mixed $value, string $name ): string
     {
@@ -280,7 +281,12 @@ class ViMbAdmin_Doveadm
         $running = 0;
         do
         {
-            [ $multiStatus, $running ] = $perform();
+            do
+            {
+                [ $multiStatus, $running ] = $perform();
+            }
+            while( $multiStatus === self::CURL_MULTI_CALL_AGAIN );
+
             if( $multiStatus !== self::CURL_MULTI_OK )
                 throw new ViMbAdmin_Exception( _( 'doveadm HTTP request failed (curl multi)' ) );
 

@@ -74,6 +74,8 @@ final class QueueRunnerLeaseQuery
 final class QueueRunnerLeaseConnection
 {
     public ?int $contendOnSlot = null;
+    public mixed $nextAcquireLockResult = 1;
+    public ?Throwable $nextAcquireLockError = null;
     public int $lockAcquisitions = 0;
     public int $lockReleases = 0;
     private bool $acquireLockHeld = false;
@@ -124,13 +126,23 @@ final class QueueRunnerLeaseConnection
     }
 
     /** @param list<mixed> $parameters */
-    public function fetchOne(string $sql, array $parameters = []): int
+    public function fetchOne(string $sql, array $parameters = []): mixed
     {
         if ($sql === 'SELECT GET_LOCK(?, ?)'
             && $parameters === [
                 ViMbAdmin_QueueRunner::ACQUIRE_LOCK_NAME,
                 ViMbAdmin_QueueRunner::ACQUIRE_LOCK_TIMEOUT,
             ]) {
+            if ($this->nextAcquireLockError !== null) {
+                $error = $this->nextAcquireLockError;
+                $this->nextAcquireLockError = null;
+                throw $error;
+            }
+            $result = $this->nextAcquireLockResult;
+            $this->nextAcquireLockResult = 1;
+            if ($result !== 1 && $result !== '1') {
+                return $result;
+            }
             if ($this->acquireLockHeld) {
                 return 0;
             }
@@ -303,6 +315,21 @@ final class QueueRunnerSilentTransfer extends ViMbAdmin_Doveadm
             $wait
         );
     }
+
+    public function runCallAgainThenComplete(): int
+    {
+        $performs = 0;
+        $this->driveTransfer(
+            static function() use (&$performs): array {
+                $performs++;
+                return $performs === 1 ? [-1, 1] : [0, 0];
+            },
+            static function(): int {
+                throw new RuntimeException('call-again result must not wait');
+            }
+        );
+        return $performs;
+    }
 }
 
 final class QueueRunnerLeaseAssertions { public static int $failures = 0; }
@@ -391,6 +418,71 @@ if (!$first instanceof \Entities\QueueRunner) {
 }
 queueRunnerRelease($available, $first);
 queueRunnerCheck('release frees the claimed slot', count($available->leases) === 0);
+
+$lockTimeout = new QueueRunnerLeaseEntityManager();
+$lockTimeoutConnection = $lockTimeout->getConnection();
+$lockTimeoutConnection->nextAcquireLockResult = '0';
+queueRunnerCheck(
+    'database mutex timeout is ordinary busy contention',
+    queueRunnerAcquire($lockTimeout, queueRunnerOptions(1), $epoch) === null
+        && $lockTimeout->queries === 0
+        && $lockTimeoutConnection->lockAcquisitions === 0
+        && $lockTimeoutConnection->lockReleases === 0
+);
+$lockTimeoutConnection->nextAcquireLockResult = 0;
+$lockTimeoutCallbackRan = false;
+$lockTimeoutRunner = queueRunnerService(
+    $lockTimeout,
+    clone $epoch,
+    static function(callable $progress): void {},
+);
+$lockTimeoutTask = (new \Entities\MailboxTask())
+    ->setType(\Entities\MailboxTask::TYPE_QUOTA_RECALC)
+    ->setUsername('mutex-timeout@example.test')
+    ->setStatus(\Entities\MailboxTask::STATUS_PENDING);
+queueRunnerCheck(
+    'manual run maps a database mutex timeout to busy without claiming',
+    $lockTimeoutRunner->runOne(
+        $lockTimeoutTask,
+        static function() use (&$lockTimeoutCallbackRan): void {
+            $lockTimeoutCallbackRan = true;
+        }
+    ) === ViMbAdmin_Service_QueueRunner::RUN_ONE_BUSY
+        && !$lockTimeoutCallbackRan
+        && $lockTimeout->taskRepository->claims === 0
+);
+
+$lockFailure = new QueueRunnerLeaseEntityManager();
+$lockFailureConnection = $lockFailure->getConnection();
+$lockFailureConnection->nextAcquireLockError = new RuntimeException('database unavailable');
+$lockFailureObserved = false;
+try {
+    queueRunnerAcquire($lockFailure, queueRunnerOptions(1), $epoch);
+} catch (RuntimeException $error) {
+    $lockFailureObserved = $error->getMessage() === 'database unavailable';
+}
+queueRunnerCheck(
+    'database mutex query failure remains an operational error',
+    $lockFailureObserved
+        && $lockFailure->queries === 0
+        && $lockFailureConnection->lockAcquisitions === 0
+);
+
+$lockMalformed = new QueueRunnerLeaseEntityManager();
+$lockMalformedConnection = $lockMalformed->getConnection();
+$lockMalformedConnection->nextAcquireLockResult = null;
+$lockMalformedObserved = false;
+try {
+    queueRunnerAcquire($lockMalformed, queueRunnerOptions(1), $epoch);
+} catch (UnexpectedValueException $error) {
+    $lockMalformedObserved = str_contains($error->getMessage(), 'invalid result');
+}
+queueRunnerCheck(
+    'malformed database mutex result fails closed',
+    $lockMalformedObserved
+        && $lockMalformed->queries === 0
+        && $lockMalformedConnection->lockAcquisitions === 0
+);
 
 $contended = new QueueRunnerLeaseEntityManager();
 $contended->getConnection()->contendOnSlot = 1;
@@ -561,6 +653,18 @@ queueRunnerCheck(
             > $epoch->getTimestamp() + ViMbAdmin_QueueRunner::LEASE_TTL
 );
 queueRunnerRelease($silent, $silentLease);
+
+$callAgainTicks = 0;
+$callAgainTransfer = new QueueRunnerSilentTransfer(
+    static function() use (&$callAgainTicks): void {
+        $callAgainTicks++;
+    }
+);
+queueRunnerCheck(
+    'legacy CURLM_CALL_MULTI_PERFORM immediately retries before progress or wait',
+    $callAgainTransfer->runCallAgainThenComplete() === 2
+        && $callAgainTicks === 1
+);
 
 $boundary = new QueueRunnerLeaseEntityManager();
 foreach ([-4, 'not-a-number', null, []] as $max) {
