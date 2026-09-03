@@ -449,6 +449,19 @@ logController(
 $check('server-side list renders without materialising all log rows',
     $serverSideLog->loadCalls === [] && $serverSideView->assigned['logs'] === []);
 
+$missingPaginationConfigLog = new LogControllerTestLogRepository([['action' => 'must-not-load']]);
+$missingPaginationConfigView = new LogControllerTestView();
+logController(
+    logEntityManager(['Entities\\Log' => $missingPaginationConfigLog]),
+    new LogControllerTestNamespace(),
+    $missingPaginationConfigView,
+    new LogControllerTestStorage(['identity' => ['id' => 1]]),
+    static fn(int $id): object => $super,
+)->listAction();
+$check('missing log pagination config defaults to server-side list',
+    $missingPaginationConfigLog->loadCalls === []
+    && ($missingPaginationConfigView->assigned['logs'] ?? null) === []);
+
 $malformedDomainRejected = false;
 try {
     logController(

@@ -71,7 +71,8 @@ $check('plain render emits each message item', str_contains($rendered, 'Alpha') 
 $check('default ids remain sequential', str_contains($rendered, 'id="oss-message-0"') && str_contains($rendered, 'id="oss-message-2"'));
 $renderedIds = [];
 preg_match_all('/id="oss-message-([0-9]+)"/', $rendered, $renderedIdMatches);
-$renderedIds = $renderedIdMatches[1] ?? [];
+/** @var array{1:list<string>} $renderedIdMatches */
+$renderedIds = $renderedIdMatches[1];
 $check('array messages receive unique alert ids', count($renderedIds) === count(array_unique($renderedIds)));
 
 $randomSmarty = new MessageSmartyDouble([

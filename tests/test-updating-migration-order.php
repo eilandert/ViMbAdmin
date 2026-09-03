@@ -9,5 +9,10 @@ $seed = strpos($updating, 'mysql < contrib/migrations/2026-06-fork-schema.sql');
 $schema = strpos($updating, './bin/vimbtool.php -a maintenance.cli-schema-update');
 $ok = $seed !== false && $schema !== false && $seed < $schema
     && str_contains($updating, 'seeds `dovecot_quota` from the legacy columns before retiring them');
+$migration = file_get_contents(__DIR__ . '/../contrib/migrations/2026-06-fork-schema.sql');
+$ok = $ok && is_string($migration)
+    && str_contains($migration, "@have_last_login_table = 1 AND @have = 0");
+$ok = $ok && is_string($migration)
+    && str_contains($migration, "@have_archive_table = 1 AND @have = 0");
 echo ($ok ? 'ok   ' : 'FAIL ') . "migration seeds legacy quota before schema update\n";
 exit($ok ? 0 : 1);
