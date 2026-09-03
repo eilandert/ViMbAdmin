@@ -33,18 +33,45 @@ if (!function_exists('_')) {
 
 final class AutomaticAliasRepository extends \Repositories\Alias
 {
-    /** @var array<string, array{id: int|string, address: string, goto: string, active: bool, domain: string}> */
+    /** @var array<string, \Entities\Alias> */
     public array $aliases = [];
 
     public function __construct() {}
 
-    /**
-     * @param bool $ima
-     * @return array<int, array{id: int|string, address: string, goto: string, active: bool, domain: string}>
-     */
+    public function findOneBy(array $criteria, array|null $orderBy = null): object|null
+    {
+        $address = $criteria['address'] ?? null;
+        $domain = $criteria['Domain'] ?? null;
+        $alias = is_string($address) ? ($this->aliases[$address] ?? null) : null;
+        if (!$alias instanceof \Entities\Alias) {
+            return null;
+        }
+
+        if (!$domain instanceof \Entities\Domain) {
+            return $alias;
+        }
+
+        $aliasDomain = $alias->getDomain();
+        return $aliasDomain instanceof \Entities\Domain
+            && $aliasDomain->requiredId() === $domain->requiredId() ? $alias : null;
+    }
+
+    /** @return array<int, array{id: int|string, address: string, goto: string, active: bool, domain: string}> */
     public function filterForAliasList($filter, $admin, $domain = null, $ima = false): array
     {
-        return isset($this->aliases[$filter]) ? [$this->aliases[$filter]] : [];
+        foreach ($this->aliases as $address => $alias) {
+            if (str_starts_with($address, $filter)) {
+                return [[
+                    'id' => 1,
+                    'address' => $alias->getAddress() ?? '',
+                    'goto' => $alias->getGoto() ?? '',
+                    'active' => $alias->getActive() ?? false,
+                    'domain' => 'example.test',
+                ]];
+            }
+        }
+
+        return [];
     }
 }
 
@@ -53,6 +80,7 @@ final class AutomaticAliasEntityManager extends \Doctrine\ORM\Decorator\EntityMa
     /** @var list<object> */
     public array $persisted = [];
     public int $flushes = 0;
+    public int $repositoryCalls = 0;
 
     public function __construct(private AutomaticAliasRepository $repository)
     {
@@ -69,6 +97,7 @@ final class AutomaticAliasEntityManager extends \Doctrine\ORM\Decorator\EntityMa
      */
     public function getRepository(string $class): \Doctrine\ORM\EntityRepository
     {
+        $this->repositoryCalls++;
         if (ltrim($class, '\\') !== \Entities\Alias::class) {
             throw new \LogicException('The automatic-alias double only serves the Alias repository.');
         }
@@ -158,6 +187,8 @@ function automaticAliasDomain(bool $initialized = true, bool $named = true): \En
 
 function makeContext(AutomaticAliasRepository $repository, bool $initialized = true, bool $named = true, bool $mailboxNamed = true): AutomaticAliasMailboxContext {
     $domain = automaticAliasDomain($initialized, $named);
+    $admin = new \Entities\Admin();
+    $admin->addDomain($domain);
     $mailbox = new \Entities\Mailbox();
     if ($mailboxNamed) {
         $mailbox->setUsername('user@example.test');
@@ -168,7 +199,7 @@ function makeContext(AutomaticAliasRepository $repository, bool $initialized = t
             'defaultMapping' => ['postmaster' => 'root@example.test'],
         ]]],
         new AutomaticAliasEntityManager($repository),
-        new \Entities\Admin(),
+        $admin,
         $domain,
         $mailbox,
     );
@@ -176,13 +207,15 @@ function makeContext(AutomaticAliasRepository $repository, bool $initialized = t
 
 function makeAliasContext(AutomaticAliasRepository $repository, \Entities\Alias $alias): AutomaticAliasAliasContext {
     $domain = automaticAliasDomain()->setAliasCount(0);
+    $admin = new \Entities\Admin();
+    $admin->addDomain($domain);
     return new AutomaticAliasAliasContext(
         ['vimbadmin_plugins' => ['MailboxAutomaticAliases' => [
             'defaultAliases' => ['postmaster'],
             'defaultMapping' => ['postmaster' => 'root@example.test'],
         ]]],
         new AutomaticAliasEntityManager($repository),
-        new \Entities\Admin(),
+        $admin,
         $domain,
         $alias,
     );
@@ -292,16 +325,87 @@ $failures += checkAutomaticAlias(
 );
 
 $repository = new AutomaticAliasRepository();
-$repository->aliases['@example.test'] = [
-    'id' => 1,
-    'address' => '@example.test',
-    'goto' => 'catchall@example.test',
-    'active' => true,
-    'domain' => 'example.test',
-];
+$repository->aliases['@example.test'] = (new \Entities\Alias())
+    ->setAddress('@example.test')
+    ->setGoto('catchall@example.test')
+    ->setActive(true)
+    ->setDomain(automaticAliasDomain());
 $context = makeContext($repository);
 (new ViMbAdminPlugin_MailboxAutomaticAliases($context))->mailbox_add_addPostflush($context, ['options' => []]);
 $failures += checkAutomaticAlias('does not create aliases when an active domain alias exists', $context->getD2EM()->persisted === [] && $context->messages === []);
+
+$repository = new AutomaticAliasRepository();
+$repository->aliases['postmaster@example.test.au'] = (new \Entities\Alias())
+    ->setAddress('postmaster@example.test.au')
+    ->setGoto('source@example.test')
+    ->setActive(true)
+    ->setDomain(automaticAliasDomain());
+$context = makeContext($repository);
+(new ViMbAdminPlugin_MailboxAutomaticAliases($context))->mailbox_add_addPostflush($context, ['options' => []]);
+$createdBesidePrefixNeighbour = $context->getD2EM()->persisted[0] ?? null;
+$failures += checkAutomaticAlias(
+    'same-prefix neighbour does not suppress automatic alias creation',
+    $createdBesidePrefixNeighbour instanceof \Entities\Alias
+        && $createdBesidePrefixNeighbour->getAddress() === 'postmaster@example.test',
+);
+
+$sourceAlias = (new \Entities\Alias())
+    ->setAddress('source@example.test')
+    ->setGoto('destination@example.test');
+$aliasContext = makeAliasContext($repository, $sourceAlias);
+$deleteAllowed = (new ViMbAdminPlugin_MailboxAutomaticAliases($aliasContext))
+    ->alias_delete_preRemove($aliasContext, ['options' => []]);
+$failures += checkAutomaticAlias(
+    'same-prefix neighbour does not block unrelated alias deletion',
+    $deleteAllowed && $aliasContext->messages === [],
+);
+
+$otherDomain = (new \Entities\Domain())->setDomain('other.test');
+(new ReflectionMethod($otherDomain, 'assignGeneratedId'))->invoke($otherDomain, 18);
+$repository = new AutomaticAliasRepository();
+$repository->aliases['postmaster@example.test'] = (new \Entities\Alias())
+    ->setAddress('postmaster@example.test')
+    ->setGoto('root@other.test')
+    ->setActive(true)
+    ->setDomain($otherDomain);
+$context = makeContext($repository);
+(new ViMbAdminPlugin_MailboxAutomaticAliases($context))->mailbox_add_addPostflush($context, ['options' => []]);
+$crossDomainCreation = $context->getD2EM()->persisted[0] ?? null;
+$failures += checkAutomaticAlias(
+    'exact-address alias in another domain does not suppress creation',
+    $crossDomainCreation instanceof \Entities\Alias
+        && $crossDomainCreation->getAddress() === 'postmaster@example.test',
+);
+
+$repository = new AutomaticAliasRepository();
+$unauthorizedDomain = automaticAliasDomain();
+$unauthorizedContext = new AutomaticAliasMailboxContext(
+    ['vimbadmin_plugins' => ['MailboxAutomaticAliases' => [
+        'defaultAliases' => ['postmaster'],
+        'defaultMapping' => ['postmaster' => 'root@example.test'],
+    ]]],
+    new AutomaticAliasEntityManager($repository),
+    new \Entities\Admin(),
+    $unauthorizedDomain,
+    (new \Entities\Mailbox())->setUsername('user@example.test'),
+);
+$failures += checkAutomaticAlias(
+    'non-super admin without domain ownership is rejected',
+    automaticAliasThrows(
+        'Admin cannot manage the automatic alias domain.',
+        static function () use ($unauthorizedContext): void {
+            (new ViMbAdminPlugin_MailboxAutomaticAliases($unauthorizedContext))
+                ->mailbox_add_addPostflush($unauthorizedContext, ['options' => []]);
+        },
+    ),
+);
+$failures += checkAutomaticAlias(
+    'unauthorized lookup fails before persistence or flush',
+    $unauthorizedContext->getD2EM()->persisted === []
+        && $unauthorizedContext->getD2EM()->flushes === 0
+        && $unauthorizedContext->getD2EM()->repositoryCalls === 0
+        && $unauthorizedContext->messages === [],
+);
 
 echo "\n";
 if ($failures === 0) {
