@@ -535,6 +535,13 @@ class ViMbAdmin_Service_QueueRunner
         }
     }
 
+    private function maildirMissing(\Throwable $error): bool
+    {
+        return $error instanceof ViMbAdmin_Doveadm_CommandException
+            && $error->getCommand() === 'fsIterDirs'
+            && strtolower($error->getErrorType()) === 'no such file or directory';
+    }
+
     /**
      * @return array{mode:string,destination:string|null,completed:list<string>}|null
      */
@@ -761,20 +768,50 @@ class ViMbAdmin_Service_QueueRunner
         $home = $root . '/' . self::assertPathSafe($user);
 
         try {
-            if ($doveadm->maildirHasMail($home)) {
-                $task->appendLog('KEEP maildir home — still contains mail (empty/backup step failed?): ' . $home);
+            $doveadm->fsListDirs($home);
+        } catch (\Throwable $e) {
+            if ($this->maildirMissing($e)) {
+                $task->appendLog('maildir home already absent: ' . $home);
                 return;
             }
+            $task->appendLog('KEEP maildir home — could not verify it exists: ' . $e->getMessage());
+            throw $e;
+        }
+
+        try {
+            $hasMail = $doveadm->maildirHasMail($home);
         } catch (\Throwable $e) {
+            try {
+                $doveadm->fsListDirs($home);
+            } catch (\Throwable $existenceError) {
+                if ($this->maildirMissing($existenceError)) {
+                    $task->appendLog('maildir home disappeared before mail probe: ' . $home);
+                    return;
+                }
+            }
             $task->appendLog('KEEP maildir home — could not verify it is empty: ' . $e->getMessage());
-            return;
+            throw $e;
+        }
+
+        if ($hasMail) {
+            $task->appendLog('KEEP maildir home — still contains mail (empty/backup step failed?): ' . $home);
+            throw new ViMbAdmin_Exception('maildir home still contains mail: ' . $home);
         }
 
         try {
             $task->appendLog('remove empty maildir home ' . $home);
             $doveadm->fsDelete($home);
         } catch (\Throwable $e) {
+            try {
+                $doveadm->fsListDirs($home);
+            } catch (\Throwable $existenceError) {
+                if ($this->maildirMissing($existenceError)) {
+                    $task->appendLog('maildir home disappeared before removal: ' . $home);
+                    return;
+                }
+            }
             $task->appendLog('remove maildir home warning: ' . $e->getMessage());
+            throw $e;
         }
     }
 

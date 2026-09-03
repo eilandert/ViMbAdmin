@@ -41,8 +41,13 @@ $client = new ScriptedDoveadm([
 ]);
 $check('successful responses retain their decoded row contract', $client->run('ping') === [['ok' => true]]);
 $error = null;
-try { $client->run('ping'); } catch (ViMbAdmin_Exception $e) { $error = $e->getMessage(); }
-$check('reused instances retain command error semantics', $error === "doveadm 'ping' failed: failed (exit 75)");
+try { $client->run('ping'); } catch (ViMbAdmin_Exception $e) { $error = $e; }
+$check('reused instances retain command error semantics',
+    $error instanceof ViMbAdmin_Doveadm_CommandException
+    && $error->getMessage() === "doveadm 'ping' failed: failed (exit 75)"
+    && $error->getCommand() === 'ping'
+    && $error->getErrorType() === 'failed'
+    && $error->getExitCode() === 75);
 
 $doveadm = $source('library/ViMbAdmin/Doveadm.php');
 $check('one easy handle is reset per request and closed at lifecycle end',

@@ -25,6 +25,12 @@ final class DeleteRetryState
     public ?\Entities\Archive $archive = null;
     public string $persistedTaskData = '';
     public bool $sourceHasMail = true;
+    public bool $sourceExists = true;
+    public bool $sourceDisappearsBeforeDelete = false;
+    public ?Throwable $sourceProbeError = null;
+    /** @var list<Throwable|null> */
+    public array $sourceListErrors = [];
+    public ?Throwable $sourceDeleteError = null;
     public bool $destinationExists = false;
     public bool $destinationHasMail = false;
     public ?ViMbAdmin_Exception $destinationProbeError = null;
@@ -223,6 +229,23 @@ final class DeleteRetryDoveadm extends ViMbAdmin_Doveadm
 {
     public function __construct(private readonly DeleteRetryState $state) {}
 
+    public function fsListDirs($path, $filter = 'posix')
+    {
+        if ($path !== '/mail/user@example.test' || $filter !== 'posix') {
+            throw new RuntimeException('unexpected maildir-home existence probe');
+        }
+        if ($this->state->sourceListErrors !== []) {
+            $error = array_shift($this->state->sourceListErrors);
+            if ($error !== null) {
+                throw $error;
+            }
+        }
+        if (!$this->state->sourceExists) {
+            throw new ViMbAdmin_Doveadm_CommandException('fsIterDirs', 'No such file or directory', 68);
+        }
+        return ['cur', 'new', 'tmp'];
+    }
+
     public function maildirHasMail($maildir, $filter = 'posix')
     {
         if ($filter !== 'posix') {
@@ -238,6 +261,12 @@ final class DeleteRetryDoveadm extends ViMbAdmin_Doveadm
                 );
             }
             return $this->state->destinationHasMail;
+        }
+        if ($this->state->sourceProbeError !== null) {
+            throw $this->state->sourceProbeError;
+        }
+        if (!$this->state->sourceExists) {
+            throw new ViMbAdmin_Exception("doveadm 'fsIter' failed: No such file or directory (exit 68)");
         }
         return $this->state->sourceHasMail;
     }
@@ -278,6 +307,14 @@ final class DeleteRetryDoveadm extends ViMbAdmin_Doveadm
             throw new RuntimeException('unexpected maildir-home delete');
         }
         $this->state->calls['maildir-home']++;
+        if ($this->state->sourceDeleteError !== null) {
+            throw $this->state->sourceDeleteError;
+        }
+        if ($this->state->sourceDisappearsBeforeDelete) {
+            $this->state->sourceExists = false;
+            throw new ViMbAdmin_Doveadm_CommandException('fsDelete', 'No such file or directory', 68);
+        }
+        $this->state->sourceExists = false;
         return [];
     }
 }
@@ -336,6 +373,30 @@ function deleteRetryExecute(
     } catch (Throwable $error) {
         return $error->getPrevious() ?? $error;
     }
+}
+
+/** @return list<string>|null */
+function deleteRetryCompleted(mixed $data): ?array
+{
+    if (!is_array($data)) {
+        return null;
+    }
+    $progress = $data['_queue_runner_delete'] ?? null;
+    if (!is_array($progress)) {
+        return null;
+    }
+    $completed = $progress['completed'] ?? null;
+    if (!is_array($completed) || !array_is_list($completed)) {
+        return null;
+    }
+    $steps = [];
+    foreach ($completed as $step) {
+        if (!is_string($step)) {
+            return null;
+        }
+        $steps[] = $step;
+    }
+    return $steps;
 }
 
 /** @return array<string,mixed> */
@@ -486,6 +547,153 @@ deleteRetryCheck(
     $probeError?->getMessage() === 'doveadm transport unavailable'
         && array_sum($probeState->calls) === 0,
 );
+
+foreach (['mail remains' => true, 'probe fails' => false] as $keepReason => $mailRemains) {
+    $keepDomain = (new \Entities\Domain())->setDomain('example.test');
+    $keepState = new DeleteRetryState($keepDomain);
+    $keepTask = deleteRetryTask($keepDomain);
+    $keepDoveadm = new DeleteRetryDoveadm($keepState);
+    if ($mailRemains) {
+        // Model a mailbox-delete command that succeeds without emptying the home.
+        $keepState->sourceHasMail = true;
+    } else {
+        $keepState->sourceProbeError = new RuntimeException('simulated home probe failure');
+    }
+
+    $keepError = deleteRetryExecute(
+        deleteRetryRunner($keepState, $keepTask, deleteRetryOptions(0), 'mailbox-delete'),
+        $keepTask,
+        $keepDoveadm,
+    );
+    // Restore the retained-home condition after the injected post-mailbox-delete interruption.
+    $keepState->sourceHasMail = $mailRemains;
+    $keepRetry = deleteRetryTask($keepDomain);
+    $keepRetry->setData($keepState->persistedTaskData);
+    $keepError = deleteRetryExecute(
+        deleteRetryRunner($keepState, $keepRetry, deleteRetryOptions(0)),
+        $keepRetry,
+        $keepDoveadm,
+    );
+    $keptData = json_decode((string) $keepRetry->getData(), true);
+    $keptCompleted = deleteRetryCompleted($keptData);
+    deleteRetryCheck(
+        "{$keepReason} keeps later delete steps pending",
+        ($mailRemains
+            ? $keepError instanceof ViMbAdmin_Exception
+                && $keepError->getMessage() === 'maildir home still contains mail: /mail/user@example.test'
+            : $keepError instanceof RuntimeException
+                && $keepError->getMessage() === 'simulated home probe failure')
+            && $keptCompleted === ['mailbox-delete']
+            && $keepState->calls['maildir-home'] === 0
+            && $keepState->calls['mailbox-row'] === 0
+            && $keepState->calls['audit'] === 0,
+    );
+
+    // Once the retained home is externally emptied or the probe recovers, retry resumes here.
+    $keepState->sourceHasMail = false;
+    $keepState->sourceProbeError = null;
+    $cleanupRetry = deleteRetryTask($keepDomain);
+    $cleanupRetry->setData((string) $keepRetry->getData());
+    $cleanupError = deleteRetryExecute(
+        deleteRetryRunner($keepState, $cleanupRetry, deleteRetryOptions(0)),
+        $cleanupRetry,
+        $keepDoveadm,
+    );
+    $cleanupData = json_decode((string) $cleanupRetry->getData(), true);
+    deleteRetryCheck(
+        "{$keepReason} retry eventually cleans up without replaying mailbox delete",
+        $cleanupError === null
+            && deleteRetryCompleted($cleanupData)
+                === ['mailbox-delete', 'maildir-home', 'mailbox-row', 'audit']
+            && $keepState->calls['mailbox-delete'] === 1
+            && $keepState->calls['maildir-home'] === 1
+            && $keepState->calls['mailbox-row'] === 1
+            && $keepState->calls['audit'] === 1,
+    );
+}
+
+foreach (['absent before probe' => false, 'disappears before delete' => true] as $absence => $duringDelete) {
+    $absentDomain = (new \Entities\Domain())->setDomain('example.test');
+    $absentState = new DeleteRetryState($absentDomain);
+    $absentState->sourceHasMail = false;
+    $absentState->sourceExists = $duringDelete;
+    $absentState->sourceDisappearsBeforeDelete = $duringDelete;
+    $absentTask = deleteRetryTask($absentDomain);
+    $absentError = deleteRetryExecute(
+        deleteRetryRunner($absentState, $absentTask, deleteRetryOptions(0)),
+        $absentTask,
+        new DeleteRetryDoveadm($absentState),
+    );
+    $absentData = json_decode((string) $absentTask->getData(), true);
+    deleteRetryCheck(
+        "maildir {$absence} is checkpointed as already complete",
+        $absentError === null
+            && deleteRetryCompleted($absentData)
+                === ['mailbox-delete', 'maildir-home', 'mailbox-row', 'audit']
+            && $absentState->calls['maildir-home'] === ($duringDelete ? 1 : 0)
+            && $absentState->calls['mailbox-row'] === 1
+            && $absentState->calls['audit'] === 1,
+    );
+}
+
+foreach ([
+    'missing cur with populated new' => "doveadm 'fsIter' failed: No such file or directory (exit 68)",
+    'non-path missing text' => "doveadm 'fsIter' failed: backend metadata doesn't exist (exit 75)",
+] as $probeFailure => $probeMessage) {
+    $partialDomain = (new \Entities\Domain())->setDomain('example.test');
+    $partialState = new DeleteRetryState($partialDomain);
+    $partialState->sourceProbeError = new ViMbAdmin_Exception($probeMessage);
+    $partialTask = deleteRetryTask($partialDomain);
+    $partialError = deleteRetryExecute(
+        deleteRetryRunner($partialState, $partialTask, deleteRetryOptions(0)),
+        $partialTask,
+        new DeleteRetryDoveadm($partialState),
+    );
+    $partialData = json_decode((string) $partialTask->getData(), true);
+    deleteRetryCheck(
+        "{$probeFailure} remains retryable while the home exists",
+        $partialError instanceof ViMbAdmin_Exception
+            && $partialError->getMessage() === $probeMessage
+            && deleteRetryCompleted($partialData) === ['mailbox-delete']
+            && $partialState->calls['maildir-home'] === 0
+            && $partialState->calls['mailbox-row'] === 0
+            && $partialState->calls['audit'] === 0,
+    );
+}
+
+foreach (['initial', 'mail-probe confirmation', 'delete confirmation'] as $listCallSite) {
+    $ambiguousDomain = (new \Entities\Domain())->setDomain('example.test');
+    $ambiguousState = new DeleteRetryState($ambiguousDomain);
+    $ambiguousState->sourceHasMail = false;
+    $expectedMessage = $listCallSite . " backend doesn't exist";
+    $ambiguousListError = new ViMbAdmin_Doveadm_CommandException('fsIterDirs', $expectedMessage, 68);
+    $expectedError = $ambiguousListError;
+    if ($listCallSite === 'initial') {
+        $ambiguousState->sourceListErrors = [$ambiguousListError];
+    } elseif ($listCallSite === 'mail-probe confirmation') {
+        $expectedError = new ViMbAdmin_Exception('missing child maildir');
+        $ambiguousState->sourceProbeError = $expectedError;
+        $ambiguousState->sourceListErrors = [null, $ambiguousListError];
+    } else {
+        $expectedError = new ViMbAdmin_Exception('delete filter unavailable');
+        $ambiguousState->sourceDeleteError = $expectedError;
+        $ambiguousState->sourceListErrors = [null, $ambiguousListError];
+    }
+    $ambiguousTask = deleteRetryTask($ambiguousDomain);
+    $ambiguousError = deleteRetryExecute(
+        deleteRetryRunner($ambiguousState, $ambiguousTask, deleteRetryOptions(0)),
+        $ambiguousTask,
+        new DeleteRetryDoveadm($ambiguousState),
+    );
+    $ambiguousData = json_decode((string) $ambiguousTask->getData(), true);
+    deleteRetryCheck(
+        "missing filter/backend at {$listCallSite} does not checkpoint maildir home",
+        $ambiguousError === $expectedError
+            && deleteRetryCompleted($ambiguousData) === ['mailbox-delete']
+            && $ambiguousState->calls['mailbox-row'] === 0
+            && $ambiguousState->calls['audit'] === 0,
+    );
+}
 
 $auditPersistDomain = (new \Entities\Domain())->setDomain('example.test');
 $auditPersistState = new DeleteRetryState($auditPersistDomain);
