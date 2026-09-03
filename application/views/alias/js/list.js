@@ -1,10 +1,10 @@
 var oDataTable;
 var deleteDialog;
 
-function vmAliasServerData( source, data, callback )
+function vmAliasServerData( source, data, callback, settings )
 {
     var minimum = {if isset($options.defaults.server_side.pagination.min_search_str)}{$options.defaults.server_side.pagination.min_search_str}{else}3{/if};
-    return vmDataTableServerData( source, data, callback, minimum, '#list_table' );
+    return vmDataTableServerData( source, data, callback, minimum, '#list_table', settings );
 }
 
 

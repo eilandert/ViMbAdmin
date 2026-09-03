@@ -518,7 +518,7 @@ function randPasword( len, id )
 
 
 /* Default class modification */
-function vmDataTableServerData( source, data, callback, minimum, tableSelector )
+function vmDataTableServerData( source, data, callback, minimum, tableSelector, settings )
 {
         var search = '', echo = 1;
         $.each( data, function( _, parameter ) {
@@ -537,12 +537,26 @@ function vmDataTableServerData( source, data, callback, minimum, tableSelector )
                 return;
         }
 
-        $.ajax( {
+        return $.ajax( {
                 url: source,
                 data: data,
                 dataType: 'json',
                 success: callback,
-                error: function() { callback( emptyResult ); }
+                error: function( xhr, error ) {
+                        var api = $.fn.dataTableExt.oApi;
+                        var handled = api._fnCallbackFire(
+                                settings, null, 'xhr', [settings, null, xhr]
+                        );
+                        if( $.inArray( true, handled ) === -1 ) {
+                                api._fnLog(
+                                        settings,
+                                        0,
+                                        error === 'parsererror' ? 'Invalid JSON response' : 'Ajax error',
+                                        error === 'parsererror' ? 1 : 7
+                                );
+                        }
+                        api._fnProcessingDisplay( settings, false );
+                }
         } );
 }
 

@@ -18,13 +18,17 @@ $check('shared transport suppresses short nonempty server requests with feedback
         && str_contains($helper, 'searchLength > 0 && searchLength < minimum')
         && str_contains($helper, 'iTotalDisplayRecords: 0, aaData: []')
         && str_contains($helper, "'Enter at least ' + minimum + ' characters to search.'")
-        && str_contains($helper, 'error: function() { callback( emptyResult ); }'));
+        && str_contains($helper, "error === 'parsererror' ? 'Invalid JSON response' : 'Ajax error'")
+        && !str_contains($helper, 'error: function() { callback( emptyResult ); }'));
 $check('shared transport counts Unicode code points like the server',
     is_string($helper)
         && str_contains($helper, "replace( /[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]/g, '_' ).length"));
 $bundle = file_get_contents(__DIR__ . '/../public/js/min.bundle-v16.js');
 $check('production minified bundle exposes the shared transport',
-    is_string($bundle) && str_contains($bundle, 'function vmDataTableServerData('));
+    is_string($bundle)
+        && str_contains($bundle, 'function vmDataTableServerData(')
+        && str_contains($bundle, 'error==="parsererror"?"Invalid JSON response":"Ajax error"')
+        && !str_contains($bundle, 'error:function(){callback(emptyResult)}'));
 
 $lists = [
     'alias' => ['controller' => 'AliasController', 'resolver' => 'dataTableMinimumSearchLength()'],
@@ -38,7 +42,8 @@ foreach ($lists as $list => $contract) {
     $controller = file_get_contents(__DIR__ . "/../src/Kernel/Controller/{$contract['controller']}.php");
     $check("{$list} browser suppresses short server-side searches", is_string($template)
         && str_contains($template, "'fnServerData': vm")
-        && str_contains($template, 'vmDataTableServerData( source, data, callback, minimum'));
+        && str_contains($template, 'vmDataTableServerData( source, data, callback, minimum')
+        && str_contains($template, "'#list_table', settings"));
     $check("{$list} endpoint passes its configured minimum to fromArray", is_string($controller)
         && preg_match(
             '/DataTableQuery::fromArray\(\s*(?:self::[^\n]+\n\s*)?,?\s*\$this->'

@@ -31,11 +31,62 @@ cat <<'HTML' >> "$tmp/regression.html"
 <script>
 const payload = 'destination@example.test,'.repeat(3) +
     '"<svg/onload=document.body.dataset.pwned=1>"@example.test';
+const dataTableErrors = [];
+
+// Keep DataTables' normal error reporting observable without opening a modal
+// alert in headless Chrome.
+$.fn.dataTable.ext.sErrMode = $.fn.dataTable.ext.errMode = function (_settings, technicalNote, message) {
+    dataTableErrors.push({ technicalNote, message });
+};
 
 $(function () {
     $('#trusted-html-tooltip').trigger('mouseenter');
     $('#mailbox-purge-fixture [id|="alias-goto"]').trigger('mouseenter');
     $('#log-message-91').trigger('mouseenter');
+
+    const settings = oDataTable.fnSettings();
+    const originalAjax = $.ajax;
+    let emptyCallbacks = 0;
+    let failureCallbacks = 0;
+    let ajaxCalls = 0;
+
+    $.ajax = function (options) {
+        ajaxCalls++;
+        if (options.url === '/legitimate-empty') {
+            options.success({
+                sEcho: 11,
+                iTotalRecords: 0,
+                iTotalDisplayRecords: 0,
+                aaData: []
+            });
+        } else {
+            options.error({ readyState: 4 }, 'error');
+        }
+        return { abort: function () {} };
+    };
+
+    vmDataTableServerData(
+        '/legitimate-empty',
+        [{ name: 'sSearch', value: '' }, { name: 'sEcho', value: 11 }],
+        function (result) {
+            if (result.aaData.length === 0) emptyCallbacks++;
+        },
+        3,
+        '#list_table',
+        settings
+    );
+    const errorsBeforeFailure = dataTableErrors.length;
+    vmDataTableServerData(
+        '/transport-failure',
+        [{ name: 'sSearch', value: 'valid search' }, { name: 'sEcho', value: 12 }],
+        function () { failureCallbacks++; },
+        3,
+        '#list_table',
+        settings
+    );
+    const surfacedTransportFailure = dataTableErrors.length === errorsBeforeFailure + 1
+        && dataTableErrors[dataTableErrors.length - 1].technicalNote === 7;
+    $.ajax = originalAjax;
 
     setTimeout(function () {
         const failures = [];
@@ -64,6 +115,12 @@ $(function () {
         if (!logCell) failures.push('log data was not rendered as literal text');
         if (document.querySelector('#log-fixture .have-tooltip-long')) {
             failures.push('log data reached an HTML tooltip');
+        }
+        if (ajaxCalls !== 2) failures.push('empty and failed requests did not use AJAX');
+        if (emptyCallbacks !== 1) failures.push('legitimate empty response did not reach callback');
+        if (failureCallbacks !== 0) failures.push('transport failure reached success callback');
+        if (!surfacedTransportFailure) {
+            failures.push('transport failure did not surface as a DataTables AJAX error');
         }
 
         document.body.dataset.testResult = failures.length === 0 ? 'pass' : 'fail';
