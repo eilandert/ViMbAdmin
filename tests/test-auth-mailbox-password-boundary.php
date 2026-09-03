@@ -265,7 +265,7 @@ $demo = authMailboxPasswordRun(
 $generic = [[
     'text' => 'Invalid username or password.',
     'level' => 'error',
-    'isHtml' => true,
+    'isHtml' => false,
 ]];
 authMailboxPasswordCheck('wrong credential uses the generic failure',
     $wrong['status'] === 200 && $wrong['flashes'] === $generic);
@@ -293,7 +293,7 @@ authMailboxPasswordCheck('mailbox success cannot clear shared administrator-logi
 $demoFailure = [[
     'text' => 'Password changes are disabled for the demo account.',
     'level' => 'error',
-    'isHtml' => true,
+    'isHtml' => false,
 ]];
 authMailboxPasswordCheck('demo-account refusal remains authoritative',
     $demo['status'] === 302 && $demo['location'] === '/auth/change-password'

@@ -66,6 +66,11 @@ check('email: bad -> error',        $email('nope') !== null);
 check('email: good -> ok',          $email('a@b.com') === null);
 check('email: empty -> ok',         $email('') === null);
 
+$adminEmail = Validators::adminEmail();
+check('adminEmail: ordinary address -> ok', $adminEmail('admin@example.com') === null);
+check('adminEmail: quoted local part -> error', $adminEmail('"<b>admin</b>"@example.com') !== null);
+check('adminEmail: empty -> ok', $adminEmail('') === null);
+
 check('minLength: short -> error',  Validators::minLength(3)('ab') !== null);
 check('minLength: ok',              Validators::minLength(3)('abc') === null);
 check('regex: no match -> error',   Validators::regex('/^\d+$/')('a1') !== null);

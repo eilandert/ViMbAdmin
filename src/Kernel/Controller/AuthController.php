@@ -1085,7 +1085,7 @@ final class AuthController extends AbstractController
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
 
         $form->add(new Field('salt', 'Security salt', 'text', [Validators::string(), Validators::required()]))
-             ->add(new Field('username', 'Username (email)', 'text', [Validators::string(), Validators::required(), Validators::email()]))
+             ->add(new Field('username', 'Username (email)', 'text', [Validators::string(), Validators::required(), Validators::adminEmail()]))
              ->add(new Field('password', 'Password', 'password', [Validators::string(), Validators::required(), Validators::minLength(6)]));
 
         return $form;

@@ -125,10 +125,16 @@ $check('combined queues drain from one shared session snapshot', serialize($_SES
 $_SESSION = ['Application' => ['flashMessages' => [
     ['text' => '<b>raw</b>', 'level' => 'success', 'isHtml' => true],
     ['text' => '<b>escaped</b>', 'level' => 'success', 'isHtml' => false],
+    ['text' => '<img src=x onerror=alert(1)>', 'level' => 'error'],
 ]]];
 $escapedFlashSmarty = new MessageSmartyDouble([]);
 $escapedFlash = smarty_function_OSS_Message([], $escapedFlashSmarty);
-$check('native flash preserves raw HTML only when isHtml is true', str_contains($escapedFlash, '<b>raw</b>') && str_contains($escapedFlash, '&lt;b&gt;escaped&lt;/b&gt;') && !str_contains($escapedFlash, '<b>escaped</b>'));
+$check('native flash preserves raw HTML only when isHtml is true',
+    str_contains($escapedFlash, '<b>raw</b>')
+    && str_contains($escapedFlash, '&lt;b&gt;escaped&lt;/b&gt;')
+    && !str_contains($escapedFlash, '<b>escaped</b>')
+    && str_contains($escapedFlash, '&lt;img src=x onerror=alert(1)&gt;')
+    && !str_contains($escapedFlash, '<img src=x onerror=alert(1)>'));
 $_SESSION = [];
 
 echo "\n";

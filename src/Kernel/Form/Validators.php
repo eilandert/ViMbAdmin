@@ -71,6 +71,29 @@ final class Validators
     }
 
     /**
+     * A syntactically valid administrator email address with an unquoted local
+     * part. Admin usernames are displayed in security-sensitive UI messages;
+     * accepting quoted local parts adds no operational value and historically
+     * exposed surprising markup-bearing identities.
+     *
+     * @return callable(mixed):?string
+     */
+    public static function adminEmail(string $message = 'Please enter a valid email address with an unquoted local part.'): callable
+    {
+        $email = self::email($message);
+
+        return static function (mixed $value) use ($message, $email): ?string {
+            $error = $email($value);
+            if ($error !== null || $value === null || $value === '') {
+                return $error;
+            }
+
+            $string = self::scalarString($value);
+            return $string !== null && !str_starts_with($string, '"') ? null : $message;
+        };
+    }
+
+    /**
      * A syntactically valid email *local part* (the bit before the @): an RFC
      * 5321 dot-atom of the unreserved/permitted characters, with no leading,
      * trailing or consecutive dot. This is stricter than the old

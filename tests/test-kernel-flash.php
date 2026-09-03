@@ -50,7 +50,7 @@ check('starts empty',                 $f->isEmpty() === true);
 check('peek empty -> []',             $f->peek() === []);
 
 $f->success('saved');
-$f->error('<b>bad</b>', false);
+$f->error('<b>bad</b>');
 $f->info('fyi');
 $f->warning('careful');
 
@@ -61,8 +61,12 @@ check('peek returns 4 FlashMessage',  count($peek) === 4 && $peek[0] instanceof 
 check('order preserved + levels',
     $peek[0]->level === FlashMessages::SUCCESS && $peek[0]->text === 'saved' &&
     $peek[1]->level === FlashMessages::ERROR   && $peek[1]->isHtml === false &&
-    $peek[2]->level === FlashMessages::INFO &&
-    $peek[3]->level === FlashMessages::WARNING);
+    $peek[2]->level === FlashMessages::INFO && $peek[2]->isHtml === false &&
+    $peek[3]->level === FlashMessages::WARNING && $peek[3]->isHtml === false);
+check('HTML requires explicit opt-in', (new FlashMessage('<b>trusted</b>', FlashMessages::SUCCESS, true))->isHtml === true);
+
+$legacyShape = FlashMessage::fromArray(['text' => '<img src=x onerror=alert(1)>']);
+check('stored message without HTML flag defaults safe', $legacyShape->isHtml === false);
 check('peek does NOT clear',          $f->isEmpty() === false);
 
 $drained = $f->drain();

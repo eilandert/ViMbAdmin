@@ -421,7 +421,7 @@ final class AdminController extends AbstractController
     {
         $form = new Form(new Csrf(new MagicPropertyStorage($this->container->session())));
 
-        $form->add(new Field('username', 'Username (email)', 'text', [Validators::required(), Validators::email()]))
+        $form->add(new Field('username', 'Username (email)', 'text', [Validators::required(), Validators::adminEmail()]))
              ->add(new Field('password', 'Password', 'password', [Validators::required(), Validators::minLength(6)]))
              ->add(new Field('super', 'Super administrator', 'checkbox'));
 

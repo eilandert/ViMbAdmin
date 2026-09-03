@@ -13,6 +13,7 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Events;
 use ViMbAdmin\Kernel\Container;
+use ViMbAdmin\Kernel\Controller\AdminController;
 use ViMbAdmin\Kernel\Controller\AuthController;
 use ViMbAdmin\Kernel\RouteMatch;
 use ViMbAdmin\Kernel\Security\Auth;
@@ -142,7 +143,14 @@ final class AuthInputShapeAdmin extends \Entities\Admin
 final class AuthInputShapeFlushListener
 {
     public int $flushes = 0;
-    public function onFlush(): void { $this->flushes++; }
+    public bool $stopBeforeDatabase = false;
+    public function onFlush(): void
+    {
+        $this->flushes++;
+        if ($this->stopBeforeDatabase) {
+            throw new RuntimeException('expected test stop before database write');
+        }
+    }
 }
 
 final class AuthInputShapeBootstrap
@@ -184,7 +192,7 @@ function authInputShapeCheck(string $label, bool $condition): void
 
 /**
  * @param array<string,mixed>|null $options
- * @return array{controller:AuthController,session:AuthInputShapeSession,listener:AuthInputShapeFlushListener,repository:AuthInputShapeAdminRepository}
+ * @return array{controller:AuthController,container:Container,entityManager:EntityManager,session:AuthInputShapeSession,listener:AuthInputShapeFlushListener,repository:AuthInputShapeAdminRepository}
  */
 function authInputShapeController(
     mixed $pendingId,
@@ -192,6 +200,7 @@ function authInputShapeController(
     string $action = 'totp',
     ?array $options = null,
     int $adminCount = 1,
+    bool $authenticated = false,
 ): array
 {
     AuthInputShapeAdminRepository::$admin = $admin
@@ -217,20 +226,25 @@ function authInputShapeController(
     $listener = new AuthInputShapeFlushListener();
     $entityManager->getEventManager()->addEventListener([Events::onFlush], $listener);
 
-    $session = new AuthInputShapeSession([
+    $sessionData = [
         'csrfToken' => 'csrf-sentinel',
         'totp_pending_admin_id' => $pendingId,
         'totp_pending_via' => 'auth',
-    ]);
+    ];
+    if ($authenticated) {
+        $sessionData['identity'] = ['id' => 41, 'username' => AuthInputShapeAdminRepository::$admin?->getUsername()];
+    }
+    $session = new AuthInputShapeSession($sessionData);
     $view = new AuthInputShapeView();
     $options ??= ['securitysalt' => str_repeat('s', 64)];
     $container = new Container(
         new AuthInputShapeBootstrap($entityManager, $session, $view, $options),
-        new Auth($session, static fn(int $id): null => null),
+        new Auth($session, static fn(int $id): ?\Entities\Admin => $authenticated ? AuthInputShapeAdminRepository::$admin : null),
     );
 
     $method = match ($action) {
         'login' => 'loginAction',
+        'setup' => 'setupAction',
         'totp-setup' => 'totpSetupAction',
         default => 'totpAction',
     };
@@ -240,6 +254,8 @@ function authInputShapeController(
             $container,
             new RouteMatch('auth', $action, AuthController::class, $method, []),
         ),
+        'container' => $container,
+        'entityManager' => $entityManager,
         'session' => $session,
         'listener' => $listener,
         'repository' => $repository,
@@ -316,6 +332,91 @@ function authInputShapeLogin(AuthController $controller, string $password): \ViM
 
 echo "== auth controller input shapes ==\n";
 
+$adminOptions = [
+    'securitysalt' => str_repeat('s', 64),
+    'resources' => ['auth' => ['oss' => ['pwhash' => 'crypt:sha512']]],
+];
+$quotedUsername = '"<b>admin</b>"@example.test';
+
+$quotedSetup = authInputShapeController(null, null, 'setup', $adminOptions, 0);
+$quotedSetup['listener']->stopBeforeDatabase = true;
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_POST = ['csrf' => 'csrf-sentinel', 'salt' => str_repeat('s', 64), 'username' => $quotedUsername, 'password' => 'secure-password'];
+$response = null;
+$quotedSetupReachedFlush = false;
+try {
+    $response = $quotedSetup['controller']->setupAction();
+} catch (RuntimeException $exception) {
+    $quotedSetupReachedFlush = $exception->getMessage() === 'expected test stop before database write';
+}
+authInputShapeCheck('setup rejects quoted-local-part admin usernames at the controller boundary',
+    !$quotedSetupReachedFlush && $response?->status === 200 && str_contains($response->body, 'unquoted local part'));
+authInputShapeCheck('rejected setup username performs no persistence or flush',
+    $quotedSetup['listener']->flushes === 0
+        && $quotedSetup['entityManager']->getUnitOfWork()->getScheduledEntityInsertions() === []);
+
+$normalSetup = authInputShapeController(null, null, 'setup', $adminOptions, 0);
+$normalSetup['listener']->stopBeforeDatabase = true;
+$_POST['username'] = 'admin@example.test';
+$normalSetupReachedFlush = false;
+try {
+    $normalSetup['controller']->setupAction();
+} catch (RuntimeException $exception) {
+    $normalSetupReachedFlush = $exception->getMessage() === 'expected test stop before database write';
+}
+$setupInsertions = $normalSetup['entityManager']->getUnitOfWork()->getScheduledEntityInsertions();
+authInputShapeCheck('setup accepts a normal admin address and reaches persistence',
+    $normalSetupReachedFlush
+        && count(array_filter($setupInsertions, static fn(object $entity): bool => $entity instanceof \Entities\Admin
+            && $entity->getUsername() === 'admin@example.test')) === 1);
+
+$addActor = (new \Entities\Admin())
+    ->setUsername('actor@example.test')
+    ->setPassword('unused')
+    ->setSuper(true)
+    ->setActive(true);
+(new ReflectionMethod($addActor, 'assignGeneratedId'))->invoke($addActor, 41);
+$quotedAdd = authInputShapeController(1, $addActor, 'login', $adminOptions, 1, true);
+$quotedAdd['entityManager']->getUnitOfWork()->registerManaged($addActor, ['id' => 41], []);
+$quotedAdd['listener']->stopBeforeDatabase = true;
+$addController = new AdminController(
+    $quotedAdd['container'],
+    new RouteMatch('admin', 'add', AdminController::class, 'addAction', []),
+);
+$_POST = ['csrf' => 'csrf-sentinel', 'username' => $quotedUsername, 'password' => 'secure-password', 'super' => '1'];
+$response = null;
+$quotedAddReachedFlush = false;
+try {
+    $response = $addController->addAction();
+} catch (RuntimeException $exception) {
+    $quotedAddReachedFlush = $exception->getMessage() === 'expected test stop before database write';
+}
+authInputShapeCheck('admin add rejects quoted-local-part usernames at the controller boundary',
+    !$quotedAddReachedFlush && $response?->status === 200 && str_contains($response->body, 'unquoted local part'));
+authInputShapeCheck('rejected add username performs no persistence or flush',
+    $quotedAdd['listener']->flushes === 0
+        && $quotedAdd['entityManager']->getUnitOfWork()->getScheduledEntityInsertions() === []);
+
+$normalAdd = authInputShapeController(1, $addActor, 'login', $adminOptions, 1, true);
+$normalAdd['entityManager']->getUnitOfWork()->registerManaged($addActor, ['id' => 41], []);
+$normalAdd['listener']->stopBeforeDatabase = true;
+$addController = new AdminController(
+    $normalAdd['container'],
+    new RouteMatch('admin', 'add', AdminController::class, 'addAction', []),
+);
+$_POST['username'] = 'second-admin@example.test';
+$normalAddReachedFlush = false;
+try {
+    $addController->addAction();
+} catch (RuntimeException $exception) {
+    $normalAddReachedFlush = $exception->getMessage() === 'expected test stop before database write';
+}
+$addInsertions = $normalAdd['entityManager']->getUnitOfWork()->getScheduledEntityInsertions();
+authInputShapeCheck('admin add accepts a normal address and reaches persistence',
+    $normalAddReachedFlush
+        && count(array_filter($addInsertions, static fn(object $entity): bool => $entity instanceof \Entities\Admin
+            && $entity->getUsername() === 'second-admin@example.test')) === 1);
+
 $malformedPending = authInputShapeController('1junk');
 $_SERVER['REQUEST_METHOD'] = 'GET';
 $_POST = [];
@@ -388,7 +489,7 @@ authInputShapeCheck('inactive correct credentials retain the generic login respo
         && $inactiveMessages === [[
             'text' => 'Invalid username or password. Please try again.',
             'level' => 'error',
-            'isHtml' => true,
+            'isHtml' => false,
         ]]);
 authInputShapeCheck('inactive login retains failed-attempt accounting',
     authInputShapeBruteForceAttempts($inactiveState, $testIp) === 1
@@ -612,7 +713,7 @@ foreach (['totp', 'totp-setup'] as $pendingAction) {
             && $pendingInactive['session']->get('flashMessages') === [[
                 'text' => 'Invalid username or password. Please try again.',
                 'level' => 'error',
-                'isHtml' => true,
+                'isHtml' => false,
             ]]);
 }
 
@@ -695,7 +796,7 @@ authInputShapeCheck('deactivation during TOTP enrolment revokes the pending logi
         && $deactivatedDuringSetup['session']->get('totp_setup_secret') === null
         && !str_contains($deactivatedDuringSetupResponse->body, 'Two-factor is now enabled.'));
 
-authInputShapeCheck('fixed assertion count', AuthInputShapeState::$checks === 23);
+authInputShapeCheck('fixed assertion count', AuthInputShapeState::$checks === 29);
 
 echo AuthInputShapeState::$failures === 0
     ? "ALL PASSED\n"

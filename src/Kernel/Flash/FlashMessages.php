@@ -35,17 +35,17 @@ final class FlashMessages
     ) {
     }
 
-    public function add(string $text, string $level = self::SUCCESS, bool $isHtml = true): void
+    public function add(string $text, string $level = self::SUCCESS, bool $isHtml = false): void
     {
         $queue   = $this->rawQueue();
         $queue[] = (new FlashMessage($text, $level, $isHtml))->toArray();
         $this->session->set($this->key, $queue);
     }
 
-    public function success(string $text, bool $isHtml = true): void { $this->add($text, self::SUCCESS, $isHtml); }
-    public function error(string $text, bool $isHtml = true): void   { $this->add($text, self::ERROR, $isHtml); }
-    public function info(string $text, bool $isHtml = true): void    { $this->add($text, self::INFO, $isHtml); }
-    public function warning(string $text, bool $isHtml = true): void { $this->add($text, self::WARNING, $isHtml); }
+    public function success(string $text, bool $isHtml = false): void { $this->add($text, self::SUCCESS, $isHtml); }
+    public function error(string $text, bool $isHtml = false): void   { $this->add($text, self::ERROR, $isHtml); }
+    public function info(string $text, bool $isHtml = false): void    { $this->add($text, self::INFO, $isHtml); }
+    public function warning(string $text, bool $isHtml = false): void { $this->add($text, self::WARNING, $isHtml); }
 
     public function isEmpty(): bool
     {
