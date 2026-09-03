@@ -30,6 +30,24 @@ final class FailingCaptchaImage extends OSS_Captcha_Image
 
 echo "== standalone captcha ==\n";
 
+$sessionBeforeDirectoryFailure = ['existing' => 'state'];
+$_SESSION = $sessionBeforeDirectoryFailure;
+$serializedSessionBeforeDirectoryFailure = serialize($_SESSION);
+OSS_Runtime::configure(['temporary_directory' => '/proc/1/vimbadmin-captcha-denied'], '', new stdClass());
+$directoryFailureThrown = false;
+set_error_handler(static fn(): bool => true);
+try {
+    (new OSS_Captcha_Image(0, 0, 6, 60))->generate();
+} catch (RuntimeException $exception) {
+    $directoryFailureThrown = $exception->getMessage() === 'Unable to create captcha directory';
+} finally {
+    restore_error_handler();
+}
+check('failed captcha directory creation leaves session state unchanged',
+    $directoryFailureThrown && serialize($_SESSION) === $serializedSessionBeforeDirectoryFailure);
+OSS_Runtime::configure(['temporary_directory' => $root], '', new stdClass());
+$_SESSION = [];
+
 $captcha = new OSS_Captcha_Image(0, 0, 6, 60);
 $id = $captcha->generate();
 $path = OSS_Captcha_Image::path($id);
