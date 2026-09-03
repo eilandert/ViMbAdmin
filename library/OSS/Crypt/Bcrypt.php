@@ -71,7 +71,7 @@ class OSS_Crypt_Bcrypt
      * 14: 15.655678   1.565568
      * 15: 26.771987   2.677199
      */
-    private static $_cost = 9;
+    private $_cost = 9;
 
     
     /**
@@ -88,7 +88,7 @@ class OSS_Crypt_Bcrypt
         if( $cost < 4 || $cost > 31 )
             throw new OSS_Crypt_Exception( 'Bcrypt cost must be an integer between 4 and 31' );
 
-        self::$_cost = $cost;
+        $this->_cost = $cost;
     }
     
 
@@ -98,9 +98,9 @@ class OSS_Crypt_Bcrypt
      * @throws OSS_Crypt_Exception
      * @SuppressWarnings("PHPMD.MissingImport") Legacy OSS classes use global PSR-0 names.
      */
-    public static function hash( $plain )
+    public function hash( $plain )
     {
-        $hash = crypt( $plain, self::generateSalt() );
+        $hash = crypt( $plain, $this->generateSalt() );
 
         if( preg_match( '/^\$2a\$\d{2}\$[.\/A-Za-z0-9]{53}$/D', $hash ) === 1 )
             return $hash;
@@ -124,12 +124,12 @@ class OSS_Crypt_Bcrypt
      * @return non-empty-string
      * @SuppressWarnings("PHPMD.StaticAccess") OSS_String is a legacy static utility.
      */
-    public static function generateSalt()
+    public function generateSalt()
     {
         $salt = OSS_String::randomFromSet( './ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', 21 );
         $salt .= OSS_String::randomFromSet( '.Oeu', 1 );
 
-        return sprintf( '$2a$%02d$%s', self::$_cost, $salt );
+        return sprintf( '$2a$%02d$%s', $this->_cost, $salt );
     }
 
 }
