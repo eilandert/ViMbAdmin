@@ -15,6 +15,20 @@ use Doctrine\ORM\EntityRepository;
 class Admin extends EntityRepository
 {
     /**
+     * Replace an authenticated credential only if it is still the exact hash
+     * that was verified. A concurrent password reset wins harmlessly.
+     */
+    public function compareAndSwapPassword(\Entities\Admin $admin, string $verified, string $replacement): bool
+    {
+        $affected = $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE admin SET password = ? WHERE id = ? AND BINARY password = BINARY ?',
+            [ $replacement, $admin->getId(), $verified ],
+        );
+
+        return $affected === 1;
+    }
+
+    /**
      * Count the number of admins.
      *
      * Return count of all admins.
