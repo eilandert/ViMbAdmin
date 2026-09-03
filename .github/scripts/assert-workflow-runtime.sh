@@ -24,19 +24,67 @@ if grep -HnF 'shivammathur/setup-php@' "${workflows[@]}"; then
   exit 1
 fi
 
-if grep -HnE '^[[:space:]]+(php|mariadb)@sha256:' "${workflows[@]}"; then
-  printf 'Workflow images must use the approved registry mirror.\n' >&2
+runtime_images=$(awk '
+  /^[[:space:]]+image:[[:space:]]*/ {
+    value = $0
+    sub(/^[[:space:]]+image:[[:space:]]*/, "", value)
+    if (value == ">-") {
+      if (getline <= 0) exit 2
+      value = $0
+      sub(/^[[:space:]]+/, "", value)
+    }
+    print value
+  }
+' "${php_workflows[@]}")
+if [[ -z $runtime_images ]]; then
+  printf 'PHP workflows must declare runtime images.\n' >&2
   exit 1
 fi
 
-readonly expected_mirrored_images=10
-actual_mirrored_images=$(grep -hEc \
-  'mirror\.gcr\.io/library/(php|mariadb)@sha256:' "${php_workflows[@]}" \
-  | awk '{ total += $1 } END { print total + 0 }')
+if invalid_runtime_images=$(printf '%s\n' "$runtime_images" \
+  | grep -vE '^(mirror\.gcr\.io/library/(php|mariadb)@sha256:[0-9a-f]{64}|\$\{\{ matrix\.image \}\})$'); then
+  printf 'Workflow runtime images must use approved registry-mirror digests:\n%s\n' \
+    "$invalid_runtime_images" >&2
+  exit 1
+fi
 
-if [[ $actual_mirrored_images -ne $expected_mirrored_images ]]; then
-  printf 'Expected %d mirrored runtime images, found %d.\n' \
-    "$expected_mirrored_images" "$actual_mirrored_images" >&2
+if ! container_shape_errors=$(awk '
+  function indentation(line, leading) {
+    leading = line
+    sub(/[^ ].*$/, "", leading)
+    return length(leading)
+  }
+  function finish_container() {
+    if (in_container && image_count != 1) {
+      printf "%s:%d: container must map exactly one image (found %d)\n", file, container_line, image_count
+      failed = 1
+    }
+    in_container = 0
+    image_count = 0
+  }
+  FNR == 1 { finish_container(); file = FILENAME }
+  in_container && $0 !~ /^[[:space:]]*$/ && indentation($0) <= container_indent {
+    finish_container()
+  }
+  /^[[:space:]]+container:[[:space:]]*/ {
+    finish_container()
+    value = $0
+    sub(/^[[:space:]]+container:[[:space:]]*/, "", value)
+    if (value != "") {
+      printf "%s:%d: scalar or inline container syntax is unsupported\n", FILENAME, FNR
+      failed = 1
+      next
+    }
+    in_container = 1
+    container_indent = indentation($0)
+    container_line = FNR
+    next
+  }
+  in_container && /^[[:space:]]+image:[[:space:]]*/ { image_count++ }
+  END { finish_container(); exit failed ? 1 : 0 }
+' "${php_workflows[@]}"); then
+  printf 'Invalid PHP workflow container declaration:\n%s\n' \
+    "$container_shape_errors" >&2
   exit 1
 fi
 
@@ -46,13 +94,11 @@ if ! grep -qF "git fetch --no-tags --depth=1 origin \"\$PHPSTAN_BASE_SHA\"" \
   exit 1
 fi
 
-readonly expected_php_containers=6
 actual_php_containers=$(grep -hEc '^[[:space:]]+container:' "${php_workflows[@]}" \
   | awk '{ total += $1 } END { print total + 0 }')
 
-if [[ $actual_php_containers -ne $expected_php_containers ]]; then
-  printf 'Expected %d PHP container jobs, found %d.\n' \
-    "$expected_php_containers" "$actual_php_containers" >&2
+if [[ $actual_php_containers -eq 0 ]]; then
+  printf 'PHP workflows must declare at least one container job.\n' >&2
   exit 1
 fi
 
@@ -60,14 +106,14 @@ actual_checkout_preparations=$(grep -hEc \
   'name: Prepare PHP container for checkout' "${php_workflows[@]}" \
   | awk '{ total += $1 } END { print total + 0 }')
 
-if [[ $actual_checkout_preparations -ne $expected_php_containers ]]; then
-  printf 'Expected %d container checkout preparations, found %d.\n' \
-    "$expected_php_containers" "$actual_checkout_preparations" >&2
+if [[ $actual_checkout_preparations -ne $actual_php_containers ]]; then
+  printf 'Every PHP container job needs one checkout preparation (%d jobs, %d preparations).\n' \
+    "$actual_php_containers" "$actual_checkout_preparations" >&2
   exit 1
 fi
 
 printf 'Workflow runtime contract holds for %d PHP container jobs.\n' \
-  "$expected_php_containers"
+  "$actual_php_containers"
 
 readonly security_workflow=${WORKFLOW_RUNTIME_SECURITY_WORKFLOW:-.github/workflows/security.yml}
 if grep -HnE '\|\|[[:space:]]*true' "$security_workflow"; then

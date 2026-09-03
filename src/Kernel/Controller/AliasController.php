@@ -369,10 +369,7 @@ final class AliasController extends AbstractController
         $preferred = null;
         $did = $this->positiveIdParam('did');
         if ($did !== null) {
-            $d = $this->domainRepository()->find($did);
-            if ($d !== null && ($admin->isSuper() || $admin->canManageDomain($d))) {
-                $preferred = $d;
-            }
+            $preferred = $this->resolveAuthorizedTargetDomain($admin, $did, $this->domainRepository());
         }
 
         $form = $this->buildAliasAddForm($choices, $preferred);
@@ -380,11 +377,11 @@ final class AliasController extends AbstractController
         if ($this->isPost() && $form->isValid($this->postData())) {
             $v      = $form->values();
             $domainId = self::positiveIntegerOrNull($v['domain'] ?? null);
-            $domain = $domainId === null ? null : $this->domainRepository()->find($domainId);
+            $domain = $this->resolveAuthorizedTargetDomain($admin, $domainId, $this->domainRepository());
 
             // The inArray rule already rejected a domain not offered; re-check
             // management server-side so a non-super admin cannot widen scope.
-            if ($domain === null || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
+            if ($domain === null) {
                 $this->flash('Please select a valid domain.', FlashMessages::ERROR);
             } elseif (!$admin->isSuper() && $domain->getMaxAliases() != 0
                 && $domain->getAliasCount() >= $domain->getMaxAliases()) {

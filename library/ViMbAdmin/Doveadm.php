@@ -409,9 +409,7 @@ class ViMbAdmin_Doveadm
      */
     public function fsDelete( $path, $filter = 'posix' )
     {
-        // Strip a leading mail-driver prefix (maildir:/..., mdbox:/...).
-        if( preg_match( '#^[a-z0-9]+:(/.*)$#i', $path, $m ) )
-            $path = $m[1];
+        $path = self::_stripDriverPrefix( $path );
 
         return $this->run( 'fsDelete', [
             'recursive'  => true,
@@ -433,8 +431,7 @@ class ViMbAdmin_Doveadm
      */
     public function maildirHasMail( $maildir, $filter = 'posix' )
     {
-        if( preg_match( '#^[a-z0-9]+:(/.*)$#i', $maildir, $m ) )
-            $maildir = $m[1];
+        $maildir = self::_stripDriverPrefix( $maildir );
         $maildir = rtrim( $maildir, '/' );
 
         // Files directly in cur/ or new/.
@@ -472,8 +469,7 @@ class ViMbAdmin_Doveadm
      */
     public function fsListDirs( $path, $filter = 'posix' )
     {
-        if( preg_match( '#^[a-z0-9]+:(/.*)$#i', $path, $m ) )
-            $path = $m[1];
+        $path = self::_stripDriverPrefix( $path );
         $path = rtrim( $path, '/' );
 
         return $this->_fsList( 'fsIterDirs', $path, $filter );
@@ -500,8 +496,7 @@ class ViMbAdmin_Doveadm
      */
     public function fsDirSize( $path, $filter = 'posix' )
     {
-        if( preg_match( '#^[a-z0-9]+:(/.*)$#i', $path, $m ) )
-            $path = $m[1];
+        $path = self::_stripDriverPrefix( $path );
         $path = rtrim( $path, '/' );
 
         try
@@ -710,9 +705,7 @@ class ViMbAdmin_Doveadm
             {
                 // INBOX can't be deleted as a box (exit 65), or it's already
                 // gone (exit 68) — both fine, the mail is already expunged.
-                if( stripos( $e->getMessage(), 'inbox' ) === false
-                    && stripos( $e->getMessage(), 'exit 65' ) === false
-                    && !self::_isAlreadyGone( $e ) )
+                if( !self::_hasExitCode( $e, 65 ) && !self::_isAlreadyGone( $e ) )
                     throw $e;
             }
         }
@@ -728,10 +721,23 @@ class ViMbAdmin_Doveadm
      */
     private static function _isAlreadyGone( \Throwable $e )
     {
-        $m = $e->getMessage();
-        return stripos( $m, "doesn't exist" ) !== false
-            || stripos( $m, 'not exist' ) !== false
-            || stripos( $m, 'exit 68' ) !== false;
+        return self::_hasExitCode( $e, 68 );
+    }
+
+    private static function _hasExitCode( \Throwable $e, int $exitCode ): bool
+    {
+        return $e instanceof ViMbAdmin_Doveadm_CommandException
+            && $e->getExitCode() === $exitCode;
+    }
+
+    private static function _stripDriverPrefix( mixed $path ): string
+    {
+        if( !is_string( $path ) )
+            throw new \TypeError( 'doveadm filesystem path must be a string' );
+        $stripped = preg_replace( '#^[a-z][a-z0-9+.-]*:#i', '', $path );
+        if( !is_string( $stripped ) )
+            throw new \LogicException( 'doveadm driver-prefix pattern failed' );
+        return $stripped;
     }
 
     /**

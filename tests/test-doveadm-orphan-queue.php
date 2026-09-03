@@ -7,6 +7,11 @@ require_once __DIR__ . '/../library/ViMbAdmin/Doveadm.php';
 
 final class ScriptedDoveadm extends ViMbAdmin_Doveadm
 {
+    /** @var list<array<mixed>> */
+    public array $requests = [];
+
+    public ?string $firstPath = null;
+
     /** @param list<array{0:int,1:string}> $responses */
     public function __construct(private array $responses)
     {
@@ -17,6 +22,15 @@ final class ScriptedDoveadm extends ViMbAdmin_Doveadm
     {
         if (!is_string($payload) || $this->responses === []) {
             throw new RuntimeException('Unexpected scripted Doveadm request.');
+        }
+        $decoded = json_decode($payload, true);
+        if (is_array($decoded)) {
+            $this->requests[] = $decoded;
+            $command = $decoded[0] ?? null;
+            $parameters = is_array($command) ? ($command[1] ?? null) : null;
+            $paths = is_array($parameters) ? ($parameters['path'] ?? null) : null;
+            $path = is_array($paths) ? ($paths[0] ?? null) : null;
+            $this->firstPath ??= is_string($path) ? $path : null;
         }
         return array_shift($this->responses);
     }
@@ -48,6 +62,30 @@ $check('reused instances retain command error semantics',
     && $error->getCommand() === 'ping'
     && $error->getErrorType() === 'failed'
     && $error->getExitCode() === 75);
+
+$relative = new ScriptedDoveadm([
+    [200, '[["doveadmResponse",[],"tag"]]'],
+]);
+$relative->fsDelete('maildir:relative/archive');
+$check('filesystem commands strip driver prefixes from relative paths',
+    $relative->firstPath === 'relative/archive');
+
+$delete = static function (string $mailbox, int $exitCode, string $message): ?Throwable {
+    $client = new ScriptedDoveadm([
+        [200, '[["doveadmResponse",[{"mailbox":"' . $mailbox . '"}],"tag"]]'],
+        [200, '[["error",{"type":' . json_encode($message) . ',"exitCode":' . $exitCode . '},"tag"]]'],
+    ]);
+    try { $client->mailboxDelete('user@example.test'); } catch (Throwable $e) { return $e; }
+    return null;
+};
+$check('already-gone mailbox classification uses exit code 68',
+    $delete('Archive', 68, 'localized error') === null);
+$check('already-gone text cannot hide another exit code',
+    $delete('Archive', 75, "Mailbox doesn't exist") instanceof ViMbAdmin_Doveadm_CommandException);
+$check('INBOX classification uses exit code 65',
+    $delete('INBOX', 65, 'localized error') === null);
+$check('INBOX text cannot hide another exit code',
+    $delete('INBOX', 75, 'cannot delete INBOX (exit 65)') instanceof ViMbAdmin_Doveadm_CommandException);
 
 $doveadm = $source('library/ViMbAdmin/Doveadm.php');
 $check('one easy handle is reset per request and closed at lifecycle end',

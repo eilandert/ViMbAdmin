@@ -8,8 +8,10 @@
 
 *Virtual Mailbox Administration that runs on a PHP version released this decade.*
 
-[![PHP](https://img.shields.io/badge/PHP-8.4%2B-777bb4)]()
-[![Stack](https://img.shields.io/badge/Native%20kernel%20%C2%B7%20Doctrine%20ORM%203%20%C2%B7%20Smarty%205-informational)]()
+[![CI](https://github.com/myguard-labs/ViMbAdmin/actions/workflows/ci.yml/badge.svg)](https://github.com/myguard-labs/ViMbAdmin/actions/workflows/ci.yml)
+[![Regression](https://github.com/myguard-labs/ViMbAdmin/actions/workflows/regression.yml/badge.svg)](https://github.com/myguard-labs/ViMbAdmin/actions/workflows/regression.yml)
+[![Static analysis](https://github.com/myguard-labs/ViMbAdmin/actions/workflows/static-analysis.yml/badge.svg)](https://github.com/myguard-labs/ViMbAdmin/actions/workflows/static-analysis.yml)
+[![Security](https://github.com/myguard-labs/ViMbAdmin/actions/workflows/security.yml/badge.svg)](https://github.com/myguard-labs/ViMbAdmin/actions/workflows/security.yml)
 
 **ViMbAdmin** (*vim-be-admin*) is a web panel for managing the virtual domains,
 mailboxes and aliases in a **Postfix + Dovecot** mail server backed by a SQL
