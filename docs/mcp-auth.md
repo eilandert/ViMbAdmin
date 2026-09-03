@@ -66,6 +66,12 @@ curl -s https://mail.example.com/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"ping"}'
 ```
 
+Requests must be one JSON-RPC 2.0 Request object with `jsonrpc` exactly `"2.0"`.
+Batch requests are not supported. `params`, when present, must be a named JSON
+object (an empty `[]` remains accepted for no-argument methods). The endpoint is
+request/response-only: `id` is required and must be a string or integer, so
+notification-shaped calls cannot execute silently.
+
 ### Read methods (scope: `read`)
 
 | Method | Params | Returns |
@@ -84,7 +90,7 @@ curl -s https://mail.example.com/mcp \
 | `mailbox.create` | `{domain, local_part, password, name?, quota?, active?}` | password hashed in the configured scheme (`doveadm pw`) |
 | `mailbox.delete` | `{username}` | **destructive** |
 | `alias.create` | `{domain, address, goto, active?}` | `address` may be a local part (domain appended) or full |
-| `alias.delete` | `{address}` | **destructive** |
+| `alias.delete` | `{address}` | deletes the alias row |
 | `mailbox.archive` | `{username}` | **destructive** — queues `PENDING_ARCHIVE` (panel-compatible) |
 | `archive.restore` | `{username}` | **destructive** — restores immediately, then removes backup and row |
 | `archive.delete` | `{username}` | **destructive** — immediately deletes backup files and row |
@@ -94,7 +100,8 @@ read-only token by default; only grant `write` where needed.
 
 ### Rate limiting (destructive methods)
 
-The **destructive** methods above are additionally rate-limited **per token**:
+The methods marked **destructive** above are additionally rate-limited
+**per token**:
 max `N` per `window` seconds (file-based sliding window under `var/`). Over the
 limit returns HTTP `429`. So a leaked or buggy `write` token still can't
 mass-destroy mailboxes. Configure in `application.ini`:
@@ -112,9 +119,26 @@ stricter); symlinked or group/world-writable state directories are refused.
 
 Transport/auth failures return the matching HTTP status (`401` missing/invalid
 token, `403` revoked/expired/scope/IP, `404` adapter disabled, `405` non-POST)
-plus a JSON-RPC error envelope. Method/param errors return HTTP 200 with a
-JSON-RPC `error` object (`-32601` unknown method, `-32602`-ish bad params,
-`-32603` internal).
+plus a JSON-RPC error envelope. JSON-RPC and application errors use HTTP 200.
+Notification-shaped requests (missing `id`) are the exception: this
+request/response-only endpoint rejects them with HTTP 400 and an empty body, so
+it never executes a call for which JSON-RPC forbids a response.
+
+- `-32700`: malformed JSON.
+- `-32600`: well-formed JSON that is not a supported JSON-RPC 2.0 Request
+  object, including batches, notifications, invalid IDs, and wrong or missing
+  versions.
+- `-32601`: unknown method.
+- `-32602`: invalid named-parameter shape or value.
+- `-32603`: unexpected internal error.
+- `-32010`: valid request conflicts with current application state, such as an
+  unknown or existing mailbox, domain, alias, or archive.
+
+When a valid request id can be read, error responses retain it. Identity
+parameters (`domain`, `local_part`, `username`, `address`, and `goto`) are
+canonicalized to lowercase. Unlike web forms, the API does not silently trim
+them: surrounding whitespace is invalid (`-32602`). This keeps authorization
+and database lookups bound to the exact identity the caller supplied.
 
 ## Notes
 

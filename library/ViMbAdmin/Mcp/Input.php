@@ -50,6 +50,24 @@ final class ViMbAdmin_Mcp_Input
         return $value === null ? null : self::exactString($value, $name);
     }
 
+    /**
+     * Parse a case-insensitive identity without silently changing its boundary.
+     * API callers must send the exact identity; the canonicalizer still matches
+     * the lowercase form used by the web UI and token domain authorization.
+     */
+    public static function identity(mixed $value, string $name, bool $required = false): string
+    {
+        $identity = self::exactString($value, $name, $required);
+        if (preg_match('//u', $identity) !== 1) {
+            throw new ViMbAdmin_Mcp_Exception("{$name} must be valid UTF-8");
+        }
+        if (preg_match('/^(?:\p{White_Space})|(?:\p{White_Space})$/u', $identity) === 1) {
+            throw new ViMbAdmin_Mcp_Exception("{$name} must not contain surrounding whitespace");
+        }
+
+        return ViMbAdmin_Identity::canonical($identity);
+    }
+
     public static function boolean(mixed $value, string $name): bool
     {
         if (!is_bool($value)) {
