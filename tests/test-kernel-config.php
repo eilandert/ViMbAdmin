@@ -105,6 +105,26 @@ $threw = false;
 try { IniConfig::parse("[a : b : c]\nx=1\n", 'a'); } catch (\RuntimeException) { $threw = true; }
 configCheck('more than one parent throws', $threw);
 
+foreach ([
+    "[user]\nmail = scalar\nmail.host = nested\n",
+    "[user]\nmail.host = nested\nmail = scalar\n",
+] as $collision) {
+    $message = '';
+    try { IniConfig::parse($collision, 'user'); } catch (\RuntimeException $e) { $message = $e->getMessage(); }
+    configCheck('scalar/nested dotted-key collision rejects both key orderings and names both keys',
+        str_contains($message, "'mail'") && str_contains($message, "'mail.host'"));
+}
+
+foreach ([
+    "[user]\nmail[] = first\nmail.host = nested\n",
+    "[user]\nmail.host = nested\nmail[] = first\n",
+] as $collision) {
+    $message = '';
+    try { IniConfig::parse($collision, 'user'); } catch (\RuntimeException $e) { $message = $e->getMessage(); }
+    configCheck('list/namespace dotted-key collision rejects both parser-preserved orderings and names both keys',
+        str_contains($message, "'mail'") && str_contains($message, "'mail.host'"));
+}
+
 // --- section-less base layer (flattened config) ----------------------------
 $flat = "a.b = 1\nshared = base\nlist[] = x\nlist[] = y\n";
 $g1 = IniConfig::parse($flat, 'production'); // no such section -> base only

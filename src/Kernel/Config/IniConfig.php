@@ -149,31 +149,73 @@ final class IniConfig
     private static function expandDottedKeys(array $flat): array
     {
         $out = [];
+        $owners = [];
         foreach ($flat as $key => $value) {
-            $segments = explode('.', (string) $key);
-            $out = self::stringMap(array_replace_recursive($out, self::dottedValue($segments, $value)));
+            $key = (string) $key;
+            $out = self::insertDottedValue($out, explode('.', $key), $value, $key, $owners);
         }
+
+        return self::stringMap($out);
+    }
+
+    /**
+     * @param array<string,mixed> $out
+     * @param non-empty-list<string> $segments
+     * @param array<string,string> $owners
+     * @param list<string> $path
+     * @return array<string,mixed>
+     */
+    private static function insertDottedValue(
+        array $out,
+        array $segments,
+        mixed $value,
+        string $key,
+        array &$owners,
+        array $path = []
+    ): array {
+        $segment = array_shift($segments);
+        if ($segment === null) {
+            throw new \LogicException('A dotted INI key must contain a segment');
+        }
+        $path[] = $segment;
+        $pathKey = implode('.', $path);
+
+        if ($segments === []) {
+            if (array_key_exists($segment, $out)) {
+                $existing = $out[$segment];
+                if (self::dottedValuesCollide($existing, $value)) {
+                    throw new \RuntimeException(
+                        "INI keys '{$owners[$pathKey]}' and '{$key}' collide as scalar and nested values"
+                    );
+                }
+            }
+            $out[$segment] = $value;
+            $owners[$pathKey] = $key;
+            return $out;
+        }
+
+        if (!array_key_exists($segment, $out)) {
+            $out[$segment] = [];
+            $owners[$pathKey] = $key;
+        } elseif (!is_array($out[$segment]) || array_is_list($out[$segment])) {
+            throw new \RuntimeException(
+                "INI keys '{$owners[$pathKey]}' and '{$key}' collide as scalar and nested values"
+            );
+        }
+        $child = self::stringMap($out[$segment]);
+        $out[$segment] = self::insertDottedValue($child, $segments, $value, $key, $owners, $path);
 
         return $out;
     }
 
-    /**
-     * @param non-empty-list<string> $segments
-     * @return array<string,mixed>
-     */
-    private static function dottedValue(array $segments, mixed $value): array
+    private static function dottedValuesCollide(mixed $existing, mixed $value): bool
     {
-        $segment = array_pop($segments);
-        if ($segment === null) {
-            throw new \LogicException('A dotted INI key must contain a segment');
+        if (is_array($existing) !== is_array($value)) {
+            return true;
         }
 
-        $nested = [$segment => $value];
-        while (($segment = array_pop($segments)) !== null) {
-            $nested = [$segment => $nested];
-        }
-
-        return $nested;
+        return is_array($existing) && is_array($value)
+            && array_is_list($existing) !== array_is_list($value);
     }
 
     /**

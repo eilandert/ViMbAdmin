@@ -54,6 +54,11 @@ function mcpRateLimitDenied(string $label, callable $call): void
 
 echo "== MCP destructive rate limit ==\n";
 
+$defaultLimiter = new ViMbAdmin_Mcp_RateLimit();
+$dirProperty = new ReflectionProperty(ViMbAdmin_Mcp_RateLimit::class, '_dir');
+mcpRateLimitCheck('default state is kept under the project var directory',
+    $dirProperty->getValue($defaultLimiter) === dirname(__DIR__) . '/var/mcp-ratelimit');
+
 $stateDir = sys_get_temp_dir() . '/vimbadmin-rate-limit-' . bin2hex(random_bytes(8));
 $limiter = new ViMbAdmin_Mcp_RateLimit(['statedir' => $stateDir, 'max' => 2, 'window' => 3600]);
 $limiter->hit(42, 'archive/restore');
@@ -105,6 +110,58 @@ mcpRateLimitDenied('zero window cannot silently disable an enabled destructive l
     static function() use ($stateDir): void {
         new ViMbAdmin_Mcp_RateLimit(['statedir' => $stateDir, 'max' => 1, 'window' => 0]);
     });
+mcpRateLimitDenied('negative maximum cannot silently disable the destructive limiter',
+    static function() use ($stateDir): void {
+        new ViMbAdmin_Mcp_RateLimit(['statedir' => $stateDir, 'max' => -1, 'window' => 60]);
+    });
+mcpRateLimitDenied('non-integer maximum is rejected instead of coerced',
+    static function() use ($stateDir): void {
+        new ViMbAdmin_Mcp_RateLimit(['statedir' => $stateDir, 'max' => 'off', 'window' => 60]);
+    });
+mcpRateLimitDenied('invalid window is rejected even when maximum explicitly disables limiting',
+    static function() use ($stateDir): void {
+        new ViMbAdmin_Mcp_RateLimit(['statedir' => $stateDir, 'max' => 0, 'window' => 0]);
+    });
+
+$unsafeDir = $stateDir . '/unsafe';
+mkdir($unsafeDir, 0777);
+chmod($unsafeDir, 0770);
+mcpRateLimitDenied('group/world-writable state directory denies destructive work',
+    static function() use ($unsafeDir): void {
+        (new ViMbAdmin_Mcp_RateLimit(['statedir' => $unsafeDir, 'max' => 1]))->hit(13);
+    });
+chmod($unsafeDir, 0750);
+rmdir($unsafeDir);
+
+$unsafeParent = $stateDir . '/unsafe-parent';
+$safeChild = $unsafeParent . '/state';
+mkdir($safeChild, 0750, true);
+chmod($unsafeParent, 0775);
+$parentAccepted = true;
+try {
+    (new ViMbAdmin_Mcp_RateLimit(['statedir' => $safeChild, 'max' => 1]))->hit(14);
+} catch (ViMbAdmin_Mcp_Exception) {
+    $parentAccepted = false;
+}
+mcpRateLimitCheck('representative group-writable project parent permits its safe state child',
+    $parentAccepted && is_file($safeChild . '/14-destructive.json'));
+foreach (glob($safeChild . '/*') ?: [] as $file) {
+    unlink($file);
+}
+chmod($unsafeParent, 0750);
+rmdir($safeChild);
+rmdir($unsafeParent);
+
+$symlinkTarget = $stateDir . '/symlink-target';
+$symlinkState = $stateDir . '/symlink-state';
+mkdir($symlinkTarget, 0750);
+symlink($symlinkTarget, $symlinkState);
+mcpRateLimitDenied('symlink-substituted state directory denies destructive work',
+    static function() use ($symlinkState): void {
+        (new ViMbAdmin_Mcp_RateLimit(['statedir' => $symlinkState, 'max' => 1]))->hit(15);
+    });
+unlink($symlinkState);
+rmdir($symlinkTarget);
 
 $notDirectory = $stateDir . '/not-a-directory';
 file_put_contents($notDirectory, 'occupied');

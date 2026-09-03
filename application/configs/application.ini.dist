@@ -352,8 +352,9 @@ mcp.enabled = 0
 ;; A compromised/buggy client can't mass-destroy. Set max to 0 to disable.
 mcp.ratelimit.destructive.max    = 10
 mcp.ratelimit.destructive.window = 3600
-;; State dir (defaults to the system temp dir if unset):
+;; State dir (defaults to APPLICATION_PATH "/../var/mcp-ratelimit" if unset):
 ;mcp.ratelimit.statedir = APPLICATION_PATH "/../var/mcp-ratelimit"
+;; Keep the state directory on a trusted filesystem with mode 0750 (or stricter).
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
