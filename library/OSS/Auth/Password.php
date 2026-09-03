@@ -105,30 +105,16 @@ class OSS_Auth_Password
         }
         else if ( substr( $hash, 0, 6) == 'crypt:' )
         {
-            $indicator = '';
-            $salt_len = 2;
-            switch( $hash )
-            {
-                case 'crypt:md5':
-                    $salt = '$1$' . OSS_String::randomPassword( 12 ) . '$';
-                    break;
+            if( !in_array( $hash, [ 'crypt:md5', 'crypt:blowfish', 'crypt:sha256', 'crypt:sha512' ], true ) )
+                throw new OSS_Exception( 'Unknown crypt password hashing method' );
 
-                case 'crypt:blowfish':
-                    $salt = '$2a$12$' . OSS_String::randomPassword( 22 ) . '$';
-                    break;
+            if( strlen( $pw ) > 72 )
+                throw new OSS_Exception( 'Password must not exceed 72 bytes for legacy crypt configuration' );
 
-                case 'crypt:sha256':
-                    $salt = '$5$' . OSS_String::randomPassword( 16 ) . '$';
-                    break;
-
-                case 'crypt:sha512':
-                    $salt = '$6$' . OSS_String::randomPassword( 12 ) . '$';
-                    break;
-
-                default:
-                    throw new OSS_Exception( 'Unknown crypt password hashing method' );
-            }
-            return crypt( $pw, $salt );
+            // Keep accepting legacy crypt:* configuration names, but never
+            // create their manually constructed hashes. Existing hashes are
+            // still checked by verify()'s crypt-compatible legacy path.
+            return password_hash( $pw, PASSWORD_BCRYPT, [ 'cost' => 12 ] );
         }
         else
         {
@@ -188,7 +174,12 @@ class OSS_Auth_Password
         }
 
         if( substr( $hash, 0, 6) == 'crypt:' )
+        {
+            if( str_starts_with( $pwhash, '$2y$' ) && strlen( $pwplain ) > 72 )
+                return false;
+
             return hash_equals( $pwhash, crypt( $pwplain, $pwhash ) );
+        }
 
         if( substr( $hash, 0, 8 ) == 'dovecot:' )
             return ViMbAdmin_Dovecot::passwordVerify( substr( $hash, 8 ), $pwhash, $pwplain, $username );

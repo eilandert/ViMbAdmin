@@ -52,11 +52,52 @@ $check('bcrypt rejects operationally excessive cost before hashing', $throwsOss(
     'Bcrypt cost must be an integer between 4 and 16'
 ));
 
-foreach (['crypt:md5' => '$1$', 'crypt:blowfish' => '$2a$12$', 'crypt:sha256' => '$5$', 'crypt:sha512' => '$6$'] as $mode => $prefix) {
+foreach (['crypt:md5', 'crypt:blowfish', 'crypt:sha256', 'crypt:sha512'] as $mode) {
     $hash = OSS_Auth_Password::hash('crypt-secret', $mode);
-    $check("{$mode} retains its hash format", str_starts_with($hash, $prefix));
+    $check("{$mode} emits a complete password_hash bcrypt shape",
+        preg_match('/^\$2y\$12\$[.\/A-Za-z0-9]{53}$/D', $hash) === 1);
+    $check("{$mode} never stores plaintext", $hash !== 'crypt-secret');
     $check("{$mode} verifies", OSS_Auth_Password::verify('crypt-secret', $hash, $mode));
     $check("{$mode} rejects a wrong password", !OSS_Auth_Password::verify('wrong', $hash, $mode));
+
+    $boundaryHash = OSS_Auth_Password::hash(str_repeat('A', 72), $mode);
+    $check("{$mode} accepts exactly 72 password bytes",
+        OSS_Auth_Password::verify(str_repeat('A', 72), $boundaryHash, $mode));
+    $check("{$mode} bcrypt hash rejects a candidate sharing its first 72 bytes",
+        !OSS_Auth_Password::verify(str_repeat('A', 72) . 'X', $boundaryHash, $mode));
+    $check("{$mode} rejects a 73-byte password before bcrypt truncation", $throwsOss(
+        static fn(): string => OSS_Auth_Password::hash(str_repeat('A', 72) . 'X', $mode),
+        'Password must not exceed 72 bytes for legacy crypt configuration'
+    ));
+    $check("{$mode} rejects a different suffix sharing the first 72 bytes", $throwsOss(
+        static fn(): string => OSS_Auth_Password::hash(str_repeat('A', 72) . 'Y', $mode),
+        'Password must not exceed 72 bytes for legacy crypt configuration'
+    ));
+}
+
+$legacyCryptHashes = [
+    'crypt:md5' => '$1$12345678$v..6KAKFNqBJISjodv1W81',
+    'crypt:blowfish' => '$2a$' . '12$abcdefghijklmnopqrstuufRU2BlUoJSwNYepqy8lSxodZnugpiIe',
+    'crypt:sha256' => '$5$1234567890abcdef$e.nlasQaKYlbEWWR1vxqFIhaX4ixu3EOFpf.O7QCIo5',
+    'crypt:sha512' => '$6$1234567890abcdef$/x1MArqV01QAYaUJIpaJb1KgMZbys/cDZ3r63/7GLVG42FRJ61Z/jp6Q8jxf7fWO4Cfzy9sbh60rJl63GWJWV.',
+];
+foreach ($legacyCryptHashes as $mode => $legacyHash) {
+    $check("{$mode} verifies an existing stored hash",
+        OSS_Auth_Password::verify('crypt-secret', $legacyHash, $mode));
+    $check("{$mode} existing stored hash rejects a wrong password",
+        !OSS_Auth_Password::verify('wrong', $legacyHash, $mode));
+}
+$longLegacyBlowfishPassword = str_repeat('A', 72) . 'X';
+$longLegacyBlowfishHash = crypt($longLegacyBlowfishPassword, '$2a$04$abcdefghijklmnopqrstuu');
+$check('crypt:blowfish existing $2a$ hash retains over-72-byte verification',
+    OSS_Auth_Password::verify($longLegacyBlowfishPassword, $longLegacyBlowfishHash, 'crypt:blowfish'));
+$longLegacyPassword = str_repeat('A', 72) . 'X';
+foreach (['crypt:md5' => '$1$12345678$', 'crypt:sha256' => '$5$1234567890abcdef$', 'crypt:sha512' => '$6$1234567890abcdef$'] as $mode => $salt) {
+    $longLegacyHash = crypt($longLegacyPassword, $salt);
+    $check("{$mode} existing non-bcrypt hash retains full-length verification",
+        OSS_Auth_Password::verify($longLegacyPassword, $longLegacyHash, $mode));
+    $check("{$mode} existing non-bcrypt hash checks bytes beyond 72",
+        !OSS_Auth_Password::verify(str_repeat('A', 72) . 'Y', $longLegacyHash, $mode));
 }
 
 $dovecotConfig = ['pwhash' => 'dovecot:sha256-crypt', 'username' => 'user@example.test'];
