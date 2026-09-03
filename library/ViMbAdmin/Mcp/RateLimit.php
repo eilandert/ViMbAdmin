@@ -18,18 +18,20 @@ class ViMbAdmin_Mcp_RateLimit
     /**
      * @param array{
      *     statedir?: string|null,
-     *     max?: int|numeric-string|null,
-     *     window?: int|numeric-string|null
+     *     max?: mixed,
+     *     window?: mixed
      * } $opts
      */
     public function __construct( array $opts = [] )
     {
         $this->_dir    = isset( $opts['statedir'] ) && $opts['statedir']
                        ? rtrim( $opts['statedir'], '/' )
-                       : sys_get_temp_dir() . '/vimbadmin-mcp-ratelimit';
-        $this->_max    = isset( $opts['max'] )    ? (int) $opts['max']    : 10;
-        $this->_window = isset( $opts['window'] ) ? (int) $opts['window'] : 3600;
-        if( $this->_max > 0 && $this->_window < 1 )
+                       : dirname( __DIR__, 3 ) . '/var/mcp-ratelimit';
+        $this->_max    = $this->_integerOption( $opts, 'max', 10 );
+        $this->_window = $this->_integerOption( $opts, 'window', 3600 );
+        if( $this->_max < 0 )
+            throw new ViMbAdmin_Mcp_Exception( 'destructive rate-limit max must be zero or greater', 503 );
+        if( $this->_window < 1 )
             throw new ViMbAdmin_Mcp_Exception( 'destructive rate-limit window must be at least one second', 503 );
     }
 
@@ -41,7 +43,7 @@ class ViMbAdmin_Mcp_RateLimit
      */
     public function hit( int|string|null $tokenId, string $bucket = 'destructive' ): void
     {
-        if( $this->_max <= 0 )           // 0/neg disables the limiter
+        if( $this->_max === 0 )          // Explicitly configured zero disables the limiter.
             return;
 
         $now  = time();
@@ -140,6 +142,74 @@ class ViMbAdmin_Mcp_RateLimit
     {
         if( !is_dir( $this->_dir ) )
             @mkdir( $this->_dir, 0750, true );
+        clearstatcache( true, $this->_dir );
+        if( !$this->_safeDirectoryChain() )
+        {
+            error_log( "ViMbAdmin_Mcp_RateLimit: unsafe state directory {$this->_dir} — destructive operation denied for token {$tokenId}" );
+            throw new ViMbAdmin_Mcp_Exception( 'destructive rate-limit state directory is unsafe', 503 );
+        }
         return $this->_dir . '/' . (int) $tokenId . '-' . preg_replace( '/[^a-z0-9]/', '', $bucket ) . '.json';
+    }
+
+    /**
+     * The final state directory must not be writable by its group or by other
+     * users. Ancestors may be group-writable (deployment groups are trusted),
+     * but world-writable ancestors must carry the sticky bit. Every component
+     * must be a real directory rather than a symlink. This narrows pathname
+     * substitution exposure, but PHP's pathname APIs cannot eliminate TOCTOU;
+     * operators must place state on a trusted filesystem.
+     */
+    private function _safeDirectoryChain(): bool
+    {
+        $path = $this->_dir;
+        $final = true;
+        while( true )
+        {
+            $stat = @lstat( $path );
+            if( !is_array( $stat ) )
+                return false;
+
+            if( !$this->_safeDirectoryStat( $stat, $final ) )
+                return false;
+
+            $parent = dirname( $path );
+            if( $parent === $path )
+                return true;
+            $path = $parent;
+            $final = false;
+        }
+    }
+
+    /** @param array<string|int,mixed> $stat */
+    private function _safeDirectoryStat( array $stat, bool $final ): bool
+    {
+        $mode = $stat['mode'];
+        if( !is_int( $mode ) || ( $mode & 0170000 ) !== 0040000 )
+            return false;
+        if( $final )
+            return ( $mode & 0022 ) === 0;
+
+        $worldWritable = ( $mode & 0002 ) !== 0;
+        $sticky = ( $mode & 01000 ) !== 0;
+        return !$worldWritable || $sticky;
+    }
+
+    /** @param array<string,mixed> $opts */
+    private function _integerOption( array $opts, string $name, int $default ): int
+    {
+        if( !array_key_exists( $name, $opts ) )
+            return $default;
+
+        $value = $opts[$name];
+        if( is_int( $value ) )
+            return $value;
+        if( is_string( $value ) && preg_match( '/^-?(?:0|[1-9][0-9]*)$/D', $value ) === 1 )
+        {
+            $parsed = filter_var( $value, FILTER_VALIDATE_INT );
+            if( is_int( $parsed ) )
+                return $parsed;
+        }
+
+        throw new ViMbAdmin_Mcp_Exception( "destructive rate-limit {$name} must be an integer", 503 );
     }
 }

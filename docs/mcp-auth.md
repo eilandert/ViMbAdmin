@@ -105,6 +105,9 @@ mcp.ratelimit.destructive.window = 3600
 ;mcp.ratelimit.statedir = APPLICATION_PATH "/../var/mcp-ratelimit"
 ```
 
+Keep the state directory on a trusted filesystem with mode `0750` (or
+stricter); symlinked or group/world-writable state directories are refused.
+
 ### Errors
 
 Transport/auth failures return the matching HTTP status (`401` missing/invalid
