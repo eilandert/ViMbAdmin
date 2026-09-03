@@ -232,6 +232,12 @@ function logController(
     );
 }
 
+/** @return array{defaults:array{server_side:array{pagination:array{log:array{enable:bool}}}}} */
+function logClientSideOptions(): array
+{
+    return ['defaults' => ['server_side' => ['pagination' => ['log' => ['enable' => false]]]]];
+}
+
 /**
  * @param array<string,EntityRepository<covariant object>> $repositories
  * @SuppressWarnings("PHPMD.StaticAccess")
@@ -280,6 +286,8 @@ $selfController = logController(
     $selfView,
     new LogControllerTestStorage(['identity' => ['id' => 7]]),
     static fn(int $id): object => $self,
+    [],
+    logClientSideOptions(),
 );
 $selfResponse = $selfController->listAction();
 $check('non-super list remains scoped to the authenticated admin',
@@ -298,6 +306,7 @@ $superController = logController(
     new LogControllerTestStorage(['identity' => ['id' => 1]]),
     static fn(int $id): object => $super,
     ['aid' => '8'],
+    logClientSideOptions(),
 );
 $superController->listAction();
 $check('super admin may select another admin scope', $targetLog->loadCalls === [[$target, null]]);
@@ -336,6 +345,7 @@ $domainController = logController(
     new LogControllerTestStorage(['identity' => ['id' => 7]]),
     static fn(int $id): object => $domainAdmin,
     ['did' => '4'],
+    logClientSideOptions(),
 );
 $domainController->listAction();
 $check('authorised domain is applied and remembered',
@@ -368,6 +378,7 @@ $missingDomainController = logController(
     new LogControllerTestStorage(['identity' => ['id' => 1]]),
     static fn(int $id): object => $super,
     ['did' => '404'],
+    logClientSideOptions(),
 );
 $missingDomainController->listAction();
 $check('missing domain leaves the list unfiltered and is not remembered',
@@ -380,6 +391,8 @@ $rememberedController = logController(
     new LogControllerTestView(),
     new LogControllerTestStorage(['identity' => ['id' => 1]]),
     static fn(int $id): object => $super,
+    [],
+    logClientSideOptions(),
 );
 $rememberedController->listAction();
 $check('remembered session domain is reused without a repository lookup',
@@ -394,6 +407,7 @@ $unsetController = logController(
     new LogControllerTestStorage(['identity' => ['id' => 1]]),
     static fn(int $id): object => $super,
     ['unset' => '1'],
+    logClientSideOptions(),
 );
 $unsetController->listAction();
 $check('unset clears the remembered domain before loading',
@@ -484,6 +498,8 @@ try {
         new LogControllerTestView(),
         new LogControllerTestStorage(['identity' => ['id' => 7]]),
         static fn(int $id): object => new stdClass(),
+        [],
+        logClientSideOptions(),
     )->listAction();
 } catch (LogicException $e) {
     $invalidAdminRejected = $e->getMessage() === 'Authenticated admin has an invalid type';
@@ -498,6 +514,8 @@ try {
         new LogControllerTestView(),
         new LogControllerTestStorage(['identity' => ['id' => 1]]),
         static fn(int $id): object => $super,
+        [],
+        logClientSideOptions(),
     )->listAction();
 } catch (LogicException $e) {
     $invalidManagerRejected = $e->getMessage() === 'Doctrine entity manager resource has an invalid type';
@@ -512,6 +530,8 @@ try {
         new LogControllerTestView(),
         new LogControllerTestStorage(['identity' => ['id' => 1]]),
         static fn(int $id): object => $super,
+        [],
+        logClientSideOptions(),
     )->listAction();
 } catch (LogicException $e) {
     $wrongRepositoryRejected = $e->getMessage() === 'Log repository has an invalid type';
@@ -527,6 +547,8 @@ try {
         new LogControllerTestView(),
         new LogControllerTestStorage(['identity' => ['id' => 1]]),
         static fn(int $id): object => $super,
+        [],
+        logClientSideOptions(),
     )->listAction();
 } catch (RuntimeException $e) {
     $errorPropagated = $e === $repositoryError;
