@@ -420,6 +420,9 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
      */
     private function _archiveState( array $params, string $operation ): array
     {
+        if( $operation !== 'restore' && $operation !== 'delete' )
+            throw new ViMbAdmin_Mcp_Exception( 'unknown archive operation' );
+
         $username = $this->_str( $params, 'username', true );
         $em       = $this->em();
         $archive  = $em->getRepository( '\\Entities\\Archive' )->findOneBy( [ 'username' => $username ] );

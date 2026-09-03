@@ -2,18 +2,20 @@ Upgrading this fork
 ===================
 
 After pulling a newer version, apply the schema and configuration changes below.
-The panel migrates its own database — run
+For an existing database, first apply the consolidated migration below. It
+seeds `dovecot_quota` from the legacy columns before retiring them:
+
+    mysql < contrib/migrations/2026-06-fork-schema.sql
+
+Then let the panel migrate its own database — run
 
     ./bin/vimbtool.php -a maintenance.cli-schema-update
 
 on deploy/upgrade (the Docker image runs this automatically at container
-start). For existing databases, also apply the consolidated migration, which
-creates `dovecot_quota`, seeds it from the old `maildir_size` values, and drops
-the retired `maildir_size`, `homedir_size`, and `size_at` columns:
-
-    mysql < contrib/migrations/2026-06-fork-schema.sql
-
-Review the `application.ini` config changes in the release notes before
+start). The migration creates `dovecot_quota`, seeds it from old
+`maildir_size` values, and drops the retired `maildir_size`, `homedir_size`,
+and `size_at` columns. Review the `application.ini` config changes in the
+release notes before
 restarting the application.
 
 (The old upstream wiki at opensolutions/ViMbAdmin is no longer maintained.)

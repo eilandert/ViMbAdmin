@@ -74,7 +74,9 @@ $randomSmarty = new MessageSmartyDouble([
     'OSS_Messages' => [new OSS_Message('Random', OSS_Message::SUCCESS, false)],
 ]);
 $randomRendered = smarty_function_OSS_Message(['randomid' => true], $randomSmarty);
-$check('truthy randomid uses a deterministic process counter', str_contains($randomRendered, 'id="oss-message-0"'));
+$check('truthy randomid uses a collision-free process counter',
+    preg_match('/id="oss-message-([0-9]+)"/', $randomRendered, $randomMatch) === 1
+    && (int) $randomMatch[1] > 2);
 
 $emptySmarty = new MessageSmartyDouble([]);
 $check('empty message collection renders empty output', smarty_function_OSS_Message(['randomid' => false], $emptySmarty) === '');

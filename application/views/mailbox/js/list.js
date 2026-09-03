@@ -7,7 +7,7 @@ $(document).ready( function() {
         $( "a[id|='dir-size']" ).bind( "click", showSizes );
     {/if}
     
-    {if isset($options.defaults.server_side.pagination.enable) && $options.defaults.server_side.pagination.enable }
+    {if !isset($options.defaults.server_side.pagination.enable) || $options.defaults.server_side.pagination.enable }
     /* Server-side processing: the browser pages / sorts / searches the FULL list
        through /mailbox/list-data, fetching only the visible page — the initial
        HTML carries no rows. Cells are rendered client-side by the same format
@@ -104,7 +104,7 @@ function toggleActive(elid, id) {
     }
 {/if}
 
-{if isset($options.defaults.server_side.pagination.enable) && $options.defaults.server_side.pagination.enable }
+{if !isset($options.defaults.server_side.pagination.enable) || $options.defaults.server_side.pagination.enable }
 
     var timeOut = null;
     var ignore_keys = [ 13, 38, 40, 37, 39 ,27, 32, 17, 18, 9, 16, 20, 36, 35, 33, 34, 144 ];

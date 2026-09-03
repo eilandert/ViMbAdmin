@@ -2,7 +2,7 @@ var oDataTable;
 
 $(document).ready( function()
 {
-    {if isset($options.defaults.server_side.pagination.archive.enable) && $options.defaults.server_side.pagination.archive.enable }
+    {if !isset($options.defaults.server_side.pagination.archive.enable) || $options.defaults.server_side.pagination.archive.enable }
     /* Server-side processing: the full archive list is paged/sorted/searched via
        /archive/list-data, fetching only the visible page. Text cells escaped;
        action links carry the CSRF token + an inline confirm(). */
@@ -66,7 +66,7 @@ $(document).ready( function()
 
 }); // document onready
 
-{if isset($options.defaults.server_side.pagination.archive.enable) && $options.defaults.server_side.pagination.archive.enable }
+{if !isset($options.defaults.server_side.pagination.archive.enable) || $options.defaults.server_side.pagination.archive.enable }
 /* Server-side render helpers (the inline rows were rendered + escaped by Smarty;
    DataTables inserts cell HTML raw, so escape any value that reaches markup). */
 var archiveStatuses = { {foreach $statuses as $k => $v}'{$k}': "{$v|escape:'javascript'}"{if !$v@last}, {/if}{/foreach} };

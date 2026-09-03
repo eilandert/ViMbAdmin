@@ -6,7 +6,7 @@ $(document).ready( function()
 {
     $( "a[id|='delete-alias']" ).bind( 'click', deleteAlias );
     
-    {if isset($options.defaults.server_side.pagination.enable) && $options.defaults.server_side.pagination.enable }
+    {if !isset($options.defaults.server_side.pagination.enable) || $options.defaults.server_side.pagination.enable }
     /* Server-side processing: the full alias list is paged/sorted/searched via
        /alias/list-data, fetching only the visible page. Text cells escaped. */
     oDataTable = $( '#list_table' ).dataTable({
@@ -88,7 +88,7 @@ function deleteAlias( event ){
     });
 };
 
-{if isset($options.defaults.server_side.pagination.enable) && $options.defaults.server_side.pagination.enable }
+{if !isset($options.defaults.server_side.pagination.enable) || $options.defaults.server_side.pagination.enable }
 var timeOut = null;
 var ignore_keys = [ 13, 38, 40, 37, 39 ,27, 32, 17, 18, 9, 16, 20, 36, 35, 33, 34, 144 ];
 {if isset( $options.defaults.server_side.pagination.min_search_str ) }

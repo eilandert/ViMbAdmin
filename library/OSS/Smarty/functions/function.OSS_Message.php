@@ -142,17 +142,14 @@
         // controller may have queued framework-free flash messages (drained at
         // the end of this function) with no legacy OSS_Messages present.
 
-        $count = 0;
+        static $nextId = 0;
         $message = '';
         
         foreach( $ossms as $ossm )
         {
             if( isset( $params['randomid'] ) && !is_scalar( $params['randomid'] ) )
                 throw new \InvalidArgumentException( 'OSS_Message randomid must be scalar' );
-            if( isset( $params['randomid'] ) && $params['randomid'] ) {
-                static $nextRandomId = 0;
-                $count = $nextRandomId++;
-            }
+            $count = $nextId++;
 
             if( $ossm instanceof OSS_Message_Block )
             {
@@ -241,6 +238,7 @@ END_MESSAGE;
         {
             foreach( $flashMessages as $fm )
             {
+                $count = $nextId++;
                 $fmClass = isset( $fm['level'] ) ? $classValue( $fm['level'] ) : 'success';
                 $fmText  = isset( $fm['text'] )  ? $fm['text']  : '';
                 if( !is_string( $fmText ) )
