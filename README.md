@@ -93,8 +93,9 @@ By layer. Stock upstream had **none** of the application-layer items below.
   its next request.
 - **Session-fixation defence** — session id regenerated on every successful
   login (and again after the 2FA step).
-- **Brute-force protection** — per-source-IP attempt counter with lockout
-  window; a fully successful login clears it. IP/CIDR **allowlist** and all
+- **Brute-force protection** — per-source-IP attempt counter covers login and
+  public mailbox password-change authentication, with a lockout window; a fully
+  successful administrator login clears it. IP/CIDR **allowlist** and all
   thresholds in `application.ini` (`[bruteforce]`). 429 when locked.
 - **CSRF** — per-session token validated on **every form** and every destructive
   GET link (purge/delete/cancel/restore); forged request → 403.
@@ -363,9 +364,10 @@ twofactor.force_disable = "admin@example.com"     ; or "*" for everyone
 
 ## Brute-force protection
 
-On by default. Counts failed logins per source IP and locks the source out once
-it crosses the threshold; a fully successful login (password + 2FA) clears the
-counter.
+On by default. Counts login and public mailbox password-change authentication
+attempts per source IP and locks the source out once it crosses the threshold;
+a fully successful administrator login clears the counter. A successful mailbox
+password change does not clear shared administrator-login failures.
 
 ### Real client IP behind a proxy
 
