@@ -17,6 +17,28 @@ use UnexpectedValueException;
  */
 class MailboxTask extends EntityRepository
 {
+    /** Atomically cancel only a task that is still pending. */
+    public function cancelIfPending( \Entities\MailboxTask $task, string $actor ): bool
+    {
+        $message = '[' . gmdate('Y-m-d H:i:s') . '] cancelled by ' . $actor . "\n";
+        $affected = $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE mailbox_task SET status = :cancelled, finished_at = CURRENT_TIMESTAMP,'
+            . " log = CONCAT(COALESCE(log, ''), :message)"
+            . ' WHERE id = :id AND status = :pending',
+            [
+                'cancelled' => \Entities\MailboxTask::STATUS_CANCELLED,
+                'message' => $message,
+                'id' => $task->getId(),
+                'pending' => \Entities\MailboxTask::STATUS_PENDING,
+            ]
+        );
+        if( !is_int($affected) || $affected < 0 || $affected > 1 )
+            throw new UnexpectedValueException('Mailbox task cancel returned an invalid affected-row count.');
+        if( $affected === 1 )
+            $this->getEntityManager()->refresh($task);
+        return $affected === 1;
+    }
+
     /**
      * Mark abandoned RUNNING tasks terminal. The guarded bulk update makes the
      * transition race-safe with a runner completing at the same time. Ownership

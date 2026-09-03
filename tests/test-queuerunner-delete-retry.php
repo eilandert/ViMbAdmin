@@ -125,6 +125,9 @@ final class DeleteRetryConnection
     /** @param list<mixed> $parameters */
     public function fetchOne(string $sql, array $parameters = []): int
     {
+        if ($sql === 'SELECT 1' && $parameters === []) {
+            return 1;
+        }
         if (!str_contains($sql, 'SELECT bytes FROM dovecot_quota')
             || $parameters !== ['user@example.test']) {
             throw new RuntimeException('unexpected quota query');

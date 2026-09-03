@@ -214,11 +214,7 @@ final class QueueController extends AbstractController
 
         $task = $this->taskFromPost();
 
-        if ($task && $task->getStatus() === \Entities\MailboxTask::STATUS_PENDING) {
-            $task->setStatus(\Entities\MailboxTask::STATUS_CANCELLED)
-                 ->setFinishedAt(new \DateTime())
-                 ->appendLog('cancelled by ' . $admin->getFormattedName());
-            $this->em()->flush();
+        if ($task && $this->mailboxTaskRepository()->cancelIfPending($task, $admin->getFormattedName())) {
             $this->flash('Task cancelled.');
         } else {
             $this->flash('Task not found or not cancellable.', FlashMessages::ERROR);
@@ -453,11 +449,26 @@ final class QueueController extends AbstractController
         }
         $afterSend = static function () use ($em, $options, $max): void {
             $runner = new \ViMbAdmin_Service_QueueRunner($em, $options);
-            // Each drain() is itself lease-gated; loop to clear a backlog larger
-            // than one batch. Stop on 0 (queue empty) or -1 (all slots busy).
+            $deadline = microtime(true) + 60.0;
+            $batches = 0;
+            // Bound detached work so an HTTP worker cannot be retained by an
+            // unbounded producer. Drop the identity map and validate the DB
+            // connection between batches after potentially long doveadm calls.
             do {
+                // Validate an existing connection. DBAL retains a dead driver
+                // after a server-side idle close, so discard it once and let
+                // the retry establish a fresh connection.
+                $connection = $em->getConnection();
+                try {
+                    $connection->fetchOne('SELECT 1');
+                } catch (\Throwable $e) {
+                    $connection->close();
+                    $connection->fetchOne('SELECT 1');
+                }
                 $n = $runner->drain($max);
-            } while ($n > 0);
+                $em->clear();
+                $batches++;
+            } while ($n > 0 && $batches < 100 && microtime(true) < $deadline);
         };
 
         return new Response(

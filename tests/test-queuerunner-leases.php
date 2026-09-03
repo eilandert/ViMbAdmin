@@ -128,6 +128,9 @@ final class QueueRunnerLeaseConnection
     /** @param list<mixed> $parameters */
     public function fetchOne(string $sql, array $parameters = []): mixed
     {
+        if ($sql === 'SELECT 1' && $parameters === []) {
+            return 1;
+        }
         if ($sql === 'SELECT GET_LOCK(?, ?)'
             && $parameters === [
                 ViMbAdmin_QueueRunner::ACQUIRE_LOCK_NAME,
