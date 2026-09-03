@@ -136,20 +136,22 @@ class OSS_Captcha_Image
         $files = glob($dir . '/*.png') ?: [];
         $cutoff = time() - max(1, $this->timeout);
 
+        $mtimes = [];
         foreach ($files as $key => $file) {
-            if ((int) @filemtime($file) < $cutoff) {
+            $mtime = (int) @filemtime($file);
+            if ($mtime < $cutoff) {
                 @unlink($file);
                 unset($files[$key]);
+                continue;
             }
+            $mtimes[$file] = $mtime;
         }
 
         if (count($files) < self::MAX_FILES) {
             return;
         }
 
-        usort($files, static fn(string $a, string $b): int =>
-            ((int) @filemtime($a)) <=> ((int) @filemtime($b))
-        );
+        usort($files, static fn(string $a, string $b): int => $mtimes[$a] <=> $mtimes[$b]);
 
         foreach (array_slice($files, 0, count($files) - self::MAX_FILES + 1) as $file) {
             @unlink($file);

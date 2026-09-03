@@ -18,6 +18,8 @@
  */
 class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
 {
+    private const LIST_MAX = 200;
+    private const LIST_MAX_OFFSET = 10000;
     /** @var \Entities\McpToken|null  the authenticated token for this request */
     private $_token = null;
 
@@ -111,9 +113,26 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
      */
     private function _domainsList( array $params ): array
     {
-        unset( $params );
+        [$limit, $offset] = $this->_listBounds( $params );
+        $criteria = [];
+        if( $this->_token ) {
+            $allowed = trim( (string) $this->_token->getAllowedDomains() );
+            if( $allowed !== '' )
+                $criteria['domain'] = array_map(
+                    static fn(string $domain): string => ViMbAdmin_Identity::canonical($domain),
+                    preg_split( '/[\s,]+/', $allowed, -1, PREG_SPLIT_NO_EMPTY ) ?: []
+                );
+        }
         $out = [];
-        foreach( $this->em()->getRepository( '\\Entities\\Domain' )->findAll() as $d )
+        $repository = $this->em()->getRepository( '\\Entities\\Domain' );
+        $query = $repository->createQueryBuilder('d')->orderBy('d.domain', 'ASC')
+            ->setFirstResult($offset)->setMaxResults($limit);
+        if( isset($criteria['domain']) )
+            $query->andWhere('LOWER(d.domain) IN (:allowed)')->setParameter('allowed', $criteria['domain']);
+        $domains = \ViMbAdmin\Kernel\Doctrine\ResultValidator::entityList(
+            $query->getQuery()->getResult(), \Entities\Domain::class, 'MCP domain list query'
+        );
+        foreach( $domains as $d )
         {
             $domainName = $d->requiredDomainName();
             if( $this->_token && !$this->_token->allowsDomain( $domainName ) )
@@ -139,9 +158,10 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     private function _mailboxesList( array $params ): array
     {
         $domain = $this->_requireDomain( $params );
+        [$limit, $offset] = $this->_listBounds( $params );
         $domainName = $domain->requiredDomainName();
         $out = [];
-        foreach( $this->em()->getRepository( '\\Entities\\Mailbox' )->findBy( [ 'Domain' => $domain ] ) as $m ) {
+        foreach( $this->em()->getRepository( '\\Entities\\Mailbox' )->findBy( [ 'Domain' => $domain ], [ 'username' => 'ASC' ], $limit, $offset ) as $m ) {
             $out[] = [
                 'username'   => $m->requiredUsername(),
                 'name'       => $m->getName(),
@@ -160,9 +180,10 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     private function _aliasesList( array $params ): array
     {
         $domain = $this->_requireDomain( $params );
+        [$limit, $offset] = $this->_listBounds( $params );
         $domainName = $domain->requiredDomainName();
         $out = [];
-        foreach( $this->em()->getRepository( '\\Entities\\Alias' )->findBy( [ 'Domain' => $domain ] ) as $a )
+        foreach( $this->em()->getRepository( '\\Entities\\Alias' )->findBy( [ 'Domain' => $domain ], [ 'address' => 'ASC' ], $limit, $offset ) as $a )
         {
             $identity = $this->requiredAliasIdentity( $a );
             $out[] = [
@@ -172,6 +193,21 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
             ];
         }
         return [ 'domain' => $domainName, 'aliases' => $out ];
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     * @return array{int,int}
+     */
+    private function _listBounds( array $params ): array
+    {
+        $limit = ViMbAdmin_Mcp_Input::optionalInteger( $params, 'limit', 100 );
+        $offset = ViMbAdmin_Mcp_Input::optionalInteger( $params, 'offset', 0 );
+        if( $limit < 1 || $limit > self::LIST_MAX )
+            throw new ViMbAdmin_Mcp_Exception( 'param "limit" must be between 1 and ' . self::LIST_MAX );
+        if( $offset > self::LIST_MAX_OFFSET )
+            throw new ViMbAdmin_Mcp_Exception( 'param "offset" must be at most ' . self::LIST_MAX_OFFSET );
+        return [ $limit, $offset ];
     }
 
     /** @return array{address:string,goto:string} */

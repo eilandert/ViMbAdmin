@@ -85,7 +85,7 @@ class ViMbAdmin_Doveadm
             throw new ViMbAdmin_Exception( $name . ' must be a positive integer' );
         return $value;
     }
-    /** @var string */
+    /** @var non-empty-string */
     private $_url;
 
     /** @var string */
@@ -97,6 +97,9 @@ class ViMbAdmin_Doveadm
     /** @var callable|null */
     private $_progress;
 
+    /** @var \CurlHandle|null */
+    private $_handle = null;
+
     /**
      * @param string $url     Full endpoint URL, e.g. http://dovecot:8081/doveadm/v1
      * @param string $apiKey  The doveadm_api_key (sent base64-encoded as X-Dovecot-API)
@@ -107,10 +110,20 @@ class ViMbAdmin_Doveadm
     {
         if( $progress !== null && !is_callable( $progress ) )
             throw new ViMbAdmin_Exception( 'doveadm progress callback must be callable' );
-        $this->_url = self::stringValue( $url, 'doveadm.http.url' );
+        $url = self::stringValue( $url, 'doveadm.http.url' );
+        if( $url === '' )
+            throw new ViMbAdmin_Exception( 'doveadm.http.url must not be empty' );
+        $this->_url = $url;
         $this->_apiKey = self::stringValue( $apiKey, 'doveadm.http.api_key' );
         $this->_timeout = self::positiveIntValue( $timeout, 'doveadm.http.timeout' );
         $this->_progress = $progress;
+    }
+
+    public function __destruct()
+    {
+        if( $this->_handle !== null )
+            curl_close( $this->_handle );
+        $this->_handle = null;
     }
 
     /**
@@ -203,24 +216,30 @@ class ViMbAdmin_Doveadm
      * @return array{0:int,1:string} [ httpStatus, responseBody ]
      * @throws ViMbAdmin_Exception on transport failure
      */
-    private function _post( $payload )
+    protected function _post( $payload )
     {
         $authHeader = 'X-Dovecot-API ' . base64_encode( $this->_apiKey );
 
         if( function_exists( 'curl_init' ) )
         {
-            $ch = curl_init( $this->_url );
-            $curlOptions = [
-                CURLOPT_POST           => true,
-                CURLOPT_POSTFIELDS     => $payload,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT        => $this->_timeout,
-                CURLOPT_HTTPHEADER     => [
+            if( $this->_handle === null )
+            {
+                $this->_handle = curl_init();
+                if( $this->_handle === false )
+                    throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to initialize cURL request' ) );
+            }
+            $ch = $this->_handle;
+            curl_reset( $ch );
+            $configured = curl_setopt( $ch, CURLOPT_URL, $this->_url )
+                && curl_setopt( $ch, CURLOPT_POST, true )
+                && curl_setopt( $ch, CURLOPT_POSTFIELDS, $payload )
+                && curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true )
+                && curl_setopt( $ch, CURLOPT_TIMEOUT, $this->_timeout )
+                && curl_setopt( $ch, CURLOPT_HTTPHEADER, [
                     'Content-Type: application/json',
                     'Authorization: ' . $authHeader,
-                ],
-            ];
-            if( !curl_setopt_array( $ch, $curlOptions ) )
+                ] );
+            if( !$configured )
             {
                 throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to configure cURL request' ) );
             }

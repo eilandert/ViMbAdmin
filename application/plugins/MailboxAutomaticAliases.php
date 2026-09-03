@@ -93,6 +93,16 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
         foreach ($aliases as $alias) {
             if (!is_string($alias)) throw new UnexpectedValueException('defaultAliases entries must be strings.');
         }
+        $uniqueAliases = [];
+        $seenAliases = [];
+        foreach ($aliases as $alias) {
+            $key = strtolower($alias);
+            if (!isset($seenAliases[$key])) {
+                $seenAliases[$key] = true;
+                $uniqueAliases[] = $alias;
+            }
+        }
+        $aliases = $uniqueAliases;
         $this->defaultAliases = $aliases;
 
         $mapping = array_key_exists('defaultMapping', $config) ? $config['defaultMapping'] : [];
@@ -135,6 +145,7 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
                 return;
             }
 
+            $created = false;
             foreach( $this->defaultAliases as $item ) {
                 // automatic alias exists
                 if( $this->getAlias( $controller, $item . '@' . $domain ) !== null ) {
@@ -143,11 +154,14 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
 
                 // create automatic alias
                 $alias = $this->createAutomaticAlias( $controller, $item, $mailbox );
+                $created = true;
                 $identity = $this->requiredAliasIdentity( $alias );
 
                 $message = _( 'Auto-created alias %s -> %s.' );
                 $controller->addMessage( sprintf( $message, $identity['address'], $identity['goto'] ) );
             }
+            if( $created )
+                $controller->getD2EM()->flush();
         }
     }
 
@@ -242,6 +256,7 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
             }
 
             // create automatic aliases, if required
+            $created = false;
             foreach( $this->defaultAliases as $item ) {
                 // automatic alias exists
                 if( $this->getAlias( $controller, $item . '@' . $domain ) !== null ) {
@@ -250,11 +265,14 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
 
                 // create automatic alias
                 $alias = $this->createAutomaticAlias( $controller, $item, $aliasAddress );
+                $created = true;
                 $automaticIdentity = $this->requiredAliasIdentity( $alias );
 
                 $message = _( 'Auto-created alias %s -> %s.' );
                 $controller->addMessage( sprintf( $message, $automaticIdentity['address'], $automaticIdentity['goto'] ) );
             }
+            if( $created )
+                $controller->getD2EM()->flush();
         }
     }
 
@@ -450,8 +468,6 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
         $controller->getD2EM()->persist( $alias );
 
         $controller->getDomain()->increaseAliasCount();
-        $controller->getD2EM()->flush();
-
         return $alias;
     }
 

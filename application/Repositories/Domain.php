@@ -139,8 +139,22 @@ class Domain extends EntityRepository
         
         if( $onlyNames )
         {
-            foreach( $this->loadForAdmin( $admin ) as $domain )
-                $array[ $domain->requiredId() ] = $domain->requiredDomainName();
+            $dql = 'SELECT d.id AS id, d.domain AS domain FROM \\Entities\\Domain d';
+            if( !$admin->isSuper() )
+                $dql .= ' JOIN d.Admins d2a WHERE d2a = ?1';
+            $dql .= ' ORDER BY d.domain ASC';
+
+            $query = $this->getEntityManager()->createQuery( $dql );
+            if( !$admin->isSuper() )
+                $query->setParameter( 1, $admin );
+
+            $rows = $query->getArrayResult();
+            foreach( $rows as $row ) {
+                if( !is_array( $row ) || !array_key_exists( 'id', $row )
+                    || !is_int( $row['id'] ) || !isset( $row['domain'] ) || !is_string( $row['domain'] ) )
+                    throw new \UnexpectedValueException( 'Domain choices query row has an invalid shape.' );
+                $array[$row['id']] = $row['domain'];
+            }
             
         }
         else

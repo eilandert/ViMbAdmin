@@ -30,6 +30,7 @@
  */
 class ViMbAdmin_Service_QueueRunner
 {
+    private const ORPHAN_SCAN_MAX = 500;
     /** Refresh often enough that an active request cannot reach the 30m TTL. */
     const LEASE_HEARTBEAT_INTERVAL = 60;
     const RUN_ONE_BUSY = -1;
@@ -350,6 +351,12 @@ class ViMbAdmin_Service_QueueRunner
                 $this->backupOrphan($task, $doveadm);
                 break;
 
+            case \Entities\MailboxTask::TYPE_SCAN_ORPHANS:
+                $orphans = $this->scanOrphans($doveadm);
+                $task->setData($this->encodeTaskData(['orphans' => $orphans]));
+                $task->appendLog('found ' . count($orphans) . ' unmanaged maildir(s)');
+                break;
+
             case \Entities\MailboxTask::TYPE_ARCHIVE:
                 $dest = $this->backupDest($task);
                 $task->appendLog("backup -> {$dest}");
@@ -624,15 +631,34 @@ class ViMbAdmin_Service_QueueRunner
             }
             $expired = $archiveRepository->findAutoprune($cutoff);
 
-            foreach ($this->initializedAutopruneArchives($expired) as [$archive, $user]) {
-                $open = (int) $em->createQuery(
-                    'SELECT COUNT(t.id) FROM \Entities\MailboxTask t
-                      WHERE t.username = :u AND t.type = :t AND t.status IN (:open)')
-                    ->setParameter('u', $user)
+            $candidates = iterator_to_array($this->initializedAutopruneArchives($expired), false);
+            $users = array_values(array_unique(array_map(
+                static fn(string $username): string => ViMbAdmin_Identity::canonical($username),
+                array_column($candidates, 1)
+            )));
+            $alreadyQueued = [];
+            foreach (array_chunk($users, 500) as $userChunk) {
+                foreach ($em->createQuery(
+                    'SELECT DISTINCT t.username AS username FROM \Entities\MailboxTask t
+                      WHERE LOWER(t.username) IN (:users) AND t.type = :t AND t.status IN (:open)')
+                    ->setParameter('users', $userChunk)
                     ->setParameter('t', \Entities\MailboxTask::TYPE_PRUNE)
                     ->setParameter('open', [\Entities\MailboxTask::STATUS_PENDING, \Entities\MailboxTask::STATUS_RUNNING])
-                    ->getSingleScalarResult();
-                if ($open > 0) {
+                    ->getArrayResult() as $row) {
+                    if (!is_array($row)) {
+                        throw new \UnexpectedValueException('Open autoprune task row has an invalid shape.');
+                    }
+                    $username = $row['username'] ?? null;
+                    if (!is_string($username) || $username === '') {
+                        throw new \UnexpectedValueException('Open autoprune task row has an invalid shape.');
+                    }
+                    $alreadyQueued[ViMbAdmin_Identity::canonical($username)] = true;
+                }
+            }
+
+            foreach ($candidates as [$archive, $user]) {
+                $user = ViMbAdmin_Identity::canonical($user);
+                if (isset($alreadyQueued[$user])) {
                     continue;
                 }
 
@@ -645,6 +671,7 @@ class ViMbAdmin_Service_QueueRunner
                    ->setDomain($archive->getDomain())
                    ->setData($this->encodeTaskData(['dest' => $archive->getMaildirFile()]));
                 $em->persist($mt);
+                $alreadyQueued[$user] = true;
             }
             $em->flush();
         } catch (\Throwable $e) {
@@ -674,9 +701,60 @@ class ViMbAdmin_Service_QueueRunner
 
     /**
      * @param ViMbAdmin_Doveadm $doveadm
-     * @return void
+     * @return string[]
      */
-    private function backupOrphan(\Entities\MailboxTask $task, $doveadm)
+    private function scanOrphans(ViMbAdmin_Doveadm $doveadm): array
+    {
+        $root = $this->maildirRoot();
+        $dirs = $doveadm->fsListDirs($root);
+        sort($dirs);
+        if (count($dirs) > self::ORPHAN_SCAN_MAX) {
+            throw new ViMbAdmin_Exception('orphan scan exceeds the bounded candidate limit of ' . self::ORPHAN_SCAN_MAX);
+        }
+        if ($dirs === []) {
+            return [];
+        }
+
+        $candidateNames = array_map(
+            static fn(string $name): string => ViMbAdmin_Identity::canonical(self::safeMaildirName($name)),
+            $dirs
+        );
+        $known = [];
+        foreach ($this->em->createQuery(
+            'SELECT m.username FROM \\Entities\\Mailbox m WHERE LOWER(m.username) IN (:candidates)'
+        )->setParameter('candidates', $candidateNames)->getArrayResult() as $row) {
+            if (!is_array($row)) {
+                throw new \UnexpectedValueException('Mailbox row has an invalid shape.');
+            }
+            $username = $row['username'] ?? null;
+            if (!is_string($username) || $username === '') {
+                throw new \UnexpectedValueException('Mailbox row has an invalid username.');
+            }
+            $known[ViMbAdmin_Identity::canonical($username)] = true;
+        }
+
+        $orphans = [];
+        foreach ($dirs as $name) {
+            $name = self::safeMaildirName($name);
+            if (!isset($known[ViMbAdmin_Identity::canonical($name)])
+                && in_array('cur', $doveadm->fsListDirs($root . '/' . $name), true)) {
+                $orphans[] = $name;
+            }
+        }
+        return $orphans;
+    }
+
+    private static function safeMaildirName(mixed $value): string
+    {
+        if (!is_string($value) || $value === '' || $value === '.' || $value === '..'
+            || str_contains($value, '/') || str_contains($value, '\\')
+            || preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
+            throw new ViMbAdmin_Exception('Maildir name is not a safe path component');
+        }
+        return $value;
+    }
+
+    private function backupOrphan(\Entities\MailboxTask $task, ViMbAdmin_Doveadm $doveadm): void
     {
         $em   = $this->em;
         $user = self::assertPathSafe($task->requiredUsername());
