@@ -178,13 +178,22 @@ final class QueueRunnerLeaseTaskRepository extends \Repositories\MailboxTask
 
     public function __construct() {}
 
-    public function claim(\Entities\MailboxTask $task)
+    public function claim(\Entities\MailboxTask $task, \Entities\QueueRunner $runner)
     {
         $this->claims++;
         if ($this->claimResult) {
             $task->setStatus(\Entities\MailboxTask::STATUS_RUNNING);
         }
         return $this->claimResult;
+    }
+
+    public function publishIfOwned(
+        \Entities\MailboxTask $task,
+        \Entities\QueueRunner $runner,
+        callable $publish
+    ): bool {
+        $publish();
+        return true;
     }
 }
 
