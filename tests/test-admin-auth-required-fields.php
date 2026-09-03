@@ -81,28 +81,28 @@ adminAuthCheck('initialized required password preserves the hash', $initialized-
 adminAuthCheck('initialized super check preserves privilege', $initialized->isSuper() === true);
 
 $adminMatcher = new ReflectionMethod(\ViMbAdmin\Kernel\Controller\AdminController::class, 'adminPasswordMatches');
-$authMatcher = new ReflectionMethod(\ViMbAdmin\Kernel\Controller\AuthController::class, 'adminPasswordMatches');
+$authMatcher = new ReflectionMethod(\ViMbAdmin\Kernel\Controller\AuthController::class, 'verifiedAdminPassword');
 adminAuthCheck(
     'admin password form rejects an uninitialized hash',
     $adminMatcher->invoke(null, $fresh, 'correct horse', $options) === false,
 );
 adminAuthCheck(
     'login rejects an uninitialized hash',
-    $authMatcher->invoke(null, $fresh, 'correct horse', $options) === false,
+    $authMatcher->invoke(null, $fresh, 'correct horse', $options) === null,
 );
 adminAuthCheck(
     'login rejects malformed password configuration',
-    $authMatcher->invoke(null, $initialized, 'correct horse', null) === false,
+    $authMatcher->invoke(null, $initialized, 'correct horse', null) === null,
 );
 adminAuthCheck(
     'both authentication boundaries accept the initialized matching hash',
     $adminMatcher->invoke(null, $initialized, 'correct horse', $options) === true
-        && $authMatcher->invoke(null, $initialized, 'correct horse', $options) === true,
+        && $authMatcher->invoke(null, $initialized, 'correct horse', $options) === $hash,
 );
 adminAuthCheck(
     'both authentication boundaries reject an incorrect password',
     $adminMatcher->invoke(null, $initialized, 'wrong horse', $options) === false
-        && $authMatcher->invoke(null, $initialized, 'wrong horse', $options) === false,
+        && $authMatcher->invoke(null, $initialized, 'wrong horse', $options) === null,
 );
 
 adminAuthCheck('required string preserves exact input',

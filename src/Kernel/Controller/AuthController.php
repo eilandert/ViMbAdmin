@@ -289,11 +289,12 @@ final class AuthController extends AbstractController
                 $admin    = $this->adminRepository()->findOneBy(['username' => $username]);
                 $authOpts = self::option($options, 'resources', 'auth', 'oss');
 
-                if ($admin !== null && self::adminPasswordMatches(
-                    $admin,
-                    self::requiredString($values['password'] ?? null, 'Login password'),
-                    $authOpts,
-                ) && self::adminIsActive($admin)) {
+                $plainPassword = self::requiredString($values['password'] ?? null, 'Login password');
+                $verifiedHash = $admin === null
+                    ? null
+                    : self::verifiedAdminPassword($admin, $plainPassword, $authOpts);
+                if ($admin !== null && $verifiedHash !== null && self::adminIsActive($admin)) {
+                    self::storeRehashedAdminPassword($admin, $verifiedHash, $this->em());
                     return $this->completeLogin($admin, $bf, $options);
                 }
 
@@ -534,15 +535,32 @@ final class AuthController extends AbstractController
         ]);
     }
 
-    private static function adminPasswordMatches(\Entities\Admin $admin, string $plain, mixed $options): bool
-    {
-        $hash = $admin->getPassword();
-        if ($hash === null || (!is_string($options) && !is_array($options))) {
-            return false;
+    private static function verifiedAdminPassword(
+        \Entities\Admin $admin,
+        string $plain,
+        mixed $options,
+    ): ?string {
+        $stored = $admin->getPassword();
+        if ($stored === null || (!is_string($options) && !is_array($options))) {
+            return null;
         }
 
         /** @var array<string, mixed>|string $options */
-        return \OSS_Auth_Password::verify($plain, $hash, $options);
+        return \OSS_Auth_Password::verifyAndRehash($plain, $stored, $options);
+    }
+
+    private static function storeRehashedAdminPassword(
+        \Entities\Admin $admin,
+        string $verifiedHash,
+        \Doctrine\ORM\EntityManagerInterface $entityManager,
+    ): void {
+        $stored = $admin->getPassword();
+        if ($stored !== null && !hash_equals($stored, $verifiedHash)) {
+            // Hashing completed before the managed entity is mutated; a hash
+            // failure cannot schedule or flush a partial credential update.
+            $admin->setPassword($verifiedHash);
+            $entityManager->flush();
+        }
     }
 
     /**

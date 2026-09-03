@@ -606,6 +606,68 @@ authInputShapeCheck('active password login retains normal session establishment'
         && $active['session']->get('logged_in_via') === 'auth'
         && $active['listener']->flushes === 1);
 
+$staleAdmin = authInputShapeAdmin(true);
+$staleAdmin->setPassword(\OSS_Auth_Password::hash(
+    AUTH_INPUT_TEST_CREDENTIAL,
+    ['pwhash' => 'bcrypt', 'hash_cost' => 4],
+));
+$staleHash = $staleAdmin->requiredPassword();
+$rehashLogin = authInputShapeController(
+    null,
+    $staleAdmin,
+    'login',
+    authInputShapeLoginOptions($inactiveState, [
+        'resources' => ['auth' => ['oss' => ['pwhash' => 'bcrypt', 'hash_cost' => 5]]],
+        'bruteforce' => ['enabled' => '0'],
+    ]),
+);
+$rehashResponse = authInputShapeLogin($rehashLogin['controller'], AUTH_INPUT_TEST_CREDENTIAL);
+authInputShapeCheck('successful active login rehashes a stale bcrypt cost before authentication completes',
+    $rehashResponse->status === 302
+        && $staleAdmin->requiredPassword() !== $staleHash
+        && str_starts_with($staleAdmin->requiredPassword(), '$2a$05$')
+        && $rehashLogin['listener']->flushes === 2);
+
+$failedRehashAdmin = authInputShapeAdmin(true);
+$failedRehashAdmin->setPassword($staleHash);
+$failedRehash = authInputShapeController(
+    null,
+    $failedRehashAdmin,
+    'login',
+    authInputShapeLoginOptions($wrongState, [
+        'resources' => ['auth' => ['oss' => ['pwhash' => 'bcrypt', 'hash_cost' => 5]]],
+        'bruteforce' => ['enabled' => '0'],
+    ]),
+);
+$failedRehashResponse = authInputShapeLogin($failedRehash['controller'], 'wrong horse');
+authInputShapeCheck('failed login keeps the generic response and performs no password write',
+    $failedRehashResponse->status === 200
+        && $failedRehashAdmin->requiredPassword() === $staleHash
+        && $failedRehash['listener']->flushes === 0
+        && $failedRehash['session']->get('flashMessages') === [[
+            'text' => 'Invalid username or password. Please try again.',
+            'level' => 'error',
+            'isHtml' => false,
+        ]]);
+
+$rehashErrorAdmin = authInputShapeAdmin(true);
+$rehashErrorAdmin->setPassword($staleHash);
+$rehashError = authInputShapeController(
+    null,
+    $rehashErrorAdmin,
+    'login',
+    authInputShapeLoginOptions($wrongState, [
+        'resources' => ['auth' => ['oss' => ['pwhash' => 'bcrypt', 'hash_cost' => 17]]],
+        'bruteforce' => ['enabled' => '0'],
+    ]),
+);
+$rehashErrorResponse = authInputShapeLogin($rehashError['controller'], AUTH_INPUT_TEST_CREDENTIAL);
+authInputShapeCheck('rehash generation errors retain the credential without denying login',
+    $rehashErrorResponse->status === 302
+        && $rehashErrorAdmin->requiredPassword() === $staleHash
+        && $rehashError['listener']->flushes === 1
+        && is_array($rehashError['session']->get('identity')));
+
 $enabledActive = authInputShapeController(
     null,
     authInputShapeAdmin(true, [\ViMbAdmin_TwoFactor::PREF_SECRET => 'encrypted-secret']),
@@ -796,7 +858,7 @@ authInputShapeCheck('deactivation during TOTP enrolment revokes the pending logi
         && $deactivatedDuringSetup['session']->get('totp_setup_secret') === null
         && !str_contains($deactivatedDuringSetupResponse->body, 'Two-factor is now enabled.'));
 
-authInputShapeCheck('fixed assertion count', AuthInputShapeState::$checks === 29);
+authInputShapeCheck('fixed assertion count', AuthInputShapeState::$checks === 32);
 
 echo AuthInputShapeState::$failures === 0
     ? "ALL PASSED\n"

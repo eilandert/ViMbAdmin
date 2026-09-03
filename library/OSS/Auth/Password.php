@@ -188,4 +188,84 @@ class OSS_Auth_Password
         // Constant-time comparison to avoid leaking the hash via timing.
         return hash_equals( $pwhash, self::hash( $pwplain, $config ) );
     }
+
+    /**
+     * Verify a credential and return the hash that should be stored.
+     *
+     * A null result is an authentication failure.  On success, the existing
+     * hash is returned unless the configured generation policy is stronger;
+     * callers can therefore persist an upgrade without handling plaintext
+     * beyond the request that already supplied it.
+     *
+     * @param array<string, mixed>|string $config
+     * @return string|null
+     */
+    public static function verifyAndRehash( string $pwplain, string $pwhash, $config ): ?string
+    {
+        if( !self::verify( $pwplain, $pwhash, $config ) )
+            return null;
+
+        try
+        {
+            if( !self::needsRehash( $pwhash, $config ) )
+                return $pwhash;
+
+            $replacement = self::hash( $pwplain, $config );
+            return is_string( $replacement ) ? $replacement : $pwhash;
+        }
+        catch( Throwable )
+        {
+            // Rehashing is opportunistic.  A bad generation policy or a local
+            // hashing failure must not turn a verified credential into an
+            // authentication failure; retain the usable stored hash instead.
+            return $pwhash;
+        }
+    }
+
+    /** @param array<string, mixed>|string $config */
+    private static function needsRehash( string $pwhash, $config ): bool
+    {
+        $method = is_array( $config )
+            ? self::stringValue( $config['pwhash'] ?? null, 'Password hash method' )
+            : self::stringValue( $config, 'Password hash method' );
+
+        $desiredBcryptCost = null;
+        if( $method === self::HASH_BCRYPT )
+            $desiredBcryptCost = is_array( $config ) && array_key_exists( 'hash_cost', $config )
+                ? self::costValue( $config['hash_cost'] ) : 12;
+        else if( str_starts_with( $method, self::HASH_CRYPT ) )
+            $desiredBcryptCost = 12;
+        else if( strcasecmp( $method, 'dovecot:BLF-CRYPT' ) === 0 )
+            $desiredBcryptCost = PASSWORD_BCRYPT_DEFAULT_COST;
+
+        if( $desiredBcryptCost !== null )
+        {
+            if( preg_match( '/^\$2[aby]\$(\d{2})\$/', $pwhash, $matches ) !== 1 )
+                return true;
+
+            // Never turn a login into an accidental work-factor downgrade.
+            return (int) $matches[1] < $desiredBcryptCost;
+        }
+
+        // Plaintext policies are retained for compatibility, but must never
+        // replace an already hashed credential with plaintext during login.
+        if( $method === self::HASH_PLAIN || $method === self::HASH_PLAINTEXT )
+            return false;
+
+        // For Dovecot crypt policies, upgrade older schemes while preserving a
+        // bcrypt credential if an installation changes to a weaker policy.
+        if( str_starts_with( $method, self::HASH_DOVECOT ) )
+        {
+            if( preg_match( '/^\$2[aby]\$/D', $pwhash ) === 1 )
+                return false;
+
+            return match( strtoupper( substr( $method, 8 ) ) ) {
+                'SHA512-CRYPT' => !str_starts_with( $pwhash, '$6$' ),
+                'SHA256-CRYPT' => !str_starts_with( $pwhash, '$5$' ),
+                default => false,
+            };
+        }
+
+        return false;
+    }
 }

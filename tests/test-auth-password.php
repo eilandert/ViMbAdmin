@@ -37,6 +37,22 @@ $check('bcrypt array configuration retains numeric-string cost', str_starts_with
 $check('bcrypt array configuration verifies', OSS_Auth_Password::verify('bcrypt-secret', $bcryptHash, ['pwhash' => 'bcrypt', 'hash_cost' => 4]));
 $check('bcrypt verification uses the stored hash cost, not generation policy', OSS_Auth_Password::verify('bcrypt-secret', $bcryptHash, ['pwhash' => 'bcrypt', 'hash_cost' => 31]));
 $check('bcrypt rejects a wrong password', !OSS_Auth_Password::verify('wrong', $bcryptHash, ['pwhash' => 'bcrypt', 'hash_cost' => 4]));
+$upgradedBcrypt = OSS_Auth_Password::verifyAndRehash(
+    'bcrypt-secret',
+    $bcryptHash,
+    ['pwhash' => 'bcrypt', 'hash_cost' => 5],
+);
+$check('successful bcrypt verification upgrades a stale cost',
+    is_string($upgradedBcrypt) && str_starts_with($upgradedBcrypt, '$2a$05$')
+        && OSS_Auth_Password::verify('bcrypt-secret', $upgradedBcrypt, ['pwhash' => 'bcrypt']));
+$check('a stronger stored bcrypt cost is never downgraded',
+    OSS_Auth_Password::verifyAndRehash(
+        'bcrypt-secret', $bcryptHash, ['pwhash' => 'bcrypt', 'hash_cost' => 4],
+    ) === $bcryptHash);
+$check('failed verification neither rehashes nor evaluates an invalid target cost',
+    OSS_Auth_Password::verifyAndRehash(
+        'wrong', $bcryptHash, ['pwhash' => 'bcrypt', 'hash_cost' => 17],
+    ) === null);
 
 $defaultBcryptHash = OSS_Auth_Password::hash('default-cost', OSS_Auth_Password::HASH_BCRYPT);
 $check('bcrypt string configuration retains default cost 12', str_starts_with($defaultBcryptHash, '$2a$12$'));
@@ -105,6 +121,25 @@ $dovecotHash = OSS_Auth_Password::hash('dovecot-secret', $dovecotConfig);
 $check('dovecot configuration preserves its scheme', str_starts_with($dovecotHash, '$5$'));
 $check('dovecot configuration verifies', OSS_Auth_Password::verify('dovecot-secret', $dovecotHash, $dovecotConfig));
 $check('dovecot configuration rejects a wrong password', !OSS_Auth_Password::verify('wrong', $dovecotHash, $dovecotConfig));
+$legacyDovecotHash = crypt('dovecot-secret', '$6$legacy-upgrade$');
+$upgradedDovecotHash = OSS_Auth_Password::verifyAndRehash(
+    'dovecot-secret',
+    $legacyDovecotHash,
+    ['pwhash' => 'dovecot:BLF-CRYPT', 'username' => 'user@example.test'],
+);
+$check('successful Dovecot verification upgrades a stale scheme',
+    is_string($upgradedDovecotHash) && str_starts_with($upgradedDovecotHash, '$2y$')
+        && OSS_Auth_Password::verify(
+            'dovecot-secret',
+            $upgradedDovecotHash,
+            ['pwhash' => 'dovecot:BLF-CRYPT', 'username' => 'user@example.test'],
+        ));
+$check('failed Dovecot verification performs no scheme upgrade',
+    OSS_Auth_Password::verifyAndRehash(
+        'wrong',
+        $legacyDovecotHash,
+        ['pwhash' => 'dovecot:BLF-CRYPT', 'username' => 'user@example.test'],
+    ) === null);
 
 $check('missing array hash method still throws', $throwsOss(
     static fn(): mixed => (new ReflectionMethod(OSS_Auth_Password::class, 'hash'))->invoke(null, 'secret', []),
