@@ -27,6 +27,7 @@ class ViMbAdmin_BruteForce
 {
     private const LOCK_TIMEOUT_NANOSECONDS = 1_000_000_000;
     private const LOCK_RETRY_MICROSECONDS = 1000;
+    private const REAP_SCAN_LIMIT = 128;
 
     /** @return array<string,mixed> */
     private static function stringMap( mixed $value, string $name ): array
@@ -183,6 +184,7 @@ class ViMbAdmin_BruteForce
         if( $this->_isWhitelisted( $ip ) )
             return;
 
+        $this->_maybeReapStale();
         $this->_withLock( function() use ( $ip ): void {
             $rec = $this->_load( $ip );
 
@@ -377,6 +379,113 @@ class ViMbAdmin_BruteForce
             error_log( 'ViMbAdmin_BruteForce: could not clear state file ' . $file );
             throw new RuntimeException( 'bruteforce state persistence unavailable' );
         }
+    }
+
+    /** @return void */
+    private function _maybeReapStale()
+    {
+        try
+        {
+            $this->_withLock( function(): void { $this->_reapStale( time() ); } );
+        }
+        catch( RuntimeException )
+        {
+            // Cleanup is opportunistic; the following state write independently
+            // acquires the lock and therefore still fails closed.
+        }
+    }
+
+    /**
+     * Inspect a fixed-size rotating window of the state directory. The durable
+     * cursor advances past every entry, including active and malformed records,
+     * so no fixed directory prefix can starve later stale state. Running on
+     * every recording request gives the reaper up to 128 removals against at
+     * most one new state file.
+     */
+    private function _reapStale( int $now ): void
+    {
+        $directoryStat = @lstat( $this->_statedir );
+        if( !is_array( $directoryStat ) || !isset( $directoryStat['mode'] )
+            || !is_int( $directoryStat['mode'] ) || ( $directoryStat['mode'] & 0170000 ) !== 0040000 )
+            return;
+
+        $cursorPath = $this->_statedir . '/.reap-cursor';
+        $cursor = 0;
+        $rawCursor = @file_get_contents( $cursorPath );
+        if( is_string( $rawCursor ) && preg_match( '/^[0-9]+\n$/D', $rawCursor ) === 1 )
+            $cursor = min( (int) trim( $rawCursor ), PHP_INT_MAX - self::REAP_SCAN_LIMIT );
+
+        $directory = new DirectoryIterator( $this->_statedir );
+        try
+        {
+            $directory->seek( $cursor );
+        }
+        catch( OutOfBoundsException )
+        {
+            $cursor = 0;
+            $directory->rewind();
+        }
+
+        $scanned = 0;
+        $cutoff = $now - max( $this->_window, $this->_lockout );
+        while( $directory->valid() && $scanned < self::REAP_SCAN_LIMIT )
+        {
+            $entry = $directory->getFilename();
+            $directory->next();
+            $cursor++;
+            $scanned++;
+            if( preg_match( '/^[a-f0-9]{64}\.json$/D', $entry ) !== 1 )
+                continue;
+            $this->_reapFile( $this->_statedir . '/' . $entry, $cutoff );
+        }
+        if( !$directory->valid() )
+            $cursor = 0;
+        $this->_saveReapCursor( $cursorPath, $cursor );
+    }
+
+    private function _saveReapCursor( string $path, int $cursor ): void
+    {
+        $tmp = $path . '.' . getmypid() . '.tmp';
+        $value = $cursor . "\n";
+        if( @file_put_contents( $tmp, $value, LOCK_EX ) !== strlen( $value ) || !@rename( $tmp, $path ) )
+        {
+            @unlink( $tmp );
+            throw new RuntimeException( 'bruteforce state persistence unavailable' );
+        }
+    }
+
+    private function _reapFile( string $path, int $cutoff ): bool
+    {
+        $before = @lstat( $path );
+        if( !$this->_isStableRegularFile( $before, $before ) )
+            return false;
+        $json = @file_get_contents( $path );
+        $record = is_string( $json ) ? json_decode( $json, true ) : null;
+        if( !is_array( $record ) || !$this->_isStaleRecord( $record, $cutoff ) )
+            return false;
+        clearstatcache( true, $path );
+        $after = @lstat( $path );
+        return $this->_isStableRegularFile( $before, $after ) && @unlink( $path );
+    }
+
+    private function _isStableRegularFile( mixed $before, mixed $after ): bool
+    {
+        if( !is_array( $before ) || !is_array( $after ) )
+            return false;
+        foreach( [ 'mode', 'dev', 'ino' ] as $key )
+            if( !isset( $before[$key], $after[$key] ) || !is_int( $before[$key] )
+                || !is_int( $after[$key] ) || $before[$key] !== $after[$key] )
+                return false;
+        return ( $before['mode'] & 0170000 ) === 0100000;
+    }
+
+    /** @param array<mixed> $record */
+    private function _isStaleRecord( array $record, int $cutoff ): bool
+    {
+        foreach( [ 'attempts', 'first', 'last', 'locked_until' ] as $key )
+            if( !isset( $record[$key] ) || !is_int( $record[$key] ) || $record[$key] < 0 )
+                return false;
+        return max( $record['first'], $record['last'], $record['locked_until'] ) < $cutoff;
     }
 
     // ---- helpers -------------------------------------------------------
