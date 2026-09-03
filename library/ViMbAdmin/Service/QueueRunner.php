@@ -22,14 +22,20 @@
  *
  *   drain($max)   — lease-gated batch: claim + run up to $max PENDING tasks,
  *                   marking each DONE/FAILED; returns the count, or -1 throttled.
- *   runOne($task) — run a single (already-claimed) task; throws on failure so the
- *                   caller records DONE/FAILED itself (the run-task path).
+ *   runOne($task, $complete) — lease-gate, claim and run one manual task; the
+ *                   completion callback records DONE/FAILED before release.
  *
  * @package ViMbAdmin
  * @subpackage Services
  */
 class ViMbAdmin_Service_QueueRunner
 {
+    /** Refresh often enough that an active request cannot reach the 30m TTL. */
+    const LEASE_HEARTBEAT_INTERVAL = 60;
+    const RUN_ONE_BUSY = -1;
+    const RUN_ONE_NOT_CLAIMED = 0;
+    const RUN_ONE_COMPLETED = 1;
+
     /** @var \Doctrine\ORM\EntityManager */
     private $em;
 
@@ -122,6 +128,64 @@ class ViMbAdmin_Service_QueueRunner
         $this->options = $options;
     }
 
+    /** @return \DateTime */
+    protected function now()
+    {
+        return new \DateTime();
+    }
+
+    /**
+     * Factory seam keeps deterministic blocking-call tests off the network.
+     *
+     * @param callable $progress
+     * @return ViMbAdmin_Doveadm
+     */
+    protected function newDoveadm($progress)
+    {
+        return ViMbAdmin_Doveadm::fromOptions($this->options, $progress);
+    }
+
+    /**
+     * Execute a callback while holding one runner slot.
+     *
+     * @param callable(\Entities\QueueRunner):void $operation
+     * @return bool false when every configured slot is already occupied
+     */
+    public function withLease(callable $operation)
+    {
+        $lease = ViMbAdmin_QueueRunner::acquireLease($this->em, $this->leaseOptions(), $this->now());
+        if ($lease === null) {
+            return false;
+        }
+
+        try {
+            $operation($lease);
+        } finally {
+            ViMbAdmin_QueueRunner::release($this->em, $lease);
+        }
+
+        return true;
+    }
+
+    /** @return callable():void */
+    private function leaseProgress(\Entities\QueueRunner $lease)
+    {
+        return function() use ($lease): void {
+            $heartbeat = $lease->getHeartbeatAt();
+            $now = $this->now();
+            if ($heartbeat === null
+                || $heartbeat->getTimestamp() <= $now->getTimestamp() - self::LEASE_HEARTBEAT_INTERVAL) {
+                ViMbAdmin_QueueRunner::heartbeat($this->em, $lease, $now);
+            }
+        };
+    }
+
+    /** @return ViMbAdmin_Doveadm */
+    private function doveadmForLease(\Entities\QueueRunner $lease)
+    {
+        return $this->newDoveadm($this->leaseProgress($lease));
+    }
+
     /**
      * Lease-gated batch drain: process up to $max PENDING tasks.
      *
@@ -141,20 +205,12 @@ class ViMbAdmin_Service_QueueRunner
             throw new \LogicException('MailboxTask entity must use Repositories\\MailboxTask.');
         }
 
-        $lease = ViMbAdmin_QueueRunner::acquireLease($em, $this->leaseOptions());
-        if ($lease === null) {
-            if ($verbose) {
-                echo "All runner slots busy (queue.runner.max_concurrent) — skipping.\n";
-            }
-            return -1;
-        }
-
-        // Periodic autoprune sweep (gated to once / 8h): enqueue a PRUNE task for
-        // each expired autoprune backup.
-        $this->autopruneSweep();
-
         $processed = 0;
-        try {
+        $acquired = $this->withLease(function(\Entities\QueueRunner $lease) use ($em, $repo, $max, $verbose, &$processed): void {
+            // Periodic autoprune sweep (gated to once / 8h): enqueue a PRUNE task
+            // for each expired autoprune backup.
+            $this->autopruneSweep();
+
             foreach ($repo->pending($max) as $task) {
                 // Atomic PENDING -> RUNNING; skip if another runner won the row.
                 if (!$repo->claim($task)) {
@@ -162,7 +218,7 @@ class ViMbAdmin_Service_QueueRunner
                 }
 
                 try {
-                    $doveadm = ViMbAdmin_Doveadm::fromOptions($this->options);
+                    $doveadm = $this->doveadmForLease($lease);
                     $this->execute($task, $doveadm);
                     $task->setStatus(\Entities\MailboxTask::STATUS_DONE);
                     $task->appendLog('done');
@@ -174,8 +230,7 @@ class ViMbAdmin_Service_QueueRunner
 
                 $task->setFinishedAt(new \DateTime());
                 $em->flush();
-
-                ViMbAdmin_QueueRunner::heartbeat($em, $lease);
+                ($this->leaseProgress($lease))();
 
                 if ($verbose) {
                     echo " - #{$task->getId()} {$task->getType()} {$task->getUsername()}: {$task->getStatus()}\n";
@@ -183,22 +238,51 @@ class ViMbAdmin_Service_QueueRunner
 
                 $processed++;
             }
-        } finally {
-            ViMbAdmin_QueueRunner::release($em, $lease);
+        });
+
+        if (!$acquired) {
+            if ($verbose) {
+                echo "All runner slots busy (queue.runner.max_concurrent) — skipping.\n";
+            }
+            return -1;
         }
 
         return $processed;
     }
 
     /**
-     * Execute a single task (already claimed / RUNNING). Throws on failure; the
-     * caller records DONE/FAILED + finishedAt + flush.
+     * Lease-gate, atomically claim and execute one manual task. The completion
+     * callback receives the execution error (or null) and records the terminal
+     * task state while the same lease is still held.
      *
-     * @return void
+     * @param callable(?\Throwable):void $complete
+     * @return int one of RUN_ONE_*
      */
-    public function runOne(\Entities\MailboxTask $task)
+    public function runOne(\Entities\MailboxTask $task, callable $complete)
     {
-        $this->execute($task, ViMbAdmin_Doveadm::fromOptions($this->options));
+        $repo = $this->em->getRepository('\\Entities\\MailboxTask');
+        if (!$repo instanceof \Repositories\MailboxTask) {
+            throw new \LogicException('MailboxTask entity must use Repositories\\MailboxTask.');
+        }
+
+        $result = self::RUN_ONE_BUSY;
+        $acquired = $this->withLease(function(\Entities\QueueRunner $lease) use ($repo, $task, $complete, &$result): void {
+            if (!$repo->claim($task)) {
+                $result = self::RUN_ONE_NOT_CLAIMED;
+                return;
+            }
+
+            $error = null;
+            try {
+                $this->execute($task, $this->doveadmForLease($lease));
+            } catch (\Throwable $e) {
+                $error = $e;
+            }
+            $complete($error);
+            $result = self::RUN_ONE_COMPLETED;
+        });
+
+        return $acquired ? $result : self::RUN_ONE_BUSY;
     }
 
     // ---------------------------------------------------------------------
@@ -271,7 +355,7 @@ class ViMbAdmin_Service_QueueRunner
                 $task->appendLog("backup -> {$dest}");
                 $doveadm->backup($user, $dest);
                 $task->appendLog('recording archive row');
-                $this->recordArchive($task, $dest, false);
+                $this->recordArchive($task, $dest, false, $doveadm);
                 $task->appendLog('mailbox delete (empty store, keep account)');
                 $doveadm->mailboxDelete($user);
                 $this->logAudit($task, \Entities\Log::ACTION_ARCHIVE_REQUEST,
@@ -294,7 +378,7 @@ class ViMbAdmin_Service_QueueRunner
                 $task->appendLog("backup -> {$dest}");
                 $doveadm->backup($user, $dest);
                 $task->appendLog('recording archive row (autoprune on)');
-                $this->recordArchive($task, $dest, true);
+                $this->recordArchive($task, $dest, true, $doveadm);
                 $task->appendLog('mailbox delete (empty store)');
                 $doveadm->mailboxDelete($user);
                 $this->removeMaildirHome($task, $doveadm, $user);
@@ -348,7 +432,12 @@ class ViMbAdmin_Service_QueueRunner
      * @param bool $autoprune
      * @return void
      */
-    private function recordArchive(\Entities\MailboxTask $task, $dest, $autoprune)
+    private function recordArchive(
+        \Entities\MailboxTask $task,
+        $dest,
+        $autoprune,
+        ?ViMbAdmin_Doveadm $doveadm = null
+    )
     {
         $em   = $this->em;
         $user = $task->requiredUsername();
@@ -375,7 +464,8 @@ class ViMbAdmin_Service_QueueRunner
 
         $origSize = null;
         try {
-            ViMbAdmin_Doveadm::fromOptions($this->options)->quotaRecalc($user);
+            $doveadm ??= ViMbAdmin_Doveadm::fromOptions($this->options);
+            $doveadm->quotaRecalc($user);
             $bytes = $em->getConnection()->fetchOne('SELECT bytes FROM dovecot_quota WHERE username = ?', [$user]);
             if ($bytes !== false && $bytes !== null) {
                 $origSize = self::nonNegativeInteger($bytes, 'Dovecot quota bytes');
@@ -672,7 +762,7 @@ class ViMbAdmin_Service_QueueRunner
                 $doveadm->backup($user, $dest);
 
                 $task->appendLog('orphan: recording archive row');
-                $this->recordArchive($task, $dest, false);
+                $this->recordArchive($task, $dest, false, $doveadm);
                 // Archive row now references $domain (FK RESTRICT, flushed after
                 // this method) -> a transient domain must NOT be deleted.
                 $keepDomain = true;

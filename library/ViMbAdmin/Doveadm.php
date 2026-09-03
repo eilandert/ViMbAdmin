@@ -89,26 +89,34 @@ class ViMbAdmin_Doveadm
     /** @var int seconds */
     private $_timeout;
 
+    /** @var callable|null */
+    private $_progress;
+
     /**
      * @param string $url     Full endpoint URL, e.g. http://dovecot:8081/doveadm/v1
      * @param string $apiKey  The doveadm_api_key (sent base64-encoded as X-Dovecot-API)
      * @param int    $timeout Request timeout in seconds (backup/resync can be slow)
+     * @param callable|null $progress Invoked while a request is in progress
      */
-    public function __construct( $url, $apiKey, $timeout = 900 )
+    public function __construct( $url, $apiKey, $timeout = 900, $progress = null )
     {
+        if( $progress !== null && !is_callable( $progress ) )
+            throw new ViMbAdmin_Exception( 'doveadm progress callback must be callable' );
         $this->_url = self::stringValue( $url, 'doveadm.http.url' );
         $this->_apiKey = self::stringValue( $apiKey, 'doveadm.http.api_key' );
         $this->_timeout = self::positiveIntValue( $timeout, 'doveadm.http.timeout' );
+        $this->_progress = $progress;
     }
 
     /**
      * Build an instance from the application options.
      *
      * @param array<string, mixed>|null $options
+     * @param callable():mixed|null $progress
      * @return ViMbAdmin_Doveadm
      * @throws ViMbAdmin_Exception when not configured
      */
-    public static function fromOptions( $options = null )
+    public static function fromOptions( $options = null, $progress = null )
     {
         if( $options === null )
             $options = OSS_Runtime::options();
@@ -131,7 +139,8 @@ class ViMbAdmin_Doveadm
         return new self(
             $url,
             $apiKey,
-            $timeout
+            $timeout,
+            $progress
         );
     }
 
@@ -145,6 +154,7 @@ class ViMbAdmin_Doveadm
      */
     public function run( $cmd, array $params = [] )
     {
+        $this->reportProgress();
         $tag     = 'vimb' . substr( md5( uniqid( '', true ) ), 0, 8 );
         $payload = json_encode( [ [ $cmd, (object) $params, $tag ] ] );
 
@@ -195,7 +205,7 @@ class ViMbAdmin_Doveadm
         if( function_exists( 'curl_init' ) )
         {
             $ch = curl_init( $this->_url );
-            curl_setopt_array( $ch, [
+            $curlOptions = [
                 CURLOPT_POST           => true,
                 CURLOPT_POSTFIELDS     => $payload,
                 CURLOPT_RETURNTRANSFER => true,
@@ -204,7 +214,16 @@ class ViMbAdmin_Doveadm
                     'Content-Type: application/json',
                     'Authorization: ' . $authHeader,
                 ],
-            ] );
+            ];
+            if( $this->_progress !== null )
+            {
+                $curlOptions[CURLOPT_NOPROGRESS] = false;
+                $curlOptions[CURLOPT_XFERINFOFUNCTION] = function() {
+                    $this->reportProgress();
+                    return 0;
+                };
+            }
+            curl_setopt_array( $ch, $curlOptions );
             $body   = curl_exec( $ch );
             $status = (int) curl_getinfo( $ch, CURLINFO_HTTP_CODE );
             $err    = curl_error( $ch );
@@ -215,6 +234,13 @@ class ViMbAdmin_Doveadm
         }
 
         throw new ViMbAdmin_Exception( _( 'No HTTP client available (cURL extension missing)' ) );
+    }
+
+    /** @return void */
+    protected function reportProgress()
+    {
+        if( $this->_progress !== null )
+            ( $this->_progress )();
     }
 
     // =====================================================================
