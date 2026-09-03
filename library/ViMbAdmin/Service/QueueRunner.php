@@ -761,13 +761,15 @@ class ViMbAdmin_Service_QueueRunner
         $home = $root . '/' . self::assertPathSafe($user);
 
         try {
-            if ($doveadm->maildirHasMail($home)) {
-                $task->appendLog('KEEP maildir home — still contains mail (empty/backup step failed?): ' . $home);
-                return;
-            }
+            $hasMail = $doveadm->maildirHasMail($home);
         } catch (\Throwable $e) {
             $task->appendLog('KEEP maildir home — could not verify it is empty: ' . $e->getMessage());
-            return;
+            throw $e;
+        }
+
+        if ($hasMail) {
+            $task->appendLog('KEEP maildir home — still contains mail (empty/backup step failed?): ' . $home);
+            throw new ViMbAdmin_Exception('maildir home still contains mail: ' . $home);
         }
 
         try {
@@ -775,6 +777,7 @@ class ViMbAdmin_Service_QueueRunner
             $doveadm->fsDelete($home);
         } catch (\Throwable $e) {
             $task->appendLog('remove maildir home warning: ' . $e->getMessage());
+            throw $e;
         }
     }
 

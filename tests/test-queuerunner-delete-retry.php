@@ -25,6 +25,7 @@ final class DeleteRetryState
     public ?\Entities\Archive $archive = null;
     public string $persistedTaskData = '';
     public bool $sourceHasMail = true;
+    public ?Throwable $sourceProbeError = null;
     public bool $destinationExists = false;
     public bool $destinationHasMail = false;
     public ?ViMbAdmin_Exception $destinationProbeError = null;
@@ -239,6 +240,9 @@ final class DeleteRetryDoveadm extends ViMbAdmin_Doveadm
             }
             return $this->state->destinationHasMail;
         }
+        if ($this->state->sourceProbeError !== null) {
+            throw $this->state->sourceProbeError;
+        }
         return $this->state->sourceHasMail;
     }
 
@@ -336,6 +340,30 @@ function deleteRetryExecute(
     } catch (Throwable $error) {
         return $error->getPrevious() ?? $error;
     }
+}
+
+/** @return list<string>|null */
+function deleteRetryCompleted(mixed $data): ?array
+{
+    if (!is_array($data)) {
+        return null;
+    }
+    $progress = $data['_queue_runner_delete'] ?? null;
+    if (!is_array($progress)) {
+        return null;
+    }
+    $completed = $progress['completed'] ?? null;
+    if (!is_array($completed) || !array_is_list($completed)) {
+        return null;
+    }
+    $steps = [];
+    foreach ($completed as $step) {
+        if (!is_string($step)) {
+            return null;
+        }
+        $steps[] = $step;
+    }
+    return $steps;
 }
 
 /** @return array<string,mixed> */
@@ -486,6 +514,66 @@ deleteRetryCheck(
     $probeError?->getMessage() === 'doveadm transport unavailable'
         && array_sum($probeState->calls) === 0,
 );
+
+foreach (['mail remains' => true, 'probe fails' => false] as $keepReason => $mailRemains) {
+    $keepDomain = (new \Entities\Domain())->setDomain('example.test');
+    $keepState = new DeleteRetryState($keepDomain);
+    $keepTask = deleteRetryTask($keepDomain);
+    $keepDoveadm = new DeleteRetryDoveadm($keepState);
+    if ($mailRemains) {
+        // Model a mailbox-delete command that succeeds without emptying the home.
+        $keepState->sourceHasMail = true;
+    } else {
+        $keepState->sourceProbeError = new RuntimeException('simulated home probe failure');
+    }
+
+    $keepError = deleteRetryExecute(
+        deleteRetryRunner($keepState, $keepTask, deleteRetryOptions(0), 'mailbox-delete'),
+        $keepTask,
+        $keepDoveadm,
+    );
+    // Restore the retained-home condition after the injected post-mailbox-delete interruption.
+    $keepState->sourceHasMail = $mailRemains;
+    $keepRetry = deleteRetryTask($keepDomain);
+    $keepRetry->setData($keepState->persistedTaskData);
+    $keepError = deleteRetryExecute(
+        deleteRetryRunner($keepState, $keepRetry, deleteRetryOptions(0)),
+        $keepRetry,
+        $keepDoveadm,
+    );
+    $keptData = json_decode((string) $keepRetry->getData(), true);
+    $keptCompleted = deleteRetryCompleted($keptData);
+    deleteRetryCheck(
+        "{$keepReason} keeps later delete steps pending",
+        $keepError !== null
+            && $keptCompleted === ['mailbox-delete']
+            && $keepState->calls['maildir-home'] === 0
+            && $keepState->calls['mailbox-row'] === 0
+            && $keepState->calls['audit'] === 0,
+    );
+
+    // Once the retained home is externally emptied or the probe recovers, retry resumes here.
+    $keepState->sourceHasMail = false;
+    $keepState->sourceProbeError = null;
+    $cleanupRetry = deleteRetryTask($keepDomain);
+    $cleanupRetry->setData((string) $keepRetry->getData());
+    $cleanupError = deleteRetryExecute(
+        deleteRetryRunner($keepState, $cleanupRetry, deleteRetryOptions(0)),
+        $cleanupRetry,
+        $keepDoveadm,
+    );
+    $cleanupData = json_decode((string) $cleanupRetry->getData(), true);
+    deleteRetryCheck(
+        "{$keepReason} retry eventually cleans up without replaying mailbox delete",
+        $cleanupError === null
+            && deleteRetryCompleted($cleanupData)
+                === ['mailbox-delete', 'maildir-home', 'mailbox-row', 'audit']
+            && $keepState->calls['mailbox-delete'] === 1
+            && $keepState->calls['maildir-home'] === 1
+            && $keepState->calls['mailbox-row'] === 1
+            && $keepState->calls['audit'] === 1,
+    );
+}
 
 $auditPersistDomain = (new \Entities\Domain())->setDomain('example.test');
 $auditPersistState = new DeleteRetryState($auditPersistDomain);
