@@ -105,30 +105,13 @@ class OSS_Auth_Password
         }
         else if ( substr( $hash, 0, 6) == 'crypt:' )
         {
-            $indicator = '';
-            $salt_len = 2;
-            switch( $hash )
-            {
-                case 'crypt:md5':
-                    $salt = '$1$' . OSS_String::randomPassword( 12 ) . '$';
-                    break;
+            if( !in_array( $hash, [ 'crypt:md5', 'crypt:blowfish', 'crypt:sha256', 'crypt:sha512' ], true ) )
+                throw new OSS_Exception( 'Unknown crypt password hashing method' );
 
-                case 'crypt:blowfish':
-                    $salt = '$2a$12$' . OSS_String::randomPassword( 22 ) . '$';
-                    break;
-
-                case 'crypt:sha256':
-                    $salt = '$5$' . OSS_String::randomPassword( 16 ) . '$';
-                    break;
-
-                case 'crypt:sha512':
-                    $salt = '$6$' . OSS_String::randomPassword( 12 ) . '$';
-                    break;
-
-                default:
-                    throw new OSS_Exception( 'Unknown crypt password hashing method' );
-            }
-            return crypt( $pw, $salt );
+            // Keep accepting legacy crypt:* configuration names, but never
+            // create their manually constructed hashes. Existing hashes are
+            // still checked by verify()'s crypt-compatible legacy path.
+            return password_hash( $pw, PASSWORD_BCRYPT, [ 'cost' => 12 ] );
         }
         else
         {

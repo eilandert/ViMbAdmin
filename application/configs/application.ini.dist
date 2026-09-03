@@ -126,7 +126,10 @@ defaults.mailbox.min_password_length = 8
 ; The password hashing function to use. Set to one of:
 ;
 ;   "plain"       - password stored as clear text
-;   "crypt:XXX"   - call the PHP crypt function (with random salt) where XXX is one of: md5, blowfish, sha256, sha512
+;   "crypt:XXX"   - legacy-compatible setting where XXX is one of: md5,
+;                   blowfish, sha256, sha512. New passwords use bcrypt through
+;                   password_hash(); existing hashes in the named format still
+;                   verify. Prefer "dovecot:BLF-CRYPT" for new installations.
 ;   "dovecot:XXX" - produce a Dovecot-compatible hash for scheme XXX. Hashing is
 ;                      done natively in PHP (no external doveadm binary), so XXX
 ;                      must be one of the crypt-family schemes PHP and Dovecot

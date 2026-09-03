@@ -52,11 +52,26 @@ $check('bcrypt rejects operationally excessive cost before hashing', $throwsOss(
     'Bcrypt cost must be an integer between 4 and 16'
 ));
 
-foreach (['crypt:md5' => '$1$', 'crypt:blowfish' => '$2a$12$', 'crypt:sha256' => '$5$', 'crypt:sha512' => '$6$'] as $mode => $prefix) {
+foreach (['crypt:md5', 'crypt:blowfish', 'crypt:sha256', 'crypt:sha512'] as $mode) {
     $hash = OSS_Auth_Password::hash('crypt-secret', $mode);
-    $check("{$mode} retains its hash format", str_starts_with($hash, $prefix));
+    $check("{$mode} emits a complete password_hash bcrypt shape",
+        preg_match('/^\$2y\$12\$[.\/A-Za-z0-9]{53}$/D', $hash) === 1);
+    $check("{$mode} never stores plaintext", $hash !== 'crypt-secret');
     $check("{$mode} verifies", OSS_Auth_Password::verify('crypt-secret', $hash, $mode));
     $check("{$mode} rejects a wrong password", !OSS_Auth_Password::verify('wrong', $hash, $mode));
+}
+
+$legacyCryptHashes = [
+    'crypt:md5' => '$1$12345678$v..6KAKFNqBJISjodv1W81',
+    'crypt:blowfish' => '$2a$' . '12$abcdefghijklmnopqrstuufRU2BlUoJSwNYepqy8lSxodZnugpiIe',
+    'crypt:sha256' => '$5$1234567890abcdef$e.nlasQaKYlbEWWR1vxqFIhaX4ixu3EOFpf.O7QCIo5',
+    'crypt:sha512' => '$6$1234567890abcdef$/x1MArqV01QAYaUJIpaJb1KgMZbys/cDZ3r63/7GLVG42FRJ61Z/jp6Q8jxf7fWO4Cfzy9sbh60rJl63GWJWV.',
+];
+foreach ($legacyCryptHashes as $mode => $legacyHash) {
+    $check("{$mode} verifies an existing stored hash",
+        OSS_Auth_Password::verify('crypt-secret', $legacyHash, $mode));
+    $check("{$mode} existing stored hash rejects a wrong password",
+        !OSS_Auth_Password::verify('wrong', $legacyHash, $mode));
 }
 
 $dovecotConfig = ['pwhash' => 'dovecot:sha256-crypt', 'username' => 'user@example.test'];
