@@ -313,7 +313,7 @@ authenticates — every command works against the Doctrine EM directly.
 
 | Action | What it does | Options |
 |---|---|---|
-| `queue.cli-run` | Drain the **mailbox-task queue** — claims up to `queue.runner.max_per_run` PENDING tasks (repair / optimize / archive / delete) and runs them against Dovecot over the doveadm HTTP API. Periodic runner (image fires it on start + every 5 min; also on login / Maintenance / MCP). Concurrency capped by `queue.runner.max_concurrent` DB lease. | — |
+| `queue.cli-run` | Drain the **mailbox-task queue** in batches of up to `queue.runner.max_per_run` PENDING tasks until empty or lease-throttled. Periodic runner (image fires it on start + every 5 min). Concurrency is capped by the `queue.runner.max_concurrent` DB lease. | `--once` → drain one batch only |
 | `maintenance.cli-schema-update` | Apply pending **Doctrine schema migrations** (changes table structure). Same code as the in-panel **Maintenance → Update schema** button. Run on deploy/upgrade; the Docker image runs it on every start. | `--verbose` → also print the SQL + DB version |
 | `maintenance.cli-precompile-templates` | Compile every **Smarty template** ahead of time into persistent `var/templates_c`, so the first web request pays no compile cost. Safe to re-run; image runs it on start. | — |
 | `admin.cli-reset-totp` | **Disable two-factor** for a locked-out admin. | `--username=<email>` **or** `--all` |
@@ -454,7 +454,7 @@ the filesystem with the panel).
 
 ### Scheduling the queue runner
 
-The queue is only drained when something invokes `queue.cli-run`:
+The guaranteed periodic drain invokes `queue.cli-run`:
 
 - **Docker image — nothing to set up.** A supervised `queue-runner` service (s6)
   runs `queue.cli-run` **every 5 minutes** and once on container start. No host
@@ -466,14 +466,20 @@ On top of the scheduled runner, two on-demand nudges exist (both *best-effort*,
 **not** a substitute for the periodic runner):
 
 - the **`POST /queue/trigger`** HTTP endpoint (Bearer key + source-IP allowlist)
-  spawns a one-off background runner — for off-box cron hosts that can't run the
-  CLI (form 2 below);
+  returns an acknowledgement, then drains in the same FPM worker after the
+  response is sent — for off-box cron hosts that can't run the CLI (form 2 below);
 - the in-panel **Run now** button on the Queue page drains it interactively.
 
 Concurrency is capped by **`queue.runner.max_concurrent`** (default **1** =
 strictly serial). A DB lease (`queue_runner` table) enforces it across CLI, web
 and containers; a crashed runner's lease is reaped after a timeout so a slot is
 never lost.
+
+| Entry point | Immediate response | Drain bound | Execution context |
+|---|---|---|---|
+| `queue.cli-run` | exit `0`; no output unless `--verbose` | Repeats `max_per_run` batches until empty/throttled; `--once` stops after one batch | CLI process |
+| `POST /queue/trigger` | HTTP `200` JSON `{"triggered":true}` after bearer/IP validation | Repeats batches until empty/throttled, 100 batches, or 60 seconds | Same FPM worker, after response send; no fork/spawn |
+| Queue page **Run now** | Redirect + flash status | One `max_per_run` batch | Synchronous web request |
 
 The forms below are for **bare-metal/source** installs or an *extra* off-box
 trigger:

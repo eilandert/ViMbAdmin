@@ -192,7 +192,9 @@ doveadm.http.timeout = 900
 ; %d = domain, %u = full username. A dsync (doveadm backup) destination.
 doveadm.backup.dest  = "maildir:/backups/%d/%u"
 
-; How many queued tasks a single queue-runner invocation drains. Caps load.
+; Maximum tasks per batch. CLI repeats batches until empty unless --once; the
+; HTTP trigger repeats after sending its acknowledgement, bounded by 100 batches
+; or 60 seconds. The Queue-page Run now action drains one batch.
 queue.runner.max_per_run = 5
 
 ; Maximum number of queue runners allowed to drain CONCURRENTLY. A DB lease
@@ -201,18 +203,17 @@ queue.runner.max_per_run = 5
 ; to drain more in parallel when doveadm work is the bottleneck.
 queue.runner.max_concurrent = 1
 
-; IMPORTANT: ViMbAdmin does NOT run a daemon and never forks a process / shells
-; out to drain. The queue is run by two triggers, both using the same
-; framework-free runner, and both AUTONOMOUS (the caller gets an immediate OK
-; and disconnects; the drain then clears the whole backlog on its own):
+; IMPORTANT: ViMbAdmin does NOT run a daemon and never forks or shells out to
+; drain. The CLI and HTTP trigger use the same framework-free runner:
 ;   1. CRON / s6: `queue.cli-run` via vimbtool.php (the guaranteed periodic path).
 ;        */2 * * * *  docker exec vimbadmin php /opt/vimbadmin/bin/vimbtool.php -a queue.cli-run
 ;      Loops until the backlog is empty; pass --once to drain a single batch.
 ;   2. REMOTE: POST /queue/trigger, bearer-key + IP-allowlist gated (below).
 ;      Returns {"triggered":true} immediately, then drains the backlog AFTER the
 ;      connection closes (fastcgi_finish_request) — non-blocking, no spawn.
-; The lease cap (queue.runner.max_concurrent) serialises overlapping triggers.
-; The Maintenance tab "Run now" button drains on demand. See README + contrib/cron/.
+; The lease cap serialises overlapping drains. The Queue-page Run now button
+; synchronously drains one batch. README's canonical behavior table has the
+; response, bound, and execution-context contract for all three entry points.
 
 ; Auto-prune window for DELETE backups, in DAYS. When a mailbox is DELETEd (not
 ; archived) the queue takes a safety backup and records an archive row flagged
@@ -225,9 +226,9 @@ queue.autoprune.days = 90
 
 ; Remote queue-runner trigger endpoint (POST /queue/trigger). Lets an off-box
 ; cron kick the runner. Authenticated by a bearer key (only its SHA-256 hash is
-; compared, constant-time) plus an IP/CIDR allowlist. The endpoint drains the
-; queue SYNCHRONOUSLY in the request (capped by queue.runner.max_per_run) and
-; returns JSON — it does NOT spawn a background process. Leave the key empty to
+; compared, constant-time) plus an IP/CIDR allowlist. It returns
+; {"triggered":true}, then drains in the same FPM worker after the response is
+; sent (bounded as documented above); it does not spawn. Leave the key empty to
 ; DISABLE the remote endpoint (the CLI runner and Maintenance button still work).
 ;   curl -X POST -H 'Authorization: Bearer <key>' https://host/vimbadmin/queue/trigger
 queue.runner.key         = ""
