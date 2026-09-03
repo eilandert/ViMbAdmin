@@ -226,6 +226,17 @@ final class DeleteRetryDoveadm extends ViMbAdmin_Doveadm
 {
     public function __construct(private readonly DeleteRetryState $state) {}
 
+    public function fsListDirs($path, $filter = 'posix')
+    {
+        if ($path !== '/mail/user@example.test' || $filter !== 'posix') {
+            throw new RuntimeException('unexpected maildir-home existence probe');
+        }
+        if (!$this->state->sourceExists) {
+            throw new ViMbAdmin_Exception("doveadm 'fsIterDirs' failed: No such file or directory (exit 68)");
+        }
+        return ['cur', 'new', 'tmp'];
+    }
+
     public function maildirHasMail($maildir, $filter = 'posix')
     {
         if ($filter !== 'posix') {
@@ -610,6 +621,31 @@ foreach (['absent before probe' => false, 'disappears before delete' => true] as
             && $absentState->calls['maildir-home'] === ($duringDelete ? 1 : 0)
             && $absentState->calls['mailbox-row'] === 1
             && $absentState->calls['audit'] === 1,
+    );
+}
+
+foreach ([
+    'missing cur with populated new' => "doveadm 'fsIter' failed: No such file or directory (exit 68)",
+    'non-path missing text' => "doveadm 'fsIter' failed: backend metadata doesn't exist (exit 75)",
+] as $probeFailure => $probeMessage) {
+    $partialDomain = (new \Entities\Domain())->setDomain('example.test');
+    $partialState = new DeleteRetryState($partialDomain);
+    $partialState->sourceProbeError = new ViMbAdmin_Exception($probeMessage);
+    $partialTask = deleteRetryTask($partialDomain);
+    $partialError = deleteRetryExecute(
+        deleteRetryRunner($partialState, $partialTask, deleteRetryOptions(0)),
+        $partialTask,
+        new DeleteRetryDoveadm($partialState),
+    );
+    $partialData = json_decode((string) $partialTask->getData(), true);
+    deleteRetryCheck(
+        "{$probeFailure} remains retryable while the home exists",
+        $partialError instanceof ViMbAdmin_Exception
+            && $partialError->getMessage() === $probeMessage
+            && deleteRetryCompleted($partialData) === ['mailbox-delete']
+            && $partialState->calls['maildir-home'] === 0
+            && $partialState->calls['mailbox-row'] === 0
+            && $partialState->calls['audit'] === 0,
     );
 }
 
