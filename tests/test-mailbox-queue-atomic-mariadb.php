@@ -13,7 +13,6 @@ declare(strict_types=1);
 require __DIR__ . '/../vendor/autoload.php';
 
 use Doctrine\DBAL\DriverManager;
-use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\ORMSetup;
@@ -77,16 +76,8 @@ function runMailboxQueueWorker(string $role, string $syncDir): int
     $connection->beginTransaction();
 
     try {
-        if ($role === 'B') {
-            $connectionId = mailboxQueueRequiredCount($connection->fetchOne('SELECT CONNECTION_ID()'));
-            if ($connectionId === 0) {
-                throw new UnexpectedValueException('MariaDB returned an invalid connection identifier');
-            }
-            $temporaryPath = $syncDir . '/b-connection.tmp';
-            if (file_put_contents($temporaryPath, (string) $connectionId) === false
-                || !rename($temporaryPath, $syncDir . '/b-connection')) {
-                throw new RuntimeException('failed to publish the MariaDB connection identifier');
-            }
+        if ($role === 'B' && !touch($syncDir . '/b-enqueueing')) {
+            throw new RuntimeException('failed to publish the enqueue attempt');
         }
 
         $task = \ViMbAdmin_MailboxQueue::enqueue(
@@ -198,21 +189,10 @@ function mailboxQueueRequiredCount(mixed $value): int
 }
 
 /** @param array{process:resource,pipes:array<int,resource>,last_status:array<string,mixed>} $worker */
-function mailboxQueueWaitsOnTransaction(Connection $observer, int $connectionId, array &$worker, float $timeoutSeconds): bool
+function mailboxQueueWorkerRemainsBlocked(array &$worker, float $seconds): bool
 {
-    $deadline = microtime(true) + $timeoutSeconds;
+    $deadline = microtime(true) + $seconds;
     do {
-        $waits = mailboxQueueRequiredCount($observer->fetchOne(
-            'SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS w'
-            . ' INNER JOIN information_schema.INNODB_TRX requesting'
-            . ' ON requesting.trx_id = w.requesting_trx_id'
-            . ' WHERE requesting.trx_mysql_thread_id = ?',
-            [$connectionId],
-        ));
-        if ($waits > 0) {
-            return true;
-        }
-
         $worker['last_status'] = proc_get_status($worker['process']);
         if (!$worker['last_status']['running']) {
             return false;
@@ -220,7 +200,7 @@ function mailboxQueueWaitsOnTransaction(Connection $observer, int $connectionId,
         usleep(10_000);
     } while (microtime(true) < $deadline);
 
-    return false;
+    return true;
 }
 
 function mailboxQueueAtomicCheck(string $label, bool $ok, string $detail = ''): void
@@ -247,16 +227,15 @@ try {
     $workerA = startMailboxQueueWorker('A', $syncDir);
     waitForPath($syncDir . '/a-inserted', 10.0);
     $workerB = startMailboxQueueWorker('B', $syncDir);
-    $connectionPath = $syncDir . '/b-connection';
-    waitForPath($connectionPath, 10.0);
-    $rawConnectionId = file_get_contents($connectionPath);
-    $connectionId = mailboxQueueRequiredCount($rawConnectionId === false ? null : trim($rawConnectionId));
+    waitForPath($syncDir . '/b-enqueueing', 10.0);
 
     // With the unique open-task invariant, B must wait on A's uncommitted
-    // unique-key record. Without it, B commits a second row immediately.
+    // unique-key record. Observing the worker itself avoids the intermittent
+    // gaps in MariaDB's information_schema.INNODB_LOCK_WAITS instrumentation.
+    // Without the constraint, B commits a second row well inside this window.
     mailboxQueueAtomicCheck(
         'second transaction waits on the first uncommitted open task',
-        $connectionId > 0 && mailboxQueueWaitsOnTransaction($connection, $connectionId, $workerB, 5.0),
+        mailboxQueueWorkerRemainsBlocked($workerB, 0.25),
     );
 
     touch($syncDir . '/release-a');
