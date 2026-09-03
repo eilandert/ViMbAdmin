@@ -690,10 +690,7 @@ final class MailboxController extends AbstractController
         // A preferred domain from `did` preselects the dropdown and seeds the quota.
         $preferred = null;
         if (($did = $this->positiveIdParam('did')) !== null) {
-            $d = $em->getRepository('\\Entities\\Domain')->find($did);
-            if ($d instanceof \Entities\Domain && ($admin->isSuper() || $admin->canManageDomain($d))) {
-                $preferred = $d;
-            }
+            $preferred = $this->resolveAuthorizedTargetDomain($admin, $did, $this->domainRepository());
         }
 
         $formHost = new FormPluginHost($options);
@@ -703,14 +700,11 @@ final class MailboxController extends AbstractController
             $v      = $form->values();
             $pErr   = $formHost->validate($v, $options);
             $domainId = self::positiveIntegerOrNull($v['domain'] ?? null);
-            $domain = $domainId !== null
-                ? $em->getRepository('\\Entities\\Domain')->find($domainId)
-                : null;
+            $domain = $this->resolveAuthorizedTargetDomain($admin, $domainId, $this->domainRepository());
 
             // The inArray rule already rejected a domain not offered; re-check
             // management server-side so a non-super admin cannot widen scope.
-            if (!$domain instanceof \Entities\Domain
-                || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
+            if ($domain === null) {
                 $this->flash('Please select a valid domain.', FlashMessages::ERROR);
             } elseif ($pErr !== null) {
                 $this->flash($pErr, FlashMessages::ERROR);

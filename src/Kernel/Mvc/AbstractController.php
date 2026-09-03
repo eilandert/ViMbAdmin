@@ -118,6 +118,27 @@ abstract class AbstractController
         return $this->container->entityManager();
     }
 
+    /** Resolve a submitted target domain and enforce the administrator's scope. */
+    protected function resolveAuthorizedTargetDomain(
+        object $admin,
+        ?int $domainId,
+        \Repositories\Domain $repository,
+    ): ?\Entities\Domain {
+        if (!$admin instanceof \Entities\Admin) {
+            throw new \LogicException('Authenticated administrator has an invalid type');
+        }
+        if ($domainId === null) {
+            return null;
+        }
+
+        $domain = $repository->find($domainId);
+        if (!$domain instanceof \Entities\Domain) {
+            return null;
+        }
+
+        return $admin->isSuper() || $admin->canManageDomain($domain) ? $domain : null;
+    }
+
     /**
      * The logged-in admin entity, or null when unauthenticated (the ZF1
      * `getAdmin()` equivalent, via the framework-free auth service).

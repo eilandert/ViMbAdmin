@@ -51,6 +51,22 @@ cp -- .github/workflows/security.yml "$fixture"
 cp -- .github/workflows/regression.yml "$regression_fixture"
 run_contract
 
+cp -- .github/workflows/regression.yml "$regression_fixture"
+sed -i '0,/mirror\.gcr\.io\/library\/php@sha256:/s//docker.io\/library\/php@sha256:/' \
+  "$regression_fixture"
+expect_rejected 'a runtime image outside the approved mirror' \
+  'Workflow runtime images must use approved registry-mirror digests:'
+cp -- .github/workflows/regression.yml "$regression_fixture"
+
+sed -i '0,/^    container:$/{N;s/^    container:\n      image:.*$/    container: php:8.4/;}' \
+  "$regression_fixture"
+if command -v actionlint >/dev/null; then
+  actionlint "$regression_fixture"
+fi
+expect_rejected 'an actionlint-valid scalar container image' \
+  'scalar or inline container syntax is unsupported'
+cp -- .github/workflows/regression.yml "$regression_fixture"
+
 sed -i '/      - name: Smarty 5 JS-template escaping/i\
       - name: Disallowed PHP setup action\
         uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f\

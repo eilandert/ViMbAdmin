@@ -1,9 +1,9 @@
 {
-    "name": "opensolutions/vimbadmin",
+    "name": "myguard-labs/vimbadmin",
     "description": "ViMdAdmin :: Virtual Mailbox Administration",
     "type": "project",
     "keywords": ["vimbadmin", "postfix", "postfixadmin", "dovecot"],
-    "homepage": "http://www.vimbadmin.net/",
+    "homepage": "https://github.com/myguard-labs/ViMbAdmin",
     "license": "GPL-3.0-or-later",
     "authors": [
         {
@@ -59,9 +59,8 @@
         ]
     },
     "support": {
-        "issues": "https://github.com/opensolutions/ViMbAdmin/issues",
-        "wiki": "https://github.com/opensolutions/ViMbAdmin/wiki",
-        "source": "https://github.com/opensolutions/ViMbAdmin"
+        "issues": "https://github.com/myguard-labs/ViMbAdmin/issues",
+        "source": "https://github.com/myguard-labs/ViMbAdmin"
     },
     "config": {
         "platform": {
@@ -69,7 +68,7 @@
         },
         "optimize-autoloader": true,
         "audit": {
-            "abandoned": "ignore"
+            "abandoned": "report"
         }
     }
 }

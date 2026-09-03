@@ -56,7 +56,9 @@ jobs:
         run: bash tests/test-assert-workflow-runtime.sh
 
       - name: Validate composer.json / composer.lock
-        run: composer validate --strict
+        run: |
+          composer validate --strict
+          php .github/scripts/assert-composer-lock.php
 
       - name: PHP syntax check
         run: |
@@ -85,7 +87,6 @@ jobs:
         run: bash .github/scripts/setup-php-container.sh tools
 
       # --locked reads composer.lock directly (no composer install needed in
-      # this job); abandoned packages are ignored via the composer.json
-      # `config.audit.abandoned` setting.
+      # this job); composer.json makes abandoned packages reportable findings.
       - name: composer audit
         run: composer audit --locked
