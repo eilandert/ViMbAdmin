@@ -16,10 +16,10 @@ Three independent layers — defence in depth, machine-friendly, no OTP:
    Only the **SHA-256 hash** of the token is stored (table `mcp_token`); the
    raw token is shown once at generation and never persisted. Tokens are
    **scoped**, **revocable**, and can **expire**.
-3. **Per-token IP/CIDR allowlist + scope (in-app).** A second, independent IP
-   check bound to the token itself (reuses the same CIDR logic as the
-   brute-force whitelist), plus a scope check. Catches an edge misconfig and
-   ties identity to origin.
+3. **Per-token IP/CIDR and domain allowlists + scope (in-app).** Independent
+   checks bound to the token itself (reusing the same CIDR logic as the
+   brute-force whitelist), plus a scope check. Catches edge misconfiguration,
+   limits which domains a token may operate on, and ties identity to origin.
 
 > Why not TOTP / OTP here? MCP is machine-to-machine and non-interactive — an
 > OTP secret would just be a second static secret next to the token, not a
@@ -39,7 +39,7 @@ create a token:
 
 ```sh
 ./bin/vimbtool.php -a mcp.cli-token-generate --name=agent1 --scope="read" \
-    --ip="10.0.0.0/8" --days=365
+    --ip="10.0.0.0/8" --domains="example.com example.net" --days=365
 # -> prints the raw token ONCE; store it.
 
 ./bin/vimbtool.php -a mcp.cli-token-list
@@ -48,7 +48,8 @@ create a token:
 
 Flags: `--name` (label, required), `--scope` (default `read`; space-separated,
 `*` = all), `--ip` (space/comma IP/CIDR allowlist; omit = any, rely on the
-edge), `--days` (validity; omit = no expiry).
+edge), `--domains` (space/comma domain allowlist; omit = all domains),
+`--days` (validity; omit = no expiry).
 
 Schema: fresh installs get the `mcp_token` table from
 `./bin/doctrine-cli.php orm:schema-tool:create`; on an existing DB run
@@ -85,8 +86,8 @@ curl -s https://mail.example.com/mcp \
 | `alias.create` | `{domain, address, goto, active?}` | `address` may be a local part (domain appended) or full |
 | `alias.delete` | `{address}` | **destructive** |
 | `mailbox.archive` | `{username}` | **destructive** — queues `PENDING_ARCHIVE` (panel-compatible) |
-| `archive.restore` | `{username}` | **destructive** — sets `PENDING_RESTORE` |
-| `archive.delete` | `{username}` | **destructive** — sets `PENDING_DELETE` |
+| `archive.restore` | `{username}` | **destructive** — restores immediately, then removes backup and row |
+| `archive.delete` | `{username}` | **destructive** — immediately deletes backup files and row |
 
 A token's scope must contain the method's scope (`read`/`write`) or `*`. Issue a
 read-only token by default; only grant `write` where needed.

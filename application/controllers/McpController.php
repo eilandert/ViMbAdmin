@@ -88,8 +88,8 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
                 case 'alias.delete':    $result = $this->_aliasDelete( $params );   break;
                 // destructive (archive queue)
                 case 'mailbox.archive': $result = $this->_mailboxArchive( $params );break;
-                case 'archive.restore': $result = $this->_archiveState( $params, \Entities\Archive::STATUS_PENDING_RESTORE ); break;
-                case 'archive.delete':  $result = $this->_archiveState( $params, \Entities\Archive::STATUS_PENDING_DELETE );  break;
+                case 'archive.restore': $result = $this->_archiveState( $params, 'restore' ); break;
+                case 'archive.delete':  $result = $this->_archiveState( $params, 'delete' );  break;
                 default:
                     return $this->_rpcError( $id, -32601, "unknown method '{$method}'" );
             }
@@ -412,13 +412,13 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     /**
      * Restore or delete an existing archive. These map onto the immediate
      * ArchiveController actions; over MCP we perform the equivalent directly.
-     * $status is TYPE_RESTORE / TYPE_DELETE intent.
+     * $operation is either "restore" or "delete".
      */
     /**
      * @param array<string,mixed> $params
      * @return array<string,mixed>
      */
-    private function _archiveState( array $params, string $status ): array
+    private function _archiveState( array $params, string $operation ): array
     {
         $username = $this->_str( $params, 'username', true );
         $em       = $this->em();
@@ -432,7 +432,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $dest    = $archive->getMaildirFile();
         $doveadm = ViMbAdmin_Doveadm::fromOptions( $this->options() );
 
-        if( $status === \Entities\Archive::STATUS_PENDING_DELETE )
+        if( $operation === 'delete' )
         {
             // delete the backup files + the archive row.
             if( $dest )
