@@ -290,10 +290,9 @@ class ViMbAdmin_Doveadm
             if( $multiStatus !== self::CURL_MULTI_OK )
                 throw new ViMbAdmin_Exception( _( 'doveadm HTTP request failed (curl multi)' ) );
 
-            $this->reportProgress();
-
             if( $running > 0 )
             {
+                $this->reportProgress();
                 $selected = $wait();
                 if( $selected < -1 )
                     throw new ViMbAdmin_Exception( _( 'doveadm HTTP request wait failed (curl multi)' ) );

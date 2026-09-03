@@ -330,6 +330,18 @@ final class QueueRunnerSilentTransfer extends ViMbAdmin_Doveadm
         );
         return $performs;
     }
+
+    public function runAlreadyComplete(): void
+    {
+        $this->driveTransfer(
+            static function(): array {
+                return [0, 0];
+            },
+            static function(): int {
+                throw new RuntimeException('completed transfer must not wait');
+            }
+        );
+    }
 }
 
 final class QueueRunnerLeaseAssertions { public static int $failures = 0; }
@@ -650,7 +662,8 @@ queueRunnerCheck(
         && reset($silent->leases) === $silentLease
         && $silentLease->getHeartbeatAt() instanceof DateTime
         && $silentLease->getHeartbeatAt()->getTimestamp()
-            > $epoch->getTimestamp() + ViMbAdmin_QueueRunner::LEASE_TTL
+            === $silentRunner->clock->getTimestamp()
+                - ViMbAdmin_Service_QueueRunner::LEASE_HEARTBEAT_INTERVAL - 1
 );
 queueRunnerRelease($silent, $silentLease);
 
@@ -663,7 +676,45 @@ $callAgainTransfer = new QueueRunnerSilentTransfer(
 queueRunnerCheck(
     'legacy CURLM_CALL_MULTI_PERFORM immediately retries before progress or wait',
     $callAgainTransfer->runCallAgainThenComplete() === 2
-        && $callAgainTicks === 1
+        && $callAgainTicks === 0
+);
+
+$completedHeartbeatCalls = 0;
+$completedTransfer = new QueueRunnerSilentTransfer(
+    static function() use (&$completedHeartbeatCalls): void {
+        $completedHeartbeatCalls++;
+        throw new RuntimeException('completed transfer heartbeat must not run');
+    }
+);
+$completedResponsePreserved = true;
+try {
+    $completedTransfer->runAlreadyComplete();
+} catch (RuntimeException) {
+    $completedResponsePreserved = false;
+}
+queueRunnerCheck(
+    'completed destructive transfer preserves its response when heartbeat would fail',
+    $completedResponsePreserved && $completedHeartbeatCalls === 0
+);
+
+$liveHeartbeatCalls = 0;
+$liveTransfer = new QueueRunnerSilentTransfer(
+    static function() use (&$liveHeartbeatCalls): void {
+        $liveHeartbeatCalls++;
+        throw new RuntimeException('live transfer heartbeat failed');
+    }
+);
+$liveHeartbeatFailurePropagated = false;
+try {
+    $liveTransfer->runSilent(1, static function(): int {
+        throw new RuntimeException('failed live heartbeat must abort before wait');
+    });
+} catch (RuntimeException $e) {
+    $liveHeartbeatFailurePropagated = $e->getMessage() === 'live transfer heartbeat failed';
+}
+queueRunnerCheck(
+    'live transfer still propagates heartbeat failure before waiting',
+    $liveHeartbeatFailurePropagated && $liveHeartbeatCalls === 1
 );
 
 $boundary = new QueueRunnerLeaseEntityManager();
