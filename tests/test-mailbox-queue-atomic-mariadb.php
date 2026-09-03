@@ -509,6 +509,33 @@ try {
         mailboxQueueFixture('fresh-orphan@example.test'),
         \Entities\MailboxTask::TYPE_REPAIR,
     );
+    $connection->executeStatement(
+        'INSERT INTO mailbox_task (type, username, status, priority, created_at, finished_at)'
+        . ' VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),'
+        . ' (?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),'
+        . ' (?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+        [
+            \Entities\MailboxTask::TYPE_REPAIR, 'clear-done@example.test', \Entities\MailboxTask::STATUS_DONE,
+            \Entities\MailboxTask::TYPE_REPAIR, 'clear-failed@example.test', \Entities\MailboxTask::STATUS_FAILED,
+            \Entities\MailboxTask::TYPE_REPAIR, 'clear-cancelled@example.test', \Entities\MailboxTask::STATUS_CANCELLED,
+        ],
+    );
+    $cleared = $em->createQuery(
+        'DELETE FROM \\Entities\\MailboxTask t WHERE t.status IN (:done) AND t.abandoned = false')
+        ->setParameter('done', [
+            \Entities\MailboxTask::STATUS_DONE,
+            \Entities\MailboxTask::STATUS_FAILED,
+            \Entities\MailboxTask::STATUS_CANCELLED,
+        ])
+        ->execute();
+    $blockedAfterClear = \ViMbAdmin_MailboxQueue::enqueue(
+        $em,
+        mailboxQueueFixture('fresh-orphan@example.test'),
+        \Entities\MailboxTask::TYPE_REPAIR,
+    );
+    $remainingClearFixtures = mailboxQueueRequiredCount($connection->fetchOne(
+        "SELECT COUNT(*) FROM mailbox_task WHERE username LIKE 'clear-%@example.test'",
+    ));
     $abandonedId = mailboxQueueRequiredCount($connection->fetchOne(
         'SELECT id FROM mailbox_task WHERE username = ?', ['fresh-orphan@example.test'],
     ));
@@ -523,8 +550,11 @@ try {
         \Entities\MailboxTask::TYPE_REPAIR,
     );
     $em->flush();
+    mailboxQueueAtomicCheck('bulk clear removes normal terminal tasks but preserves an abandoned failure dedupe fence',
+        is_int($cleared) && $cleared >= 3 && $remainingClearFixtures === 0
+        && $blockedRetry === null && $blockedAfterClear === null);
     mailboxQueueAtomicCheck('abandoned failure blocks retry until explicit operator deletion',
-        $blockedRetry === null && $deletedAbandoned && $retry instanceof \Entities\MailboxTask);
+        $deletedAbandoned && $retry instanceof \Entities\MailboxTask);
 
     $connection->executeStatement('DELETE FROM mailbox_task');
     $connection->executeStatement(
