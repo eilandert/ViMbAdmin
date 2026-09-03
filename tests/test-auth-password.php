@@ -59,6 +59,18 @@ foreach (['crypt:md5', 'crypt:blowfish', 'crypt:sha256', 'crypt:sha512'] as $mod
     $check("{$mode} never stores plaintext", $hash !== 'crypt-secret');
     $check("{$mode} verifies", OSS_Auth_Password::verify('crypt-secret', $hash, $mode));
     $check("{$mode} rejects a wrong password", !OSS_Auth_Password::verify('wrong', $hash, $mode));
+
+    $boundaryHash = OSS_Auth_Password::hash(str_repeat('A', 72), $mode);
+    $check("{$mode} accepts exactly 72 password bytes",
+        OSS_Auth_Password::verify(str_repeat('A', 72), $boundaryHash, $mode));
+    $check("{$mode} rejects a 73-byte password before bcrypt truncation", $throwsOss(
+        static fn(): string => OSS_Auth_Password::hash(str_repeat('A', 72) . 'X', $mode),
+        'Password must not exceed 72 bytes for legacy crypt configuration'
+    ));
+    $check("{$mode} rejects a different suffix sharing the first 72 bytes", $throwsOss(
+        static fn(): string => OSS_Auth_Password::hash(str_repeat('A', 72) . 'Y', $mode),
+        'Password must not exceed 72 bytes for legacy crypt configuration'
+    ));
 }
 
 $legacyCryptHashes = [

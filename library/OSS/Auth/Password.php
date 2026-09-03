@@ -108,6 +108,9 @@ class OSS_Auth_Password
             if( !in_array( $hash, [ 'crypt:md5', 'crypt:blowfish', 'crypt:sha256', 'crypt:sha512' ], true ) )
                 throw new OSS_Exception( 'Unknown crypt password hashing method' );
 
+            if( strlen( $pw ) > 72 )
+                throw new OSS_Exception( 'Password must not exceed 72 bytes for legacy crypt configuration' );
+
             // Keep accepting legacy crypt:* configuration names, but never
             // create their manually constructed hashes. Existing hashes are
             // still checked by verify()'s crypt-compatible legacy path.
