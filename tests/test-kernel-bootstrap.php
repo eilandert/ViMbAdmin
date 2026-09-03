@@ -108,6 +108,10 @@ $_SERVER['HTTP_X_FORWARDED_PREFIX'] = '/vimbadmin';
 kernelBootstrapCheck('trusted X-Forwarded-Prefix used when no config', Bootstrap::baseUrl() === '/vimbadmin');
 $_SERVER['REMOTE_ADDR'] = '203.0.113.10';
 kernelBootstrapCheck('untrusted X-Forwarded-Prefix is ignored', Bootstrap::baseUrl() === '');
+foreach (['0.0.0.1', '240.0.0.1', '::', 'ff02::1'] as $reservedPeer) {
+    $_SERVER['REMOTE_ADDR'] = $reservedPeer;
+    kernelBootstrapCheck("reserved peer {$reservedPeer} cannot supply X-Forwarded-Prefix", Bootstrap::baseUrl() === '');
+}
 $_SERVER['REMOTE_ADDR'] = '192.0.2.20';
 $trustedProxy = ['trustedproxy' => ['mode' => 'on', 'proxies' => ['192.0.2.0/24']]];
 kernelBootstrapCheck('explicit trusted proxy may supply prefix', Bootstrap::baseUrl($trustedProxy) === '/vimbadmin');

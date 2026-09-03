@@ -345,7 +345,7 @@ final class Bootstrap
             throw new LogicException('trustedproxy.proxies must be an array');
         }
         $remote = self::serverString('REMOTE_ADDR');
-        if (!\ViMbAdmin_Net::isTrustedProxy($remote, $mode, $proxies)) {
+        if (!\ViMbAdmin_Net::isTrustedForwardedHeaderPeer($remote, $mode, $proxies)) {
             return '';
         }
 
