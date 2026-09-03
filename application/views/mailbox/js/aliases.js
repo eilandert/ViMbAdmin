@@ -35,7 +35,7 @@ function deleteAlias( event ) {
     else
         element = $( event.target );
 
-    $( "#purge_alias_name" ).html( element.attr( 'ref' ) );
+    $( "#purge_alias_name" ).text( element.attr( 'ref' ) );
 
     delDialog = $( '#purge_dialog' ).modal({
         backdrop: true,

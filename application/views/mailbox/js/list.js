@@ -96,16 +96,16 @@ function toggleActive(elid, id) {
         mdirsize = data[0] / data[1];
         msg =  "<table class=\"table\"><thead>";
         msg += "<tr><th>Source:</th><td>Live (Dovecot quota-clone)</td></tr></thead>";
-        msg += "<tr><th>Mailbox size:</th><td> " + mdirsize.toFixed( 5 ) + data[2];
+        msg += "<tr><th>Mailbox size:</th><td> " + htmlEntity( mdirsize.toFixed( 5 ) ) + htmlEntity( data[2] );
         if( data[3] != 0 )
         {
             prc = 100 / data[3] * data[0];
-            msg += " (" + prc.toFixed(0) + "%)";
+            msg += " (" + htmlEntity( prc.toFixed(0) ) + "%)";
         }
         msg += "</td></tr>";
         // data[4] = message count
         if( data[4] !== undefined && data[4] !== '' )
-            msg += "<tr><th>Messages:</th><td> " + data[4] + "</td></tr>";
+            msg += "<tr><th>Messages:</th><td> " + htmlEntity( data[4] ) + "</td></tr>";
         msg += "</table>";
         bootbox.alert( msg );
     }

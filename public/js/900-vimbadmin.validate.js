@@ -212,8 +212,21 @@
     */
     jQuery.validator.addMethod("requiredIf", function(value, element, param)
         {
-            vEvalStr = "$('#" + param['field'] + "').val() " + param['condition'] + " '" + param['value'] + "';";
-            return !( (eval(vEvalStr) == true) && (this.getLength(value, element) == 0) );
+            var comparators = {
+                '==': function(left, right) { return left === right; },
+                '!=': function(left, right) { return left !== right; },
+                '>': function(left, right) { return left > right; },
+                '<': function(left, right) { return left < right; },
+                '>=': function(left, right) { return left >= right; },
+                '<=': function(left, right) { return left <= right; }
+            };
+            var condition = param['condition'];
+            var matches = Object.prototype.hasOwnProperty.call( comparators, condition )
+                && comparators[condition](
+                    $( document.getElementById( param['field'] ) ).val(),
+                    String( param['value'] )
+                );
+            return !( matches && (this.getLength(value, element) == 0) );
         },
         'This field is required.'
     );

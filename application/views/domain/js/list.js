@@ -86,7 +86,7 @@ function toggleActive( elid, id) {
 
 function purgeDomain( id, domain )
 {
-    $( "#purge_domain_name" ).html( domain );
+    $( "#purge_domain_name" ).text( domain );
 
     delDialog = $( '#purge_dialog' ).modal({
         backdrop: true,
