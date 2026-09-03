@@ -246,7 +246,7 @@ END_MESSAGE;
                 $fmText  = isset( $fm['text'] )  ? $fm['text']  : '';
                 if( !is_string( $fmText ) )
                     throw new \InvalidArgumentException( 'session flash message text must be a string' );
-                $fmIsHtml = isset( $fm['isHtml'] ) ? $fm['isHtml'] : true;
+                $fmIsHtml = isset( $fm['isHtml'] ) ? $fm['isHtml'] : false;
                 if( !is_bool( $fmIsHtml ) )
                     throw new \InvalidArgumentException( 'session flash message isHtml must be boolean' );
                 $fmOutput = $fmIsHtml ? $fmText : htmlspecialchars( $fmText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );

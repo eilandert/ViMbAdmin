@@ -21,7 +21,7 @@ final class FlashMessage
     public function __construct(
         public readonly string $text,
         public readonly string $level = FlashMessages::SUCCESS,
-        public readonly bool $isHtml = true,
+        public readonly bool $isHtml = false,
     ) {
     }
 
@@ -42,7 +42,7 @@ final class FlashMessage
         return new self(
             (string) ($data['text'] ?? ''),
             (string) ($data['level'] ?? FlashMessages::SUCCESS),
-            (bool) ($data['isHtml'] ?? true),
+            (bool) ($data['isHtml'] ?? false),
         );
     }
 }
