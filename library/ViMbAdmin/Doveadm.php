@@ -197,8 +197,8 @@ class ViMbAdmin_Doveadm
         if( $type === 'error' )
         {
             $msg = is_array( $content ) && is_string( $content['type'] ?? null ) ? $content['type'] : 'unknown';
-            $ec  = is_array( $content ) && is_int( $content['exitCode'] ?? null ) ? $content['exitCode'] : '?';
-            throw new ViMbAdmin_Exception( sprintf( _( "doveadm '%s' failed: %s (exit %s)" ), $cmd, $msg, $ec ) );
+            $ec  = is_array( $content ) && is_int( $content['exitCode'] ?? null ) ? $content['exitCode'] : null;
+            throw new ViMbAdmin_Doveadm_CommandException( $cmd, $msg, $ec );
         }
 
         if( $type !== 'doveadmResponse' )

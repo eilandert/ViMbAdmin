@@ -28,6 +28,9 @@ final class DeleteRetryState
     public bool $sourceExists = true;
     public bool $sourceDisappearsBeforeDelete = false;
     public ?Throwable $sourceProbeError = null;
+    /** @var list<Throwable|null> */
+    public array $sourceListErrors = [];
+    public ?Throwable $sourceDeleteError = null;
     public bool $destinationExists = false;
     public bool $destinationHasMail = false;
     public ?ViMbAdmin_Exception $destinationProbeError = null;
@@ -231,8 +234,14 @@ final class DeleteRetryDoveadm extends ViMbAdmin_Doveadm
         if ($path !== '/mail/user@example.test' || $filter !== 'posix') {
             throw new RuntimeException('unexpected maildir-home existence probe');
         }
+        if ($this->state->sourceListErrors !== []) {
+            $error = array_shift($this->state->sourceListErrors);
+            if ($error !== null) {
+                throw $error;
+            }
+        }
         if (!$this->state->sourceExists) {
-            throw new ViMbAdmin_Exception("doveadm 'fsIterDirs' failed: No such file or directory (exit 68)");
+            throw new ViMbAdmin_Doveadm_CommandException('fsIterDirs', 'No such file or directory', 68);
         }
         return ['cur', 'new', 'tmp'];
     }
@@ -298,9 +307,12 @@ final class DeleteRetryDoveadm extends ViMbAdmin_Doveadm
             throw new RuntimeException('unexpected maildir-home delete');
         }
         $this->state->calls['maildir-home']++;
+        if ($this->state->sourceDeleteError !== null) {
+            throw $this->state->sourceDeleteError;
+        }
         if ($this->state->sourceDisappearsBeforeDelete) {
             $this->state->sourceExists = false;
-            throw new ViMbAdmin_Exception("doveadm 'fsDelete' failed: No such file or directory (exit 68)");
+            throw new ViMbAdmin_Doveadm_CommandException('fsDelete', 'No such file or directory', 68);
         }
         $this->state->sourceExists = false;
         return [];
@@ -646,6 +658,40 @@ foreach ([
             && $partialState->calls['maildir-home'] === 0
             && $partialState->calls['mailbox-row'] === 0
             && $partialState->calls['audit'] === 0,
+    );
+}
+
+foreach (['initial', 'mail-probe confirmation', 'delete confirmation'] as $listCallSite) {
+    $ambiguousDomain = (new \Entities\Domain())->setDomain('example.test');
+    $ambiguousState = new DeleteRetryState($ambiguousDomain);
+    $ambiguousState->sourceHasMail = false;
+    $expectedMessage = $listCallSite . " backend doesn't exist";
+    $ambiguousListError = new ViMbAdmin_Doveadm_CommandException('fsIterDirs', $expectedMessage, 68);
+    $expectedError = $ambiguousListError;
+    if ($listCallSite === 'initial') {
+        $ambiguousState->sourceListErrors = [$ambiguousListError];
+    } elseif ($listCallSite === 'mail-probe confirmation') {
+        $expectedError = new ViMbAdmin_Exception('missing child maildir');
+        $ambiguousState->sourceProbeError = $expectedError;
+        $ambiguousState->sourceListErrors = [null, $ambiguousListError];
+    } else {
+        $expectedError = new ViMbAdmin_Exception('delete filter unavailable');
+        $ambiguousState->sourceDeleteError = $expectedError;
+        $ambiguousState->sourceListErrors = [null, $ambiguousListError];
+    }
+    $ambiguousTask = deleteRetryTask($ambiguousDomain);
+    $ambiguousError = deleteRetryExecute(
+        deleteRetryRunner($ambiguousState, $ambiguousTask, deleteRetryOptions(0)),
+        $ambiguousTask,
+        new DeleteRetryDoveadm($ambiguousState),
+    );
+    $ambiguousData = json_decode((string) $ambiguousTask->getData(), true);
+    deleteRetryCheck(
+        "missing filter/backend at {$listCallSite} does not checkpoint maildir home",
+        $ambiguousError === $expectedError
+            && deleteRetryCompleted($ambiguousData) === ['mailbox-delete']
+            && $ambiguousState->calls['mailbox-row'] === 0
+            && $ambiguousState->calls['audit'] === 0,
     );
 }
 

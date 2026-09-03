@@ -537,16 +537,9 @@ class ViMbAdmin_Service_QueueRunner
 
     private function maildirMissing(\Throwable $error): bool
     {
-        if (!$error instanceof ViMbAdmin_Exception) {
-            return false;
-        }
-        $message = strtolower($error->getMessage());
-        foreach (["doesn't exist", 'does not exist', 'not exist', 'no such file', 'exit 68'] as $missing) {
-            if (str_contains($message, $missing)) {
-                return true;
-            }
-        }
-        return false;
+        return $error instanceof ViMbAdmin_Doveadm_CommandException
+            && $error->getCommand() === 'fsIterDirs'
+            && strtolower($error->getErrorType()) === 'no such file or directory';
     }
 
     /**
