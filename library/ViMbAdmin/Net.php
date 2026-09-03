@@ -42,17 +42,7 @@ class ViMbAdmin_Net
         if( $xff === '' )
             return $remote;
 
-        $trusted = function( string $ip ) use ( $mode, $proxies ): bool {
-            if( $mode === 'auto' )
-                return self::isPrivate( $ip );
-            foreach( $proxies as $p ) {
-                if (!is_string($p)) continue;
-                $p = trim($p);
-                if( $p !== '' && self::ipInCidr( $ip, $p ) )
-                    return true;
-            }
-            return false;
-        };
+        $trusted = fn( string $ip ): bool => self::isTrustedProxy( $ip, $mode, $proxies );
 
         // Only peel XFF if the request actually came through a trusted proxy.
         if( !$trusted( $remote ) )
@@ -65,6 +55,27 @@ class ViMbAdmin_Net
                 return $ip;
         }
         return $remote;
+    }
+
+    /**
+     * Apply the shared trusted-proxy policy to a direct peer address.
+     *
+     * @param array<array-key,mixed> $proxies IP/CIDR list for mode 'on'
+     */
+    public static function isTrustedProxy( string $ip, string $mode = 'auto', array $proxies = [] ): bool
+    {
+        $mode = strtolower( $mode );
+        if( $mode === 'off' || $mode === '0' || $mode === 'false' )
+            return false;
+        if( $mode === 'auto' )
+            return self::isPrivate( $ip );
+        foreach( $proxies as $proxy ) {
+            if( !is_string( $proxy ) ) continue;
+            $proxy = trim( $proxy );
+            if( $proxy !== '' && self::ipInCidr( $ip, $proxy ) )
+                return true;
+        }
+        return false;
     }
 
     /**

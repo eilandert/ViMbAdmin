@@ -19,10 +19,13 @@ require __DIR__ . '/../src/Kernel/Session/SessionStorage.php';
 require __DIR__ . '/../src/Kernel/Session/MagicPropertyStorage.php';
 require __DIR__ . '/../src/Kernel/Session/SessionNamespace.php';
 require __DIR__ . '/../src/Kernel/View/SmartyView.php';
+require __DIR__ . '/../library/ViMbAdmin/Net.php';
 require __DIR__ . '/../src/Kernel/Bootstrap.php';
 
 use ViMbAdmin\Kernel\Bootstrap;
 use ViMbAdmin\Kernel\NativeResources;
+
+ob_start();
 
 final class BootstrapAdminRepository
 {
@@ -100,11 +103,24 @@ $cfg = ['resources' => ['frontController' => ['baseUrl' => '/vimbadmin']]];  // 
 kernelBootstrapCheck('config baseUrl overrides stripped SCRIPT_NAME', Bootstrap::baseUrl($cfg) === '/vimbadmin');
 kernelBootstrapCheck('lowercase frontcontroller.baseurl also accepted', Bootstrap::baseUrl(['resources' => ['frontcontroller' => ['baseurl' => 'vimbadmin/']]]) === '/vimbadmin');
 
+$_SERVER['REMOTE_ADDR'] = '10.0.0.2';
 $_SERVER['HTTP_X_FORWARDED_PREFIX'] = '/vimbadmin';
-kernelBootstrapCheck('X-Forwarded-Prefix used when no config', Bootstrap::baseUrl() === '/vimbadmin');
+kernelBootstrapCheck('trusted X-Forwarded-Prefix used when no config', Bootstrap::baseUrl() === '/vimbadmin');
+$_SERVER['REMOTE_ADDR'] = '203.0.113.10';
+kernelBootstrapCheck('untrusted X-Forwarded-Prefix is ignored', Bootstrap::baseUrl() === '');
+$_SERVER['REMOTE_ADDR'] = '192.0.2.20';
+$trustedProxy = ['trustedproxy' => ['mode' => 'on', 'proxies' => ['192.0.2.0/24']]];
+kernelBootstrapCheck('explicit trusted proxy may supply prefix', Bootstrap::baseUrl($trustedProxy) === '/vimbadmin');
+kernelBootstrapCheck('off mode ignores prefix', Bootstrap::baseUrl(['trustedproxy' => ['mode' => 'off']]) === '');
+$_SERVER['REMOTE_ADDR'] = '10.0.0.2';
+$_SERVER['HTTP_X_FORWARDED_PREFIX'] = '/safe/../admin';
+kernelBootstrapCheck('parent dot segment in X-Forwarded-Prefix is rejected', Bootstrap::baseUrl() === '');
+$_SERVER['HTTP_X_FORWARDED_PREFIX'] = '/safe/./admin';
+kernelBootstrapCheck('current dot segment in X-Forwarded-Prefix is rejected', Bootstrap::baseUrl() === '');
 $_SERVER['HTTP_X_FORWARDED_PREFIX'] = "/evil\r\nSet-Cookie: x"; // header-injection attempt
 kernelBootstrapCheck('malformed X-Forwarded-Prefix is rejected', Bootstrap::baseUrl() === '');
 unset($_SERVER['HTTP_X_FORWARDED_PREFIX']);
+unset($_SERVER['REMOTE_ADDR']);
 kernelBootstrapCheck('config still wins over present SCRIPT_NAME dir', Bootstrap::baseUrl($cfg) === '/vimbadmin');
 
 $malformedBaseUrlRejected = false;
@@ -124,6 +140,33 @@ try {
     $malformedSkinRejected = $e->getMessage() === 'resources.smarty.skin must be a string';
 }
 kernelBootstrapCheck('malformed skin configuration fails closed before filesystem lookup', $malformedSkinRejected);
+
+// --- Sparse session configuration retains application-level hard defaults. --
+$configureSession = new ReflectionMethod(Bootstrap::class, 'configureSession');
+$sessionKeys = ['use_only_cookies', 'cookie_httponly', 'cookie_secure', 'cookie_samesite'];
+$originalSessionValues = [];
+foreach ($sessionKeys as $key) {
+    $originalSessionValues[$key] = (string) ini_get('session.' . $key);
+}
+$configureSession->invoke(null, []);
+kernelBootstrapCheck('sparse session config defaults use_only_cookies on', ini_get('session.use_only_cookies') === '1');
+kernelBootstrapCheck('sparse session config defaults cookie_httponly on', ini_get('session.cookie_httponly') === '1');
+kernelBootstrapCheck('sparse session config defaults cookie_secure on', ini_get('session.cookie_secure') === '1');
+kernelBootstrapCheck('sparse session config defaults cookie_samesite to Lax', ini_get('session.cookie_samesite') === 'Lax');
+$configureSession->invoke(null, ['resources' => ['session' => [
+    'use_only_cookies' => false,
+    'cookie_httponly' => false,
+    'cookie_secure' => false,
+    'cookie_samesite' => 'Strict',
+]]]);
+kernelBootstrapCheck('explicit session cookie overrides are preserved',
+    ini_get('session.use_only_cookies') === ''
+    && ini_get('session.cookie_httponly') === ''
+    && ini_get('session.cookie_secure') === ''
+    && ini_get('session.cookie_samesite') === 'Strict');
+foreach ($originalSessionValues as $key => $value) {
+    ini_set('session.' . $key, $value);
+}
 
 // --- NativeResources presents the Container's bootstrap shape ---------------
 $em      = new stdClass();
@@ -182,4 +225,5 @@ try {
 kernelBootstrapCheck('bootstrap rejects a non-object admin result', $invalidAdminRejected);
 
 echo $failures === 0 ? "\nALL PASSED\n" : "\n{$failures} FAILED\n";
+ob_end_flush();
 exit($failures === 0 ? 0 : 1);
