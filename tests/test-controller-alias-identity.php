@@ -491,6 +491,25 @@ controllerAliasIdentityCheck('DataTables container input returns ko before repos
     $listDataResponse->body === 'ko'
         && $wrongEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []);
 
+$_GET = ['sSearch' => 'abc'];
+$searchFloorOptions = ['defaults' => ['server_side' => ['pagination' => ['min_search_str' => 4]]]];
+foreach ([
+    'alias' => new AliasController(
+        controllerAliasIdentityContainer($wrongEntityManager, new ControllerAliasIdentitySession(['identity' => ['id' => 1]]), new ControllerAliasIdentityView(), $searchFloorOptions),
+        new RouteMatch('alias', 'list-data', AliasController::class, 'listDataAction', []),
+    ),
+    'mailbox' => new MailboxController(
+        controllerAliasIdentityContainer($wrongEntityManager, new ControllerAliasIdentitySession(['identity' => ['id' => 1]]), new ControllerAliasIdentityView(), $searchFloorOptions),
+        new RouteMatch('mailbox', 'list-data', MailboxController::class, 'listDataAction', []),
+    ),
+] as $name => $searchFloorController) {
+    $response = $searchFloorController->listDataAction();
+    controllerAliasIdentityCheck("{$name} list-data enforces the shared search minimum argument",
+        $response->status === 400
+            && $response->body === 'Search must be empty or at least 4 characters');
+}
+$_GET = $oldGet;
+
 $mailbox->setAltEmail(null);
 $formSession = new ControllerAliasIdentitySession([
     'identity' => ['id' => 1],

@@ -96,7 +96,14 @@ final class LogController extends AbstractController
         }
         [$targetAdmin, $domain] = $scope;
 
-        $q = DataTableQuery::fromArray(self::stringMap($_GET, 'GET data'));
+        try {
+            $q = DataTableQuery::fromArray(
+                self::stringMap($_GET, 'GET data'),
+                $this->dataTableMinimumSearchLength('log'),
+            );
+        } catch (\LengthException $e) {
+            return new Response($e->getMessage(), 400, 'text/plain; charset=utf-8');
+        }
         // Column index -> sortable field (matches the JS column order; "Log"/data
         // column is not usefully sortable -> falls back to timestamp).
         $sortField = [0 => 'action', 2 => 'admin', 3 => 'domain', 4 => 'timestamp'][$q->sortColumn] ?? 'timestamp';

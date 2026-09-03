@@ -350,7 +350,14 @@ final class DomainController extends AbstractController
             return new Response('ko');
         }
 
-        $q = DataTableQuery::fromArray(self::requestArray($_GET));
+        try {
+            $q = DataTableQuery::fromArray(
+                self::requestArray($_GET),
+                $this->dataTableMinimumSearchLength('domain'),
+            );
+        } catch (\LengthException $e) {
+            return new Response($e->getMessage(), 400, 'text/plain; charset=utf-8');
+        }
         // Column index -> sortable field (matches JS column order; computed
         // "used" + controls fall back to domain).
         $sortField = [0 => 'domain', 1 => 'mailboxes', 2 => 'aliases', 4 => 'quota', 5 => 'active', 6 => 'transport', 8 => 'created'][$q->sortColumn] ?? 'domain';

@@ -518,6 +518,48 @@ function randPasword( len, id )
 
 
 /* Default class modification */
+function vmDataTableServerData( source, data, callback, minimum, tableSelector, settings )
+{
+        var search = '', echo = 1;
+        $.each( data, function( _, parameter ) {
+                if( parameter.name === 'sSearch' ) search = $.trim( String( parameter.value || '' ) );
+                if( parameter.name === 'sEcho' ) echo = parseInt( parameter.value, 10 ) || 1;
+        } );
+
+        var searchLength = search.replace( /[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '_' ).length;
+        var emptyResult = { sEcho: echo, iTotalRecords: 0, iTotalDisplayRecords: 0, aaData: [] };
+        if( searchLength > 0 && searchLength < minimum ) {
+                callback( emptyResult );
+                setTimeout( function() {
+                        $( tableSelector + ' tbody td.dataTables_empty' )
+                                .text( 'Enter at least ' + minimum + ' characters to search.' );
+                }, 0 );
+                return;
+        }
+
+        return $.ajax( {
+                url: source,
+                data: data,
+                dataType: 'json',
+                success: callback,
+                error: function( xhr, error ) {
+                        var api = $.fn.dataTableExt.oApi;
+                        var handled = api._fnCallbackFire(
+                                settings, null, 'xhr', [settings, null, xhr]
+                        );
+                        if( $.inArray( true, handled ) === -1 ) {
+                                api._fnLog(
+                                        settings,
+                                        0,
+                                        error === 'parsererror' ? 'Invalid JSON response' : 'Ajax error',
+                                        error === 'parsererror' ? 1 : 7
+                                );
+                        }
+                        api._fnProcessingDisplay( settings, false );
+                }
+        } );
+}
+
 $.extend( $.fn.dataTableExt.oStdClasses, {
         "sWrapper": "dataTables_wrapper form-inline"
 } );

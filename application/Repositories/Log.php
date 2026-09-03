@@ -127,7 +127,7 @@ class Log extends EntityRepository
     private function applyLogSearch( QueryBuilder $qb, string $search ): QueryBuilder
     {
         if( $search !== '' )
-            $qb->andWhere( '( l.action LIKE :s OR l.data LIKE :s OR a.username LIKE :s OR d.domain LIKE :s )' )
+            $qb->andWhere( '( l.action LIKE :s OR a.username LIKE :s OR d.domain LIKE :s )' )
                ->setParameter( 's', '%' . addcslashes( $search, '%_\\' ) . '%' );
         return $qb;
     }

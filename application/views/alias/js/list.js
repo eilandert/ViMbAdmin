@@ -1,6 +1,12 @@
 var oDataTable;
 var deleteDialog;
 
+function vmAliasServerData( source, data, callback, settings )
+{
+    var minimum = {if isset($options.defaults.server_side.pagination.min_search_str)}{$options.defaults.server_side.pagination.min_search_str}{else}3{/if};
+    return vmDataTableServerData( source, data, callback, minimum, '#list_table', settings );
+}
+
 
 $(document).ready( function()
 {
@@ -14,6 +20,7 @@ $(document).ready( function()
         'bServerSide': true,
         'sServerMethod': 'GET',
         'sAjaxSource': "{genUrl controller='alias' action='list-data' ima=$ima}",
+        'fnServerData': vmAliasServerData,
         "sDom": "<'row'<'span6'l><'span6'f>r>t<'row'<'span6'i><'span6'p>>",
         "sPaginationType": "bootstrap",
         'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )

@@ -183,8 +183,12 @@ function logListScopeContract(string $dql, array $parameters, AdminEntity $admin
 
 function logCountContract(QueryBuilder $query): bool
 {
-    return str_contains($query->getDQL(), 'COUNT(DISTINCT l.id)')
-        && str_contains($query->getDQL(), 'l.action LIKE :s')
+    $dql = $query->getDQL();
+    return str_contains($dql, 'COUNT(DISTINCT l.id)')
+        && str_contains($dql, 'l.action LIKE :s')
+        && str_contains($dql, 'a.username LIKE :s')
+        && str_contains($dql, 'd.domain LIKE :s')
+        && !str_contains($dql, 'l.data LIKE :s')
         && (logQueryParameters($query)['s'] ?? null) === '%mail%';
 }
 

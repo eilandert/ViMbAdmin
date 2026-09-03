@@ -376,7 +376,12 @@ final class MailboxController extends AbstractController
             return new Response('ko');
         }
         try {
-            $q = DataTableQuery::fromArray(self::requestArray($_GET));
+            $q = DataTableQuery::fromArray(
+                self::requestArray($_GET),
+                $this->dataTableMinimumSearchLength(),
+            );
+        } catch (\LengthException $e) {
+            return new Response($e->getMessage(), 400, 'text/plain; charset=utf-8');
         } catch (\LogicException) {
             return new Response('ko');
         }

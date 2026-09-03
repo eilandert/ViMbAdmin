@@ -85,6 +85,10 @@ dataTableCheck('echo parsed',            $q->echo === 3);
 dataTableCheck('start parsed',           $q->start === 20);
 dataTableCheck('length parsed',          $q->length === 25);
 dataTableCheck('search trimmed',         $q->search === 'foo');
+dataTableCheck('search at configured minimum retained', DataTableQuery::fromArray(['sSearch' => 'foo'], 3)->search === 'foo');
+dataTableCheck('zero minimum explicitly permits short searches', DataTableQuery::fromArray(['sSearch' => 'x'], 0)->search === 'x');
+dataTableCheck('empty search remains valid with a minimum', DataTableQuery::fromArray(['sSearch' => ''], 3)->search === '');
+dataTableCheck('whitespace search remains empty with a minimum', DataTableQuery::fromArray(['sSearch' => '  '], 3)->search === '');
 dataTableCheck('sort column parsed',     $q->sortColumn === 2);
 dataTableCheck('sort dir normalised',    $q->sortDir === 'DESC');
 
@@ -100,12 +104,32 @@ dataTableCheck('over-cap length capped', DataTableQuery::fromArray(['iDisplayLen
 dataTableCheck('zero length -> 10',      DataTableQuery::fromArray(['iDisplayLength' => '0'])->length === 10);
 dataTableCheck('bad sort dir -> ASC',    DataTableQuery::fromArray(['sSortDir_0' => 'nonsense'])->sortDir === 'ASC');
 $malformedEchoRejected = false;
+$malformedEcho = getenv('VIMBADMIN_TEST_MALFORMED_ECHO') ?: '7; DROP';
 try {
-    DataTableQuery::fromArray(['sEcho' => '7; DROP']);
+    DataTableQuery::fromArray(['sEcho' => $malformedEcho]);
 } catch (\TypeError) {
     $malformedEchoRejected = true;
 }
 dataTableCheck('malformed echo fails closed', $malformedEchoRejected);
+
+$shortSearchRejected = static function (string $search): bool {
+    try {
+        DataTableQuery::fromArray(['sSearch' => $search], 3);
+    } catch (\LengthException $e) {
+        return $e->getMessage() === 'Search must be empty or at least 3 characters';
+    }
+    return false;
+};
+dataTableCheck('short search below configured minimum rejected', $shortSearchRejected('xy'));
+dataTableCheck('trimmed short search rejected', $shortSearchRejected('  xy  '));
+dataTableCheck('multibyte minimum counts characters', $shortSearchRejected('éé'));
+$negativeMinimumRejected = false;
+try {
+    DataTableQuery::fromArray(['sSearch' => 'valid'], -1);
+} catch (\LogicException $e) {
+    $negativeMinimumRejected = $e->getMessage() === 'Minimum search length must be non-negative';
+}
+dataTableCheck('negative minimum is rejected', $negativeMinimumRejected);
 
 // --- DataTableResult::envelope ---------------------------------------------
 $rows = [['id' => 1, 'username' => 'a@b.c'], ['id' => 2, 'username' => 'd@e.f']];
