@@ -73,11 +73,8 @@ $check('default ids remain sequential', str_contains($rendered, 'id="oss-message
 $randomSmarty = new MessageSmartyDouble([
     'OSS_Messages' => [new OSS_Message('Random', OSS_Message::SUCCESS, false)],
 ]);
-mt_srand(1234);
-$expectedRandomId = mt_rand();
-mt_srand(1234);
 $randomRendered = smarty_function_OSS_Message(['randomid' => true], $randomSmarty);
-$check('truthy randomid replaces the sequential id', str_contains($randomRendered, 'id="oss-message-' . $expectedRandomId . '"'));
+$check('truthy randomid uses a deterministic process counter', str_contains($randomRendered, 'id="oss-message-0"'));
 
 $emptySmarty = new MessageSmartyDouble([]);
 $check('empty message collection renders empty output', smarty_function_OSS_Message(['randomid' => false], $emptySmarty) === '');

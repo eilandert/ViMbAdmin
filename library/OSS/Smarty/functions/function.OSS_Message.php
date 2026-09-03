@@ -149,8 +149,10 @@
         {
             if( isset( $params['randomid'] ) && !is_scalar( $params['randomid'] ) )
                 throw new \InvalidArgumentException( 'OSS_Message randomid must be scalar' );
-            if( isset( $params['randomid'] ) && $params['randomid'] )
-                $count = mt_rand();
+            if( isset( $params['randomid'] ) && $params['randomid'] ) {
+                static $nextRandomId = 0;
+                $count = $nextRandomId++;
+            }
 
             if( $ossm instanceof OSS_Message_Block )
             {

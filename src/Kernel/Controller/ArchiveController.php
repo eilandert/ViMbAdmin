@@ -226,7 +226,7 @@ final class ArchiveController extends AbstractController
             }
         }
 
-        $paginate = self::optionBoolean($this->container->options(), false, 'defaults', 'server_side', 'pagination', 'archive', 'enable');
+        $paginate = self::optionBoolean($this->container->options(), true, 'defaults', 'server_side', 'pagination', 'archive', 'enable');
         $archives = !$paginate
             ? $this->archiveRepository()->loadForArchiveList($admin, $domain)
             : [];
