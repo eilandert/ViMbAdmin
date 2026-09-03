@@ -84,7 +84,7 @@
                         <button class="btn btn-mini btn-warning" type="submit">Cancel</button>
                     </form>
                 {/if}
-                {if $task->getStatus() eq 'FAILED'}
+                {if $task->getStatus() eq 'FAILED' and not $task->isAbandoned()}
                     <form method="post" action="{genUrl controller='queue' action='retry'}" style="display:inline"
                           onsubmit="return confirm('Retry task #{$task->getId()}?');">
                         <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
@@ -92,14 +92,12 @@
                         <button class="btn btn-mini btn-success" type="submit">Retry</button>
                     </form>
                 {/if}
-                {if $task->getStatus() neq 'RUNNING'}
-                    <form method="post" action="{genUrl controller='queue' action='delete'}" style="display:inline"
-                          onsubmit="return confirm('Delete task #{$task->getId()}?');">
-                        <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
-                        <input type="hidden" name="id" value="{$task->getId()}" />
-                        <button class="btn btn-mini btn-danger" type="submit">Delete</button>
-                    </form>
-                {/if}
+                <form method="post" action="{genUrl controller='queue' action='delete'}" style="display:inline"
+                      onsubmit="return confirm('Delete task #{$task->getId()}? Active running tasks are protected.');">
+                    <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
+                    <input type="hidden" name="id" value="{$task->getId()}" />
+                    <button class="btn btn-mini btn-danger" type="submit">Delete</button>
+                </form>
                 {if $task->getLog()}
                     <a class="btn btn-mini" data-toggle="collapse" href="#log{$task->getId()}">Log</a>
                     <div id="log{$task->getId()}" class="collapse">

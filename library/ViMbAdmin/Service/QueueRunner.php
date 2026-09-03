@@ -223,13 +223,15 @@ class ViMbAdmin_Service_QueueRunner
 
         $processed = 0;
         $acquired = $this->withLease(function(\Entities\QueueRunner $lease) use ($em, $repo, $max, $verbose, &$processed): void {
+            $repo->reapStaleRunning();
+
             // Periodic autoprune sweep (gated to once / 8h): enqueue a PRUNE task
             // for each expired autoprune backup.
             $this->autopruneSweep();
 
             foreach ($repo->pending($max) as $task) {
                 // Atomic PENDING -> RUNNING; skip if another runner won the row.
-                if (!$repo->claim($task)) {
+                if (!$repo->claim($task, $lease)) {
                     continue;
                 }
 
@@ -237,15 +239,23 @@ class ViMbAdmin_Service_QueueRunner
                     $doveadm = $this->doveadmForLease($lease);
                     $this->execute($task, $doveadm);
                     $task->setStatus(\Entities\MailboxTask::STATUS_DONE);
+                    $task->setRunner(null);
                     $task->appendLog('done');
                 } catch (\Throwable $e) {
                     $task->setStatus(\Entities\MailboxTask::STATUS_FAILED);
+                    $task->setRunner(null);
                     $task->appendLog('FAILED: ' . $e->getMessage());
                     error_log("QueueRunner task {$task->getId()} ({$task->getType()} {$task->getUsername()}): " . $e->getMessage());
                 }
 
-                $task->setFinishedAt(new \DateTime());
-                $em->flush();
+                $published = $repo->publishIfOwned($task, $lease, function() use ($task): void {
+                    $task->setFinishedAt(new \DateTime());
+                });
+                if (!$published) {
+                    $em->clear();
+                    error_log("QueueRunner task ownership lost before terminal publication.");
+                    continue;
+                }
                 ($this->leaseProgress($lease))();
 
                 if ($verbose) {
@@ -283,7 +293,7 @@ class ViMbAdmin_Service_QueueRunner
 
         $result = self::RUN_ONE_BUSY;
         $acquired = $this->withLease(function(\Entities\QueueRunner $lease) use ($repo, $task, $complete, &$result): void {
-            if (!$repo->claim($task)) {
+            if (!$repo->claim($task, $lease)) {
                 $result = self::RUN_ONE_NOT_CLAIMED;
                 return;
             }
@@ -294,8 +304,14 @@ class ViMbAdmin_Service_QueueRunner
             } catch (\Throwable $e) {
                 $error = $e;
             }
-            $complete($error);
-            $result = self::RUN_ONE_COMPLETED;
+            if ($repo->publishIfOwned($task, $lease, function() use ($complete, $error): void {
+                $complete($error);
+            })) {
+                $result = self::RUN_ONE_COMPLETED;
+            } else {
+                $this->em->clear();
+                $result = self::RUN_ONE_NOT_CLAIMED;
+            }
         });
 
         return $acquired ? $result : self::RUN_ONE_BUSY;

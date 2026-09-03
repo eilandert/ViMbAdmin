@@ -123,10 +123,14 @@ class MailboxTask
         nullable: true,
         insertable: false,
         updatable: false,
-        columnDefinition: "TINYINT(1) GENERATED ALWAYS AS (IF(`status` IN ('PENDING', 'RUNNING'), 1, NULL)) STORED",
+        columnDefinition: "TINYINT(1) GENERATED ALWAYS AS (IF(`status` IN ('PENDING', 'RUNNING') OR `abandoned` = 1, 1, NULL)) STORED",
         generated: 'ALWAYS',
     )]
     private ?bool $open_task = null;
+
+    /** Failed after its owner lease disappeared; blocks automatic retry/dedupe. */
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $abandoned = false;
 
     /** @var integer */
     #[ORM\Column(type: 'integer')]
@@ -162,6 +166,11 @@ class MailboxTask
     #[ORM\JoinColumn(name: 'Admin_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?\Entities\Admin $RequestedBy = null;
 
+    /** The runner lease that owns this task while it is RUNNING. */
+    #[ORM\ManyToOne(targetEntity: \Entities\QueueRunner::class)]
+    #[ORM\JoinColumn(name: 'QueueRunner_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?\Entities\QueueRunner $Runner = null;
+
     /** @return int|null */
     public function getId()                 { return $this->id; }
 
@@ -193,6 +202,15 @@ class MailboxTask
     public function getStatus()             { return $this->status; }
     /** @return bool */
     public function isOpen()                { return $this->open_task === true; }
+    /** @return bool */
+    public function isAbandoned()           { return $this->abandoned; }
+    /** @return $this */
+    public function setAbandoned( bool $v )
+    {
+        $this->abandoned = $v;
+        $this->open_task = $this->abandoned || in_array( $this->status, self::OPEN_STATUSES, true ) ? true : null;
+        return $this;
+    }
     /**
      * @param string $v
      * @return $this
@@ -200,7 +218,7 @@ class MailboxTask
     public function setStatus( $v )
     {
         $this->status = $v;
-        $this->open_task = in_array( $v, self::OPEN_STATUSES, true ) ? true : null;
+        $this->open_task = $this->abandoned || in_array( $v, self::OPEN_STATUSES, true ) ? true : null;
         return $this;
     }
 
@@ -273,6 +291,11 @@ class MailboxTask
     public function getRequestedBy()        { return $this->RequestedBy; }
     /** @return $this */
     public function setRequestedBy( ?\Entities\Admin $v = null ) { $this->RequestedBy = $v; return $this; }
+
+    /** @return \Entities\QueueRunner|null */
+    public function getRunner()             { return $this->Runner; }
+    /** @return $this */
+    public function setRunner( ?\Entities\QueueRunner $v = null ) { $this->Runner = $v; return $this; }
 
     /**
      * @return string|null Human-readable type label, or null before hydration.

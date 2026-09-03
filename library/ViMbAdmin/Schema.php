@@ -142,6 +142,47 @@ class ViMbAdmin_Schema
     }
 
     /**
+     * Ownership cannot be inferred for a task claimed by pre-upgrade code.
+     * Require those runners to finish before adding the fencing columns.
+     *
+     * @param string[] $sql
+     */
+    private function needsMailboxTaskOwnershipMigration( array $sql ): bool
+    {
+        foreach( $sql as $stmt )
+        {
+            if( preg_match( '/\bADD\s+(?:COLUMN\s+)?`?(?:QueueRunner_id|abandoned)`?/i', $stmt ) === 1 )
+                return true;
+        }
+        return false;
+    }
+
+    private function assertMailboxTaskOwnershipCanMigrate(): void
+    {
+        $conn = $this->_em->getConnection();
+        $db = $conn->getDatabase();
+        if( $db === null || $db === '' )
+            throw new \RuntimeException(
+                'Cannot verify mailbox-task ownership migration: no database is selected.' );
+        $haveTable = self::countValue( $conn->fetchOne(
+            'SELECT COUNT(*) FROM information_schema.TABLES'
+            . ' WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?',
+            [ $db, 'mailbox_task' ] ) );
+        if( $haveTable === 0 )
+            return;
+        $leases = self::countValue( $conn->fetchOne(
+            'SELECT COUNT(*) FROM queue_runner' ) );
+        $running = self::countValue( $conn->fetchOne(
+            'SELECT COUNT(*) FROM mailbox_task WHERE status = ?',
+            [ \Entities\MailboxTask::STATUS_RUNNING ] ) );
+        if( $leases !== 0 || $running !== 0 )
+            throw new \RuntimeException( sprintf(
+                'Cannot add mailbox-task runner ownership while %d runner lease(s) or %d RUNNING task(s) exist;'
+                . ' quiesce queue runners and let or explicitly reconcile every RUNNING task before updating the schema.',
+                $leases, $running ) );
+    }
+
+    /**
      * Hand-written migration statements that Doctrine's schema-tool cannot
      * generate (FKs on read-only/unassociated tables, collation alignment).
      * Returned only when not yet applied, so they integrate with the normal
@@ -231,26 +272,51 @@ class ViMbAdmin_Schema
      */
     public function apply( array $sql )
     {
-        $this->assertMailboxTaskOpenUniquenessCanMigrate( $sql );
-
         $conn = $this->_em->getConnection();
-        $done = 0;
-        foreach( $sql as $stmt )
+        $ownershipMigration = $this->needsMailboxTaskOwnershipMigration( $sql );
+        $locked = false;
+        try
         {
-            try
+            if( $ownershipMigration )
             {
-                $conn->executeStatement( $stmt );
-                $done++;
+                $result = $conn->fetchOne(
+                    'SELECT GET_LOCK(?, ?)',
+                    [ ViMbAdmin_QueueRunner::ACQUIRE_LOCK_NAME, ViMbAdmin_QueueRunner::ACQUIRE_LOCK_TIMEOUT ] );
+                if( $result !== 1 && $result !== '1' )
+                    throw new \RuntimeException( 'Could not acquire queue-runner mutex for ownership migration.' );
+                $locked = true;
+                $this->assertMailboxTaskOwnershipCanMigrate();
             }
-            catch( \Throwable $e )
+            $this->assertMailboxTaskOpenUniquenessCanMigrate( $sql );
+
+            $done = 0;
+            foreach( $sql as $stmt )
             {
-                throw new \RuntimeException(
-                    sprintf( 'schema statement %d/%d failed: %s | SQL: %s',
-                        $done + 1, count( $sql ), $e->getMessage(), $stmt ),
-                    0, $e );
+                try
+                {
+                    $conn->executeStatement( $stmt );
+                    $done++;
+                }
+                catch( \Throwable $e )
+                {
+                    throw new \RuntimeException(
+                        sprintf( 'schema statement %d/%d failed: %s | SQL: %s',
+                            $done + 1, count( $sql ), $e->getMessage(), $stmt ),
+                        0, $e );
+                }
+            }
+            return $done;
+        }
+        finally
+        {
+            if( $locked )
+            {
+                $released = $conn->fetchOne(
+                    'SELECT RELEASE_LOCK(?)', [ ViMbAdmin_QueueRunner::ACQUIRE_LOCK_NAME ] );
+                if( $released !== 1 && $released !== '1' )
+                    $conn->close();
             }
         }
-        return $done;
     }
 
     /**
