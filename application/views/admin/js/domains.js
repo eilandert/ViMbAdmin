@@ -35,7 +35,7 @@ function removeDomain( event ){
     else
         element = $( event.target );
     
-    $( "#purge_domain_name" ).html( element.attr( "ref" ) );
+    $( "#purge_domain_name" ).text( element.attr( "ref" ) );
 
     delDialog = $( '#purge_dialog' ).modal({
         backdrop: true,

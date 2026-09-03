@@ -116,6 +116,8 @@ final class AutomaticAliasMailboxContext implements ViMbAdmin_Plugin_MailboxCont
 {
     /** @var list<mixed> */
     public array $messages = [];
+    /** @var list<mixed> */
+    public array $messageClasses = [];
 
     /** @param array<string, mixed> $options */
     public function __construct(
@@ -132,13 +134,18 @@ final class AutomaticAliasMailboxContext implements ViMbAdmin_Plugin_MailboxCont
     public function getAdmin(): \Entities\Admin { return $this->admin; }
     public function getDomain(): \Entities\Domain { return $this->domain; }
     public function getMailbox(): \Entities\Mailbox { return $this->mailbox; }
-    public function addMessage(mixed $message, mixed $class = null, mixed $type = null): void { $this->messages[] = $message; }
+    public function addMessage(mixed $message, mixed $class = null, mixed $type = null): void {
+        $this->messages[] = $message;
+        $this->messageClasses[] = $class;
+    }
 }
 
 final class AutomaticAliasAliasContext implements ViMbAdmin_Plugin_AliasContext
 {
     /** @var list<mixed> */
     public array $messages = [];
+    /** @var list<mixed> */
+    public array $messageClasses = [];
 
     /** @param array<string, mixed> $options */
     public function __construct(
@@ -155,7 +162,10 @@ final class AutomaticAliasAliasContext implements ViMbAdmin_Plugin_AliasContext
     public function getAdmin(): \Entities\Admin { return $this->admin; }
     public function getDomain(): \Entities\Domain { return $this->domain; }
     public function getAlias(): \Entities\Alias { return $this->alias; }
-    public function addMessage(mixed $message, mixed $class = null, mixed $type = null): void { $this->messages[] = $message; }
+    public function addMessage(mixed $message, mixed $class = null, mixed $type = null): void {
+        $this->messages[] = $message;
+        $this->messageClasses[] = $class;
+    }
 }
 
 $failures = 0;
@@ -358,6 +368,73 @@ $deleteAllowed = (new ViMbAdminPlugin_MailboxAutomaticAliases($aliasContext))
 $failures += checkAutomaticAlias(
     'same-prefix neighbour does not block unrelated alias deletion',
     $deleteAllowed && $aliasContext->messages === [],
+);
+
+$repository = new AutomaticAliasRepository();
+$repository->aliases['postmaster@example.test'] = (new \Entities\Alias())
+    ->setAddress('postmaster@example.test')
+    ->setGoto('user@example.test')
+    ->setActive(true)
+    ->setDomain(automaticAliasDomain());
+$context = makeContext($repository);
+$mailboxToggleAllowed = (new ViMbAdminPlugin_MailboxAutomaticAliases($context))
+    ->mailbox_toggleActive_preToggle($context, ['active' => true]);
+$failures += checkAutomaticAlias(
+    'mailbox toggle guard reports an error and returns false',
+    $mailboxToggleAllowed === false
+        && count($context->messages) === 1
+        && $context->messageClasses === [OSS_Message::ERROR],
+);
+
+$domainAlias = (new \Entities\Alias())
+    ->setAddress('@example.test')
+    ->setGoto('catchall@example.test')
+    ->setActive(true)
+    ->setDomain(automaticAliasDomain());
+$aliasContext = makeAliasContext(new AutomaticAliasRepository(), $domainAlias);
+$domainAliasToggleAllowed = (new ViMbAdminPlugin_MailboxAutomaticAliases($aliasContext))
+    ->alias_toggleActive_preToggle($aliasContext, ['active' => true]);
+$failures += checkAutomaticAlias(
+    'domain-alias toggle guard reports an error and returns false',
+    $domainAliasToggleAllowed === false
+        && count($aliasContext->messages) === 1
+        && $aliasContext->messageClasses === [OSS_Message::ERROR],
+);
+
+$automaticAlias = (new \Entities\Alias())
+    ->setAddress('postmaster@example.test')
+    ->setGoto('root@example.test')
+    ->setActive(true)
+    ->setDomain(automaticAliasDomain());
+$aliasContext = makeAliasContext(new AutomaticAliasRepository(), $automaticAlias);
+$automaticAliasToggleAllowed = (new ViMbAdminPlugin_MailboxAutomaticAliases($aliasContext))
+    ->alias_toggleActive_preToggle($aliasContext, ['active' => true]);
+$failures += checkAutomaticAlias(
+    'required-alias toggle guard reports an error and returns false',
+    $automaticAliasToggleAllowed === false
+        && count($aliasContext->messages) === 1
+        && $aliasContext->messageClasses === [OSS_Message::ERROR],
+);
+
+$repository = new AutomaticAliasRepository();
+$repository->aliases['postmaster@example.test'] = (new \Entities\Alias())
+    ->setAddress('postmaster@example.test')
+    ->setGoto('source@example.test')
+    ->setActive(true)
+    ->setDomain(automaticAliasDomain());
+$sourceAlias = (new \Entities\Alias())
+    ->setAddress('source@example.test')
+    ->setGoto('destination@example.test')
+    ->setActive(true)
+    ->setDomain(automaticAliasDomain());
+$aliasContext = makeAliasContext($repository, $sourceAlias);
+$gotoAliasToggleAllowed = (new ViMbAdminPlugin_MailboxAutomaticAliases($aliasContext))
+    ->alias_toggleActive_preToggle($aliasContext, ['active' => true]);
+$failures += checkAutomaticAlias(
+    'goto-alias toggle guard reports an error and returns false',
+    $gotoAliasToggleAllowed === false
+        && count($aliasContext->messages) === 1
+        && $aliasContext->messageClasses === [OSS_Message::ERROR],
 );
 
 $otherDomain = (new \Entities\Domain())->setDomain('other.test');

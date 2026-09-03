@@ -47,7 +47,7 @@ function purgeAdmin( event ){
     else
         element = $( event.target );
 
-    $( "#purge_admin_name" ).html( element.attr( 'ref' ) );
+    $( "#purge_admin_name" ).text( element.attr( 'ref' ) );
 
     $( '#purge_dialog_delete' ).attr( 'href', element.attr( 'href' ) );
 

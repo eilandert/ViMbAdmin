@@ -34,7 +34,7 @@ function removeAdmin( event ) {
     else
         element = $( event.target );
 
-    $( "#purge_admin_name" ).html( element.attr( "ref" ) );
+    $( "#purge_admin_name" ).text( element.attr( "ref" ) );
 
     delDialog = $( '#purge_dialog' ).modal({
         backdrop: true,
