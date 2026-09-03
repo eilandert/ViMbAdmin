@@ -142,6 +142,7 @@
         // controller may have queued framework-free flash messages (drained at
         // the end of this function) with no legacy OSS_Messages present.
 
+        /** @var int $nextId */
         static $nextId = 0;
         $message = '';
         
@@ -149,8 +150,6 @@
         {
             if( isset( $params['randomid'] ) && !is_scalar( $params['randomid'] ) )
                 throw new \InvalidArgumentException( 'OSS_Message randomid must be scalar' );
-            $count = $nextId++;
-
             if( $ossm instanceof OSS_Message_Block )
             {
                 $class = $classValue( $ossm->getClass() );
@@ -160,6 +159,8 @@
                 $actions = $ossm->getActions();
                 if( $actions === null )
                     $actions = [];
+                $count = $nextId;
+                ++$nextId;
                 $message .= <<<END_MESSAGE
 
     <div class="alert alert-block alert-{$class} fade in" id="oss-message-{$count}">
@@ -212,6 +213,8 @@ END_MESSAGE;
                 
                 foreach( $items as $item )
                 {
+                        $count = $nextId;
+                        ++$nextId;
                         $message .= <<<END_MESSAGE
 
         <div class="alert alert-{$class} fade in" id="oss-message-{$count}">
@@ -223,7 +226,6 @@ END_MESSAGE;
                 }
             } // end inner foreach
 
-            $count++;
         } // end foreach()
 
 
@@ -238,7 +240,8 @@ END_MESSAGE;
         {
             foreach( $flashMessages as $fm )
             {
-                $count = $nextId++;
+                $count = $nextId;
+                ++$nextId;
                 $fmClass = isset( $fm['level'] ) ? $classValue( $fm['level'] ) : 'success';
                 $fmText  = isset( $fm['text'] )  ? $fm['text']  : '';
                 if( !is_string( $fmText ) )
@@ -256,7 +259,6 @@ END_MESSAGE;
         </div>
 
 END_MESSAGE;
-                $count++;
             }
 
             unset( $application['flashMessages'] );

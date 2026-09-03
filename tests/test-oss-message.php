@@ -69,6 +69,10 @@ $check('block render includes actions container', str_contains($rendered, 'alert
 $check('popup render emits each bootbox item', str_contains($rendered, 'bootbox.alert(') && str_contains($rendered, "'One'") && str_contains($rendered, "'Two'"));
 $check('plain render emits each message item', str_contains($rendered, 'Alpha') && str_contains($rendered, 'Beta') && str_contains($rendered, 'alert-error'));
 $check('default ids remain sequential', str_contains($rendered, 'id="oss-message-0"') && str_contains($rendered, 'id="oss-message-2"'));
+$renderedIds = [];
+preg_match_all('/id="oss-message-([0-9]+)"/', $rendered, $renderedIdMatches);
+$renderedIds = $renderedIdMatches[1] ?? [];
+$check('array messages receive unique alert ids', count($renderedIds) === count(array_unique($renderedIds)));
 
 $randomSmarty = new MessageSmartyDouble([
     'OSS_Messages' => [new OSS_Message('Random', OSS_Message::SUCCESS, false)],
