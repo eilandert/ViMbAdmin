@@ -60,7 +60,8 @@ $runner = $source('library/ViMbAdmin/Service/QueueRunner.php');
 $check('orphan discovery executes as a bounded queue task and caches its result',
     str_contains($runner, 'case \\Entities\\MailboxTask::TYPE_SCAN_ORPHANS:')
     && str_contains($runner, 'ORPHAN_SCAN_MAX = 500')
-    && str_contains($runner, "['orphans' => \$orphans]"));
+    && str_contains($runner, "['orphans' => \$orphans]")
+    && str_contains($runner, 'WHERE LOWER(m.username) IN (:candidates)'));
 
 echo $failures === 0 ? "ALL PASSED\n" : "{$failures} FAILED\n";
 exit($failures === 0 ? 0 : 1);

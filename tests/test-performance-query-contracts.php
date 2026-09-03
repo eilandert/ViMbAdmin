@@ -30,8 +30,10 @@ $check('domain choices use scalar hydration',
 $mcp = $source('application/controllers/McpController.php');
 $check('all MCP list abilities use validated bounded repository queries',
     substr_count($mcp, '$this->_listBounds( $params )') === 3
-    && substr_count($mcp, ', $limit, $offset )') === 3
-    && str_contains($mcp, "\$criteria['domain']"));
+    && substr_count($mcp, ', $limit, $offset )') === 2
+    && str_contains($mcp, '->setFirstResult($offset)->setMaxResults($limit)')
+    && str_contains($mcp, 'LOWER(d.domain) IN (:allowed)')
+    && str_contains($mcp, 'LIST_MAX_OFFSET = 10000'));
 
 $aliases = $source('application/plugins/MailboxAutomaticAliases.php');
 $check('automatic aliases flush once per created group',
@@ -46,7 +48,8 @@ if ($sweepStart === false || $sweepEnd === false || $sweepEnd <= $sweepStart) {
 }
 $sweep = substr($runner, $sweepStart, $sweepEnd - $sweepStart);
 $check('autoprune detects open tasks with one set-based query',
-    str_contains($sweep, 't.username IN (:users)')
+    str_contains($sweep, 'LOWER(t.username) IN (:users)')
+    && str_contains($sweep, 'array_chunk($users, 500)')
     && !str_contains($sweep, 'SELECT COUNT(t.id)'));
 
 $maintenance = $source('src/Kernel/Controller/MaintenanceController.php');

@@ -632,13 +632,16 @@ class ViMbAdmin_Service_QueueRunner
             $expired = $archiveRepository->findAutoprune($cutoff);
 
             $candidates = iterator_to_array($this->initializedAutopruneArchives($expired), false);
-            $users = array_column($candidates, 1);
+            $users = array_values(array_unique(array_map(
+                static fn(string $username): string => ViMbAdmin_Identity::canonical($username),
+                array_column($candidates, 1)
+            )));
             $alreadyQueued = [];
-            if ($users !== []) {
+            foreach (array_chunk($users, 500) as $userChunk) {
                 foreach ($em->createQuery(
                     'SELECT DISTINCT t.username AS username FROM \Entities\MailboxTask t
-                      WHERE t.username IN (:users) AND t.type = :t AND t.status IN (:open)')
-                    ->setParameter('users', $users)
+                      WHERE LOWER(t.username) IN (:users) AND t.type = :t AND t.status IN (:open)')
+                    ->setParameter('users', $userChunk)
                     ->setParameter('t', \Entities\MailboxTask::TYPE_PRUNE)
                     ->setParameter('open', [\Entities\MailboxTask::STATUS_PENDING, \Entities\MailboxTask::STATUS_RUNNING])
                     ->getArrayResult() as $row) {
@@ -649,12 +652,13 @@ class ViMbAdmin_Service_QueueRunner
                     if (!is_string($username) || $username === '') {
                         throw new \UnexpectedValueException('Open autoprune task row has an invalid shape.');
                     }
-                    $alreadyQueued[strtolower($username)] = true;
+                    $alreadyQueued[ViMbAdmin_Identity::canonical($username)] = true;
                 }
             }
 
             foreach ($candidates as [$archive, $user]) {
-                if (isset($alreadyQueued[strtolower($user)])) {
+                $user = ViMbAdmin_Identity::canonical($user);
+                if (isset($alreadyQueued[$user])) {
                     continue;
                 }
 
@@ -667,6 +671,7 @@ class ViMbAdmin_Service_QueueRunner
                    ->setDomain($archive->getDomain())
                    ->setData($this->encodeTaskData(['dest' => $archive->getMaildirFile()]));
                 $em->persist($mt);
+                $alreadyQueued[$user] = true;
             }
             $em->flush();
         } catch (\Throwable $e) {
@@ -706,9 +711,18 @@ class ViMbAdmin_Service_QueueRunner
         if (count($dirs) > self::ORPHAN_SCAN_MAX) {
             throw new ViMbAdmin_Exception('orphan scan exceeds the bounded candidate limit of ' . self::ORPHAN_SCAN_MAX);
         }
+        if ($dirs === []) {
+            return [];
+        }
 
+        $candidateNames = array_map(
+            static fn(string $name): string => ViMbAdmin_Identity::canonical(self::safeMaildirName($name)),
+            $dirs
+        );
         $known = [];
-        foreach ($this->em->createQuery('SELECT m.username FROM \\Entities\\Mailbox m')->getArrayResult() as $row) {
+        foreach ($this->em->createQuery(
+            'SELECT m.username FROM \\Entities\\Mailbox m WHERE LOWER(m.username) IN (:candidates)'
+        )->setParameter('candidates', $candidateNames)->getArrayResult() as $row) {
             if (!is_array($row)) {
                 throw new \UnexpectedValueException('Mailbox row has an invalid shape.');
             }
@@ -716,13 +730,13 @@ class ViMbAdmin_Service_QueueRunner
             if (!is_string($username) || $username === '') {
                 throw new \UnexpectedValueException('Mailbox row has an invalid username.');
             }
-            $known[strtolower($username)] = true;
+            $known[ViMbAdmin_Identity::canonical($username)] = true;
         }
 
         $orphans = [];
         foreach ($dirs as $name) {
             $name = self::safeMaildirName($name);
-            if (!isset($known[strtolower($name)])
+            if (!isset($known[ViMbAdmin_Identity::canonical($name)])
                 && in_array('cur', $doveadm->fsListDirs($root . '/' . $name), true)) {
                 $orphans[] = $name;
             }

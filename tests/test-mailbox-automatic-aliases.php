@@ -243,6 +243,41 @@ $failures += checkAutomaticAlias('creates the configured automatic alias', $alia
 $failures += checkAutomaticAlias('uses the configured goto mapping', $alias instanceof \Entities\Alias && $alias->getGoto() === 'root@example.test');
 $failures += checkAutomaticAlias('creates the configured alias group and flushes once', count($entityManager->persisted) === 2 && $alias instanceof \Entities\Alias && $alias->getActive() === true && $entityManager->flushes === 1);
 $failures += checkAutomaticAlias('reports every created alias', count($context->messages) === 2);
+$persistedIdentities = [];
+foreach ($entityManager->persisted as $item) {
+    $persistedIdentities[] = $item instanceof \Entities\Alias
+        ? [$item->getAddress(), $item->getGoto()]
+        : [null, null];
+}
+$failures += checkAutomaticAlias('persists both exact automatic alias identities', $persistedIdentities === [
+    ['postmaster@example.test', 'root@example.test'],
+    ['abuse@example.test', 'root@example.test'],
+]);
+$failures += checkAutomaticAlias('reports both exact automatic alias identities', $context->messages === [
+    'Auto-created alias postmaster@example.test -> root@example.test.',
+    'Auto-created alias abuse@example.test -> root@example.test.',
+]);
+
+$duplicateRepository = new AutomaticAliasRepository();
+$duplicateDomain = automaticAliasDomain();
+$duplicateAdmin = new \Entities\Admin();
+$duplicateAdmin->addDomain($duplicateDomain);
+$duplicateContext = new AutomaticAliasMailboxContext(
+    ['vimbadmin_plugins' => ['MailboxAutomaticAliases' => [
+        'defaultAliases' => ['postmaster', 'POSTMASTER'],
+        'defaultMapping' => ['postmaster' => 'root@example.test'],
+    ]]],
+    new AutomaticAliasEntityManager($duplicateRepository),
+    $duplicateAdmin,
+    $duplicateDomain,
+    (new \Entities\Mailbox())->setUsername('user@example.test'),
+);
+(new ViMbAdminPlugin_MailboxAutomaticAliases($duplicateContext))
+    ->mailbox_add_addPostflush($duplicateContext, ['options' => []]);
+$failures += checkAutomaticAlias('duplicate configured aliases persist once and flush once',
+    count($duplicateContext->getD2EM()->persisted) === 1
+    && $duplicateContext->getD2EM()->flushes === 1
+    && count($duplicateContext->messages) === 1);
 
 $unpersistedContext = makeContext(new AutomaticAliasRepository(), false);
 $failures += checkAutomaticAlias(

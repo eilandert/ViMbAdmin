@@ -19,6 +19,7 @@
 class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
 {
     private const LIST_MAX = 200;
+    private const LIST_MAX_OFFSET = 10000;
     /** @var \Entities\McpToken|null  the authenticated token for this request */
     private $_token = null;
 
@@ -117,10 +118,21 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         if( $this->_token ) {
             $allowed = trim( (string) $this->_token->getAllowedDomains() );
             if( $allowed !== '' )
-                $criteria['domain'] = preg_split( '/[\s,]+/', $allowed, -1, PREG_SPLIT_NO_EMPTY ) ?: [];
+                $criteria['domain'] = array_map(
+                    static fn(string $domain): string => ViMbAdmin_Identity::canonical($domain),
+                    preg_split( '/[\s,]+/', $allowed, -1, PREG_SPLIT_NO_EMPTY ) ?: []
+                );
         }
         $out = [];
-        foreach( $this->em()->getRepository( '\\Entities\\Domain' )->findBy( $criteria, [ 'domain' => 'ASC' ], $limit, $offset ) as $d )
+        $repository = $this->em()->getRepository( '\\Entities\\Domain' );
+        $query = $repository->createQueryBuilder('d')->orderBy('d.domain', 'ASC')
+            ->setFirstResult($offset)->setMaxResults($limit);
+        if( isset($criteria['domain']) )
+            $query->andWhere('LOWER(d.domain) IN (:allowed)')->setParameter('allowed', $criteria['domain']);
+        $domains = \ViMbAdmin\Kernel\Doctrine\ResultValidator::entityList(
+            $query->getQuery()->getResult(), \Entities\Domain::class, 'MCP domain list query'
+        );
+        foreach( $domains as $d )
         {
             $domainName = $d->requiredDomainName();
             if( $this->_token && !$this->_token->allowsDomain( $domainName ) )
@@ -193,6 +205,8 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $offset = ViMbAdmin_Mcp_Input::optionalInteger( $params, 'offset', 0 );
         if( $limit < 1 || $limit > self::LIST_MAX )
             throw new ViMbAdmin_Mcp_Exception( 'param "limit" must be between 1 and ' . self::LIST_MAX );
+        if( $offset > self::LIST_MAX_OFFSET )
+            throw new ViMbAdmin_Mcp_Exception( 'param "offset" must be at most ' . self::LIST_MAX_OFFSET );
         return [ $limit, $offset ];
     }
 

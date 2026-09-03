@@ -93,6 +93,16 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
         foreach ($aliases as $alias) {
             if (!is_string($alias)) throw new UnexpectedValueException('defaultAliases entries must be strings.');
         }
+        $uniqueAliases = [];
+        $seenAliases = [];
+        foreach ($aliases as $alias) {
+            $key = strtolower($alias);
+            if (!isset($seenAliases[$key])) {
+                $seenAliases[$key] = true;
+                $uniqueAliases[] = $alias;
+            }
+        }
+        $aliases = $uniqueAliases;
         $this->defaultAliases = $aliases;
 
         $mapping = array_key_exists('defaultMapping', $config) ? $config['defaultMapping'] : [];
