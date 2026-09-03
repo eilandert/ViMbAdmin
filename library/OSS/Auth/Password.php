@@ -225,6 +225,11 @@ class OSS_Auth_Password
     /** @param array<string, mixed>|string $config */
     private static function needsRehash( string $pwhash, $config ): bool
     {
+        $classifiedHash = $pwhash;
+        if( str_starts_with( $classifiedHash, '{' )
+            && ( $prefixEnd = strpos( $classifiedHash, '}' ) ) !== false )
+            $classifiedHash = substr( $classifiedHash, $prefixEnd + 1 );
+
         $method = is_array( $config )
             ? self::stringValue( $config['pwhash'] ?? null, 'Password hash method' )
             : self::stringValue( $config, 'Password hash method' );
@@ -240,7 +245,7 @@ class OSS_Auth_Password
 
         if( $desiredBcryptCost !== null )
         {
-            if( preg_match( '/^\$2[aby]\$(\d{2})\$/', $pwhash, $matches ) !== 1 )
+            if( preg_match( '/^\$2[aby]\$(\d{2})\$/', $classifiedHash, $matches ) !== 1 )
                 return true;
 
             // Never turn a login into an accidental work-factor downgrade.
@@ -256,12 +261,12 @@ class OSS_Auth_Password
         // bcrypt credential if an installation changes to a weaker policy.
         if( str_starts_with( $method, self::HASH_DOVECOT ) )
         {
-            if( preg_match( '/^\$2[aby]\$/D', $pwhash ) === 1 )
+            if( preg_match( '/^\$2[aby]\$/', $classifiedHash ) === 1 )
                 return false;
 
             return match( strtoupper( substr( $method, 8 ) ) ) {
-                'SHA512-CRYPT' => !str_starts_with( $pwhash, '$6$' ),
-                'SHA256-CRYPT' => !str_starts_with( $pwhash, '$5$' ),
+                'SHA512-CRYPT' => !str_starts_with( $classifiedHash, '$6$' ),
+                'SHA256-CRYPT' => !str_starts_with( $classifiedHash, '$5$' ),
                 default => false,
             };
         }

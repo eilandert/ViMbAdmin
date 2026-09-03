@@ -140,6 +140,24 @@ $check('failed Dovecot verification performs no scheme upgrade',
         $legacyDovecotHash,
         ['pwhash' => 'dovecot:BLF-CRYPT', 'username' => 'user@example.test'],
     ) === null);
+$prefixedStrongBcrypt = '{BLF-CRYPT}' . password_hash(
+    'dovecot-secret',
+    PASSWORD_BCRYPT,
+    ['cost' => 13],
+);
+$check('prefixed stronger Dovecot bcrypt is preserved without a downgrade',
+    OSS_Auth_Password::verifyAndRehash(
+        'dovecot-secret',
+        $prefixedStrongBcrypt,
+        ['pwhash' => 'dovecot:BLF-CRYPT', 'username' => 'user@example.test'],
+    ) === $prefixedStrongBcrypt);
+$prefixedLegacyDovecot = '{SHA512-CRYPT}' . $legacyDovecotHash;
+$check('prefixed legacy Dovecot scheme is normalized before upgrade classification',
+    str_starts_with((string) OSS_Auth_Password::verifyAndRehash(
+        'dovecot-secret',
+        $prefixedLegacyDovecot,
+        ['pwhash' => 'dovecot:BLF-CRYPT', 'username' => 'user@example.test'],
+    ), '$2y$'));
 
 $check('missing array hash method still throws', $throwsOss(
     static fn(): mixed => (new ReflectionMethod(OSS_Auth_Password::class, 'hash'))->invoke(null, 'secret', []),

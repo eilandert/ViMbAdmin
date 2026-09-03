@@ -294,7 +294,7 @@ final class AuthController extends AbstractController
                     ? null
                     : self::verifiedAdminPassword($admin, $plainPassword, $authOpts);
                 if ($admin !== null && $verifiedHash !== null && self::adminIsActive($admin)) {
-                    self::storeRehashedAdminPassword($admin, $verifiedHash, $this->em());
+                    $this->storeRehashedAdminPassword($admin, $verifiedHash);
                     return $this->completeLogin($admin, $bf, $options);
                 }
 
@@ -549,17 +549,21 @@ final class AuthController extends AbstractController
         return \OSS_Auth_Password::verifyAndRehash($plain, $stored, $options);
     }
 
-    private static function storeRehashedAdminPassword(
+    private function storeRehashedAdminPassword(
         \Entities\Admin $admin,
         string $verifiedHash,
-        \Doctrine\ORM\EntityManagerInterface $entityManager,
     ): void {
         $stored = $admin->getPassword();
         if ($stored !== null && !hash_equals($stored, $verifiedHash)) {
-            // Hashing completed before the managed entity is mutated; a hash
-            // failure cannot schedule or flush a partial credential update.
-            $admin->setPassword($verifiedHash);
-            $entityManager->flush();
+            try {
+                // Exact-hash CAS prevents a concurrent reset from being
+                // overwritten. Do not mutate the managed entity: zero affected
+                // rows and database errors both leave it clean for later flushes.
+                $this->adminRepository()->compareAndSwapPassword($admin, $stored, $verifiedHash);
+            } catch (\Throwable) {
+                // Rehash persistence is opportunistic; a verified login remains
+                // available when this best-effort upgrade cannot be written.
+            }
         }
     }
 

@@ -54,6 +54,23 @@ final class AuthInputShapeAdminRepository extends \Repositories\Admin
     public int $findOneByCalls = 0;
     public static ?\Entities\Admin $admin = null;
     public static int $count = 1;
+    /** @var list<array{0:string,1:string}> */
+    public array $passwordSwaps = [];
+    public int $passwordSwapAffected = 1;
+    public bool $passwordSwapThrows = false;
+
+    public function compareAndSwapPassword(\Entities\Admin $admin, string $verified, string $replacement): bool
+    {
+        $this->passwordSwaps[] = [$verified, $replacement];
+        if ($this->passwordSwapThrows) {
+            throw new RuntimeException('expected rehash persistence failure');
+        }
+        if ($this->passwordSwapAffected === 1) {
+            $admin->setPassword($replacement);
+            return true;
+        }
+        return false;
+    }
 
     public function find(mixed $id, LockMode|int|null $lockMode = null, ?int $lockVersion = null): ?object
     {
@@ -626,7 +643,8 @@ authInputShapeCheck('successful active login rehashes a stale bcrypt cost before
     $rehashResponse->status === 302
         && $staleAdmin->requiredPassword() !== $staleHash
         && str_starts_with($staleAdmin->requiredPassword(), '$2a$05$')
-        && $rehashLogin['listener']->flushes === 2);
+        && $rehashLogin['listener']->flushes === 1
+        && $rehashLogin['repository']->passwordSwaps[0][0] === $staleHash);
 
 $failedRehashAdmin = authInputShapeAdmin(true);
 $failedRehashAdmin->setPassword($staleHash);
@@ -661,12 +679,33 @@ $rehashError = authInputShapeController(
         'bruteforce' => ['enabled' => '0'],
     ]),
 );
+$rehashError['repository']->passwordSwapThrows = true;
 $rehashErrorResponse = authInputShapeLogin($rehashError['controller'], AUTH_INPUT_TEST_CREDENTIAL);
-authInputShapeCheck('rehash generation errors retain the credential without denying login',
+authInputShapeCheck('rehash database errors retain clean managed state without denying login',
     $rehashErrorResponse->status === 302
         && $rehashErrorAdmin->requiredPassword() === $staleHash
         && $rehashError['listener']->flushes === 1
         && is_array($rehashError['session']->get('identity')));
+
+$racedResetAdmin = authInputShapeAdmin(true);
+$racedResetAdmin->setPassword($staleHash);
+$racedReset = authInputShapeController(
+    null,
+    $racedResetAdmin,
+    'login',
+    authInputShapeLoginOptions($wrongState, [
+        'resources' => ['auth' => ['oss' => ['pwhash' => 'bcrypt', 'hash_cost' => 5]]],
+        'bruteforce' => ['enabled' => '0'],
+    ]),
+);
+$racedReset['repository']->passwordSwapAffected = 0;
+$racedResetResponse = authInputShapeLogin($racedReset['controller'], AUTH_INPUT_TEST_CREDENTIAL);
+authInputShapeCheck('concurrent password reset wins a zero-row exact-hash CAS without denying login',
+    $racedResetResponse->status === 302
+        && $racedResetAdmin->requiredPassword() === $staleHash
+        && $racedReset['repository']->passwordSwaps[0][0] === $staleHash
+        && str_starts_with($racedReset['repository']->passwordSwaps[0][1], '$2a$05$')
+        && $racedReset['listener']->flushes === 1);
 
 $enabledActive = authInputShapeController(
     null,
@@ -858,7 +897,7 @@ authInputShapeCheck('deactivation during TOTP enrolment revokes the pending logi
         && $deactivatedDuringSetup['session']->get('totp_setup_secret') === null
         && !str_contains($deactivatedDuringSetupResponse->body, 'Two-factor is now enabled.'));
 
-authInputShapeCheck('fixed assertion count', AuthInputShapeState::$checks === 32);
+authInputShapeCheck('fixed assertion count', AuthInputShapeState::$checks === 33);
 
 echo AuthInputShapeState::$failures === 0
     ? "ALL PASSED\n"
