@@ -68,6 +68,47 @@ class ViMbAdmin_Net
     }
 
     /**
+     * Decide whether a direct peer may supply forwarded routing headers.
+     * Auto mode deliberately admits only private, loopback, and link-local
+     * networks; other reserved ranges are not evidence of a trusted proxy.
+     *
+     * @param array<array-key,mixed> $proxies IP/CIDR list for mode 'on'
+     */
+    public static function isTrustedForwardedHeaderPeer(
+        string $ip,
+        string $mode = 'auto',
+        array $proxies = [],
+    ): bool
+    {
+        $mode = strtolower( $mode );
+        if( $mode === 'off' || $mode === '0' || $mode === 'false' )
+            return false;
+        if( $mode === 'auto' ) {
+            foreach( [
+                '10.0.0.0/8',
+                '127.0.0.0/8',
+                '169.254.0.0/16',
+                '172.16.0.0/12',
+                '192.168.0.0/16',
+                '::1/128',
+                'fc00::/7',
+                'fe80::/10',
+            ] as $cidr ) {
+                if( self::ipInCidr( $ip, $cidr ) )
+                    return true;
+            }
+            return false;
+        }
+        foreach( $proxies as $proxy ) {
+            if( !is_string( $proxy ) ) continue;
+            $proxy = trim( $proxy );
+            if( $proxy !== '' && self::ipInCidr( $ip, $proxy ) )
+                return true;
+        }
+        return false;
+    }
+
+    /**
      * RFC1918 / loopback / link-local / unique-local (fc00::/7).
      */
     public static function isPrivate( string $ip ): bool

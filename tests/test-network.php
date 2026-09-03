@@ -51,6 +51,15 @@ networkCheck('public IPv4 is not private', !ViMbAdmin_Net::isPrivate('8.8.8.8'))
 networkCheck('IPv6 unique-local is private', ViMbAdmin_Net::isPrivate('fd00::1'));
 networkCheck('malformed address is not private', !ViMbAdmin_Net::isPrivate('not-an-ip'));
 
+networkCheck('forwarded headers reject 0/8 in auto mode',
+    !ViMbAdmin_Net::isTrustedForwardedHeaderPeer('0.0.0.1'));
+networkCheck('forwarded headers reject reserved 240/4 in auto mode',
+    !ViMbAdmin_Net::isTrustedForwardedHeaderPeer('240.0.0.1'));
+networkCheck('forwarded headers reject IPv6 unspecified in auto mode',
+    !ViMbAdmin_Net::isTrustedForwardedHeaderPeer('::'));
+networkCheck('forwarded headers reject IPv6 multicast in auto mode',
+    !ViMbAdmin_Net::isTrustedForwardedHeaderPeer('ff02::1'));
+
 networkCheck('IPv4 exact address matches', ViMbAdmin_Net::ipInCidr('192.0.2.1', '192.0.2.1'));
 networkCheck('invalid exact values never match themselves', !ViMbAdmin_Net::ipInCidr('bad', 'bad'));
 networkCheck('IPv4 CIDR contains an in-range address', ViMbAdmin_Net::ipInCidr('192.0.2.42', '192.0.2.0/24'));

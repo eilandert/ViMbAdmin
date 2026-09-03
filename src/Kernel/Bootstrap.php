@@ -215,14 +215,25 @@ final class Bootstrap
             ? self::iniValue($session['use_strict_mode'], 'resources.session.use_strict_mode')
             : '1');
 
-        // The remaining keys map one-to-one onto `session.*` php.ini settings
-        // (the cookie + lookup hardening ViMbAdmin configures). Zend-specific
-        // keys without a session.* analogue (e.g. remember_me_seconds) are
-        // skipped. IniConfig yields booleans as '1'/'' which ini_set accepts.
-        foreach (['use_only_cookies', 'cookie_httponly', 'cookie_secure', 'cookie_samesite', 'gc_maxlifetime'] as $key) {
-            if (array_key_exists($key, $session)) {
-                ini_set('session.' . $key, self::iniValue($session[$key], 'resources.session.' . $key));
-            }
+        // Enforce safe cookie defaults for sparse/from-source configuration;
+        // explicit operator values still win. Zend-specific keys without a
+        // session.* analogue (e.g. remember_me_seconds) are skipped.
+        $defaults = [
+            'use_only_cookies' => '1',
+            'cookie_httponly' => '1',
+            'cookie_secure' => '1',
+            'cookie_samesite' => 'Lax',
+        ];
+        foreach ($defaults as $key => $default) {
+            ini_set('session.' . $key, array_key_exists($key, $session)
+                ? self::iniValue($session[$key], 'resources.session.' . $key)
+                : $default);
+        }
+        if (array_key_exists('gc_maxlifetime', $session)) {
+            ini_set('session.gc_maxlifetime', self::iniValue(
+                $session['gc_maxlifetime'],
+                'resources.session.gc_maxlifetime',
+            ));
         }
     }
 
@@ -237,8 +248,8 @@ final class Bootstrap
      *      `proxy_pass http://up/;`): the backend then sees `/auth/login`, so
      *      `SCRIPT_NAME` can no longer reveal the mount point and assets would
      *      otherwise resolve to the proxy root.
-     *   2. `X-Forwarded-Prefix` from the trusted edge proxy (sanitised; the
-     *      backend is not directly client-reachable on this deployment).
+     *   2. `X-Forwarded-Prefix` from a peer accepted by `trustedproxy` policy,
+     *      with unsafe and dot-segment paths rejected.
      *   3. Otherwise the directory of `SCRIPT_NAME`, as the ZF1 front
      *      controller did (docroot install → `''`, sub-path install → `/vimb`).
      *
@@ -262,8 +273,9 @@ final class Bootstrap
             return '/' . trim(trim($configured), '/');
         }
 
-        $prefix = self::forwardedPrefix();
-        if ($prefix !== '' && preg_match('#^/[A-Za-z0-9._~/-]+$#', $prefix)) {
+        $prefix = self::forwardedPrefix($options);
+        if ($prefix !== '' && preg_match('#^/[A-Za-z0-9._~/-]+$#', $prefix)
+            && preg_match('#(?:^|/)\.\.?($|/)#', $prefix) !== 1) {
             return '/' . trim($prefix, '/');
         }
 
@@ -312,7 +324,8 @@ final class Bootstrap
         return $value;
     }
 
-    private static function forwardedPrefix(): string
+    /** @param array<string,mixed> $options */
+    private static function forwardedPrefix(array $options): string
     {
         if (!array_key_exists('HTTP_X_FORWARDED_PREFIX', $_SERVER)) {
             return '';
@@ -322,6 +335,25 @@ final class Bootstrap
             throw new LogicException('Server parameter HTTP_X_FORWARDED_PREFIX must be a string');
         }
         if (preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
+            return '';
+        }
+
+        $proxy = self::stringMap($options['trustedproxy'] ?? [], 'trustedproxy');
+        $mode = self::optionalString($proxy, 'mode', 'trustedproxy.mode', 'auto');
+        $proxies = $proxy['proxies'] ?? [];
+        if (is_string($proxies)) {
+            $proxies = [$proxies];
+        }
+        if (!is_array($proxies) || !array_is_list($proxies)) {
+            throw new LogicException('trustedproxy.proxies must be a string or list of strings');
+        }
+        foreach ($proxies as $configuredProxy) {
+            if (!is_string($configuredProxy)) {
+                throw new LogicException('trustedproxy.proxies must contain strings');
+            }
+        }
+        $remote = self::serverString('REMOTE_ADDR');
+        if (!\ViMbAdmin_Net::isTrustedForwardedHeaderPeer($remote, $mode, $proxies)) {
             return '';
         }
 

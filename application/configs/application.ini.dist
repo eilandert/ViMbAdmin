@@ -534,6 +534,9 @@ resources.session.name = 'VIMBADMIN3'
 ;; pool. The hardened pool (contrib/php-fpm/vimbadmin.conf) also sets it. Set
 ;; this to false ONLY if you have a deliberate reason; leaving it unset = ON.
 ;resources.session.use_strict_mode = true
+;; The application also defaults use_only_cookies, cookie_httponly, and
+;; cookie_secure to ON and cookie_samesite to Lax when these keys are omitted;
+;; explicit values below continue to override those defaults.
 resources.session.cookie_httponly = true
 resources.session.cookie_secure   = true
 resources.session.cookie_samesite = "Lax"
@@ -550,4 +553,3 @@ resources.session.cookie_samesite = "Lax"
 ;resources.smarty.compiled  = APPLICATION_PATH "/../var/templates_c"
 ;resources.smarty.cache     = APPLICATION_PATH "/../var/cache"
 ;resources.smarty.config    = APPLICATION_PATH "/configs/smarty"
-
