@@ -47,6 +47,14 @@ final class BootstrapAdminRepository
     }
 }
 
+final class FailingSessionHandler extends SessionHandler
+{
+    public function open(string $path, string $name): bool
+    {
+        return false;
+    }
+}
+
 final class BootstrapObjectManager
 {
     public ?string $requestedClass = null;
@@ -161,7 +169,32 @@ try {
 kernelBootstrapCheck('malformed skin configuration fails closed before filesystem lookup', $malformedSkinRejected);
 
 // --- Sparse session configuration retains application-level hard defaults. --
+$sessionStartRejected = false;
+session_set_save_handler(new FailingSessionHandler(), true);
+try {
+    (new ReflectionMethod(Bootstrap::class, 'startSession'))->invoke(null);
+} catch (RuntimeException $e) {
+    $sessionStartRejected = $e->getMessage() === 'Unable to start session';
+}
+session_set_save_handler(new SessionHandler(), true);
+kernelBootstrapCheck('session startup failure aborts bootstrap', $sessionStartRejected);
 $configureSession = new ReflectionMethod(Bootstrap::class, 'configureSession');
+$sessionFile = tempnam(sys_get_temp_dir(), 'vimbadmin-session-file-');
+$nonDirectoryRejected = false;
+try {
+    $configureSession->invoke(null, ['resources' => ['session' => ['save_path' => $sessionFile]]]);
+} catch (RuntimeException $e) {
+    $nonDirectoryRejected = $e->getMessage() === 'Session save path is not a writable directory';
+}
+@unlink($sessionFile);
+kernelBootstrapCheck('session save path rejects a non-directory', $nonDirectoryRejected);
+$unwritablePathRejected = false;
+try {
+    $configureSession->invoke(null, ['resources' => ['session' => ['save_path' => '/proc/1/vimbadmin-session']]]);
+} catch (RuntimeException $e) {
+    $unwritablePathRejected = $e->getMessage() === 'Session save path is not a writable directory';
+}
+kernelBootstrapCheck('session save path rejects an unwritable location', $unwritablePathRejected);
 $sessionKeys = ['use_strict_mode', 'use_only_cookies', 'cookie_httponly', 'cookie_secure', 'cookie_samesite'];
 $originalSessionValues = [];
 foreach ($sessionKeys as $key) {

@@ -121,7 +121,7 @@ final class Bootstrap
 
         if (session_status() !== PHP_SESSION_ACTIVE && PHP_SAPI !== 'cli') {
             self::configureSession($options);
-            session_start();
+            self::startSession();
             $legacyAuthNamespace = 'Zend' . '_Auth';
             if (isset($_SESSION[$legacyAuthNamespace]) && !isset($_SESSION['ViMbAdmin_Auth'])) {
                 $_SESSION['ViMbAdmin_Auth'] = $_SESSION[$legacyAuthNamespace];
@@ -148,6 +148,13 @@ final class Bootstrap
         \OSS_Runtime::configure($options, self::baseUrl($options), $em);
 
         return new Container($resources, $auth, ['skinCss' => self::skinCss($appPath, $options)]);
+    }
+
+    private static function startSession(): void
+    {
+        if (!session_start()) {
+            throw new \RuntimeException('Unable to start session');
+        }
     }
 
     /**
@@ -198,6 +205,9 @@ final class Bootstrap
             $path = $savePath;
             if (!is_dir($path)) {
                 @mkdir($path, 0770, true);
+            }
+            if (!is_dir($path) || !is_writable($path)) {
+                throw new \RuntimeException('Session save path is not a writable directory');
             }
             session_save_path($path);
         }

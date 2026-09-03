@@ -41,19 +41,27 @@ class OSS_Captcha_Image
         }
         $word = OSS_String::randomFromSet('23456789ABCDEFGHJKLMNPQRSTUVWXYZ', $this->wordLen);
 
-        $_SESSION['OSS_Captcha_' . $id] = [
+        $sessionKey = 'OSS_Captcha_' . $id;
+        $_SESSION[$sessionKey] = [
             'word' => $word,
             'expires' => time() + $this->timeout,
         ];
 
         $dir = OSS_Utils::getTempDir() . '/captchas';
-        if (!is_dir($dir)) {
-            if (!mkdir($dir, 0770, true) && !is_dir($dir)) {
-                throw new RuntimeException('Unable to create captcha directory');
+        $path = $dir . '/' . $id . '.png';
+        try {
+            if (!is_dir($dir)) {
+                if (!mkdir($dir, 0770, true) && !is_dir($dir)) {
+                    throw new RuntimeException('Unable to create captcha directory');
+                }
             }
+            $this->cleanup($dir);
+            $this->render($path, $word);
+        } catch (Throwable $error) {
+            unset($_SESSION[$sessionKey]);
+            @unlink($path);
+            throw $error;
         }
-        $this->cleanup($dir);
-        $this->render($dir . '/' . $id . '.png', $word);
 
         return $id;
     }
@@ -127,8 +135,18 @@ class OSS_Captcha_Image
             imagestring($image, 5, 70, 31, $word, $foreground);
         }
 
-        imagepng($image, $path);
-        imagedestroy($image);
+        try {
+            if (!$this->writeImage($image, $path)) {
+                throw new RuntimeException('Unable to write captcha image');
+            }
+        } finally {
+            imagedestroy($image);
+        }
+    }
+
+    protected function writeImage(GdImage $image, string $path): bool
+    {
+        return imagepng($image, $path);
     }
 
     private function cleanup(string $dir): void

@@ -431,12 +431,20 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         // Queue a real ARCHIVE task (doveadm backup -> empty store, keep
         // account), exactly like the panel button. The runner records the
         // archive row + backup; we don't serialise/purge here.
-        ViMbAdmin_MailboxQueue::enqueue( $em, $m, \Entities\MailboxTask::TYPE_ARCHIVE, null );
+        $task = ViMbAdmin_MailboxQueue::enqueue( $em, $m, \Entities\MailboxTask::TYPE_ARCHIVE, null );
         $em->flush();
 
         // (The queue is drained only by the external cron; no in-app trigger.)
 
-        return [ 'queued' => \Entities\MailboxTask::TYPE_ARCHIVE, 'username' => $username ];
+        return self::_mailboxArchiveResult( $task !== null, $username );
+    }
+
+    /** @return array<string,mixed> */
+    private static function _mailboxArchiveResult( bool $queued, string $username ): array
+    {
+        return $queued
+            ? [ 'queued' => 'ARCHIVE', 'username' => $username ]
+            : [ 'queued' => false, 'already_queued' => true, 'username' => $username ];
     }
 
     /**

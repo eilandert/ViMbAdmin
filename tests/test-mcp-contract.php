@@ -139,6 +139,18 @@ $expected = [
     'archive.delete'  => ['scope' => 'write', 'destructive' => true],
 ];
 $controller = mcpContractController();
+$archiveResult = new ReflectionMethod($controller, '_mailboxArchiveResult');
+mcpContractCheck('duplicate archive requests report an idempotent already-queued result',
+    $archiveResult->invoke(null, false, 'user@example.test') === [
+        'queued' => false,
+        'already_queued' => true,
+        'username' => 'user@example.test',
+    ]);
+mcpContractCheck('new archive requests retain the existing queued response',
+    $archiveResult->invoke(null, true, 'user@example.test') === [
+        'queued' => 'ARCHIVE',
+        'username' => 'user@example.test',
+    ]);
 $table = (new ReflectionMethod($controller, '_methodTable'))->invoke($controller);
 $actual = [];
 $handlersValid = is_array($table);

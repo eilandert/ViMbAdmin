@@ -7,6 +7,23 @@ require __DIR__ . '/../vendor/autoload.php';
 use ViMbAdmin\Kernel\Controller\MailboxController;
 use ViMbAdmin\Kernel\Form\Validators;
 
+final class ShortWriteStream
+{
+    public static string $buffer = '';
+    public static int $limit = 3;
+    public function stream_open(string $path, string $mode, int $options, ?string &$openedPath): bool { return true; }
+    public function stream_write(string $data): int
+    {
+        $written = min(self::$limit, strlen($data));
+        self::$buffer .= substr($data, 0, $written);
+        return $written;
+    }
+    public function stream_eof(): bool { return false; }
+    /** @return array<string,mixed> */
+    public function stream_stat(): array { return []; }
+}
+stream_wrapper_register('short-write', ShortWriteStream::class);
+
 $failures = 0;
 $check = static function (string $label, bool $ok) use (&$failures): void {
     echo ($ok ? '  ok   ' : '  FAIL ') . $label . "\n";
@@ -27,6 +44,23 @@ $fails = static function (callable $operation, string $message): bool {
 };
 
 echo "== mailbox controller mixed-boundary shapes ==\n";
+
+$stream = fopen('short-write://request', 'wb');
+$request = "POST /queue/trigger HTTP/1.1\r\n\r\n";
+$check('queue trigger retries short socket writes until the request is complete',
+    is_resource($stream)
+        && $invoke('writeRequest', $stream, $request) === true
+        && ShortWriteStream::$buffer === $request);
+if (is_resource($stream)) {
+    fclose($stream);
+}
+ShortWriteStream::$limit = 0;
+$stream = fopen('short-write://failure', 'wb');
+$check('queue trigger fails closed when a socket write makes no progress',
+    is_resource($stream) && $invoke('writeRequest', $stream, $request) === false);
+if (is_resource($stream)) {
+    fclose($stream);
+}
 
 $check('canonical positive integer accepts decimal strings and native ints',
     $invoke('positiveIntegerOrNull', '7') === 7 && $invoke('positiveIntegerOrNull', 9) === 9);
