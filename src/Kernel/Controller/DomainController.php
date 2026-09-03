@@ -420,7 +420,9 @@ final class DomainController extends AbstractController
             $domain->setAliasCount(0);
             $domain->setMailboxCount(0);
             $domain->setCreated(new \DateTime());
-            $domain->setDomain(self::requiredString($v['domain'] ?? null, 'Domain name'));
+            $domain->setDomain(\ViMbAdmin_Identity::canonical(
+                self::requiredString($v['domain'] ?? null, 'Domain name'),
+            ));
             $this->applyFormFields($domain, $v, $filter);
 
             (new \ViMbAdmin_Service_Domain($this->em()))->save($domain, $admin, false);
@@ -779,7 +781,9 @@ final class DomainController extends AbstractController
                 return null;
             }
             $existing = $this->domainRepository()->findOneBy([
-                'domain' => self::requiredString($value, 'Domain name'),
+                'domain' => \ViMbAdmin_Identity::canonical(
+                    self::requiredString($value, 'Domain name'),
+                ),
             ]);
             return $existing !== null ? 'A domain with that name already exists.' : null;
         };

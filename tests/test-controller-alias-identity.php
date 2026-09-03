@@ -335,6 +335,12 @@ controllerAliasIdentityCheck(
     'alias form accepts the exact RFC-valid markup-like destination',
     $parsedDestinations === [[$storedDestination], null],
 );
+$canonicalDestinations = (new ReflectionMethod(AliasController::class, 'parseGotos'))
+    ->invoke($aliasController, " User@Example.TEST \n ADMIN@Example.TEST ");
+controllerAliasIdentityCheck(
+    'alias web form preserves lowercase and surrounding-whitespace normalization',
+    $canonicalDestinations === [['user@example.test', 'admin@example.test'], null],
+);
 $aliasError = null;
 try {
     $aliasController->editAction();

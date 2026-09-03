@@ -397,7 +397,9 @@ final class AliasController extends AbstractController
                 } else {
                     // _setAddress: assemble local_part@domain (blank local part is
                     // a catch-all @domain alias, which ZF1 does not email-validate).
-                    $localPart = strtolower(trim(self::requiredString($v['local_part'] ?? null, 'Alias local part')));
+                    $localPart = \ViMbAdmin_Identity::canonical(
+                        self::requiredString($v['local_part'] ?? null, 'Alias local part'),
+                    );
                     $address   = sprintf('%s@%s', $localPart, $domain->requiredDomainName());
 
                     if ($localPart !== '' && filter_var($address, FILTER_VALIDATE_EMAIL) === false) {
@@ -680,7 +682,7 @@ final class AliasController extends AbstractController
         $gotos = [];
 
         foreach ($parts as $goto) {
-            $goto = trim($goto);
+            $goto = \ViMbAdmin_Identity::canonical($goto);
             if ($goto === '') {
                 continue;
             }

@@ -37,14 +37,18 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         $body = file_get_contents( 'php://input' );
         if( !is_string( $body ) )
             return $this->_rpcError( null, -32700, 'parse error' );
-        $req  = json_decode( $body, true );
-        if( !is_array( $req ) || !isset( $req['method'] ) )
-            return $this->_rpcError( null, -32700, 'parse error' );
-
-        $id          = isset( $req['id'] ) ? $req['id'] : null;
-        $methodValue = $req['method'];
-        $method      = is_string( $methodValue ) ? $methodValue : '';
-        $paramsValue = $req['params'] ?? [];
+        try
+        {
+            $req = ViMbAdmin_Mcp_Request::parse( $body );
+            $id = $req['id'];
+            $method = $req['method'];
+            $params = $req['params'];
+            $definition = $this->_methodDefinition( $method );
+        }
+        catch( ViMbAdmin_Mcp_ProtocolException $e )
+        {
+            return $this->_protocolError( $e );
+        }
 
         // ---- authenticate (bearer + ip + scope) -------------------------
         try
@@ -56,10 +60,10 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
             );
             $server = ViMbAdmin_Mcp_Input::map( $_SERVER, 'server environment' );
             $auth  = new ViMbAdmin_Mcp_Auth( $this->em(), $trustedProxy );
-            $token = $this->_token = $auth->authenticate( $server, $this->_scopeFor( $method ) );
+            $token = $this->_token = $auth->authenticate( $server, $definition['scope'] );
 
             // Destructive methods are additionally per-token rate-limited.
-            if( $this->_isDestructive( $method ) )
+            if( $definition['destructive'] )
                 $this->_rateLimiter()->hit( $token->getId() );
         }
         catch( ViMbAdmin_Mcp_Exception $e )
@@ -70,33 +74,15 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         // ---- dispatch ---------------------------------------------------
         try
         {
-            $method = ViMbAdmin_Mcp_Input::string( $methodValue, 'method', true );
-            $params = ViMbAdmin_Mcp_Input::map( $paramsValue, 'params' );
-            switch( $method )
-            {
-                // read
-                case 'ping':            $result = $this->_ping();                  break;
-                case 'domains.list':    $result = $this->_domainsList();           break;
-                case 'mailboxes.list':  $result = $this->_mailboxesList( $params ); break;
-                case 'aliases.list':    $result = $this->_aliasesList( $params );   break;
-                // write
-                case 'domain.create':   $result = $this->_domainCreate( $params );  break;
-                case 'domain.delete':   $result = $this->_domainDelete( $params );  break;
-                case 'mailbox.create':  $result = $this->_mailboxCreate( $params ); break;
-                case 'mailbox.delete':  $result = $this->_mailboxDelete( $params ); break;
-                case 'alias.create':    $result = $this->_aliasCreate( $params );   break;
-                case 'alias.delete':    $result = $this->_aliasDelete( $params );   break;
-                // destructive (archive queue)
-                case 'mailbox.archive': $result = $this->_mailboxArchive( $params );break;
-                case 'archive.restore': $result = $this->_archiveState( $params, 'restore' ); break;
-                case 'archive.delete':  $result = $this->_archiveState( $params, 'delete' );  break;
-                default:
-                    return $this->_rpcError( $id, -32601, "unknown method '{$method}'" );
-            }
+            $result = ($definition['handler'])( $params );
+        }
+        catch( ViMbAdmin_Mcp_DomainException $e )
+        {
+            return $this->_applicationError( $id, $e );
         }
         catch( ViMbAdmin_Mcp_Exception $e )
         {
-            return $this->_rpcError( $id, -32602, $e->getMessage() );
+            return $this->_applicationError( $id, $e );
         }
         catch( \Throwable $e )
         {
@@ -109,15 +95,23 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
 
     // ---- abilities -----------------------------------------------------
 
-    /** @return array<string,mixed> */
-    private function _ping(): array
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _ping( array $params ): array
     {
+        unset( $params );
         return [ 'pong' => true, 'time' => gmdate( 'c' ) ];
     }
 
-    /** @return array<string,mixed> */
-    private function _domainsList(): array
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _domainsList( array $params ): array
     {
+        unset( $params );
         $out = [];
         foreach( $this->em()->getRepository( '\\Entities\\Domain' )->findAll() as $d )
         {
@@ -202,13 +196,13 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
      */
     private function _domainCreate( array $params ): array
     {
-        $name = $this->_str( $params, 'domain', true );
+        $name = $this->_identity( $params, 'domain' );
         $this->_validate( $name, \ViMbAdmin\Kernel\Form\Validators::hostname(), 'domain' );
         // Bind the per-token domain allowlist to creation too: a token scoped to
         // specific domains must not be able to create one outside that list.
         $this->_assertDomainAllowed( $name );
         if( $this->em()->getRepository( '\\Entities\\Domain' )->findOneBy( [ 'domain' => $name ] ) )
-            throw new ViMbAdmin_Mcp_Exception( 'domain already exists' );
+            throw new ViMbAdmin_Mcp_DomainException( 'domain already exists' );
 
         $d = new \Entities\Domain();
         $options = $this->options();
@@ -261,14 +255,14 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     private function _mailboxCreate( array $params ): array
     {
         $domain    = $this->_requireDomain( $params );
-        $localPart = $this->_str( $params, 'local_part', true );
+        $localPart = $this->_identity( $params, 'local_part' );
         $this->_validate( $localPart, \ViMbAdmin\Kernel\Form\Validators::localPart(), 'local_part' );
         $password  = $this->_str( $params, 'password', true );
         $username  = $localPart . '@' . $domain->requiredDomainName();
 
         $repo = $this->_mailboxRepository();
         if( !$repo->isUnique( $username ) )
-            throw new ViMbAdmin_Mcp_Exception( 'mailbox already exists' );
+            throw new ViMbAdmin_Mcp_DomainException( 'mailbox already exists' );
 
         $m = new \Entities\Mailbox();
         $m->setLocalPart( $localPart );
@@ -332,8 +326,8 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     private function _aliasCreate( array $params ): array
     {
         $domain  = $this->_requireDomain( $params );
-        $address = $this->_str( $params, 'address', true );
-        $goto    = $this->_str( $params, 'goto', true );
+        $address = $this->_identity( $params, 'address' );
+        $goto    = $this->_identity( $params, 'goto' );
         if( strpos( $address, '@' ) === false )
         {
             $this->_validate( $address, \ViMbAdmin\Kernel\Form\Validators::localPart(), 'address local part' );
@@ -350,7 +344,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
 
         $repo = $this->em()->getRepository( '\\Entities\\Alias' );
         if( $repo->findOneBy( [ 'address' => $address ] ) )
-            throw new ViMbAdmin_Mcp_Exception( 'alias already exists' );
+            throw new ViMbAdmin_Mcp_DomainException( 'alias already exists' );
 
         $a = new \Entities\Alias();
         $a->setAddress( $address );
@@ -371,13 +365,13 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
      */
     private function _aliasDelete( array $params ): array
     {
-        $address = $this->_str( $params, 'address', true );
+        $address = $this->_identity( $params, 'address' );
         $a = $this->em()->getRepository( '\\Entities\\Alias' )->findOneBy( [ 'address' => $address ] );
         if( !$a )
-            throw new ViMbAdmin_Mcp_Exception( 'unknown alias' );
+            throw new ViMbAdmin_Mcp_DomainException( 'unknown alias' );
         $domain = $a->getDomain();
         if( !$domain instanceof \Entities\Domain )
-            throw new ViMbAdmin_Mcp_Exception( 'unknown alias' );
+            throw new ViMbAdmin_Mcp_DomainException( 'unknown alias' );
         $this->_assertDomainAllowed( $domain->requiredDomainName() );
         $em = $this->em();
         $em->remove( $a );
@@ -418,16 +412,34 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
      * @param array<string,mixed> $params
      * @return array<string,mixed>
      */
+    private function _archiveRestore( array $params ): array
+    {
+        return $this->_archiveState( $params, 'restore' );
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private function _archiveDelete( array $params ): array
+    {
+        return $this->_archiveState( $params, 'delete' );
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
     private function _archiveState( array $params, string $operation ): array
     {
         if( $operation !== 'restore' && $operation !== 'delete' )
-            throw new ViMbAdmin_Mcp_Exception( 'unknown archive operation' );
+            throw new ViMbAdmin_Mcp_DomainException( 'unknown archive operation' );
 
-        $username = $this->_str( $params, 'username', true );
+        $username = $this->_identity( $params, 'username' );
         $em       = $this->em();
         $archive  = $em->getRepository( '\\Entities\\Archive' )->findOneBy( [ 'username' => $username ] );
         if( !$archive )
-            throw new ViMbAdmin_Mcp_Exception( 'no archive for that username' );
+            throw new ViMbAdmin_Mcp_DomainException( 'no archive for that username' );
         $archiveDomain = $archive->getDomain();
         if( $archiveDomain )
             $this->_assertDomainAllowed( $archiveDomain->requiredDomainName() );
@@ -454,11 +466,18 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
             $archiveData = $archive->getData();
             $snap = is_string( $archiveData ) ? json_decode( $archiveData, true ) : null;
             if( !is_array( $snap ) || !array_key_exists( 'mailbox', $snap ) )
-                throw new ViMbAdmin_Mcp_Exception( 'no mailbox snapshot stored with this archive — cannot restore' );
-            $mb = ViMbAdmin_Mcp_Input::mailboxSnapshot( $snap['mailbox'] );
+                throw new ViMbAdmin_Mcp_DomainException( 'no mailbox snapshot stored with this archive — cannot restore' );
+            try
+            {
+                $mb = ViMbAdmin_Mcp_Input::mailboxSnapshot( $snap['mailbox'] );
+            }
+            catch( ViMbAdmin_Mcp_Exception $e )
+            {
+                throw new ViMbAdmin_Mcp_DomainException( $e->getMessage(), 0, $e );
+            }
             $expectedSnapshotUsername = $mb['local_part'] . '@' . $archiveDomain->requiredDomainName();
             if( $mb['username'] !== $username || $mb['username'] !== $expectedSnapshotUsername )
-                throw new ViMbAdmin_Mcp_Exception( 'archive mailbox snapshot identity mismatch' );
+                throw new ViMbAdmin_Mcp_DomainException( 'archive mailbox snapshot identity mismatch' );
 
             $mailbox = new \Entities\Mailbox();
             $mailbox->setUsername( $mb['username'] )->setLocalPart( $mb['local_part'] );
@@ -490,10 +509,10 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
      */
     private function _requireDomain( array $params )
     {
-        $name   = $this->_str( $params, 'domain', true );
+        $name   = $this->_identity( $params, 'domain' );
         $domain = $this->em()->getRepository( '\\Entities\\Domain' )->findOneBy( [ 'domain' => $name ] );
         if( !$domain )
-            throw new ViMbAdmin_Mcp_Exception( 'unknown domain' );
+            throw new ViMbAdmin_Mcp_DomainException( 'unknown domain' );
         $this->_assertDomainAllowed( $domain->requiredDomainName() );
         return $domain;
     }
@@ -508,7 +527,7 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     private function _assertDomainAllowed( string $domain ): void
     {
         if( $this->_token && !$this->_token->allowsDomain( $domain ) )
-            throw new ViMbAdmin_Mcp_Exception( 'unknown domain' );
+            throw new ViMbAdmin_Mcp_DomainException( 'unknown domain' );
     }
 
     /**
@@ -518,13 +537,13 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
      */
     private function _requireMailbox( array $params )
     {
-        $username = $this->_str( $params, 'username', true );
+        $username = $this->_identity( $params, 'username' );
         $m = $this->em()->getRepository( '\\Entities\\Mailbox' )->findOneBy( [ 'username' => $username ] );
         if( !$m )
-            throw new ViMbAdmin_Mcp_Exception( 'unknown mailbox' );
+            throw new ViMbAdmin_Mcp_DomainException( 'unknown mailbox' );
         $mailboxDomain = $m->getDomain();
         if( !$mailboxDomain instanceof \Entities\Domain )
-            throw new ViMbAdmin_Mcp_Exception( 'unknown mailbox' );
+            throw new ViMbAdmin_Mcp_DomainException( 'unknown mailbox' );
         $this->_assertDomainAllowed( $mailboxDomain->requiredDomainName() );
         return $m;
     }
@@ -540,6 +559,15 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         }
 
         return ViMbAdmin_Mcp_Input::string( $params[$key], "param \"{$key}\"", $required );
+    }
+
+    /** @param array<string,mixed> $params */
+    private function _identity( array $params, string $key ): string
+    {
+        if( !array_key_exists( $key, $params ) )
+            throw new ViMbAdmin_Mcp_Exception( "param \"{$key}\" required" );
+
+        return ViMbAdmin_Mcp_Input::identity( $params[$key], "param \"{$key}\"", true );
     }
 
     /**
@@ -574,27 +602,49 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
 
     // ---- scope / rate-limit routing ------------------------------------
 
-    /** @return list<string> */
-    private function _writeMethods(): array
+    /**
+     * The authoritative MCP ability table. Its closures are both the dispatch
+     * targets and static references that keep handler coverage verifiable.
+     *
+     * @return array<string,array{
+     *     handler:\Closure(array<string,mixed>):array<string,mixed>,
+     *     scope:'read'|'write',
+     *     destructive:bool
+     * }>
+     */
+    private function _methodTable(): array
     {
-        return [ 'domain.create','domain.delete','mailbox.create','mailbox.delete',
-                 'alias.create','alias.delete','mailbox.archive','archive.restore','archive.delete' ];
+        return [
+            'ping'            => [ 'handler' => $this->_ping(...),           'scope' => 'read',  'destructive' => false ],
+            'domains.list'    => [ 'handler' => $this->_domainsList(...),    'scope' => 'read',  'destructive' => false ],
+            'mailboxes.list'  => [ 'handler' => $this->_mailboxesList(...),  'scope' => 'read',  'destructive' => false ],
+            'aliases.list'    => [ 'handler' => $this->_aliasesList(...),    'scope' => 'read',  'destructive' => false ],
+            'domain.create'   => [ 'handler' => $this->_domainCreate(...),   'scope' => 'write', 'destructive' => false ],
+            'domain.delete'   => [ 'handler' => $this->_domainDelete(...),   'scope' => 'write', 'destructive' => true  ],
+            'mailbox.create'  => [ 'handler' => $this->_mailboxCreate(...),  'scope' => 'write', 'destructive' => false ],
+            'mailbox.delete'  => [ 'handler' => $this->_mailboxDelete(...),  'scope' => 'write', 'destructive' => true  ],
+            'alias.create'    => [ 'handler' => $this->_aliasCreate(...),    'scope' => 'write', 'destructive' => false ],
+            'alias.delete'    => [ 'handler' => $this->_aliasDelete(...),    'scope' => 'write', 'destructive' => false ],
+            'mailbox.archive' => [ 'handler' => $this->_mailboxArchive(...), 'scope' => 'write', 'destructive' => true  ],
+            'archive.restore' => [ 'handler' => $this->_archiveRestore(...), 'scope' => 'write', 'destructive' => true  ],
+            'archive.delete'  => [ 'handler' => $this->_archiveDelete(...),  'scope' => 'write', 'destructive' => true  ],
+        ];
     }
 
-    /** @return list<string> */
-    private function _destructiveMethods(): array
+    /**
+     * @return array{
+     *     handler:\Closure(array<string,mixed>):array<string,mixed>,
+     *     scope:'read'|'write',
+     *     destructive:bool
+     * }
+     */
+    private function _methodDefinition( string $method ): array
     {
-        return [ 'mailbox.delete','domain.delete','mailbox.archive','archive.restore','archive.delete' ];
-    }
+        $table = $this->_methodTable();
+        if( !array_key_exists( $method, $table ) )
+            throw new ViMbAdmin_Mcp_ProtocolException( "unknown method '{$method}'", -32601 );
 
-    private function _scopeFor( string $method ): string
-    {
-        return in_array( $method, $this->_writeMethods(), true ) ? 'write' : 'read';
-    }
-
-    private function _isDestructive( string $method ): bool
-    {
-        return in_array( $method, $this->_destructiveMethods(), true );
+        return $table[$method];
     }
 
     private function _rateLimiter(): ViMbAdmin_Mcp_RateLimit
@@ -638,6 +688,20 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
     private function _rpcError( mixed $id, int $code, string $message, int $httpStatus = 200 ): \ViMbAdmin\Kernel\Http\Response
     {
         return $this->_json( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => $code, 'message' => $message ] ], $httpStatus );
+    }
+
+    private function _protocolError( ViMbAdmin_Mcp_ProtocolException $error ): \ViMbAdmin\Kernel\Http\Response
+    {
+        if( !$error->shouldRespond() )
+            return new \ViMbAdmin\Kernel\Http\Response( '', 400, 'text/plain; charset=utf-8' );
+
+        return $this->_rpcError( $error->rpcId(), $error->rpcCode(), $error->getMessage() );
+    }
+
+    private function _applicationError( mixed $id, ViMbAdmin_Mcp_Exception $error ): \ViMbAdmin\Kernel\Http\Response
+    {
+        $code = $error instanceof ViMbAdmin_Mcp_DomainException ? -32010 : -32602;
+        return $this->_rpcError( $id, $code, $error->getMessage() );
     }
 
     /** Auth/transport-level failure: HTTP status + JSON-RPC error envelope. */

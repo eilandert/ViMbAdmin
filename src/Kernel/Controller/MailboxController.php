@@ -718,7 +718,9 @@ final class MailboxController extends AbstractController
                 && $domain->getMailboxCount() >= $domain->getMaxMailboxes()) {
                 $this->flash('You have used all of your allocated mailboxes.', FlashMessages::ERROR);
             } else {
-                $localPart = strtolower(trim(self::requiredString($v['local_part'] ?? null, 'Mailbox local part')));
+                $localPart = \ViMbAdmin_Identity::canonical(
+                    self::requiredString($v['local_part'] ?? null, 'Mailbox local part'),
+                );
                 $username  = sprintf('%s@%s', $localPart, $domain->requiredDomainName());
 
                 if (!$this->mailboxRepository()->isUnique($username)) {

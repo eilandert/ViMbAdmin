@@ -120,9 +120,9 @@ class McpToken
         $list = trim( (string) $this->allowed_domains );
         if( $list === '' )
             return true;
-        $domain = strtolower( (string) $domain );
+        $domain = \ViMbAdmin_Identity::canonical( (string) $domain );
         foreach( preg_split( '/[\s,]+/', $list, -1, PREG_SPLIT_NO_EMPTY ) ?: [] as $d )
-            if( strtolower( $d ) === $domain )
+            if( \ViMbAdmin_Identity::canonical( $d ) === $domain )
                 return true;
         return false;
     }
