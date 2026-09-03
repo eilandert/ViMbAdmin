@@ -52,6 +52,10 @@
  */
 class ViMbAdmin_Doveadm
 {
+    /** Maximum time the multi-handle loop may wait before renewing liveness. */
+    const TRANSFER_POLL_SECONDS = 1.0;
+    private const CURL_MULTI_OK = 0;
+
     private static function stringValue( mixed $value, string $name ): string
     {
         if( !is_string( $value ) )
@@ -195,7 +199,7 @@ class ViMbAdmin_Doveadm
      * POST the JSON body to the doveadm endpoint.
      *
      * @param string $payload JSON request body
-     * @return array{0:int,1:string|true} [ httpStatus, responseBody ]
+     * @return array{0:int,1:string} [ httpStatus, responseBody ]
      * @throws ViMbAdmin_Exception on transport failure
      */
     private function _post( $payload )
@@ -215,25 +219,83 @@ class ViMbAdmin_Doveadm
                     'Authorization: ' . $authHeader,
                 ],
             ];
-            if( $this->_progress !== null )
+            if( !curl_setopt_array( $ch, $curlOptions ) )
             {
-                $curlOptions[CURLOPT_NOPROGRESS] = false;
-                $curlOptions[CURLOPT_XFERINFOFUNCTION] = function() {
-                    $this->reportProgress();
-                    return 0;
-                };
+                throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to configure cURL request' ) );
             }
-            curl_setopt_array( $ch, $curlOptions );
-            $body   = curl_exec( $ch );
-            $status = (int) curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-            $err    = curl_error( $ch );
-            curl_close( $ch );
-            if( $body === false )
+
+            $multi = curl_multi_init();
+            $added = false;
+            try
+            {
+                $multiStatus = curl_multi_add_handle( $multi, $ch );
+                if( $multiStatus !== CURLM_OK )
+                    throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to start cURL request' ) );
+                $added = true;
+
+                $this->driveTransfer(
+                    static function() use ( $multi ): array {
+                        $running = 0;
+                        $status = curl_multi_exec( $multi, $running );
+                        if( !is_int( $running ) )
+                            throw new ViMbAdmin_Exception( _( 'doveadm HTTP request returned invalid cURL state' ) );
+                        return [ $status, $running ];
+                    },
+                    static function() use ( $multi ): int {
+                        return curl_multi_select( $multi, self::TRANSFER_POLL_SECONDS );
+                    }
+                );
+
+                $body   = curl_multi_getcontent( $ch );
+                $status = (int) curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+                $err    = curl_error( $ch );
+                $errno  = curl_errno( $ch );
+            }
+            finally
+            {
+                if( $added )
+                    curl_multi_remove_handle( $multi, $ch );
+                curl_multi_close( $multi );
+            }
+
+            if( !is_string( $body ) || $errno !== CURLE_OK )
                 throw new ViMbAdmin_Exception( _( 'doveadm HTTP request failed (curl): ' ) . $err );
             return [ $status, $body ];
         }
 
         throw new ViMbAdmin_Exception( _( 'No HTTP client available (cURL extension missing)' ) );
+    }
+
+    /**
+     * Drive one cURL transfer while reporting liveness after every bounded
+     * wait. Unlike CURLOPT_XFERINFOFUNCTION, this cadence does not depend on
+     * the peer sending or receiving bytes.
+     *
+     * @param callable():array{0:int,1:int} $perform
+     * @param callable():int $wait
+     * @return void
+     */
+    protected function driveTransfer( callable $perform, callable $wait )
+    {
+        $running = 0;
+        do
+        {
+            [ $multiStatus, $running ] = $perform();
+            if( $multiStatus !== self::CURL_MULTI_OK )
+                throw new ViMbAdmin_Exception( _( 'doveadm HTTP request failed (curl multi)' ) );
+
+            $this->reportProgress();
+
+            if( $running > 0 )
+            {
+                $selected = $wait();
+                if( $selected < -1 )
+                    throw new ViMbAdmin_Exception( _( 'doveadm HTTP request wait failed (curl multi)' ) );
+                if( $selected === -1 )
+                    usleep( 100000 );
+            }
+        }
+        while( $running > 0 );
     }
 
     /** @return void */

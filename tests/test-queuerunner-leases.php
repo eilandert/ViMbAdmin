@@ -74,6 +74,9 @@ final class QueueRunnerLeaseQuery
 final class QueueRunnerLeaseConnection
 {
     public ?int $contendOnSlot = null;
+    public int $lockAcquisitions = 0;
+    public int $lockReleases = 0;
+    private bool $acquireLockHeld = false;
     private int $lastId = 0;
 
     public function __construct(private QueueRunnerLeaseEntityManager $em) {}
@@ -81,6 +84,9 @@ final class QueueRunnerLeaseConnection
     /** @param array<string,mixed> $data */
     public function insert(string $table, array $data): int
     {
+        if (!$this->acquireLockHeld) {
+            throw new RuntimeException('lease insert happened outside the database mutex');
+        }
         if ($table !== 'queue_runner'
             || !is_int($data['slot'] ?? null)
             || !is_string($data['host'] ?? null)
@@ -115,6 +121,35 @@ final class QueueRunnerLeaseConnection
     public function lastInsertId(): int
     {
         return $this->lastId;
+    }
+
+    /** @param list<mixed> $parameters */
+    public function fetchOne(string $sql, array $parameters = []): int
+    {
+        if ($sql === 'SELECT GET_LOCK(?, ?)'
+            && $parameters === [
+                ViMbAdmin_QueueRunner::ACQUIRE_LOCK_NAME,
+                ViMbAdmin_QueueRunner::ACQUIRE_LOCK_TIMEOUT,
+            ]) {
+            if ($this->acquireLockHeld) {
+                return 0;
+            }
+            $this->acquireLockHeld = true;
+            $this->lockAcquisitions++;
+            return 1;
+        }
+
+        if ($sql === 'SELECT RELEASE_LOCK(?)'
+            && $parameters === [ViMbAdmin_QueueRunner::ACQUIRE_LOCK_NAME]) {
+            if (!$this->acquireLockHeld) {
+                return 0;
+            }
+            $this->acquireLockHeld = false;
+            $this->lockReleases++;
+            return 1;
+        }
+
+        throw new RuntimeException('unexpected scalar query: ' . $sql);
     }
 
     /** @param list<mixed> $parameters */
@@ -250,6 +285,26 @@ final class QueueRunnerBlockingService extends ViMbAdmin_Service_QueueRunner
     }
 }
 
+final class QueueRunnerSilentTransfer extends ViMbAdmin_Doveadm
+{
+    public function __construct(callable $progress)
+    {
+        parent::__construct('http://doveadm.invalid/doveadm/v1', 'test-key', 900, $progress);
+    }
+
+    public function runSilent(int $waits, callable $wait): void
+    {
+        $performs = 0;
+        $this->driveTransfer(
+            static function() use (&$performs, $waits): array {
+                $running = $performs++ < $waits ? 1 : 0;
+                return [0, $running];
+            },
+            $wait
+        );
+    }
+}
+
 final class QueueRunnerLeaseAssertions { public static int $failures = 0; }
 
 function queueRunnerCheck(string $label, bool $ok): void
@@ -370,6 +425,19 @@ queueRunnerCheck(
         && count($stale->leases) === 1
 );
 
+$reduced = new QueueRunnerLeaseEntityManager();
+$reduced->addLease(5, clone $epoch);
+$reducedConnection = $reduced->getConnection();
+$reducedResult = queueRunnerAcquire($reduced, queueRunnerOptions(1), $epoch);
+queueRunnerCheck(
+    'a cap reduction counts a live out-of-range slot and denies a new runner',
+    $reducedResult === null
+        && count($reduced->leases) === 1
+        && reset($reduced->leases)->getSlot() === 5
+        && $reducedConnection->lockAcquisitions === 1
+        && $reducedConnection->lockReleases === 1
+);
+
 $manual = new QueueRunnerLeaseEntityManager();
 $manual->addLease(1, clone $epoch);
 $manualCallbackRan = false;
@@ -439,6 +507,60 @@ queueRunnerCheck(
         && $live->taskRepository->claims === 1
         && count($live->leases) === 0
 );
+
+$silent = new QueueRunnerLeaseEntityManager();
+$silentLease = queueRunnerAcquire($silent, queueRunnerOptions(1), $epoch);
+if (!$silentLease instanceof \Entities\QueueRunner) {
+    throw new RuntimeException('silent-call lease was not acquired');
+}
+$silentRunner = queueRunnerService(
+    $silent,
+    clone $epoch,
+    static function(callable $progress): void {},
+);
+$leaseProgress = (new ReflectionMethod(ViMbAdmin_Service_QueueRunner::class, 'leaseProgress'))
+    ->invoke($silentRunner, $silentLease);
+if (!is_callable($leaseProgress)) {
+    throw new RuntimeException('lease progress callback missing');
+}
+$silentCompetitorDenied = true;
+$silentWaits = (int) ceil(
+    (ViMbAdmin_QueueRunner::LEASE_TTL + 1) /
+    (ViMbAdmin_Service_QueueRunner::LEASE_HEARTBEAT_INTERVAL + 1)
+);
+$silentTransfer = new QueueRunnerSilentTransfer($leaseProgress);
+$silentTransfer->runSilent(
+    $silentWaits,
+    static function() use (
+        $silent,
+        $silentRunner,
+        &$silentCompetitorDenied
+    ): int {
+        $silentRunner->clock->modify(
+            '+' . (ViMbAdmin_Service_QueueRunner::LEASE_HEARTBEAT_INTERVAL + 1) . ' seconds'
+        );
+        if (queueRunnerAcquire(
+            $silent,
+            queueRunnerOptions(1),
+            $silentRunner->clock
+        ) !== null) {
+            $silentCompetitorDenied = false;
+        }
+        return 0;
+    }
+);
+$silentElapsed = $silentRunner->clock->getTimestamp() - $epoch->getTimestamp();
+queueRunnerCheck(
+    'silent transfer beyond TTL stays live and denies every competing acquire',
+    $silentElapsed > ViMbAdmin_QueueRunner::LEASE_TTL
+        && $silentCompetitorDenied
+        && count($silent->leases) === 1
+        && reset($silent->leases) === $silentLease
+        && $silentLease->getHeartbeatAt() instanceof DateTime
+        && $silentLease->getHeartbeatAt()->getTimestamp()
+            > $epoch->getTimestamp() + ViMbAdmin_QueueRunner::LEASE_TTL
+);
+queueRunnerRelease($silent, $silentLease);
 
 $boundary = new QueueRunnerLeaseEntityManager();
 foreach ([-4, 'not-a-number', null, []] as $max) {
