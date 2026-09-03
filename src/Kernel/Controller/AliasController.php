@@ -204,7 +204,7 @@ final class AliasController extends AbstractController
 
         $opts = $this->container->options();
 
-        $paginate = self::optionBoolean($opts, false, 'defaults', 'server_side', 'pagination', 'enable');
+        $paginate = self::optionBoolean($opts, true, 'defaults', 'server_side', 'pagination', 'enable');
 
         $aliases = $paginate
             ? []

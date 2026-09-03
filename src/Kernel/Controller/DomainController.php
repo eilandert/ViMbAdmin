@@ -308,7 +308,7 @@ final class DomainController extends AbstractController
 
         $opts = $this->container->options();
 
-        $paginate = self::optionBoolean($opts, false, 'defaults', 'server_side', 'pagination', 'domain', 'enable');
+        $paginate = self::optionBoolean($opts, true, 'defaults', 'server_side', 'pagination', 'domain', 'enable');
 
         $vars = [
             'domains' => $paginate

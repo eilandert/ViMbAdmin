@@ -73,7 +73,7 @@ final class LogController extends AbstractController
             ? self::stringMap($serverSide['pagination'], 'defaults.server_side.pagination') : [];
         $cfg = array_key_exists('log', $pagination)
             ? self::stringMap($pagination['log'], 'defaults.server_side.pagination.log') : [];
-        $enabled = array_key_exists('enable', $cfg) ? self::booleanValue($cfg['enable'], 'log pagination enable') : false;
+        $enabled = array_key_exists('enable', $cfg) ? self::booleanValue($cfg['enable'], 'log pagination enable') : true;
         $logs    = !$enabled
             ? $this->logRepository()->loadForLogList($targetAdmin, $domain)
             : [];

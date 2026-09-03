@@ -448,7 +448,7 @@ final class MailboxController extends AbstractController
 
         $opts = $this->container->options();
 
-        $paginate = self::optionBool($opts, false, 'defaults', 'server_side', 'pagination', 'enable');
+        $paginate = self::optionBool($opts, true, 'defaults', 'server_side', 'pagination', 'enable');
 
         $vars = [
             'mailboxes' => $paginate

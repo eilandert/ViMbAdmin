@@ -39,7 +39,7 @@ class OSS_Captcha_Image
         if ($this->wordLen < 1) {
             throw new ValueError('Captcha word length must be greater than 0');
         }
-        $word = substr(strtoupper(bin2hex(random_bytes($this->wordLen))), 0, $this->wordLen);
+        $word = OSS_String::randomFromSet('23456789ABCDEFGHJKLMNPQRSTUVWXYZ', $this->wordLen);
 
         $_SESSION['OSS_Captcha_' . $id] = [
             'word' => $word,

@@ -183,9 +183,9 @@ function archiveIdentityContainer(
 }
 
 /** @param array<string,mixed> $params */
-function archiveIdentityMcpState(McpController $controller, array $params, string $status): mixed
+function archiveIdentityMcpState(McpController $controller, array $params, string $operation): mixed
 {
-    return (new ReflectionMethod($controller, '_archiveState'))->invoke($controller, $params, $status);
+    return (new ReflectionMethod($controller, '_archiveState'))->invoke($controller, $params, $operation);
 }
 
 echo "== Archive identity caller boundaries ==\n";
@@ -329,12 +329,21 @@ $mcpController = new McpController(
     ),
     new RouteMatch('mcp', 'index', McpController::class, 'indexAction', []),
 );
+$unknownOperationError = null;
+try {
+    archiveIdentityMcpState($mcpController, ['username' => 'box@example.test'], 'unknown');
+} catch (ViMbAdmin_Mcp_Exception $e) {
+    $unknownOperationError = $e->getMessage();
+}
+archiveIdentityCheck('MCP archive rejects unknown operation before persistence',
+    $unknownOperationError === 'unknown archive operation'
+    && $mcpManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
 $mcpError = null;
 try {
     archiveIdentityMcpState(
         $mcpController,
         ['username' => 'box@example.test'],
-        \Entities\Archive::STATUS_PENDING_DELETE,
+        'delete',
     );
 } catch (Throwable $e) {
     $mcpError = $e;
@@ -378,7 +387,7 @@ try {
     archiveIdentityMcpState(
         $mismatchedSnapshotMcp,
         ['username' => 'box@example.test'],
-        \Entities\Archive::STATUS_PENDING_RESTORE,
+        'restore',
     );
 } catch (ViMbAdmin_Mcp_Exception $e) {
     $mismatchedSnapshotError = $e->getMessage();

@@ -80,12 +80,11 @@ defaults.quota.multiplier = 'MB'
 ;; to client-side paging.
 defaults.server_side.pagination.enable = true
 defaults.server_side.pagination.min_search_str = 3
-defaults.server_side.pagination.max_result_cnt = 500
 
 ;; Separate configuration for domain list
 defaults.server_side.pagination.domain.enable = true
 defaults.server_side.pagination.domain.min_search_str = 3
-defaults.server_side.pagination.domain.max_result_cnt = 500
+;; DataTables requests are capped at 500 rows by DataTableQuery::MAX_LENGTH.
 
 ;; Separate configuration for the (unbounded) log and the archive list
 defaults.server_side.pagination.log.enable = true
@@ -551,5 +550,4 @@ resources.session.cookie_samesite = "Lax"
 ;resources.smarty.compiled  = APPLICATION_PATH "/../var/templates_c"
 ;resources.smarty.cache     = APPLICATION_PATH "/../var/cache"
 ;resources.smarty.config    = APPLICATION_PATH "/configs/smarty"
-
 

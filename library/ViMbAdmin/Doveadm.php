@@ -160,7 +160,7 @@ class ViMbAdmin_Doveadm
     public function run( $cmd, array $params = [] )
     {
         $this->reportProgress();
-        $tag     = 'vimb' . substr( md5( uniqid( '', true ) ), 0, 8 );
+        $tag     = 'vimb' . bin2hex( random_bytes( 4 ) );
         $payload = json_encode( [ [ $cmd, (object) $params, $tag ] ] );
 
         if( $payload === false )

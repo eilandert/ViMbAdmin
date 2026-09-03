@@ -40,8 +40,6 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  *      native identity slot), clear
  *      the brute-force counter and stamp last-login.
  *
- * Like the ZF1 login this form carries NO CSRF token (it is credential- and
- * brute-force-gated; a CSRF requirement would only add a session-expiry footgun).
  * Remember-me cookies and login-history are intentionally NOT carried over in
  * this first cut (dropping remember-me is a safe reduction). Login, logout, setup,
  * the 2FA flow (totp / totp-setup), the mailbox self-service change-password and
@@ -555,8 +553,8 @@ final class AuthController extends AbstractController
      * The current password is verified against the MAILBOX password (not an admin)
      * with the configured mailbox scheme, and on success the new password is hashed
      * + stored — all via the already-framework-free {@see \OSS_Auth_Password}
-     * (PHP-native dovecot hashing), so no ZF1. The demo account is refused. No CSRF
-     * (pre-auth, credential-gated, like the login form). A wrong username or
+     * (PHP-native dovecot hashing), so no ZF1. The demo account is refused. A
+     * wrong username or
      * current password gives the same generic "Invalid username or password" as
      * ZF1 (no user enumeration).
      */
@@ -776,7 +774,16 @@ final class AuthController extends AbstractController
 
                 $tokens = $user->getIndexedPreference('tokens.password_reset');
 
-                if (!is_array($tokens) || !in_array($token, $tokens, true)) {
+                $tokenMatches = false;
+                if (is_array($tokens)) {
+                    foreach ($tokens as $candidate) {
+                        if (is_string($candidate) && hash_equals($candidate, $token)) {
+                            $tokenMatches = true;
+                        }
+                    }
+                }
+
+                if (!$tokenMatches) {
                     $this->flash('Invalid username / token combination. Please check your details and try again.', FlashMessages::ERROR);
                 } else {
                     $user->setPassword(\OSS_Auth_Password::hash(

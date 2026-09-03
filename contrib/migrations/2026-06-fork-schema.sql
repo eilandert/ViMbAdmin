@@ -148,7 +148,11 @@ SET @have := (
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dovecot_last_login'
       AND CONSTRAINT_NAME = 'FK_dovecot_last_login_mailbox'
 );
-SET @ddl := IF( @have = 0,
+SET @have_last_login_table := (
+    SELECT COUNT(*) FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dovecot_last_login'
+);
+SET @ddl := IF( @have_last_login_table = 1 AND @have = 0,
     'ALTER TABLE `dovecot_last_login`
        ADD CONSTRAINT `FK_dovecot_last_login_mailbox`
        FOREIGN KEY (`username`) REFERENCES `mailbox` (`username`)
@@ -163,13 +167,17 @@ PREPARE _m FROM @ddl; EXECUTE _m; DEALLOCATE PREPARE _m;
 -- Queue ARCHIVE/DELETE write archive rows; DELETE flags autoprune so the backup
 -- is pruned after queue.autoprune.days. Additive boolean (schema-tool also
 -- generates this on a fresh DB).
+SET @have_archive_table := (
+    SELECT COUNT(*) FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'archive'
+);
 SET @have := (
     SELECT COUNT(*) FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE()
       AND TABLE_NAME   = 'archive'
       AND COLUMN_NAME  = 'autoprune'
 );
-SET @ddl := IF( @have = 0,
+SET @ddl := IF( @have_archive_table = 1 AND @have = 0,
     'ALTER TABLE `archive` ADD `autoprune` TINYINT(1) NOT NULL DEFAULT 0',
     'DO 0 /* archive.autoprune already present */' );
 PREPARE _m FROM @ddl; EXECUTE _m; DEALLOCATE PREPARE _m;

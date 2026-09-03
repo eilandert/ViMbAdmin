@@ -3,7 +3,7 @@ var oDataTable;
 
 $(document).ready(function()
 {
-    {if isset($options.defaults.server_side.pagination.log.enable) && $options.defaults.server_side.pagination.log.enable }
+    {if !isset($options.defaults.server_side.pagination.log.enable) || $options.defaults.server_side.pagination.log.enable }
     /* Server-side processing: the (unbounded) log table is paged/sorted/searched
        through /log/list-data, fetching only the visible page. Cells are escaped
        (DataTables inserts cell data as raw HTML; Smarty escaped the inline rows). */
