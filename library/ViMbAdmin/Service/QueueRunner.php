@@ -624,15 +624,30 @@ class ViMbAdmin_Service_QueueRunner
             }
             $expired = $archiveRepository->findAutoprune($cutoff);
 
-            foreach ($this->initializedAutopruneArchives($expired) as [$archive, $user]) {
-                $open = (int) $em->createQuery(
-                    'SELECT COUNT(t.id) FROM \Entities\MailboxTask t
-                      WHERE t.username = :u AND t.type = :t AND t.status IN (:open)')
-                    ->setParameter('u', $user)
+            $candidates = iterator_to_array($this->initializedAutopruneArchives($expired), false);
+            $users = array_column($candidates, 1);
+            $alreadyQueued = [];
+            if ($users !== []) {
+                foreach ($em->createQuery(
+                    'SELECT DISTINCT t.username AS username FROM \Entities\MailboxTask t
+                      WHERE t.username IN (:users) AND t.type = :t AND t.status IN (:open)')
+                    ->setParameter('users', $users)
                     ->setParameter('t', \Entities\MailboxTask::TYPE_PRUNE)
                     ->setParameter('open', [\Entities\MailboxTask::STATUS_PENDING, \Entities\MailboxTask::STATUS_RUNNING])
-                    ->getSingleScalarResult();
-                if ($open > 0) {
+                    ->getArrayResult() as $row) {
+                    if (!is_array($row)) {
+                        throw new \UnexpectedValueException('Open autoprune task row has an invalid shape.');
+                    }
+                    $username = $row['username'] ?? null;
+                    if (!is_string($username) || $username === '') {
+                        throw new \UnexpectedValueException('Open autoprune task row has an invalid shape.');
+                    }
+                    $alreadyQueued[strtolower($username)] = true;
+                }
+            }
+
+            foreach ($candidates as [$archive, $user]) {
+                if (isset($alreadyQueued[strtolower($user)])) {
                     continue;
                 }
 

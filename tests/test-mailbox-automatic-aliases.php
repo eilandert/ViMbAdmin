@@ -205,8 +205,8 @@ function makeContext(AutomaticAliasRepository $repository, bool $initialized = t
     }
     return new AutomaticAliasMailboxContext(
         ['vimbadmin_plugins' => ['MailboxAutomaticAliases' => [
-            'defaultAliases' => ['postmaster'],
-            'defaultMapping' => ['postmaster' => 'root@example.test'],
+            'defaultAliases' => ['postmaster', 'abuse'],
+            'defaultMapping' => ['postmaster' => 'root@example.test', 'abuse' => 'root@example.test'],
         ]]],
         new AutomaticAliasEntityManager($repository),
         $admin,
@@ -241,8 +241,8 @@ $entityManager = $context->getD2EM();
 $alias = $entityManager->persisted[0] ?? null;
 $failures += checkAutomaticAlias('creates the configured automatic alias', $alias instanceof \Entities\Alias);
 $failures += checkAutomaticAlias('uses the configured goto mapping', $alias instanceof \Entities\Alias && $alias->getGoto() === 'root@example.test');
-$failures += checkAutomaticAlias('creates active aliases and flushes once', $alias instanceof \Entities\Alias && $alias->getActive() === true && $entityManager->flushes === 1);
-$failures += checkAutomaticAlias('reports the created alias', count($context->messages) === 1);
+$failures += checkAutomaticAlias('creates the configured alias group and flushes once', count($entityManager->persisted) === 2 && $alias instanceof \Entities\Alias && $alias->getActive() === true && $entityManager->flushes === 1);
+$failures += checkAutomaticAlias('reports every created alias', count($context->messages) === 2);
 
 $unpersistedContext = makeContext(new AutomaticAliasRepository(), false);
 $failures += checkAutomaticAlias(

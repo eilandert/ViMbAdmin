@@ -385,7 +385,7 @@ final class MaintenanceController extends AbstractController
         }
 
         if (!self::binaryFlag($this->postData()['confirm'] ?? false, 'Schema confirmation')) {
-            return $this->renderDashboard(['schemaSql' => $sql]);
+            return $this->renderDashboard(['schemaSql' => $sql, 'dbPending' => count($sql)]);
         }
 
         try {
@@ -591,7 +591,9 @@ final class MaintenanceController extends AbstractController
             'activeMailboxCount' => (int) $em->createQuery('SELECT COUNT(m.id) FROM \Entities\Mailbox m WHERE m.active = 1')->getSingleScalarResult(),
             'dbVersionApplied'   => $schema->currentVersion(),
             'dbVersionCode'      => $schema->codeVersion(),
-            'dbPending'          => count($schema->pendingSql()),
+            'dbPending'          => array_key_exists('dbPending', $extra)
+                ? $extra['dbPending']
+                : count($schema->pendingSql()),
             'appVersion'         => \ViMbAdmin_Version::VERSION,
             'appDbVersionName'   => defined('ViMbAdmin_Version::DBVERSION_NAME') ? \ViMbAdmin_Version::DBVERSION_NAME : '',
             'gitCommit'          => \ViMbAdmin_Version::gitCommit(),
