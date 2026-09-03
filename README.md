@@ -442,7 +442,7 @@ can **restore** it (recreates the mailbox from a stored snapshot — original
 password hash included — then `doveadm sync`s the mail back) or **delete** the
 backup (`doveadm fs delete` removes the `/backups` maildir). The **Maintenance**
 tab has *Run autoprune now (expired)* and *Delete all autoprune backups*
-buttons; a cron can call the same `maintenance.prune-expired` action.
+buttons for pruning expired or all autoprune backups.
 
 `doveadm fs delete` needs a `fs posix { driver = posix }` filter in the Dovecot
 config (the prune removes a backup maildir over the HTTP API rather than sharing

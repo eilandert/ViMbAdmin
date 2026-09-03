@@ -79,3 +79,14 @@ $rendered = $smarty->fetch('alias/list.phtml');
 if (file_put_contents($output, $rendered) === false) {
     throw new RuntimeException("could not write {$output}");
 }
+
+$smarty->assign('options', [
+    'defaults' => [
+        'server_side' => ['pagination' => ['enable' => true]],
+        'table' => ['entries' => 10],
+    ],
+]);
+$serverSideScript = $smarty->fetch('alias/js/list.js');
+if (file_put_contents($output . '.server-side.js', $serverSideScript) === false) {
+    throw new RuntimeException("could not write {$output}.server-side.js");
+}

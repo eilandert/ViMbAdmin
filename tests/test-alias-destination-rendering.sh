@@ -26,36 +26,36 @@ else
     php tests/render-alias-list-fixture.php "$tmp/regression.html" "$bundle_uri"
 fi
 
-# Execute the production formatter rather than a test copy. The surrounding
-# Smarty template is not JavaScript until rendered, so select its standalone
-# formatter and run that function in a real browser DOM.
+# Execute the production formatters rather than test copies. Select them from
+# the rendered server-side script so Smarty has resolved routes and CSRF data.
 awk '
     /^function formatGoto\(/ { copying = 1 }
-    /^function formatControlls\(/ { copying = 0 }
     copying { print }
-' application/views/alias/js/list.js > "$tmp/format-goto.js"
+' "$tmp/regression.html.server-side.js" > "$tmp/alias-formatters.js"
 
-if ! grep -q '^function formatGoto' "$tmp/format-goto.js"; then
-    echo "FAIL: could not extract the production formatGoto()" >&2
+if ! grep -q '^function formatGoto' "$tmp/alias-formatters.js" \
+    || ! grep -q '^function formatControlls' "$tmp/alias-formatters.js"; then
+    echo "FAIL: could not extract the production alias formatters" >&2
     exit 2
 fi
 
 {
     printf '<script>\n'
-    cat "$tmp/format-goto.js"
+    cat "$tmp/alias-formatters.js"
     cat <<'HTML'
 
 const payload = '"<svg/onload=document.body.dataset.pwned=1>"@example.com';
 const normalLongDestination = 'first.destination@example.com,second.destination@example.net';
+const expectedDeleteUrl = 'http://localhost/alias/delete/alid/41/csrf/test-csrf-token';
 
 const dynamicRows = document.createElement('table');
 dynamicRows.innerHTML = '<tbody>' +
     '<tr id="alias_41"><td id="malicious-destination"></td>' +
-        '<td><a id="edit_alias_41" href="/alias/edit/alid/41">Edit</a>' +
-        '<a id="delete-alias-41" href="/alias/delete/alid/41">Delete</a></td></tr>' +
+        '<td id="dynamic-controls"></td></tr>' +
     '<tr id="alias_42"><td id="long-destination"></td></tr>' +
     '</tbody>';
 document.body.appendChild(dynamicRows);
+document.getElementById('dynamic-controls').innerHTML = formatControlls(41);
 
 // This is the production list-data boundary: DataTables parses the JSON row,
 // calls formatGoto(), then assigns the returned markup to the destination cell.
@@ -76,6 +76,7 @@ document.getElementById('long-destination').innerHTML =
 
 $(function () {
     $('#alias-goto-43').trigger('mouseenter');
+    $('#delete-alias-41').trigger('click');
 
     setTimeout(function () {
         const failures = [];
@@ -106,7 +107,15 @@ $(function () {
             failures.push('server-rendered full title changed');
         }
         if (!document.getElementById('edit_alias_41')) failures.push('dynamic edit action removed');
-        if (!document.getElementById('delete-alias-41')) failures.push('dynamic delete action removed');
+        const dynamicDelete = document.getElementById('delete-alias-41');
+        if (!dynamicDelete) failures.push('dynamic delete action removed');
+        if (dynamicDelete && dynamicDelete.getAttribute('href') !== expectedDeleteUrl) {
+            failures.push('dynamic delete action missing CSRF token');
+        }
+        const confirmedDelete = document.getElementById('purge_dialog_delete');
+        if (!confirmedDelete || confirmedDelete.getAttribute('href') !== expectedDeleteUrl) {
+            failures.push('delete confirmation lost dynamic action URL');
+        }
         if (!document.getElementById('edit_alias_43')) failures.push('server-rendered edit action removed');
         if (!document.getElementById('delete-alias-43')) failures.push('server-rendered delete action removed');
 
