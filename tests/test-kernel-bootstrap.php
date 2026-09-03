@@ -115,6 +115,8 @@ foreach (['0.0.0.1', '240.0.0.1', '::', 'ff02::1'] as $reservedPeer) {
 $_SERVER['REMOTE_ADDR'] = '192.0.2.20';
 $trustedProxy = ['trustedproxy' => ['mode' => 'on', 'proxies' => ['192.0.2.0/24']]];
 kernelBootstrapCheck('explicit trusted proxy may supply prefix', Bootstrap::baseUrl($trustedProxy) === '/vimbadmin');
+$scalarTrustedProxy = ['trustedproxy' => ['mode' => 'on', 'proxies' => '192.0.2.0/24']];
+kernelBootstrapCheck('scalar trusted proxy may supply prefix', Bootstrap::baseUrl($scalarTrustedProxy) === '/vimbadmin');
 kernelBootstrapCheck('off mode ignores prefix', Bootstrap::baseUrl(['trustedproxy' => ['mode' => 'off']]) === '');
 $_SERVER['REMOTE_ADDR'] = '10.0.0.2';
 $_SERVER['HTTP_X_FORWARDED_PREFIX'] = '/safe/../admin';
@@ -147,7 +149,7 @@ kernelBootstrapCheck('malformed skin configuration fails closed before filesyste
 
 // --- Sparse session configuration retains application-level hard defaults. --
 $configureSession = new ReflectionMethod(Bootstrap::class, 'configureSession');
-$sessionKeys = ['use_only_cookies', 'cookie_httponly', 'cookie_secure', 'cookie_samesite'];
+$sessionKeys = ['use_strict_mode', 'use_only_cookies', 'cookie_httponly', 'cookie_secure', 'cookie_samesite'];
 $originalSessionValues = [];
 foreach ($sessionKeys as $key) {
     $originalSessionValues[$key] = (string) ini_get('session.' . $key);
