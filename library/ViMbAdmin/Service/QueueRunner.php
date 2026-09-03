@@ -237,21 +237,26 @@ class ViMbAdmin_Service_QueueRunner
                     continue;
                 }
 
+                $error = null;
                 try {
                     $doveadm = $this->doveadmForLease($lease);
                     $this->execute($task, $doveadm);
-                    // Long doveadm calls can outlive the database wait_timeout.
-                    // Reconnect before publishing their successful result so a
-                    // completed destructive operation is not recorded FAILED.
-                    $this->ensureDatabaseConnection();
+                } catch (\Throwable $e) {
+                    $error = $e;
+                }
+                // Long doveadm calls can outlive the database wait_timeout.
+                // Recover before publishing either outcome; otherwise a
+                // failed command can leave its task stranded RUNNING too.
+                $this->ensureDatabaseConnection();
+                if ($error === null) {
                     $task->setStatus(\Entities\MailboxTask::STATUS_DONE);
                     $task->setRunner(null);
                     $task->appendLog('done');
-                } catch (\Throwable $e) {
+                } else {
                     $task->setStatus(\Entities\MailboxTask::STATUS_FAILED);
                     $task->setRunner(null);
-                    $task->appendLog('FAILED: ' . $e->getMessage());
-                    error_log("QueueRunner task {$task->getId()} ({$task->getType()} {$task->getUsername()}): " . $e->getMessage());
+                    $task->appendLog('FAILED: ' . $error->getMessage());
+                    error_log("QueueRunner task {$task->getId()} ({$task->getType()} {$task->getUsername()}): " . $error->getMessage());
                 }
 
                 $published = $repo->publishIfOwned($task, $lease, function() use ($task): void {
@@ -307,10 +312,10 @@ class ViMbAdmin_Service_QueueRunner
             $error = null;
             try {
                 $this->execute($task, $this->doveadmForLease($lease));
-                $this->ensureDatabaseConnection();
             } catch (\Throwable $e) {
                 $error = $e;
             }
+            $this->ensureDatabaseConnection();
             if ($repo->publishIfOwned($task, $lease, function() use ($complete, $error): void {
                 $complete($error);
             })) {
@@ -1185,11 +1190,14 @@ class ViMbAdmin_Service_QueueRunner
         } finally {
             if ($tempId !== null) {
                 try {
-                    $conn->delete('mailbox', ['id' => $tempId]);
+                    $removed = $this->deleteOrphanBackupTemp($tempId, $tempPassword);
+                    $task->appendLog($removed
+                        ? 'backup-orphan: temp user row removed'
+                        : 'backup-orphan: temp user row retained (changed concurrently)');
                 } catch (\Throwable $e) {
                     error_log("backup-orphan temp-row cleanup {$user}: " . $e->getMessage());
+                    $task->appendLog('backup-orphan: temp user row cleanup failed: ' . $e->getMessage());
                 }
-                $task->appendLog('backup-orphan: temp user row removed');
             }
             // Remove the transient domain (created above) AFTER the temp mailbox
             // row that FK-references it. Keep it when an archive references it.
@@ -1235,6 +1243,19 @@ class ViMbAdmin_Service_QueueRunner
         if (!is_int($affected) || $affected < 0) {
             throw new \UnexpectedValueException('Orphan temp mailbox sweep returned an invalid affected-row count.');
         }
+    }
+
+    /** Delete a temp row only while every sentinel attribute is unchanged. */
+    private function deleteOrphanBackupTemp(int $id, string $password): bool
+    {
+        $affected = $this->em->getConnection()->executeStatement(
+            'DELETE FROM mailbox WHERE id = ? AND password = ? AND active = 0',
+            [$id, $password]
+        );
+        if (!is_int($affected) || $affected < 0 || $affected > 1) {
+            throw new \UnexpectedValueException('Orphan temp mailbox cleanup returned an invalid affected-row count.');
+        }
+        return $affected === 1;
     }
 
     private function ensureDatabaseConnection(): void
