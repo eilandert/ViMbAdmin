@@ -21,7 +21,7 @@ lexically).
 | **Mail storage path** (config-owned, not DB-owned) | `00-mail-storage.conf` | `mail_path`/`mail_inbox_path` derive the maildir location from Dovecot config, not the per-row `mailbox.maildir`/`homedir` columns. Requires DROPPING `maildir AS mail` / `homedir AS home` (and the passdb prefetch `userdb_mail`/`userdb_home`) from the userdb queries — otherwise the DB value wins per row and you can't change the root without a DB UPDATE on every mailbox. Pair with BLANK `defaults.mailbox.{homedir,maildir}` in ViMbAdmin `application.ini`. |
 | **Mailbox-task queue** (repair / optimize / archive / delete) | `95-doveadm-http.conf` | Exposes the doveadm HTTP API on `:8081` with a bearer key. ViMbAdmin POSTs `force-resync`, `index`, `purge`, `backup`, `mailbox delete`, `quota recalc`, `sync` (restore) here. **Never publish 8081 to the host** — the docker network + the key are the perimeter. |
 | **Archive autoprune** (delete the `/backups` maildir) | `96-fs-posix.conf` | A named `fs posix` filter so `doveadm fs delete -R` can remove a backup directory over the API. Required by doveadm 2.4 `fs` commands. |
-| **Live quota → ViMbAdmin** (mailbox size, archive size) | `99-zzz-quotaclone.conf` | `quota_clone` writes real-time usage into a dedicated `dovecot_quota` table (username, bytes, messages); a DB trigger mirrors it into `mailbox.maildir_size`. Replaces the daily `du` scan (`USE_VIMBADMIN=no`). The archive size column reads this (a recalc runs at archive time). The SQL `dict_server` map it needs is self-contained in this same file. |
+| **Live mailbox quota → ViMbAdmin** | `99-zzz-quotaclone.conf` | `quota_clone` writes real-time logical mailbox usage into a dedicated `dovecot_quota` table (username, bytes, messages); a DB trigger mirrors it into `mailbox.maildir_size`. Replaces the daily `du` scan (`USE_VIMBADMIN=no`). The SQL `dict_server` map it needs is self-contained in this same file. Archive size is measured separately. |
 | **Last-login tracking** | `99-zzz-lastlogin.conf` | Writes `last_login` into `dovecot_last_login` (IMAP/POP3 only — scope it tightly or every doveadm action counts as a login). |
 
 ## Caveats learned the hard way
@@ -29,10 +29,11 @@ lexically).
 - **doveadm HTTP `fs` param shape:** `fsStat`/`fsIter` need `path` as a
   **string**; passing it as an array crashes the worker (empty reply, curl 52).
   `fsDelete` takes `path` as an **array**. (See `library/ViMbAdmin/Doveadm.php`.)
-- **`doveadm fs iter` lists FILES only, not subdirectories** — so you cannot
-  recursively walk a maildir tree (`cur/`, `.Folder/cur/`) over the API to sum
-  its on-disk size. ViMbAdmin's archive "Size" therefore uses the **logical
-  quota** (`dovecot_quota.bytes`), not the compressed on-disk footprint.
+- **Archive size is the compressed on-disk footprint.** The low-priority
+  `MEASURE_SIZE` task combines `fsIter` (files), `fsIterDirs` (subdirectories),
+  and `fsStat` recursively (to depth 16) and sums the stored byte sizes. A file
+  that vanishes mid-walk or an unreadable subtree is skipped; a top-level API
+  failure returns no new measurement, preserving the prior logical fallback.
 - **dict socket perms:** mail procs run as `vmail` (5000); the default dict
   socket is `root:dovecot 0660` and `vmail` isn't in `dovecot` → "Permission
   denied". Hand the socket to `vmail` (see the `service dict` block).

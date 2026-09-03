@@ -91,7 +91,7 @@ notification-shaped calls cannot execute silently.
 | `mailbox.delete` | `{username}` | **destructive** |
 | `alias.create` | `{domain, address, goto, active?}` | `address` may be a local part (domain appended) or full |
 | `alias.delete` | `{address}` | deletes the alias row |
-| `mailbox.archive` | `{username}` | **destructive** — queues `PENDING_ARCHIVE` (panel-compatible) |
+| `mailbox.archive` | `{username}` | **destructive** — queues an `ARCHIVE` task with initial status `PENDING` (panel-compatible) |
 | `archive.restore` | `{username}` | **destructive** — restores immediately, then removes backup and row |
 | `archive.delete` | `{username}` | **destructive** — immediately deletes backup files and row |
 

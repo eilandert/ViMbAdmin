@@ -70,6 +70,29 @@ $relative->fsDelete('maildir:relative/archive');
 $check('filesystem commands strip driver prefixes from relative paths',
     $relative->firstPath === 'relative/archive');
 
+$tree = new ScriptedDoveadm([
+    [200, '[["doveadmResponse",[{"path":"root.msg"},{"path":"vanished.msg"}],"tag"]]'],
+    [200, '[["doveadmResponse",[{"size":7}],"tag"]]'],
+    [200, '[["error",{"type":"vanished","exitCode":68},"tag"]]'],
+    [200, '[["doveadmResponse",[{"path":"cur"},{"path":".Folder"}],"tag"]]'],
+    [200, '[["doveadmResponse",[{"path":"nested.msg"}],"tag"]]'],
+    [200, '[["doveadmResponse",[{"size":11}],"tag"]]'],
+    [200, '[["doveadmResponse",[],"tag"]]'],
+    [200, '[["doveadmResponse",[{"path":"compressed.msg"}],"tag"]]'],
+    [200, '[["doveadmResponse",[{"size":13}],"tag"]]'],
+    [200, '[["doveadmResponse",[],"tag"]]'],
+]);
+$treeSize = $tree->fsDirSize('maildir:/backups/example/user');
+$check('archive measurement recursively sums stored bytes and skips transient errors', $treeSize === 31);
+if ($treeSize !== 31) {
+    echo '  measured: ' . var_export($treeSize, true) . "\n";
+}
+$failedTree = new ScriptedDoveadm([
+    [200, '[["error",{"type":"unreadable","exitCode":77},"tag"]]'],
+]);
+$check('archive measurement reports no replacement size on a top-level walk error',
+    $failedTree->fsDirSize('/backups/example/user') === null);
+
 $delete = static function (string $mailbox, int $exitCode, string $message): ?Throwable {
     $client = new ScriptedDoveadm([
         [200, '[["doveadmResponse",[{"mailbox":"' . $mailbox . '"}],"tag"]]'],
