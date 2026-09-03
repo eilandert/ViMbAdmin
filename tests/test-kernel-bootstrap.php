@@ -117,6 +117,19 @@ $trustedProxy = ['trustedproxy' => ['mode' => 'on', 'proxies' => ['192.0.2.0/24'
 kernelBootstrapCheck('explicit trusted proxy may supply prefix', Bootstrap::baseUrl($trustedProxy) === '/vimbadmin');
 $scalarTrustedProxy = ['trustedproxy' => ['mode' => 'on', 'proxies' => '192.0.2.0/24']];
 kernelBootstrapCheck('scalar trusted proxy may supply prefix', Bootstrap::baseUrl($scalarTrustedProxy) === '/vimbadmin');
+$invalidProxyShapes = [
+    'associative trusted proxy configuration is rejected' => ['edge' => '192.0.2.0/24'],
+    'mixed trusted proxy list is rejected' => ['192.0.2.0/24', 123],
+];
+foreach ($invalidProxyShapes as $label => $invalidProxies) {
+    $invalidProxyShapeRejected = false;
+    try {
+        Bootstrap::baseUrl(['trustedproxy' => ['mode' => 'on', 'proxies' => $invalidProxies]]);
+    } catch (LogicException) {
+        $invalidProxyShapeRejected = true;
+    }
+    kernelBootstrapCheck($label, $invalidProxyShapeRejected);
+}
 kernelBootstrapCheck('off mode ignores prefix', Bootstrap::baseUrl(['trustedproxy' => ['mode' => 'off']]) === '');
 $_SERVER['REMOTE_ADDR'] = '10.0.0.2';
 $_SERVER['HTTP_X_FORWARDED_PREFIX'] = '/safe/../admin';

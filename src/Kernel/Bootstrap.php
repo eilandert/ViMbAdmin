@@ -344,8 +344,13 @@ final class Bootstrap
         if (is_string($proxies)) {
             $proxies = [$proxies];
         }
-        if (!is_array($proxies)) {
-            throw new LogicException('trustedproxy.proxies must be a string or array');
+        if (!is_array($proxies) || !array_is_list($proxies)) {
+            throw new LogicException('trustedproxy.proxies must be a string or list of strings');
+        }
+        foreach ($proxies as $configuredProxy) {
+            if (!is_string($configuredProxy)) {
+                throw new LogicException('trustedproxy.proxies must contain strings');
+            }
         }
         $remote = self::serverString('REMOTE_ADDR');
         if (!\ViMbAdmin_Net::isTrustedForwardedHeaderPeer($remote, $mode, $proxies)) {
