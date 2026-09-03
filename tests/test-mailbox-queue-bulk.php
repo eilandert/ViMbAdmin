@@ -18,6 +18,7 @@ $source = static function (string $relative): string {
 echo "== mailbox queue set-based bulk enqueue contract ==\n";
 $queue = $source('library/ViMbAdmin/MailboxQueue.php');
 $controller = $source('src/Kernel/Controller/MaintenanceController.php');
+$queueController = $source('src/Kernel/Controller/QueueController.php');
 $entity = $source('application/Entities/MailboxTask.php');
 $migration = $source('contrib/migrations/2026-06-fork-schema.sql');
 
@@ -38,6 +39,9 @@ $check('entity and idempotent migration declare the compatible lookup index',
 $check('the unique open-task invariant remains declared',
     str_contains($entity, "mailbox_task_open_unique', columns: ['username', 'type', 'open_task']")
     && str_contains($migration, 'UNIQUE INDEX `mailbox_task_open_unique`'));
+$check('bulk clear preserves abandoned task deduplication fences',
+    str_contains($queueController,
+        'WHERE t.status IN (:done) AND t.abandoned = false'));
 
 echo $failures === 0 ? "ALL PASSED\n" : "{$failures} FAILED\n";
 exit($failures === 0 ? 0 : 1);

@@ -283,10 +283,12 @@ final class QueueController extends AbstractController
     }
 
     /**
-     * POST /queue/clear — delete all finished (DONE/FAILED/CANCELLED) tasks.
+     * POST /queue/clear — delete all safely finished tasks.
      *
      * Faithful port of the ZF1 `clearAction`: super-gated POST+CSRF, a bulk DQL
-     * delete of the terminal-state rows, then flashes how many were cleared.
+     * delete of terminal-state rows, then flashes how many were cleared. Failed
+     * tasks reaped from an abandoned runner retain their deduplication fence
+     * until an operator explicitly deletes that individual task.
      */
     public function clearAction(): Response
     {
@@ -296,7 +298,7 @@ final class QueueController extends AbstractController
         }
 
         $n = $this->em()->createQuery(
-            'DELETE FROM \\Entities\\MailboxTask t WHERE t.status IN (:done)')
+            'DELETE FROM \\Entities\\MailboxTask t WHERE t.status IN (:done) AND t.abandoned = false')
             ->setParameter('done', [
                 \Entities\MailboxTask::STATUS_DONE,
                 \Entities\MailboxTask::STATUS_FAILED,
