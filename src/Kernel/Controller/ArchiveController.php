@@ -257,10 +257,14 @@ final class ArchiveController extends AbstractController
         $storedDomain = $session->get('domain');
         $domain = $storedDomain instanceof \Entities\Domain ? $storedDomain : null;
 
-        $q = DataTableQuery::fromArray(
-            self::requestArray($_GET),
-            $this->dataTableMinimumSearchLength('archive'),
-        );
+        try {
+            $q = DataTableQuery::fromArray(
+                self::requestArray($_GET),
+                $this->dataTableMinimumSearchLength('archive'),
+            );
+        } catch (\LengthException $e) {
+            return new Response($e->getMessage(), 400, 'text/plain; charset=utf-8');
+        }
         // Column index -> sortable field (matches JS column order; size / user-exists
         // / autoprune / controls fall back to archived date).
         $sortField = [0 => 'username', 1 => 'status', 2 => 'domain', 4 => 'archived_at'][$q->sortColumn] ?? 'archived_at';

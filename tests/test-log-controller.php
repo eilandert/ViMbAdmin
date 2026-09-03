@@ -448,34 +448,64 @@ $check('list-data returns counts and formats timestamps',
         && is_array($firstPagedRow)
         && ($firstPagedRow['timestamp'] ?? null) === '2026-08-31 12:34:56');
 
-$_GET['sSearch'] = 'ab';
-$shortSearchLog = new LogControllerTestLogRepository();
-$shortSearchController = logController(
-    logEntityManager(['Entities\\Log' => $shortSearchLog]),
+$_GET['sSearch'] = 'abc';
+foreach ([
+    'list-specific override' => ['defaults' => ['server_side' => ['pagination' => [
+        'min_search_str' => 2,
+        'log' => ['enable' => true, 'min_search_str' => 4],
+    ]]]],
+    'shared fallback' => ['defaults' => ['server_side' => ['pagination' => [
+        'min_search_str' => 4,
+        'log' => ['enable' => true],
+    ]]]],
+    'default fallback' => [],
+] as $case => $options) {
+    $shortSearchLog = new LogControllerTestLogRepository();
+    $response = logController(
+        logEntityManager(['Entities\\Log' => $shortSearchLog]),
+        new LogControllerTestNamespace(),
+        new LogControllerTestView(),
+        new LogControllerTestStorage(['identity' => ['id' => 1]]),
+        static fn(int $id): object => $super,
+        [],
+        $options,
+    )->listDataAction();
+    $expectedStatus = $case === 'default fallback' ? 200 : 400;
+    $check("list-data enforces {$case} search minimum argument",
+        $response->status === $expectedStatus
+            && ($expectedStatus === 200 || $response->body === 'Search must be empty or at least 4 characters')
+            && ($expectedStatus === 400 ? $shortSearchLog->pageCalls === [] : $shortSearchLog->pageCalls !== []));
+}
+
+$zeroMinimumLog = new LogControllerTestLogRepository();
+$zeroResponse = logController(
+    logEntityManager(['Entities\\Log' => $zeroMinimumLog]),
     new LogControllerTestNamespace(),
     new LogControllerTestView(),
     new LogControllerTestStorage(['identity' => ['id' => 1]]),
     static fn(int $id): object => $super,
     [],
-    ['defaults' => ['server_side' => ['pagination' => [
-        'min_search_str' => 3,
-        'log' => ['enable' => true],
-    ]]]],
-);
-$shortSearchController->listDataAction();
-$check('list-data ignores a direct search below the configured minimum',
-    ($shortSearchLog->pageCalls[0][2] ?? null) === '');
-
-$defaultFloorLog = new LogControllerTestLogRepository();
-logController(
-    logEntityManager(['Entities\\Log' => $defaultFloorLog]),
-    new LogControllerTestNamespace(),
-    new LogControllerTestView(),
-    new LogControllerTestStorage(['identity' => ['id' => 1]]),
-    static fn(int $id): object => $super,
+    ['defaults' => ['server_side' => ['pagination' => ['min_search_str' => 0]]]],
 )->listDataAction();
-$check('list-data retains the three-character floor when configuration is absent',
-    ($defaultFloorLog->pageCalls[0][2] ?? null) === '');
+$check('list-data zero minimum explicitly permits short searches',
+    $zeroResponse->status === 200 && ($zeroMinimumLog->pageCalls[0][2] ?? null) === 'abc');
+
+$malformedMinimumRejected = false;
+try {
+    logController(
+        logEntityManager(['Entities\\Log' => new LogControllerTestLogRepository()]),
+        new LogControllerTestNamespace(),
+        new LogControllerTestView(),
+        new LogControllerTestStorage(['identity' => ['id' => 1]]),
+        static fn(int $id): object => $super,
+        [],
+        ['defaults' => ['server_side' => ['pagination' => ['min_search_str' => ['4']]]]],
+    )->listDataAction();
+} catch (\TypeError $e) {
+    $malformedMinimumRejected = $e->getMessage() === 'min_search_str must be a non-negative integer';
+}
+$check('list-data malformed minimum configuration fails closed before repository access',
+    $malformedMinimumRejected);
 $_GET = [];
 
 $serverSideLog = new LogControllerTestLogRepository([['action' => 'must-not-load']]);

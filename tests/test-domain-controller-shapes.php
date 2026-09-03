@@ -31,7 +31,8 @@ final class DomainShapeSession implements SessionStorage
 final class DomainShapeBootstrap
 {
     public int $doctrineReads = 0;
-    public function __construct(private DomainShapeSession $session) {}
+    /** @param array<string,mixed> $options */
+    public function __construct(private DomainShapeSession $session, private array $options = []) {}
     public function getResource(string $name): mixed
     {
         if ($name === 'namespace') {
@@ -43,17 +44,18 @@ final class DomainShapeBootstrap
         throw new LogicException('Unexpected resource read: ' . $name);
     }
     /** @return array<string,mixed> */
-    public function getOptions(): array { return []; }
+    public function getOptions(): array { return $this->options; }
 }
 
 /**
  * @param array<string,?string> $params
+ * @param array<string,mixed> $options
  * @return array{0:DomainController,1:DomainShapeBootstrap}
  */
-function domainShapeController(string $action, array $params): array
+function domainShapeController(string $action, array $params, array $options = []): array
 {
     $session = new DomainShapeSession(['identity' => ['id' => 1], 'csrfToken' => 'csrf-sentinel']);
-    $bootstrap = new DomainShapeBootstrap($session);
+    $bootstrap = new DomainShapeBootstrap($session, $options);
     $admin = (new Entities\Admin())
         ->setUsername('admin@example.test')
         ->setSuper(true)
@@ -119,6 +121,27 @@ $check('nested numeric configuration keys fail closed', $fails(
     static fn(): mixed => $invoke('optionArray', ['defaults' => ['domain' => [0 => 'bad']]], [], 'defaults', 'domain'),
     'Configuration defaults.domain must use string keys',
 ));
+
+$oldGet = $_GET;
+$_GET = ['sSearch' => 'abc'];
+foreach ([
+    'list-specific override' => ['defaults' => ['server_side' => ['pagination' => [
+        'min_search_str' => 2,
+        'domain' => ['min_search_str' => 4],
+    ]]]],
+    'shared fallback' => ['defaults' => ['server_side' => ['pagination' => [
+        'min_search_str' => 4,
+        'domain' => [],
+    ]]]],
+] as $case => $options) {
+    [$searchController, $searchBootstrap] = domainShapeController('list-data', [], $options);
+    $response = $searchController->listDataAction();
+    $check("domain list-data enforces {$case} search minimum argument",
+        $response->status === 400
+            && $response->body === 'Search must be empty or at least 4 characters'
+            && $searchBootstrap->doctrineReads === 0);
+}
+$_GET = $oldGet;
 
 $check('quota multiplier accepts the complete shipped allowlist case-insensitively',
     $invoke('quotaMultiplier', ['defaults' => ['quota' => ['multiplier' => 'b']]]) === 'B'
@@ -252,7 +275,7 @@ $check('late malformed form value causes zero partial entity mutation',
         && $domain->getTransport() === 'sentinel'
         && $domain->getMaxQuota() === 77);
 
-$check('fixed assertion count', $checks === 27);
+$check('fixed assertion count', $checks === 29);
 
 echo $failures === 0 ? "ALL PASSED\n" : "{$failures} FAILED\n";
 exit($failures === 0 ? 0 : 1);

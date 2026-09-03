@@ -169,15 +169,17 @@ function archiveIdentityCheck(string $label, bool $ok): void
     if (!$ok) { ArchiveIdentityState::$failures++; }
 }
 
+/** @param array<string,mixed> $options */
 function archiveIdentityContainer(
     EntityManager $entityManager,
     ArchiveIdentitySession $session,
     ArchiveIdentityView $view,
     bool $super,
+    array $options = [],
 ): Container {
     $admin = new ArchiveIdentityAdmin($super);
     return new Container(
-        new ArchiveIdentityResources($entityManager, $session, $view),
+        new ArchiveIdentityResources($entityManager, $session, $view, $options),
         new Auth($session, static fn(int $id): object => $admin),
     );
 }
@@ -189,6 +191,35 @@ function archiveIdentityMcpState(McpController $controller, array $params, strin
 }
 
 echo "== Archive identity caller boundaries ==\n";
+
+$oldGet = $_GET;
+$_GET = ['sSearch' => 'abc'];
+foreach ([
+    'list-specific override' => ['defaults' => ['server_side' => ['pagination' => [
+        'min_search_str' => 2,
+        'archive' => ['min_search_str' => 4],
+    ]]]],
+    'shared fallback' => ['defaults' => ['server_side' => ['pagination' => [
+        'min_search_str' => 4,
+        'archive' => [],
+    ]]]],
+] as $case => $options) {
+    $searchController = new ArchiveController(
+        archiveIdentityContainer(
+            archiveIdentityEntityManager([]),
+            new ArchiveIdentitySession(['identity' => ['id' => 1]]),
+            new ArchiveIdentityView(),
+            true,
+            $options,
+        ),
+        new RouteMatch('archive', 'list-data', ArchiveController::class, 'listDataAction', []),
+    );
+    $response = $searchController->listDataAction();
+    archiveIdentityCheck("archive list-data enforces {$case} search minimum argument",
+        $response->status === 400
+            && $response->body === 'Search must be empty or at least 4 characters');
+}
+$_GET = $oldGet;
 
 // Non-super authorization requires a real domain before any mutation.
 $missingDomain = (new \Entities\Archive())->setUsername('box@example.test');

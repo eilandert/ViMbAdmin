@@ -1,6 +1,12 @@
 var delDialog;
 var oDataTable;
 
+function vmDomainServerData( source, data, callback )
+{
+    var minimum = {if isset($options.defaults.server_side.pagination.domain.min_search_str)}{$options.defaults.server_side.pagination.domain.min_search_str}{elseif isset($options.defaults.server_side.pagination.min_search_str)}{$options.defaults.server_side.pagination.min_search_str}{else}3{/if};
+    return vmDataTableServerData( source, data, callback, minimum, '#list_table' );
+}
+
 
 $(document).ready(function()
 {
@@ -12,6 +18,7 @@ $(document).ready(function()
         'bServerSide': true,
         'sServerMethod': 'GET',
         'sAjaxSource': "{genUrl controller='domain' action='list-data'}",
+        'fnServerData': vmDomainServerData,
         "sDom": "<'row'<'span6'l><'span6'f>r>t<'row'<'span6'i><'span6'p>>",
         "sPaginationType": "bootstrap",
         'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
@@ -282,4 +289,3 @@ function formatControlls( id, name )
     
 }
 {/if}
-

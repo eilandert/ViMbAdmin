@@ -380,6 +380,8 @@ final class MailboxController extends AbstractController
                 self::requestArray($_GET),
                 $this->dataTableMinimumSearchLength(),
             );
+        } catch (\LengthException $e) {
+            return new Response($e->getMessage(), 400, 'text/plain; charset=utf-8');
         } catch (\LogicException) {
             return new Response('ko');
         }

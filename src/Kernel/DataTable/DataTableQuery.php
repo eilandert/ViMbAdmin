@@ -40,6 +40,10 @@ final class DataTableQuery
      * Build from a DataTables request array (typically `$_GET`).
      *
      * @param array<string,mixed> $p
+     * @param int $minimumSearchLength Nonempty searches shorter than this are
+     *        rejected; zero explicitly disables the minimum.
+     * @throws \LengthException when a nonempty search is below the minimum
+     * @throws \TypeError when a request parameter has the wrong scalar type
      */
     public static function fromArray(array $p, int $minimumSearchLength = 0): self
     {
@@ -61,7 +65,7 @@ final class DataTableQuery
         }
         $search = trim($searchValue ?? '');
         if ($search !== '' && mb_strlen($search, 'UTF-8') < $minimumSearchLength) {
-            $search = '';
+            throw new \LengthException("Search must be empty or at least {$minimumSearchLength} characters");
         }
         $sortCol = max(0, self::integer($p['iSortCol_0'] ?? null, 0, 'iSortCol_0'));
         $sortDirection = $p['sSortDir_0'] ?? null;

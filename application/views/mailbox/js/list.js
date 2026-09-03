@@ -1,6 +1,12 @@
 var purgeDialog;
 var oDataTable;
 
+function vmMailboxServerData( source, data, callback )
+{
+    var minimum = {if isset($options.defaults.server_side.pagination.min_search_str)}{$options.defaults.server_side.pagination.min_search_str}{else}3{/if};
+    return vmDataTableServerData( source, data, callback, minimum, '#list_table' );
+}
+
 $(document).ready( function() {
 
     {if !isset($options.defaults.list_size.disabled) || !$options.defaults.list_size.disabled}
@@ -17,6 +23,7 @@ $(document).ready( function() {
         'bServerSide': true,
         'sServerMethod': 'GET',
         'sAjaxSource': "{genUrl controller='mailbox' action='list-data'}",
+        'fnServerData': vmMailboxServerData,
         "sPaginationType": "bootstrap",
         "sDom": "<'row'<'span6'l><'span6'f>r>t<'row'<'span6'i><'span6'p>>",
         'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
