@@ -161,7 +161,14 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         [$limit, $offset] = $this->_listBounds( $params );
         $domainName = $domain->requiredDomainName();
         $out = [];
-        foreach( $this->em()->getRepository( '\\Entities\\Mailbox' )->findBy( [ 'Domain' => $domain ], [ 'username' => 'ASC' ], $limit, $offset ) as $m ) {
+        $mailboxes = \ViMbAdmin\Kernel\Doctrine\ResultValidator::entityList(
+            $this->em()->getRepository( '\\Entities\\Mailbox' )->findBy(
+                [ 'Domain' => $domain ], [ 'username' => 'ASC' ], $limit, $offset
+            ),
+            \Entities\Mailbox::class,
+            'MCP mailbox list query'
+        );
+        foreach( $mailboxes as $m ) {
             $out[] = [
                 'username'   => $m->requiredUsername(),
                 'name'       => $m->getName(),
@@ -183,7 +190,14 @@ class McpController extends \ViMbAdmin\Kernel\Mvc\AbstractController
         [$limit, $offset] = $this->_listBounds( $params );
         $domainName = $domain->requiredDomainName();
         $out = [];
-        foreach( $this->em()->getRepository( '\\Entities\\Alias' )->findBy( [ 'Domain' => $domain ], [ 'address' => 'ASC' ], $limit, $offset ) as $a )
+        $aliases = \ViMbAdmin\Kernel\Doctrine\ResultValidator::entityList(
+            $this->em()->getRepository( '\\Entities\\Alias' )->findBy(
+                [ 'Domain' => $domain ], [ 'address' => 'ASC' ], $limit, $offset
+            ),
+            \Entities\Alias::class,
+            'MCP alias list query'
+        );
+        foreach( $aliases as $a )
         {
             $identity = $this->requiredAliasIdentity( $a );
             $out[] = [

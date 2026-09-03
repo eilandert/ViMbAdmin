@@ -833,51 +833,51 @@ class Domain
     }
 
     /**
-     * Add Mailboxes
+     * Compatibility alias for the historical generated method name.
      *
      * @param \Entities\Mailbox $mailboxes
      * @return Domain
+     * @deprecated Use addMailbox().
      */
     public function addMailboxe(\Entities\Mailbox $mailboxes)
     {
-        $this->Mailboxes[] = $mailboxes;
-    
-        return $this;
+        return $this->addMailbox($mailboxes);
     }
 
     /**
-     * Remove Mailboxes
+     * Compatibility alias for the historical generated method name.
      *
      * @param \Entities\Mailbox $mailboxes
      * @return void
+     * @deprecated Use removeMailbox().
      */
     public function removeMailboxe(\Entities\Mailbox $mailboxes)
     {
-        $this->Mailboxes->removeElement($mailboxes);
+        $this->removeMailbox($mailboxes);
     }
 
     /**
-     * Add Aliases
+     * Compatibility alias for the historical generated method name.
      *
      * @param \Entities\Alias $aliases
      * @return Domain
+     * @deprecated Use addAlias().
      */
     public function addAliase(\Entities\Alias $aliases)
     {
-        $this->Aliases[] = $aliases;
-    
-        return $this;
+        return $this->addAlias($aliases);
     }
 
     /**
-     * Remove Aliases
+     * Compatibility alias for the historical generated method name.
      *
      * @param \Entities\Alias $aliases
      * @return void
+     * @deprecated Use removeAlias().
      */
     public function removeAliase(\Entities\Alias $aliases)
     {
-        $this->Aliases->removeElement($aliases);
+        $this->removeAlias($aliases);
     }
     /**
      * @var \Doctrine\Common\Collections\Collection<int, \Entities\DomainPreference>

@@ -170,6 +170,31 @@ final class ControllerAliasIdentityMailboxRepository extends \Repositories\Mailb
     }
 }
 
+final class ControllerAliasIdentityPagedMailboxRepository extends \Repositories\Mailbox
+{
+    /** @param list<mixed> $mailboxes */
+    public function __construct(private readonly array $mailboxes) {}
+
+    /**
+     * @param array<string,mixed> $criteria
+     * @param array<string,string>|null $orderBy
+     * @return list<mixed>
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
+    public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
+    {
+        if ($orderBy !== ['username' => 'ASC']) {
+            throw new LogicException('Expected mailbox username ascending order.');
+        }
+        $rows = $this->mailboxes;
+        usort($rows, static function(mixed $left, mixed $right): int {
+            if (!$left instanceof \Entities\Mailbox || !$right instanceof \Entities\Mailbox) { return 0; }
+            return strcmp($left->requiredUsername(), $right->requiredUsername());
+        });
+        return array_slice($rows, $offset ?? 0, $limit);
+    }
+}
+
 final class ControllerAliasIdentityDomainRepository extends \Repositories\Domain
 {
     public function __construct(private readonly ?\Entities\Domain $domain) {}
@@ -598,6 +623,74 @@ controllerAliasIdentityCheck('MCP alias list emits required string identities',
             'active' => true,
         ]],
     ]);
+
+$pagedMailboxes = [];
+foreach (['z@example.test', 'a@example.test', 'm@example.test'] as $username) {
+    $pagedMailboxes[] = (new \Entities\Mailbox())->setUsername($username)->setDomain($domain)->setActive(true);
+}
+$pagedMcpEntityManager = controllerAliasIdentityEntityManager([
+    'Entities\\Domain' => new ControllerAliasIdentityDomainRepository($domain),
+    'Entities\\Mailbox' => new ControllerAliasIdentityPagedMailboxRepository($pagedMailboxes),
+]);
+$pagedMcp = new McpController(
+    new Container(
+        new ControllerAliasIdentityResources($pagedMcpEntityManager, $mcpSession, $mcpView),
+        new Auth($mcpSession, static fn(int $id): null => null),
+    ),
+    new RouteMatch('mcp', 'index', McpController::class, 'indexAction', []),
+);
+$pageOne = controllerAliasIdentityMcpMailboxes(
+    $pagedMcp,
+    ['domain' => 'example.test', 'limit' => 2],
+);
+$pageTwo = controllerAliasIdentityMcpMailboxes(
+    $pagedMcp,
+    ['domain' => 'example.test', 'limit' => 2, 'offset' => 2],
+);
+$pageOneRows = $pageOne['mailboxes'] ?? null;
+$pageTwoRows = $pageTwo['mailboxes'] ?? null;
+if (!is_array($pageOneRows) || !is_array($pageTwoRows)) {
+    throw new RuntimeException('MCP mailbox page rows have an invalid shape');
+}
+$pagedUsernames = array_column(array_merge($pageOneRows, $pageTwoRows), 'username');
+controllerAliasIdentityCheck('MCP mailbox pages are bounded, complete and deterministically ordered',
+    count($pageOneRows) === 2
+        && count($pageTwoRows) === 1
+        && $pagedUsernames === ['a@example.test', 'm@example.test', 'z@example.test']);
+
+foreach ([
+    ['limit' => 0],
+    ['limit' => 201],
+    ['offset' => 10001],
+    ['limit' => '1.5'],
+] as $invalidBounds) {
+    $boundsRejected = false;
+    try {
+        controllerAliasIdentityMcpInvoke($pagedMcp, '_listBounds', $invalidBounds);
+    } catch (ViMbAdmin_Mcp_Exception|LogicException $e) {
+        $boundsRejected = true;
+    }
+    controllerAliasIdentityCheck('MCP rejects invalid or oversized list bounds ' . json_encode($invalidBounds), $boundsRejected);
+}
+
+$malformedPageEntityManager = controllerAliasIdentityEntityManager([
+    'Entities\\Domain' => new ControllerAliasIdentityDomainRepository($domain),
+    'Entities\\Mailbox' => new ControllerAliasIdentityPagedMailboxRepository([new stdClass()]),
+]);
+$malformedPageMcp = new McpController(
+    new Container(
+        new ControllerAliasIdentityResources($malformedPageEntityManager, $mcpSession, $mcpView),
+        new Auth($mcpSession, static fn(int $id): null => null),
+    ),
+    new RouteMatch('mcp', 'index', McpController::class, 'indexAction', []),
+);
+$malformedHydrationRejected = false;
+try {
+    controllerAliasIdentityMcpMailboxes($malformedPageMcp, ['domain' => 'example.test']);
+} catch (UnexpectedValueException $e) {
+    $malformedHydrationRejected = str_contains($e->getMessage(), 'MCP mailbox list query');
+}
+controllerAliasIdentityCheck('MCP list hydration rejects non-mailbox repository rows', $malformedHydrationRejected);
 
 $crossDomainAliasRepository = new ControllerAliasIdentityAliasRepository([]);
 $crossDomainAliasManager = controllerAliasIdentityEntityManager([

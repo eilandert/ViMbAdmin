@@ -177,7 +177,9 @@ final class QueueRunnerLeaseConnection
 final class QueueRunnerLeaseTaskRepository extends \Repositories\MailboxTask
 {
     public int $claims = 0;
+    public int $terminalFlushes = 0;
     public bool $claimResult = true;
+    public ?QueueRunnerLeaseEntityManager $fakeEntityManager = null;
 
     public function __construct() {}
 
@@ -196,6 +198,11 @@ final class QueueRunnerLeaseTaskRepository extends \Repositories\MailboxTask
         callable $publish
     ): bool {
         $publish();
+        if (!$this->fakeEntityManager instanceof QueueRunnerLeaseEntityManager) {
+            throw new RuntimeException('fake entity manager missing');
+        }
+        $this->fakeEntityManager->flush();
+        $this->terminalFlushes++;
         return true;
     }
 }
@@ -214,6 +221,7 @@ final class QueueRunnerLeaseEntityManager
     {
         $this->connection = new QueueRunnerLeaseConnection($this);
         $this->taskRepository = new QueueRunnerLeaseTaskRepository();
+        $this->taskRepository->fakeEntityManager = $this;
     }
 
     public function createQuery(string $dql): QueueRunnerLeaseQuery
@@ -622,6 +630,20 @@ queueRunnerCheck(
         && $liveLeaseVisible
         && $live->taskRepository->claims === 1
         && count($live->leases) === 0
+);
+queueRunnerCheck(
+    'manual task finalization uses one ownership-fenced flush',
+    $live->taskRepository->terminalFlushes === 1 && $live->flushes === 2
+);
+$queueControllerSource = file_get_contents(__DIR__ . '/../src/Kernel/Controller/QueueController.php');
+$runTaskStart = is_string($queueControllerSource) ? strpos($queueControllerSource, 'public function runTaskAction()') : false;
+$triggerStart = is_string($queueControllerSource) ? strpos($queueControllerSource, 'public function triggerAction()', $runTaskStart ?: 0) : false;
+$runTaskSource = $runTaskStart !== false && $triggerStart !== false
+    ? substr($queueControllerSource, $runTaskStart, $triggerStart - $runTaskStart)
+    : '';
+queueRunnerCheck(
+    'manual completion callback leaves the ownership fence as its only flusher',
+    $runTaskSource !== '' && !str_contains($runTaskSource, '$this->em()->flush()')
 );
 
 $silent = new QueueRunnerLeaseEntityManager();

@@ -259,6 +259,7 @@ class ViMbAdmin_Service_QueueRunner
                     error_log("QueueRunner task {$task->getId()} ({$task->getType()} {$task->getUsername()}): " . $error->getMessage());
                 }
 
+                ($this->leaseProgress($lease))();
                 $published = $repo->publishIfOwned($task, $lease, function() use ($task): void {
                     $task->setFinishedAt(new \DateTime());
                 });
@@ -267,8 +268,6 @@ class ViMbAdmin_Service_QueueRunner
                     error_log("QueueRunner task ownership lost before terminal publication.");
                     continue;
                 }
-                ($this->leaseProgress($lease))();
-
                 if ($verbose) {
                     echo " - #{$task->getId()} {$task->getType()} {$task->getUsername()}: {$task->getStatus()}\n";
                 }
@@ -316,6 +315,7 @@ class ViMbAdmin_Service_QueueRunner
                 $error = $e;
             }
             $this->ensureDatabaseConnection();
+            ($this->leaseProgress($lease))();
             if ($repo->publishIfOwned($task, $lease, function() use ($complete, $error): void {
                 $complete($error);
             })) {
@@ -932,25 +932,7 @@ class ViMbAdmin_Service_QueueRunner
                 static fn(string $username): string => ViMbAdmin_Identity::canonical($username),
                 array_column($candidates, 1)
             )));
-            $alreadyQueued = [];
-            foreach (array_chunk($users, 500) as $userChunk) {
-                foreach ($em->createQuery(
-                    'SELECT DISTINCT t.username AS username FROM \Entities\MailboxTask t
-                      WHERE LOWER(t.username) IN (:users) AND t.type = :t AND t.status IN (:open)')
-                    ->setParameter('users', $userChunk)
-                    ->setParameter('t', \Entities\MailboxTask::TYPE_PRUNE)
-                    ->setParameter('open', [\Entities\MailboxTask::STATUS_PENDING, \Entities\MailboxTask::STATUS_RUNNING])
-                    ->getArrayResult() as $row) {
-                    if (!is_array($row)) {
-                        throw new \UnexpectedValueException('Open autoprune task row has an invalid shape.');
-                    }
-                    $username = $row['username'] ?? null;
-                    if (!is_string($username) || $username === '') {
-                        throw new \UnexpectedValueException('Open autoprune task row has an invalid shape.');
-                    }
-                    $alreadyQueued[ViMbAdmin_Identity::canonical($username)] = true;
-                }
-            }
+            $alreadyQueued = $this->openPruneUsernames($users);
 
             foreach ($candidates as [$archive, $user]) {
                 $user = ViMbAdmin_Identity::canonical($user);
@@ -973,6 +955,34 @@ class ViMbAdmin_Service_QueueRunner
         } catch (\Throwable $e) {
             error_log('QueueRunner::autopruneSweep: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * @param list<string> $users
+     * @return array<string,true>
+     */
+    private function openPruneUsernames(array $users): array
+    {
+        $alreadyQueued = [];
+        foreach (array_chunk($users, 500) as $userChunk) {
+            foreach ($this->em->createQuery(
+                'SELECT DISTINCT t.username AS username FROM \Entities\MailboxTask t
+                      WHERE LOWER(t.username) IN (:users) AND t.type = :t AND t.status IN (:open)')
+                ->setParameter('users', $userChunk)
+                ->setParameter('t', \Entities\MailboxTask::TYPE_PRUNE)
+                ->setParameter('open', [\Entities\MailboxTask::STATUS_PENDING, \Entities\MailboxTask::STATUS_RUNNING])
+                ->getArrayResult() as $row) {
+                if (!is_array($row)) {
+                    throw new \UnexpectedValueException('Open autoprune task row has an invalid shape.');
+                }
+                $username = $row['username'] ?? null;
+                if (!is_string($username) || $username === '') {
+                    throw new \UnexpectedValueException('Open autoprune task row has an invalid shape.');
+                }
+                $alreadyQueued[ViMbAdmin_Identity::canonical($username)] = true;
+            }
+        }
+        return $alreadyQueued;
     }
 
     private function claimAutopruneSweep(\DateTimeImmutable $now): bool

@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../application/Entities/MailboxTask.php';
+require_once __DIR__ . '/../library/ViMbAdmin/MailboxQueue.php';
+
 $failures = 0;
 $check = static function (string $label, bool $ok) use (&$failures): void {
     echo ($ok ? '  ok   ' : '  FAIL ') . $label . "\n";
@@ -16,6 +20,39 @@ $source = static function (string $relative): string {
 };
 
 echo "== mailbox queue set-based bulk enqueue contract ==\n";
+
+final class MailboxQueueBulkConnection
+{
+    public int $statements = 0;
+    public function __construct(private readonly int $activeMailboxes) {}
+    /** @param array<string,mixed> $parameters */
+    public function executeStatement(string $sql, array $parameters): int
+    {
+        $this->statements++;
+        if (!str_contains($sql, 'INSERT INTO mailbox_task') || ($parameters['status'] ?? null) !== 'PENDING') {
+            throw new RuntimeException('Unexpected bulk enqueue statement');
+        }
+        return $this->activeMailboxes;
+    }
+}
+
+final class MailboxQueueBulkEntityManager
+{
+    public function __construct(public readonly MailboxQueueBulkConnection $connection) {}
+    public function getConnection(): MailboxQueueBulkConnection { return $this->connection; }
+}
+
+foreach ([3, 3000] as $activeMailboxes) {
+    $connection = new MailboxQueueBulkConnection($activeMailboxes);
+    $queued = (new ReflectionMethod(\ViMbAdmin_MailboxQueue::class, 'enqueueAllActive'))->invoke(
+        null,
+        new MailboxQueueBulkEntityManager($connection),
+        \Entities\MailboxTask::TYPE_QUOTA_RECALC,
+    );
+    $check("{$activeMailboxes} active mailboxes use one database statement",
+        $queued === $activeMailboxes && $connection->statements === 1);
+}
+
 $queue = $source('library/ViMbAdmin/MailboxQueue.php');
 $controller = $source('src/Kernel/Controller/MaintenanceController.php');
 $queueController = $source('src/Kernel/Controller/QueueController.php');
