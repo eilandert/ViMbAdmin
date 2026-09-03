@@ -525,14 +525,25 @@ class ViMbAdmin_Service_QueueRunner
         try {
             return $doveadm->maildirHasMail($dest);
         } catch (ViMbAdmin_Exception $e) {
-            $message = strtolower($e->getMessage());
-            foreach (["doesn't exist", 'does not exist', 'not exist', 'no such file', 'exit 68'] as $missing) {
-                if (str_contains($message, $missing)) {
-                    return false;
-                }
+            if ($this->maildirMissing($e)) {
+                return false;
             }
             throw $e;
         }
+    }
+
+    private function maildirMissing(\Throwable $error): bool
+    {
+        if (!$error instanceof ViMbAdmin_Exception) {
+            return false;
+        }
+        $message = strtolower($error->getMessage());
+        foreach (["doesn't exist", 'does not exist', 'not exist', 'no such file', 'exit 68'] as $missing) {
+            if (str_contains($message, $missing)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -763,6 +774,10 @@ class ViMbAdmin_Service_QueueRunner
         try {
             $hasMail = $doveadm->maildirHasMail($home);
         } catch (\Throwable $e) {
+            if ($this->maildirMissing($e)) {
+                $task->appendLog('maildir home already absent: ' . $home);
+                return;
+            }
             $task->appendLog('KEEP maildir home — could not verify it is empty: ' . $e->getMessage());
             throw $e;
         }
@@ -776,6 +791,10 @@ class ViMbAdmin_Service_QueueRunner
             $task->appendLog('remove empty maildir home ' . $home);
             $doveadm->fsDelete($home);
         } catch (\Throwable $e) {
+            if ($this->maildirMissing($e)) {
+                $task->appendLog('maildir home disappeared before removal: ' . $home);
+                return;
+            }
             $task->appendLog('remove maildir home warning: ' . $e->getMessage());
             throw $e;
         }
