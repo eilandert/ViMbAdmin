@@ -174,7 +174,12 @@ class OSS_Auth_Password
         }
 
         if( substr( $hash, 0, 6) == 'crypt:' )
+        {
+            if( str_starts_with( $pwhash, '$2' ) && strlen( $pwplain ) > 72 )
+                return false;
+
             return hash_equals( $pwhash, crypt( $pwplain, $pwhash ) );
+        }
 
         if( substr( $hash, 0, 8 ) == 'dovecot:' )
             return ViMbAdmin_Dovecot::passwordVerify( substr( $hash, 8 ), $pwhash, $pwplain, $username );
