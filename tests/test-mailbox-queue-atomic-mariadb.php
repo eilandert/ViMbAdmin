@@ -745,6 +745,31 @@ try {
     );
     mailboxQueueAtomicCheck('orphan-temp sweep deletes dead sentinels but preserves live and unrelated inactive rows',
         $remainingTemps === ['live-temp@orphan-temp.example.test', 'unrelated@orphan-temp.example.test']);
+    $connection->executeStatement(
+        'INSERT INTO mailbox (username, password, local_part, active, created, Domain_id)'
+        . ' VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP, ?)',
+        ['finalize-temp@orphan-temp.example.test', $tempPrefix . '999!', 'finalize-temp', $tempDomainId],
+    );
+    $finalizeTempId = mailboxQueueRequiredCount($connection->lastInsertId());
+    $tempFinalizer = new ReflectionMethod($sweeper, 'deleteOrphanBackupTemp');
+    $connection->executeStatement(
+        'UPDATE mailbox SET password = ?, active = 1 WHERE id = ?', ['{PLAIN}!replacement!', $finalizeTempId],
+    );
+    $replacedDeleted = $tempFinalizer->invoke($sweeper, $finalizeTempId, $tempPrefix . '999!');
+    $replacementStillPresent = mailboxQueueRequiredCount($connection->fetchOne(
+        'SELECT COUNT(*) FROM mailbox WHERE id = ? AND password = ? AND active = 1',
+        [$finalizeTempId, '{PLAIN}!replacement!'],
+    ));
+    mailboxQueueAtomicCheck('orphan-temp finalization preserves a concurrently activated replacement',
+        $replacedDeleted === false && $replacementStillPresent === 1);
+    $connection->executeStatement(
+        'UPDATE mailbox SET password = ?, active = 0 WHERE id = ?', [$tempPrefix . '999!', $finalizeTempId],
+    );
+    mailboxQueueAtomicCheck('orphan-temp finalization deletes an unchanged exact sentinel',
+        $tempFinalizer->invoke($sweeper, $finalizeTempId, $tempPrefix . '999!') === true
+        && mailboxQueueRequiredCount($connection->fetchOne(
+            'SELECT COUNT(*) FROM mailbox WHERE id = ?', [$finalizeTempId],
+        )) === 0);
     $connection->executeStatement('DELETE FROM mailbox WHERE Domain_id = ?', [$tempDomainId]);
     $connection->executeStatement('DELETE FROM mailbox_task WHERE username LIKE ?', ['%@orphan-temp.example.test']);
     $connection->executeStatement('DELETE FROM queue_runner WHERE id = ?', [$tempRunnerId]);

@@ -72,6 +72,7 @@ $check('gating-key database failures propagate', $propagated);
 $repo = file_get_contents(__DIR__ . '/../application/Repositories/MailboxTask.php');
 $controller = file_get_contents(__DIR__ . '/../src/Kernel/Controller/QueueController.php');
 $runner = file_get_contents(__DIR__ . '/../library/ViMbAdmin/Service/QueueRunner.php');
+$runnerText = is_string($runner) ? $runner : '';
 $check('cancel is a conditional database transition', is_string($repo)
     && str_contains($repo, 'WHERE id = :id AND status = :pending')
     && is_string($controller)
@@ -91,9 +92,23 @@ $check('orphan temp cleanup targets only sentinel rows without a live task', is_
     && str_contains($runner, 'm.active = 0 AND m.password LIKE ? AND t.id IS NULL')
     && str_contains($runner, 'UniqueConstraintViolationException')
     && str_contains($runner, 'adopted temp user row'));
-$check('completed doveadm work reconnects before batch and manual publication', is_string($runner)
+$drainMarker = strpos($runnerText, 'Recover before publishing either outcome');
+$drainRecovery = strpos($runnerText, '$this->ensureDatabaseConnection();', $drainMarker === false ? 0 : $drainMarker);
+$drainPublish = strpos($runnerText, '$published = $repo->publishIfOwned', $drainRecovery === false ? 0 : $drainRecovery);
+$manualStart = strpos($runnerText, 'public function runOne');
+$manualCatch = strpos($runnerText, '} catch (\Throwable $e) {', $manualStart === false ? 0 : $manualStart);
+$manualRecovery = strpos($runnerText, '$this->ensureDatabaseConnection();', $manualCatch === false ? 0 : $manualCatch);
+$manualPublish = strpos($runnerText, 'if ($repo->publishIfOwned', $manualRecovery === false ? 0 : $manualRecovery);
+$check('failed doveadm work reconnects before batch and manual publication', is_string($runner)
     && substr_count($runner, '$this->ensureDatabaseConnection();') >= 5
+    && is_int($drainRecovery) && is_int($drainPublish) && $drainRecovery < $drainPublish
+    && is_int($manualCatch) && is_int($manualRecovery) && is_int($manualPublish)
+    && $manualCatch < $manualRecovery && $manualRecovery < $manualPublish
     && str_contains($runner, '$connection->close()'));
+$check('orphan temp finalization uses an exact compare-and-delete guard', is_string($runner)
+    && str_contains($runner, 'DELETE FROM mailbox WHERE id = ? AND password = ? AND active = 0')
+    && str_contains($runner, 'temp user row retained (changed concurrently)')
+    && str_contains($runner, 'temp user row cleanup failed:'));
 
 echo $failures === 0 ? "ALL PASSED\n" : "{$failures} FAILED\n";
 exit($failures === 0 ? 0 : 1);
