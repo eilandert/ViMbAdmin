@@ -85,6 +85,10 @@ dataTableCheck('echo parsed',            $q->echo === 3);
 dataTableCheck('start parsed',           $q->start === 20);
 dataTableCheck('length parsed',          $q->length === 25);
 dataTableCheck('search trimmed',         $q->search === 'foo');
+dataTableCheck('search at configured minimum retained', DataTableQuery::fromArray(['sSearch' => 'foo'], 3)->search === 'foo');
+dataTableCheck('short search below configured minimum ignored', DataTableQuery::fromArray(['sSearch' => 'xy'], 3)->search === '');
+dataTableCheck('trimmed short search ignored', DataTableQuery::fromArray(['sSearch' => '  xy  '], 3)->search === '');
+dataTableCheck('multibyte minimum counts characters', DataTableQuery::fromArray(['sSearch' => 'éé'], 3)->search === '');
 dataTableCheck('sort column parsed',     $q->sortColumn === 2);
 dataTableCheck('sort dir normalised',    $q->sortDir === 'DESC');
 

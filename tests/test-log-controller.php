@@ -447,6 +447,35 @@ $check('list-data returns counts and formats timestamps',
         && $pagedBody['iTotalRecords'] === 9
         && is_array($firstPagedRow)
         && ($firstPagedRow['timestamp'] ?? null) === '2026-08-31 12:34:56');
+
+$_GET['sSearch'] = 'ab';
+$shortSearchLog = new LogControllerTestLogRepository();
+$shortSearchController = logController(
+    logEntityManager(['Entities\\Log' => $shortSearchLog]),
+    new LogControllerTestNamespace(),
+    new LogControllerTestView(),
+    new LogControllerTestStorage(['identity' => ['id' => 1]]),
+    static fn(int $id): object => $super,
+    [],
+    ['defaults' => ['server_side' => ['pagination' => [
+        'min_search_str' => 3,
+        'log' => ['enable' => true],
+    ]]]],
+);
+$shortSearchController->listDataAction();
+$check('list-data ignores a direct search below the configured minimum',
+    ($shortSearchLog->pageCalls[0][2] ?? null) === '');
+
+$defaultFloorLog = new LogControllerTestLogRepository();
+logController(
+    logEntityManager(['Entities\\Log' => $defaultFloorLog]),
+    new LogControllerTestNamespace(),
+    new LogControllerTestView(),
+    new LogControllerTestStorage(['identity' => ['id' => 1]]),
+    static fn(int $id): object => $super,
+)->listDataAction();
+$check('list-data retains the three-character floor when configuration is absent',
+    ($defaultFloorLog->pageCalls[0][2] ?? null) === '');
 $_GET = [];
 
 $serverSideLog = new LogControllerTestLogRepository([['action' => 'must-not-load']]);

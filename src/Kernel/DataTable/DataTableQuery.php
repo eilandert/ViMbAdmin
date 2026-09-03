@@ -41,8 +41,11 @@ final class DataTableQuery
      *
      * @param array<string,mixed> $p
      */
-    public static function fromArray(array $p): self
+    public static function fromArray(array $p, int $minimumSearchLength = 0): self
     {
+        if ($minimumSearchLength < 0) {
+            throw new \LogicException('Minimum search length must be non-negative');
+        }
         $echo   = self::integer($p['sEcho'] ?? null, 1, 'sEcho');
         $start  = max(0, self::integer($p['iDisplayStart'] ?? null, 0, 'iDisplayStart'));
 
@@ -57,6 +60,9 @@ final class DataTableQuery
             throw new \TypeError('sSearch must be a string');
         }
         $search = trim($searchValue ?? '');
+        if ($search !== '' && mb_strlen($search, 'UTF-8') < $minimumSearchLength) {
+            $search = '';
+        }
         $sortCol = max(0, self::integer($p['iSortCol_0'] ?? null, 0, 'iSortCol_0'));
         $sortDirection = $p['sSortDir_0'] ?? null;
         if ($sortDirection !== null && !is_string($sortDirection)) {

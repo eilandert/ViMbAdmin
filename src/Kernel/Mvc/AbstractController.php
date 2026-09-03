@@ -82,6 +82,35 @@ abstract class AbstractController
     }
 
     /**
+     * Configured server-side search floor for a DataTable list. A list-specific
+     * value overrides the shared pagination value.
+     */
+    protected function dataTableMinimumSearchLength(?string $list = null): int
+    {
+        $options = $this->container->options();
+        $defaults = array_key_exists('defaults', $options)
+            ? self::stringMap($options['defaults'], 'defaults')
+            : [];
+        $serverSide = array_key_exists('server_side', $defaults)
+            ? self::stringMap($defaults['server_side'], 'defaults.server_side')
+            : [];
+        $pagination = array_key_exists('pagination', $serverSide)
+            ? self::stringMap($serverSide['pagination'], 'defaults.server_side.pagination')
+            : [];
+
+        $value = $pagination['min_search_str'] ?? 3;
+        if ($list !== null && array_key_exists($list, $pagination)) {
+            $listOptions = self::stringMap(
+                $pagination[$list],
+                'defaults.server_side.pagination.' . $list,
+            );
+            $value = $listOptions['min_search_str'] ?? $value;
+        }
+
+        return self::nonNegativeInt($value, 'min_search_str');
+    }
+
+    /**
      * The Doctrine entity manager (the ZF1 `getD2EM()` equivalent).
      */
     protected function em(): object

@@ -235,7 +235,10 @@ final class AliasController extends AbstractController
         $domain  = $this->storedDomain($session);
         $ima     = self::binaryInteger($this->param('ima'), 0, 'Include-mailbox-alias flag');
 
-        $q = DataTableQuery::fromArray(self::requestArray($_GET));
+        $q = DataTableQuery::fromArray(
+            self::requestArray($_GET),
+            $this->dataTableMinimumSearchLength(),
+        );
         // Column index -> sortable field (matches JS column order; goto/controls
         // fall back to address).
         $sortField = [0 => 'address', 1 => 'domain', 2 => 'active'][$q->sortColumn] ?? 'address';
