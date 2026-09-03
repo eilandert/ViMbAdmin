@@ -382,7 +382,6 @@ final class QueueController extends AbstractController
             }
 
             $task->setFinishedAt(new \DateTime());
-            $this->em()->flush();
         });
 
         if ($result === \ViMbAdmin_Service_QueueRunner::RUN_ONE_BUSY) {
