@@ -330,3 +330,17 @@ SET @ddl := IF( @have_mailbox_task = 0,
            (`username`, `type`, `open_task`)',
         'DO 0 /* mailbox_task_open_unique already present */' ) );
 PREPARE _m FROM @ddl; EXECUTE _m; DEALLOCATE PREPARE _m;
+
+SET @have := (
+    SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME   = 'mailbox_task'
+      AND INDEX_NAME   = 'mailbox_task_username_type_status_idx'
+);
+SET @ddl := IF( @have_mailbox_task = 0,
+    'DO 0 /* mailbox_task is created by the entity schema */',
+    IF( @have = 0,
+        'ALTER TABLE `mailbox_task` ADD INDEX `mailbox_task_username_type_status_idx`
+           (`username`, `type`, `status`)',
+        'DO 0 /* mailbox_task_username_type_status_idx already present */' ) );
+PREPARE _m FROM @ddl; EXECUTE _m; DEALLOCATE PREPARE _m;

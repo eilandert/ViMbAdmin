@@ -306,6 +306,55 @@ try {
         $replacement instanceof \Entities\MailboxTask && $repairHistory === 2 && $openReplacement === 1,
     );
 
+    $connection->executeStatement(
+        'INSERT INTO domain (domain, created) VALUES (?, CURRENT_TIMESTAMP)',
+        ['bulk.example.test'],
+    );
+    $domainId = mailboxQueueRequiredCount($connection->lastInsertId());
+    $connection->executeStatement(
+        'INSERT INTO mailbox (username, password, local_part, active, created, Domain_id) VALUES'
+        . ' (?, ?, ?, 1, CURRENT_TIMESTAMP, ?), (?, ?, ?, 1, CURRENT_TIMESTAMP, ?),'
+        . ' (?, ?, ?, 0, CURRENT_TIMESTAMP, ?)',
+        [
+            'existing@bulk.example.test', '!', 'existing', $domainId,
+            'new@bulk.example.test', '!', 'new', $domainId,
+            'inactive@bulk.example.test', '!', 'inactive', $domainId,
+        ],
+    );
+    $connection->executeStatement(
+        'INSERT INTO mailbox_task (type, username, status, priority, created_at, Domain_id)'
+        . ' VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP, ?)',
+        [\Entities\MailboxTask::TYPE_REPAIR, 'existing@bulk.example.test', \Entities\MailboxTask::STATUS_PENDING, $domainId],
+    );
+    $bulkQueued = \ViMbAdmin_MailboxQueue::enqueueAllActive(
+        $em,
+        \Entities\MailboxTask::TYPE_REPAIR,
+    );
+    $bulkRows = $connection->fetchAllAssociative(
+        'SELECT username, type, status, Domain_id FROM mailbox_task'
+        . ' WHERE username LIKE ? ORDER BY username',
+        ['%@bulk.example.test'],
+    );
+    mailboxQueueAtomicCheck(
+        'bulk enqueue inserts active missing tasks and deduplicates existing open tasks',
+        $bulkQueued === 1
+        && count($bulkRows) === 2
+        && ($bulkRows[0]['username'] ?? null) === 'existing@bulk.example.test'
+        && ($bulkRows[1]['username'] ?? null) === 'new@bulk.example.test'
+        && array_reduce(
+            $bulkRows,
+            static fn(bool $valid, array $row): bool => $valid
+                && ($row['type'] ?? null) === \Entities\MailboxTask::TYPE_REPAIR
+                && ($row['status'] ?? null) === \Entities\MailboxTask::STATUS_PENDING
+                && mailboxQueueRequiredCount($row['Domain_id'] ?? null) === $domainId,
+            true,
+        ),
+        'queued=' . $bulkQueued . ' rows=' . json_encode($bulkRows),
+    );
+    $connection->executeStatement('DELETE FROM mailbox_task WHERE username LIKE ?', ['%@bulk.example.test']);
+    $connection->executeStatement('DELETE FROM mailbox WHERE Domain_id = ?', [$domainId]);
+    $connection->executeStatement('DELETE FROM domain WHERE id = ?', [$domainId]);
+
     // Exercise the production Schema helper's upgrade path from the previous
     // queue shape. It must reject existing duplicates before adding even the
     // generated column, so a failed upgrade cannot leave half the invariant.
@@ -355,6 +404,12 @@ try {
         ['mailbox_task', 'mailbox_task_open_unique'],
     ));
     mailboxQueueAtomicCheck('schema migration restores the complete open-task invariant', $openTaskIndexColumns === 3);
+    $lookupIndexColumns = mailboxQueueRequiredCount($connection->fetchOne(
+        'SELECT COUNT(*) FROM information_schema.STATISTICS'
+        . ' WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ? AND NON_UNIQUE = 1',
+        ['mailbox_task', 'mailbox_task_username_type_status_idx'],
+    ));
+    mailboxQueueAtomicCheck('schema migration installs the bulk deduplication lookup index', $lookupIndexColumns === 3);
 } catch (Throwable $e) {
     mailboxQueueAtomicCheck('integration harness completed', false, $e->getMessage());
 } finally {
