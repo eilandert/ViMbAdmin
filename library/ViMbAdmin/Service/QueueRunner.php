@@ -30,6 +30,7 @@
  */
 class ViMbAdmin_Service_QueueRunner
 {
+    private const ORPHAN_SCAN_MAX = 500;
     /** Refresh often enough that an active request cannot reach the 30m TTL. */
     const LEASE_HEARTBEAT_INTERVAL = 60;
     const RUN_ONE_BUSY = -1;
@@ -348,6 +349,12 @@ class ViMbAdmin_Service_QueueRunner
 
             case \Entities\MailboxTask::TYPE_BACKUP_ORPHAN:
                 $this->backupOrphan($task, $doveadm);
+                break;
+
+            case \Entities\MailboxTask::TYPE_SCAN_ORPHANS:
+                $orphans = $this->scanOrphans($doveadm);
+                $task->setData($this->encodeTaskData(['orphans' => $orphans]));
+                $task->appendLog('found ' . count($orphans) . ' unmanaged maildir(s)');
                 break;
 
             case \Entities\MailboxTask::TYPE_ARCHIVE:
@@ -689,9 +696,51 @@ class ViMbAdmin_Service_QueueRunner
 
     /**
      * @param ViMbAdmin_Doveadm $doveadm
-     * @return void
+     * @return string[]
      */
-    private function backupOrphan(\Entities\MailboxTask $task, $doveadm)
+    private function scanOrphans(ViMbAdmin_Doveadm $doveadm): array
+    {
+        $root = $this->maildirRoot();
+        $dirs = $doveadm->fsListDirs($root);
+        sort($dirs);
+        if (count($dirs) > self::ORPHAN_SCAN_MAX) {
+            throw new ViMbAdmin_Exception('orphan scan exceeds the bounded candidate limit of ' . self::ORPHAN_SCAN_MAX);
+        }
+
+        $known = [];
+        foreach ($this->em->createQuery('SELECT m.username FROM \\Entities\\Mailbox m')->getArrayResult() as $row) {
+            if (!is_array($row)) {
+                throw new \UnexpectedValueException('Mailbox row has an invalid shape.');
+            }
+            $username = $row['username'] ?? null;
+            if (!is_string($username) || $username === '') {
+                throw new \UnexpectedValueException('Mailbox row has an invalid username.');
+            }
+            $known[strtolower($username)] = true;
+        }
+
+        $orphans = [];
+        foreach ($dirs as $name) {
+            $name = self::safeMaildirName($name);
+            if (!isset($known[strtolower($name)])
+                && in_array('cur', $doveadm->fsListDirs($root . '/' . $name), true)) {
+                $orphans[] = $name;
+            }
+        }
+        return $orphans;
+    }
+
+    private static function safeMaildirName(mixed $value): string
+    {
+        if (!is_string($value) || $value === '' || $value === '.' || $value === '..'
+            || str_contains($value, '/') || str_contains($value, '\\')
+            || preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
+            throw new ViMbAdmin_Exception('Maildir name is not a safe path component');
+        }
+        return $value;
+    }
+
+    private function backupOrphan(\Entities\MailboxTask $task, ViMbAdmin_Doveadm $doveadm): void
     {
         $em   = $this->em;
         $user = self::assertPathSafe($task->requiredUsername());

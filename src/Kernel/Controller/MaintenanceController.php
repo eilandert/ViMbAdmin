@@ -87,13 +87,6 @@ final class MaintenanceController extends AbstractController
     }
 
     /** @param array<string,mixed> $options */
-    private static function optionString(array $options, string $default, string ...$path): string
-    {
-        [$found, $value] = self::option($options, ...$path);
-        return $found ? self::requiredString($value, 'Configuration ' . implode('.', $path)) : $default;
-    }
-
-    /** @param array<string,mixed> $options */
     private static function optionInt(array $options, int $default, string ...$path): int
     {
         [$found, $value] = self::option($options, ...$path);
@@ -411,14 +404,21 @@ final class MaintenanceController extends AbstractController
             return $guard;
         }
 
+        $task = new \Entities\MailboxTask();
+        $task->setType(\Entities\MailboxTask::TYPE_SCAN_ORPHANS)
+            ->setUsername('__orphan_scan__')
+            ->setStatus(\Entities\MailboxTask::STATUS_PENDING)
+            ->setPriority(-15)
+            ->setCreatedAt(new \DateTime())
+            ->setRequestedBy($guard);
         try {
-            $orphans = $this->scanOrphans();
-        } catch (\Throwable $e) {
-            $this->flash('Orphan scan failed: ' . $e->getMessage(), FlashMessages::ERROR);
-            return $this->redirect('maintenance/index');
+            $this->em()->persist($task);
+            $this->em()->flush();
+            $this->flash('Queued the unmanaged-maildir scan. Return here after it completes to review and confirm imports.');
+        } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
+            $this->flash('An unmanaged-maildir scan is already queued or running.', FlashMessages::INFO);
         }
-
-        return $this->renderDashboard(['orphans' => $orphans]);
+        return $this->redirect('queue/index');
     }
 
     /**
@@ -440,7 +440,7 @@ final class MaintenanceController extends AbstractController
         }
 
         try {
-            $orphans = $this->scanOrphans();
+            $orphans = $this->cachedOrphans();
         } catch (\Throwable $e) {
             $this->flash('Orphan scan failed: ' . $e->getMessage(), FlashMessages::ERROR);
             return $this->redirect('maintenance/index');
@@ -500,35 +500,28 @@ final class MaintenanceController extends AbstractController
      *
      * @return string[]
      */
-    private function scanOrphans(): array
+    private function cachedOrphans(): array
     {
-        $doveadm = \ViMbAdmin_Doveadm::fromOptions($this->container->options());
-        $root    = $this->maildirRoot();
-
-        $dirs = $doveadm->fsListDirs($root);
-        if (!$dirs) {
-            return [];
+        $rows = $this->em()->createQuery(
+            'SELECT t.data AS data FROM \Entities\MailboxTask t'
+            . ' WHERE t.type = :type AND t.status = :status ORDER BY t.finished_at DESC, t.id DESC'
+        )->setParameter('type', \Entities\MailboxTask::TYPE_SCAN_ORPHANS)
+            ->setParameter('status', \Entities\MailboxTask::STATUS_DONE)
+            ->setMaxResults(1)->getArrayResult();
+        if ($rows === [] || !is_array($rows[0])) {
+            throw new LogicException('Run and complete an unmanaged-maildir scan before confirming imports.');
         }
-
-        $known = [];
-        foreach ($this->em()->createQuery('SELECT m.username FROM \Entities\Mailbox m')->getArrayResult() as $r) {
-            $username = self::rowUsername($r, 'Mailbox row');
-            $known[strtolower($username)] = true;
+        $raw = $rows[0]['data'] ?? null;
+        $decoded = is_string($raw) ? json_decode($raw, true) : null;
+        $orphans = is_array($decoded) ? ($decoded['orphans'] ?? null) : null;
+        if (!is_array($orphans)) {
+            throw new LogicException('The completed unmanaged-maildir scan result is malformed.');
         }
-
-        $orphans = [];
-        foreach ($dirs as $name) {
-            $name = self::safeMaildirName($name);
-            if (isset($known[strtolower($name)])) {
-                continue;
-            }
-            if (in_array('cur', $doveadm->fsListDirs($root . '/' . $name), true)) {
-                $orphans[] = $name;
-            }
+        $result = [];
+        foreach ($orphans as $orphan) {
+            $result[] = self::safeMaildirName($orphan);
         }
-        sort($orphans);
-
-        return $orphans;
+        return $result;
     }
 
     private static function safeMaildirName(mixed $value): string
@@ -540,12 +533,6 @@ final class MaintenanceController extends AbstractController
         }
 
         return $value;
-    }
-
-    private function maildirRoot(): string
-    {
-        $root = trim(self::optionString($this->container->options(), '', 'doveadm', 'maildir_root'));
-        return $root !== '' ? rtrim($root, '/') : '/opt/myguard/dovecot/maildir';
     }
 
     /**
@@ -581,6 +568,14 @@ final class MaintenanceController extends AbstractController
     {
         $em     = $this->em();
         $schema = new \ViMbAdmin_Schema($em);
+
+        if (!array_key_exists('orphans', $extra)) {
+            try {
+                $extra['orphans'] = $this->cachedOrphans();
+            } catch (LogicException) {
+                // No completed scan yet: retain the initial Scan action.
+            }
+        }
 
         $vars = [
             'stats'             => [

@@ -57,6 +57,8 @@ class MailboxTask
      * "scan for unmanaged maildirs" action; low priority.
      */
     const TYPE_BACKUP_ORPHAN = "BACKUP_ORPHAN";
+    /** Discover unmanaged maildirs for later UI confirmation. */
+    const TYPE_SCAN_ORPHANS = "SCAN_ORPHANS";
 
     /** @var array<string, string> */
     public static $TYPES = [
@@ -65,6 +67,7 @@ class MailboxTask
         self::TYPE_ARCHIVE      => "Archive (backup, keep account)",
         self::TYPE_DELETE       => "Delete (backup, remove account)",
         self::TYPE_QUOTA_RECALC => "Quota recalc",
+        self::TYPE_SCAN_ORPHANS => "Scan unmanaged maildirs",
     ];
 
     // ---- statuses -------------------------------------------------------
