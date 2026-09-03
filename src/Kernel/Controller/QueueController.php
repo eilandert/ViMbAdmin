@@ -362,7 +362,6 @@ final class QueueController extends AbstractController
             return $admin;
         }
 
-        $repo = $this->mailboxTaskRepository();
         $task = $this->taskFromPost();
 
         if (!$task || $task->getStatus() !== \Entities\MailboxTask::STATUS_PENDING) {
@@ -370,25 +369,27 @@ final class QueueController extends AbstractController
             return $this->redirect('queue/index');
         }
 
-        // Atomic PENDING -> RUNNING; bail if a background runner won the row.
-        if (!$repo->claim($task)) {
+        $runner = new \ViMbAdmin_Service_QueueRunner($this->em(), $this->container->options());
+        $result = $runner->runOne($task, function(?\Throwable $error) use ($task, $admin): void {
+            if ($error === null) {
+                $task->setStatus(\Entities\MailboxTask::STATUS_DONE);
+                $task->appendLog('done (run-now by ' . $admin->getFormattedName() . ')');
+                $this->flash(sprintf('Task #%d completed.', $task->getId()));
+            } else {
+                $task->setStatus(\Entities\MailboxTask::STATUS_FAILED);
+                $task->appendLog('FAILED: ' . $error->getMessage());
+                $this->flash(sprintf('Task #%d failed: %s', $task->getId(), $error->getMessage()), FlashMessages::ERROR);
+            }
+
+            $task->setFinishedAt(new \DateTime());
+            $this->em()->flush();
+        });
+
+        if ($result === \ViMbAdmin_Service_QueueRunner::RUN_ONE_BUSY) {
+            $this->flash('A queue runner is already active (max_concurrent reached) — it will pick up the task.', FlashMessages::INFO);
+        } elseif ($result === \ViMbAdmin_Service_QueueRunner::RUN_ONE_NOT_CLAIMED) {
             $this->flash('Task is already being processed.', FlashMessages::INFO);
-            return $this->redirect('queue/index');
         }
-
-        try {
-            (new \ViMbAdmin_Service_QueueRunner($this->em(), $this->container->options()))->runOne($task);
-            $task->setStatus(\Entities\MailboxTask::STATUS_DONE);
-            $task->appendLog('done (run-now by ' . $admin->getFormattedName() . ')');
-            $this->flash(sprintf('Task #%d completed.', $task->getId()));
-        } catch (\Throwable $e) {
-            $task->setStatus(\Entities\MailboxTask::STATUS_FAILED);
-            $task->appendLog('FAILED: ' . $e->getMessage());
-            $this->flash(sprintf('Task #%d failed: %s', $task->getId(), $e->getMessage()), FlashMessages::ERROR);
-        }
-
-        $task->setFinishedAt(new \DateTime());
-        $this->em()->flush();
 
         return $this->redirect('queue/index');
     }

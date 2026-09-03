@@ -12,10 +12,10 @@
  * of those drains may run at once.
  *
  * Concurrency (`queue.runner.max_concurrent`, default 1) is enforced with a DB
- * lease: each active drain holds a row in `queue_runner`, heartbeats it, and
- * deletes it on exit. A new drain only starts if the count of non-stale leases
- * is below the cap. Stale leases (the process died without releasing) are reaped
- * after LEASE_TTL seconds so a slot is never lost forever.
+ * lease: each active drain atomically claims a uniquely indexed slot in
+ * `queue_runner`, heartbeats it, and deletes it on exit. Stale leases (the
+ * process died without releasing) are reaped after LEASE_TTL seconds so a slot
+ * is never lost forever.
  */
 /**
  * @phpstan-type QueueRunnerOptions array{
@@ -30,6 +30,8 @@ class ViMbAdmin_QueueRunner
 {
     /** Seconds after which a lease with no heartbeat is considered dead. */
     const LEASE_TTL = 1800;
+    const ACQUIRE_LOCK_NAME = 'vimbadmin.queue_runner.acquire';
+    const ACQUIRE_LOCK_TIMEOUT = 5;
 
     /**
      * Are we below queue.runner.max_concurrent active (non-stale) runners?
@@ -39,66 +41,54 @@ class ViMbAdmin_QueueRunner
      * @param QueueRunnerOptions $options
      * @return bool
      */
-    public static function slotAvailable( $em, array $options )
+    public static function slotAvailable( $em, array $options, ?\DateTime $now = null )
     {
         $max = self::maxConcurrent($options);
-        self::reapStale( $em );
-        $activeValue = $em->createQuery(
-            'SELECT COUNT(r.id) FROM \Entities\QueueRunner r' )->getSingleScalarResult();
-        $active = self::nonNegativeInt($activeValue, 'active runner count');
-        return $active < $max;
+        self::reapStale( $em, $now );
+        return self::activeCount($em) < $max;
     }
 
     /**
      * Acquire a runner lease (call at the start of an actual drain). Returns the
      * lease entity, or null if no slot is free (the caller must then NOT drain).
-     * The count + insert race is closed by re-checking after insert and backing
-     * out if we overshot the cap — cheap and correct for the small N here.
+     * Each slot is protected by a database UNIQUE constraint, so concurrent
+     * callers cannot both acquire it. Duplicate-key is ordinary contention;
+     * every other database failure remains an operational error.
      *
      * @param \Doctrine\ORM\EntityManager $em
      * @param QueueRunnerOptions $options
      * @return \Entities\QueueRunner|null
      */
-    public static function acquireLease( $em, array $options )
+    public static function acquireLease( $em, array $options, ?\DateTime $now = null )
     {
-        if( !self::slotAvailable( $em, $options ) )
-            return null;
-
-        $now   = new \DateTime();
-        $lease = new \Entities\QueueRunner();
-        $lease->setHost( (string) gethostname() )
-              ->setPid( function_exists( 'getmypid' ) ? (int) getmypid() : 0 )
-              ->setStartedAt( $now )
-              ->setHeartbeatAt( $now );
-        $em->persist( $lease );
-        $em->flush();
-
-        // Race back-off: if our insert pushed the active count over the cap and
-        // we are not among the oldest <max> leases, yield our slot.
         $max = self::maxConcurrent($options);
-        $ids = $em->createQuery(
-            'SELECT r.id FROM \Entities\QueueRunner r ORDER BY r.id ASC' )
-            ->setMaxResults( $max )->getResult();
-        if (!is_array($ids) || !array_is_list($ids)) {
-            throw new \UnexpectedValueException('Runner lease query result is malformed');
-        }
-        $keep = [];
-        foreach ($ids as $row) {
-            if (!is_array($row) || !array_key_exists('id', $row)) {
-                throw new \UnexpectedValueException('Runner lease row is malformed');
-            }
-            $keep[] = self::positiveInt($row['id'], 'runner lease id');
-        }
-        if( !in_array( (int) $lease->getId(), $keep, true ) )
-        {
-            $em->remove( $lease );
-            $em->flush();
-            return null;
-        }
+        $now = $now === null ? new \DateTime() : clone $now;
+        $connection = $em->getConnection();
 
-        // Record when the runner last actually started a drain (the lease row
-        // is deleted on exit, so the Maintenance overview reads this marker
-        // rather than the live queue_runner table).
+        $lease = self::withAcquireLock($connection, function() use ($em, $max, $now, $connection) {
+            self::reapStale( $em, $now );
+
+            for( $slot = 1; $slot <= $max; $slot++ )
+            {
+                // Count every live lease, including slots above a newly lowered
+                // cap. The database mutex keeps this count-and-insert decision
+                // atomic across all cooperating runners.
+                if( self::activeCount($em) >= $max )
+                    return null;
+
+                $lease = self::tryAcquireSlot($em, $connection, $slot, $now);
+                if( $lease instanceof \Entities\QueueRunner )
+                    return $lease;
+            }
+
+            return null;
+        });
+
+        if( !$lease instanceof \Entities\QueueRunner )
+            return null;
+
+        // The lease row is deleted on exit, so the overview reads this durable
+        // marker rather than the live lease table.
         ViMbAdmin_Setting::stampNow( $em, ViMbAdmin_Setting::LAST_QUEUERUN );
 
         return $lease;
@@ -111,10 +101,21 @@ class ViMbAdmin_QueueRunner
      * @param \Entities\QueueRunner $lease
      * @return void
      */
-    public static function heartbeat( $em, \Entities\QueueRunner $lease )
+    public static function heartbeat( $em, \Entities\QueueRunner $lease, ?\DateTime $now = null )
     {
-        $lease->setHeartbeatAt( new \DateTime() );
-        $em->flush();
+        $now = $now === null ? new \DateTime() : clone $now;
+        $id = self::positiveInt($lease->getId(), 'runner lease id');
+        $slot = self::positiveInt($lease->getSlot(), 'runner lease slot');
+        $affected = $em->createQuery(
+            'UPDATE \Entities\QueueRunner r SET r.heartbeat_at = :heartbeat'
+            . ' WHERE r.id = :id AND r.slot = :slot' )
+            ->setParameter( 'heartbeat', $now )
+            ->setParameter( 'id', $id )
+            ->setParameter( 'slot', $slot )
+            ->execute();
+        if( $affected !== 1 )
+            throw new \RuntimeException( 'Runner lease was lost before its heartbeat.' );
+        $lease->setHeartbeatAt( $now );
     }
 
     /**
@@ -143,14 +144,125 @@ class ViMbAdmin_QueueRunner
      * @param \Doctrine\ORM\EntityManager $em
      * @return int  rows reaped
      */
-    public static function reapStale( $em )
+    public static function reapStale( $em, ?\DateTime $now = null )
     {
-        $cutoff = ( new \DateTime() )->modify( '-' . self::LEASE_TTL . ' seconds' );
+        $cutoff = ( $now === null ? new \DateTime() : clone $now )
+            ->modify( '-' . self::LEASE_TTL . ' seconds' );
         $reaped = $em->createQuery(
             'DELETE FROM \Entities\QueueRunner r WHERE r.heartbeat_at < :cutoff' )
             ->setParameter( 'cutoff', $cutoff )
             ->execute();
         return self::nonNegativeInt($reaped, 'reaped runner count');
+    }
+
+    /** @param \Doctrine\ORM\EntityManager $em */
+    private static function activeCount($em): int
+    {
+        $activeValue = $em->createQuery(
+            'SELECT COUNT(r.id) FROM \Entities\QueueRunner r' )->getSingleScalarResult();
+        return self::nonNegativeInt($activeValue, 'active runner count');
+    }
+
+    /**
+     * @param \Doctrine\ORM\EntityManager $em
+     * @param \Doctrine\DBAL\Connection $connection
+     */
+    private static function tryAcquireSlot($em, $connection, int $slot, \DateTime $now): ?\Entities\QueueRunner
+    {
+        try
+        {
+            $affected = $connection->insert( 'queue_runner', [
+                'slot'         => $slot,
+                'host'         => (string) gethostname(),
+                'pid'          => function_exists( 'getmypid' ) ? (int) getmypid() : 0,
+                'started_at'   => $now->format( 'Y-m-d H:i:s' ),
+                'heartbeat_at' => $now->format( 'Y-m-d H:i:s' ),
+            ] );
+        }
+        catch( \Doctrine\DBAL\Exception\UniqueConstraintViolationException $e )
+        {
+            return null;
+        }
+
+        if( $affected !== 1 )
+            throw new \RuntimeException( 'Runner lease insert affected an unexpected number of rows.' );
+
+        $id = filter_var( $connection->lastInsertId(), FILTER_VALIDATE_INT, [
+            'options' => [ 'min_range' => 1 ],
+        ] );
+        if( $id === false )
+            throw new \UnexpectedValueException( 'Runner lease insert returned an invalid identifier.' );
+
+        $lease = $em->find( '\Entities\QueueRunner', $id );
+        if( !$lease instanceof \Entities\QueueRunner || $lease->getSlot() !== $slot )
+            throw new \UnexpectedValueException( 'Inserted runner lease could not be reloaded.' );
+
+        return $lease;
+    }
+
+    /**
+     * @template T
+     * @param \Doctrine\DBAL\Connection $connection
+     * @param callable():T $operation
+     * @return T|null null when the database mutex timed out
+     */
+    private static function withAcquireLock($connection, callable $operation)
+    {
+        $locked = $connection->fetchOne(
+            'SELECT GET_LOCK(?, ?)',
+            [ self::ACQUIRE_LOCK_NAME, self::ACQUIRE_LOCK_TIMEOUT ]
+        );
+        if( $locked === 0 || $locked === '0' )
+            return null;
+        if( $locked !== 1 && $locked !== '1' )
+            throw new \UnexpectedValueException( 'Runner lease database mutex returned an invalid result.' );
+
+        try
+        {
+            $result = $operation();
+        }
+        catch( \Throwable $e )
+        {
+            try
+            {
+                $released = $connection->fetchOne(
+                    'SELECT RELEASE_LOCK(?)',
+                    [ self::ACQUIRE_LOCK_NAME ]
+                );
+                if( $released !== 1 && $released !== '1' )
+                    $connection->close();
+            }
+            catch( \Throwable $_releaseError )
+            {
+                // Closing the database session releases its advisory locks.
+                $connection->close();
+            }
+            throw $e;
+        }
+
+        try
+        {
+            $released = $connection->fetchOne(
+                'SELECT RELEASE_LOCK(?)',
+                [ self::ACQUIRE_LOCK_NAME ]
+            );
+        }
+        catch( \Throwable $e )
+        {
+            $connection->close();
+            throw new \RuntimeException(
+                'Could not release the runner lease database mutex.',
+                0,
+                $e
+            );
+        }
+        if( $released !== 1 && $released !== '1' )
+        {
+            $connection->close();
+            throw new \RuntimeException( 'Could not release the runner lease database mutex.' );
+        }
+
+        return $result;
     }
 
     /** @param array<string,mixed> $options */

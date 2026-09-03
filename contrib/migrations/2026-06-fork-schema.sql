@@ -178,18 +178,63 @@ PREPARE _m FROM @ddl; EXECUTE _m; DEALLOCATE PREPARE _m;
 -- ---------------------------------------------------------------------
 -- 5) queue_runner lease table (runner concurrency cap)
 -- ---------------------------------------------------------------------
--- One row per ACTIVE queue runner; queue.runner.max_concurrent is enforced by
--- counting the non-stale rows before a new drain starts. Created by the entity
--- mapping on a fresh DB; this is the standalone mirror.
+-- One row per ACTIVE queue runner. A unique numeric slot makes
+-- queue.runner.max_concurrent a database-enforced invariant rather than a
+-- count-then-insert convention. Created by the entity mapping on a fresh DB;
+-- the guarded ALTERs below upgrade an existing lease table.
 CREATE TABLE IF NOT EXISTS `queue_runner` (
     `id`           BIGINT       NOT NULL AUTO_INCREMENT,
+    `slot`         INT          NOT NULL,
     `host`         VARCHAR(255) NOT NULL,
     `pid`          INT          NOT NULL,
     `started_at`   DATETIME     NOT NULL,
     `heartbeat_at` DATETIME     NOT NULL,
     PRIMARY KEY (`id`),
+    UNIQUE INDEX `queue_runner_slot_uniq` (`slot`),
     INDEX `queue_runner_heartbeat_idx` (`heartbeat_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @have_runner_slot := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME   = 'queue_runner'
+      AND COLUMN_NAME  = 'slot'
+);
+SET @ddl := IF( @have_runner_slot = 0,
+    'ALTER TABLE `queue_runner` ADD `slot` INT NULL AFTER `id`',
+    'DO 0 /* queue_runner.slot already present */' );
+PREPARE _m FROM @ddl; EXECUTE _m; DEALLOCATE PREPARE _m;
+
+-- Preserve any live pre-upgrade leases. Their slots only need to be unique;
+-- stale reaping and normal release will remove them shortly.
+SET @runner_slot := 0;
+UPDATE `queue_runner`
+SET `slot` = ( @runner_slot := @runner_slot + 1 )
+WHERE `slot` IS NULL
+ORDER BY `id`;
+
+SET @runner_slot_nullable := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME   = 'queue_runner'
+      AND COLUMN_NAME  = 'slot'
+      AND IS_NULLABLE  = 'YES'
+);
+SET @ddl := IF( @runner_slot_nullable = 1,
+    'ALTER TABLE `queue_runner` MODIFY `slot` INT NOT NULL',
+    'DO 0 /* queue_runner.slot already non-null */' );
+PREPARE _m FROM @ddl; EXECUTE _m; DEALLOCATE PREPARE _m;
+
+SET @have_runner_slot_uniq := (
+    SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME   = 'queue_runner'
+      AND INDEX_NAME   = 'queue_runner_slot_uniq'
+);
+SET @ddl := IF( @have_runner_slot_uniq = 0,
+    'ALTER TABLE `queue_runner` ADD UNIQUE INDEX `queue_runner_slot_uniq` (`slot`)',
+    'DO 0 /* queue_runner slot invariant already present */' );
+PREPARE _m FROM @ddl; EXECUTE _m; DEALLOCATE PREPARE _m;
 
 
 -- ---------------------------------------------------------------------
