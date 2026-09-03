@@ -120,6 +120,60 @@ final class ArchiveIdentityMailboxRepository extends \Repositories\Mailbox
     }
 }
 
+final class ArchiveIdentityAutopruneRepository extends \Repositories\Archive
+{
+    /** @param list<\Entities\Archive> $archives */
+    public function __construct(private readonly array $archives) {}
+    /** @return list<\Entities\Archive> */
+    public function findAutoprune(?\DateTime $cutoff = null)
+    {
+        return $this->archives;
+    }
+}
+
+final class ArchiveIdentityAutopruneQuery
+{
+    public function setParameter(string|int $key, mixed $value): self { return $this; }
+    /** @return list<array{username:string}> */
+    public function getArrayResult(): array { return []; }
+}
+
+final class ArchiveIdentityAutopruneConnection
+{
+    /** @param list<mixed> $parameters */
+    public function executeStatement(string $sql, array $parameters): int
+    {
+        return str_starts_with($sql, 'UPDATE setting SET value = ?') ? 1 : 0;
+    }
+}
+
+final class ArchiveIdentityAutopruneEntityManager
+{
+    /** @var list<object> */
+    public array $persisted = [];
+    public int $flushes = 0;
+    private readonly ArchiveIdentityAutopruneConnection $connection;
+    public function __construct(private readonly ArchiveIdentityAutopruneRepository $repository)
+    {
+        $this->connection = new ArchiveIdentityAutopruneConnection();
+    }
+    public function getConnection(): ArchiveIdentityAutopruneConnection { return $this->connection; }
+    public function getRepository(string $class): ArchiveIdentityAutopruneRepository
+    {
+        if ($class !== '\\Entities\\Archive') { throw new RuntimeException('Unexpected repository'); }
+        return $this->repository;
+    }
+    public function createQuery(string $dql): ArchiveIdentityAutopruneQuery
+    {
+        if (!str_contains($dql, 'LOWER(t.username) IN (:users)')) {
+            throw new RuntimeException('Unexpected autoprune query');
+        }
+        return new ArchiveIdentityAutopruneQuery();
+    }
+    public function persist(object $entity): void { $this->persisted[] = $entity; }
+    public function flush(): void { $this->flushes++; }
+}
+
 /** @param array<string,EntityRepository<covariant object>> $repositories */
 function archiveIdentityEntityManager(array $repositories): EntityManager
 {
@@ -458,14 +512,30 @@ archiveIdentityCheck('QueueRunner isolates a malformed archive before considerin
     $queueIsolationError === null
         && $queueCandidates === [[$validQueueArchive, 'valid@example.test']]);
 
-$queueTask = (new \Entities\MailboxTask())
+$nullableDomainArchive = (new \Entities\Archive())
     ->setUsername('box@example.test')
-    ->setDomain($mcpArchive->getDomain());
-$queueSource = file_get_contents(__DIR__ . '/../library/ViMbAdmin/Service/QueueRunner.php');
+    ->setMaildirFile('/backups/example.test/box');
+$mappedDomain = (new \Entities\Domain())->setDomain('mapped.example.test');
+$mappedDomainArchive = (new \Entities\Archive())
+    ->setUsername('mapped@mapped.example.test')
+    ->setMaildirFile('/backups/mapped.example.test/mapped')
+    ->setDomain($mappedDomain);
+$autopruneManager = new ArchiveIdentityAutopruneEntityManager(
+    new ArchiveIdentityAutopruneRepository([$nullableDomainArchive, $mappedDomainArchive]),
+);
+$autopruneRunner = (new ReflectionClass(ViMbAdmin_Service_QueueRunner::class))->newInstanceWithoutConstructor();
+(new ReflectionProperty($autopruneRunner, 'em'))->setValue($autopruneRunner, $autopruneManager);
+(new ReflectionProperty($autopruneRunner, 'options'))->setValue($autopruneRunner, []);
+(new ReflectionMethod($autopruneRunner, 'autopruneSweep'))->invoke($autopruneRunner);
+$queuedPrune = $autopruneManager->persisted[0] ?? null;
+$mappedPrune = $autopruneManager->persisted[1] ?? null;
 archiveIdentityCheck('QueueRunner retains its nullable archive-domain association',
-    $queueTask->getDomain() === null
-        && is_string($queueSource)
-        && substr_count($queueSource, '->setDomain($archive->getDomain())') === 1);
+    $queuedPrune instanceof \Entities\MailboxTask
+        && $queuedPrune->requiredUsername() === 'box@example.test'
+        && $queuedPrune->getDomain() === null
+        && $mappedPrune instanceof \Entities\MailboxTask
+        && $mappedPrune->getDomain() === $mappedDomain
+        && $autopruneManager->flushes === 1);
 
 echo ArchiveIdentityState::$failures === 0
     ? "\nALL PASSED\n"

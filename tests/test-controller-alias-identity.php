@@ -183,6 +183,9 @@ final class ControllerAliasIdentityPagedMailboxRepository extends \Repositories\
      */
     public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
     {
+        if ($orderBy !== ['username' => 'ASC']) {
+            throw new LogicException('Expected mailbox username ascending order.');
+        }
         $rows = $this->mailboxes;
         usort($rows, static function(mixed $left, mixed $right): int {
             if (!$left instanceof \Entities\Mailbox || !$right instanceof \Entities\Mailbox) { return 0; }

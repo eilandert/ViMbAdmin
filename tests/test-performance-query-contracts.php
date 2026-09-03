@@ -56,15 +56,16 @@ $openTaskRunner = (new ReflectionClass(ViMbAdmin_Service_QueueRunner::class))->n
 $openTaskEntityManager = new PerformanceOpenTaskEntityManager();
 (new ReflectionProperty(ViMbAdmin_Service_QueueRunner::class, 'em'))->setValue($openTaskRunner, $openTaskEntityManager);
 $openTaskMethod = new ReflectionMethod($openTaskRunner, 'openPruneUsernames');
-foreach ([5, 400] as $candidateCount) {
+foreach ([5 => 1, 400 => 1, 501 => 2] as $candidateCount => $expectedQueries) {
     $openTaskEntityManager->queries = 0;
     $users = array_map(static fn(int $id): string => "user{$id}@example.test", range(1, $candidateCount));
     $open = $openTaskMethod->invoke($openTaskRunner, $users);
     $queryCount = (new ReflectionProperty($openTaskEntityManager, 'queries'))->getValue($openTaskEntityManager);
-    $check("autoprune open-task lookup stays one query for {$candidateCount} candidates",
-        $queryCount === 1
+    $check("autoprune open-task lookup uses {$expectedQueries} query batch(es) for {$candidateCount} candidates",
+        $queryCount === $expectedQueries
             && is_array($open)
-            && isset($open["user{$candidateCount}@example.test"]));
+            && isset($open["user{$candidateCount}@example.test"])
+            && ($candidateCount < 501 || isset($open['user500@example.test'])));
 }
 
 $captcha = $source('library/OSS/Captcha/Image.php');
@@ -81,7 +82,7 @@ $check('domain choices use scalar hydration',
 $mcp = $source('application/controllers/McpController.php');
 $check('all MCP list abilities use validated bounded repository queries',
     substr_count($mcp, '$this->_listBounds( $params )') === 3
-    && substr_count($mcp, ', $limit, $offset )') === 2
+    && substr_count($mcp, '], $limit, $offset') === 2
     && str_contains($mcp, '->setFirstResult($offset)->setMaxResults($limit)')
     && str_contains($mcp, 'LOWER(d.domain) IN (:allowed)')
     && str_contains($mcp, 'LIST_MAX_OFFSET = 10000'));

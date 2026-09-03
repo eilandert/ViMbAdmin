@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../application/Entities/Admin.php';
+require_once __DIR__ . '/../application/Entities/Alias.php';
 require_once __DIR__ . '/../application/Entities/Domain.php';
+require_once __DIR__ . '/../application/Entities/Mailbox.php';
 
 function domainRequiredFieldsWithId(int $id): \Entities\Domain
 {
@@ -68,6 +70,36 @@ domainRequiredFieldsCheck('admin authorization rejects null ids instead of match
     domainRequiredFieldsError(
         static fn(): bool => $unpersistedAdmin->canManageDomain(new \Entities\Domain()),
     ) === 'Domain id cannot be null.');
+
+$associations = new \Entities\Domain();
+$canonicalMailbox = new \Entities\Mailbox();
+$compatibilityMailbox = new \Entities\Mailbox();
+$canonicalAlias = new \Entities\Alias();
+$compatibilityAlias = new \Entities\Alias();
+domainRequiredFieldsCheck('canonical association adders retain fluent collection behavior',
+    $associations->addMailbox($canonicalMailbox) === $associations
+        && $associations->addAlias($canonicalAlias) === $associations
+        && $associations->getMailboxes()->contains($canonicalMailbox)
+        && $associations->getAliases()->contains($canonicalAlias));
+domainRequiredFieldsCheck('deprecated typo aliases delegate to canonical association behavior',
+    $associations->addMailboxe($compatibilityMailbox) === $associations
+        && $associations->addAliase($compatibilityAlias) === $associations
+        && $associations->getMailboxes()->contains($compatibilityMailbox)
+        && $associations->getAliases()->contains($compatibilityAlias));
+$associations->removeMailbox($canonicalMailbox);
+$associations->removeAlias($canonicalAlias);
+$associations->removeMailboxe($compatibilityMailbox);
+$associations->removeAliase($compatibilityAlias);
+domainRequiredFieldsCheck('canonical and compatibility removers mutate the same ORM collections',
+    $associations->getMailboxes()->isEmpty() && $associations->getAliases()->isEmpty());
+$compatibilityMethodsDeprecated = true;
+foreach (['addMailboxe', 'removeMailboxe', 'addAliase', 'removeAliase'] as $method) {
+    $doc = (new ReflectionMethod(\Entities\Domain::class, $method))->getDocComment();
+    $compatibilityMethodsDeprecated = $compatibilityMethodsDeprecated
+        && is_string($doc) && str_contains($doc, '@deprecated');
+}
+domainRequiredFieldsCheck('typo compatibility APIs remain present and explicitly deprecated',
+    $compatibilityMethodsDeprecated);
 
 echo DomainRequiredFieldsState::$failures === 0
     ? "\nALL PASSED\n"

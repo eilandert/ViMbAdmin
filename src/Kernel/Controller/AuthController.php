@@ -54,11 +54,7 @@ final class AuthController extends AbstractController
 
     private static function requiredString(mixed $value, string $name): string
     {
-        if (!is_string($value)) {
-            throw new \LogicException("{$name} must be a string");
-        }
-
-        return $value;
+        return \ViMbAdmin\Kernel\Input\Reader::requiredString($value, $name);
     }
 
     private static function stringOrDefault(mixed $value, string $default, string $name): string
@@ -101,43 +97,14 @@ final class AuthController extends AbstractController
     /** @return array<string,mixed> */
     private static function stringKeyedArray(mixed $value, string $name): array
     {
-        if (!is_array($value)) {
-            throw new \LogicException("{$name} must be an array");
-        }
-        foreach ($value as $key => $_) {
-            if (!is_string($key)) {
-                throw new \LogicException("{$name} must use string keys");
-            }
-        }
-
-        return $value;
+        return \ViMbAdmin\Kernel\Input\Reader::stringKeyedArray($value, $name);
     }
 
     /** @param array<string,mixed> $options */
     private static function option(array $options, string ...$path): mixed
     {
-        $value = $options;
-        $walked = [];
-        $last = array_key_last($path);
-        foreach ($path as $index => $key) {
-            $walked[] = $key;
-            if (!is_array($value)) {
-                throw new \LogicException('Configuration ' . implode('.', array_slice($walked, 0, -1)) . ' must be an array');
-            }
-            $value = self::stringKeyedArray(
-                $value,
-                'Configuration ' . ($index === 0 ? 'root' : implode('.', array_slice($walked, 0, -1))),
-            );
-            if (!array_key_exists($key, $value)) {
-                return null;
-            }
-            $value = $value[$key];
-            if ($index !== $last && !is_array($value)) {
-                throw new \LogicException('Configuration ' . implode('.', $walked) . ' must be an array');
-            }
-        }
-
-        return $value;
+        [$found, $value] = \ViMbAdmin\Kernel\Input\Reader::option($options, ...$path);
+        return $found ? $value : null;
     }
 
     /** @param array<string,mixed> $options */
