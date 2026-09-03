@@ -196,7 +196,7 @@ function formatControlls( id )
                 {/foreach}
             {/if}
             
-    str += '<a class="btn btn-mini have-tooltip" id="delete-alias-' + id + '" title="Delete" href="{genUrl controller="alias" action="delete"}/alid/' + id + '">\
+    str += '<a class="btn btn-mini have-tooltip" id="delete-alias-' + id + '" title="Delete" href="{genUrl controller="alias" action="delete"}/alid/' + id + '/csrf/{$csrfToken}">\
                 <i class="icon-trash"></i>\
             </a>';
             

@@ -19,8 +19,8 @@ this directory is for.
 > There is **no** tar/bzip2 archive cron any more, and no mail-host filesystem
 > job. Archive/delete backups are written by the queue as zstd-compressed
 > Dovecot maildirs under the configured `doveadm.backup.dest` (e.g. `/backups`),
-> shown on the **Archives** tab, and pruned from the **Maintenance** tab (or a
-> cron hitting `maintenance/prune-expired`). Mailbox **usage** is fed live by
+> shown on the **Archives** tab, and pruned from the **Maintenance** tab. Mailbox
+> **usage** is fed live by
 > Dovecot's quota-clone plugin — see the main
 > [README](../../README.md#live-quota-usage-dovecot-quota-clone).
 
@@ -70,16 +70,6 @@ That is exactly how the reference deployment runs it (every 2 minutes). For an
 off-box trigger instead of cron, the runner also exposes an authenticated
 `/queue/trigger` HTTP endpoint — see `queue.runner.key` / `queue.runner.allowed_ips`
 in `application.ini`.
-
-Optionally, also prune expired archive backups on a schedule (the same thing the
-Maintenance-tab button does):
-
-```cron
-# once a day, remove autoprune backups older than queue.autoprune.days
-30 3 * * *  root  docker exec vimbadmin php /opt/vimbadmin/bin/vimbtool.php -a maintenance.prune-expired
-```
-
----
 
 ## Bare-metal deployment
 

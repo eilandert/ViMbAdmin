@@ -212,8 +212,8 @@ queue.runner.max_concurrent = 1
 ; Auto-prune window for DELETE backups, in DAYS. When a mailbox is DELETEd (not
 ; archived) the queue takes a safety backup and records an archive row flagged
 ; autoprune=on; that backup is removed automatically this many days after it
-; was archived (run via the Maintenance tab "Run autoprune" button, or a cron
-; hitting the same action). Explicit ARCHIVE actions are NEVER autopruned.
+; was archived (run via the Maintenance tab "Run autoprune" button). Explicit
+; ARCHIVE actions are NEVER autopruned.
 ;   90 = keep deleted-mailbox backups 90 days, then prune (default).
 ;    0 = "instant": DELETE takes NO backup and removes the mailbox immediately.
 queue.autoprune.days = 90

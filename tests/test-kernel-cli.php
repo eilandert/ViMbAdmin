@@ -418,6 +418,36 @@ $want = $expected;
 sort($want);
 check('commands() == registered set',    $got === $want);
 
+$instructionFiles = [
+    __DIR__ . '/../README.md',
+    __DIR__ . '/../UPDATING',
+    __DIR__ . '/../application/configs/application.ini.dist',
+    __DIR__ . '/../bin/crons/vimbadmin',
+    __DIR__ . '/../contrib/cron/README.md',
+    __DIR__ . '/../contrib/cron/crontab.example',
+    __DIR__ . '/../docs/MIGRATION.md',
+    __DIR__ . '/../docs/ORM3-UPGRADE.md',
+    __DIR__ . '/../docs/ZF1-REMOVAL.md',
+    __DIR__ . '/../docs/mcp-auth.md',
+];
+$documentedActions = [];
+foreach ($instructionFiles as $file) {
+    $contents = file_get_contents($file);
+    if (!is_string($contents)) {
+        throw new RuntimeException("Could not read CLI instruction file: {$file}");
+    }
+    preg_match_all('/vimbtool\.php\s+-a\s+([a-z][a-z0-9-]*\.[a-z][a-z0-9-]*)/', $contents, $matches);
+    foreach ($matches[1] as $action) {
+        if ($action !== 'controller.action') {
+            $documentedActions[$action] = true;
+        }
+    }
+}
+check('CLI docs and cron examples name at least one concrete action', $documentedActions !== []);
+foreach (array_keys($documentedActions) as $action) {
+    check("documented CLI action {$action} is registered", $kernel->canHandle($action));
+}
+
 $cmd = new QueueRunCommand();
 check('QueueRunCommand name',            $cmd->name() === 'queue.cli-run');
 $implemented = class_implements($cmd) ?: [];
