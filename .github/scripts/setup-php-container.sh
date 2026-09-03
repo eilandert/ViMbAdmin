@@ -6,6 +6,8 @@ readonly composer_version=2.10.3
 readonly composer_sha256=7a2d379d5b8ffdaa028580ef26494c36d2feef4b178d3dd1473a4dbc5e17c8d6
 readonly phpstan_version=2.2.5
 readonly phpstan_sha256=1b2f03384ebcfd67053b06b69cbc0b9f62bf239349f69eaf723649409789e2e6
+readonly psalm_version=6.16.1
+readonly psalm_sha256=7ace71e4f698466e7e16810679a1895ea623060579aff46fcf9fd0f1c09abe00
 
 install_verified_phar() {
   local name=$1 expected_sha256=$2 url=$3
@@ -15,22 +17,26 @@ install_verified_phar() {
   printf '%s  %s\n' "$expected_sha256" "$temporary" | sha256sum --check --status
   install -m 0755 "$temporary" "$destination"
   rm -f "$temporary"
-  "$destination" --version
+  if [[ $name == psalm ]]; then
+    "$destination" --root=/tmp --version
+  else
+    "$destination" --version
+  fi
 }
 
 install_verified_phar composer "$composer_sha256" \
   "https://getcomposer.org/download/$composer_version/composer.phar"
 
 case "$profile" in
-  tools)
-    exit 0
-    ;;
-  runtime|cache|static)
-    ;;
-  *)
-    printf 'Unknown PHP container profile: %s\n' "$profile" >&2
-    exit 64
-    ;;
+tools)
+  exit 0
+  ;;
+runtime | cache | static)
+  ;;
+*)
+  printf 'Unknown PHP container profile: %s\n' "$profile" >&2
+  exit 64
+  ;;
 esac
 
 export DEBIAN_FRONTEND=noninteractive
@@ -41,19 +47,23 @@ apt-get install --yes --no-install-recommends \
 
 docker-php-ext-configure gd --with-freetype --with-jpeg
 docker-php-ext-install -j"$(nproc)" gd gettext intl pdo_mysql
-printf 'memory_limit=-1\n' > /usr/local/etc/php/conf.d/ci-memory.ini
+printf 'memory_limit=-1\n' >/usr/local/etc/php/conf.d/ci-memory.ini
 
 if [[ $profile == cache ]]; then
   # shellcheck disable=SC2086 # PHPIZE_DEPS is an image-provided package list.
   apt-get install --yes --no-install-recommends $PHPIZE_DEPS
   pecl install apcu
   docker-php-ext-enable apcu
-  printf 'apc.enable_cli=1\n' > /usr/local/etc/php/conf.d/apcu-cli.ini
+  printf 'apc.enable_cli=1\n' >/usr/local/etc/php/conf.d/apcu-cli.ini
 fi
 
 if [[ $profile == static ]]; then
   install_verified_phar phpstan "$phpstan_sha256" \
     "https://github.com/phpstan/phpstan/releases/download/$phpstan_version/phpstan.phar"
+  # Psalm owns only the taint lens (see psalm.xml), so keep its dependency out
+  # of the application's Composer graph.
+  install_verified_phar psalm "$psalm_sha256" \
+    "https://github.com/vimeo/psalm/releases/download/$psalm_version/psalm.phar"
 fi
 
 required_extensions=(ctype dom gd gettext iconv intl json mbstring pdo pdo_mysql sodium)

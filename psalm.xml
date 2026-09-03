@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<psalm
+    errorLevel="8"
+    resolveFromConfigFile="true"
+    findUnusedBaselineEntry="false"
+    findUnusedCode="false"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    errorBaseline="psalm-taint-baseline.xml"
+>
+    <!--
+        Psalm is configured only for interprocedural taint analysis. Its type
+        and dead-code lenses are intentionally unused; PHPStan owns the type
+        lens for this repository. Invoke Psalm's taint-analysis mode.
+    -->
+    <projectFiles>
+        <directory name="src" />
+        <directory name="library" />
+        <directory name="application" />
+        <ignoreFiles>
+            <directory name="vendor" />
+        </ignoreFiles>
+        <ignoreFiles allowMissingFiles="true">
+            <directory name="application/Proxies" />
+        </ignoreFiles>
+    </projectFiles>
+
+    <!--
+        BruteForce.php's known TaintedFile reports are retained as exact code
+        entries in psalm-taint-baseline.xml. Per-IP state filenames use
+        hash('sha256', $ip); directory, lock, cursor and suffix components are
+        trusted configuration or fixed literals. Do not add a file-wide issue
+        handler here: it would hide a new sink before the drift check sees it.
+    -->
+</psalm>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<files psalm-version="6.16.1@f1f5de594dc76faf8784e02d3dc4716c91c6f6ac">
+  <file src="library/OSS/Captcha/Image.php">
+    <TaintedFile>
+      <code><![CDATA[$path]]></code>
+    </TaintedFile>
+  </file>
+  <file src="library/ViMbAdmin/BruteForce.php">
+    <TaintedFile>
+      <code><![CDATA[$cursorPath]]></code>
+      <code><![CDATA[$f]]></code>
+      <code><![CDATA[$f]]></code>
+      <code><![CDATA[$file]]></code>
+      <code><![CDATA[$lockFile]]></code>
+      <code><![CDATA[$path]]></code>
+      <code><![CDATA[$path]]></code>
+      <code><![CDATA[$path]]></code>
+      <code><![CDATA[$this->_statedir]]></code>
+    </TaintedFile>
+  </file>
+  <file src="library/ViMbAdmin/Service/QueueRunner.php">
+    <TaintedHtml>
+      <code><![CDATA[" - #{$task->getId()} {$task->getType()} {$task->getUsername()}: {$task->getStatus()}\n"]]></code>
+    </TaintedHtml>
+    <TaintedTextWithQuotes>
+      <code><![CDATA[" - #{$task->getId()} {$task->getType()} {$task->getUsername()}: {$task->getStatus()}\n"]]></code>
+    </TaintedTextWithQuotes>
+  </file>
+  <file src="src/Kernel/Cli/Command/ResetTotpCommand.php">
+    <TaintedHtml>
+      <code><![CDATA['2FA reset for: ' . $admin->getUsername() . "\n"]]></code>
+    </TaintedHtml>
+    <TaintedTextWithQuotes>
+      <code><![CDATA['2FA reset for: ' . $admin->getUsername() . "\n"]]></code>
+    </TaintedTextWithQuotes>
+  </file>
+  <file src="src/Kernel/Controller/AuthController.php">
+    <TaintedFile>
+      <code><![CDATA[$path]]></code>
+    </TaintedFile>
+  </file>
+</files>

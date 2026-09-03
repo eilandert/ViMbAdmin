@@ -6,11 +6,11 @@ cd "$(dirname "$0")/.."
 
 browser="${CHROMIUM_BIN:-}"
 if [[ -z "$browser" ]]; then
-    browser="$(command -v chromium || command -v chromium-browser || command -v google-chrome || true)"
+  browser="$(command -v chromium || command -v chromium-browser || command -v google-chrome || true)"
 fi
 if [[ -z "$browser" ]]; then
-    echo "FAIL: Chromium is required for the alias destination rendering regression" >&2
-    exit 2
+  echo "FAIL: Chromium is required for the alias destination rendering regression" >&2
+  exit 2
 fi
 
 tmp="$(mktemp -d /tmp/vimbadmin-alias-destination.XXXXXX)"
@@ -19,11 +19,11 @@ trap 'rm -rf "$tmp"' EXIT
 cp public/js/min.bundle-v16.js "$tmp/min.bundle-v16.js"
 bundle_uri="file://$tmp/min.bundle-v16.js"
 if [[ -n ${PHP_RENDERER:-} ]]; then
-    PHP_CONTAINER_WRITE_DIR=$tmp \
-        "$PHP_RENDERER" tests/render-alias-list-fixture.php \
-        "$tmp/regression.html" "$bundle_uri"
+  PHP_CONTAINER_WRITE_DIR=$tmp \
+    "$PHP_RENDERER" tests/render-alias-list-fixture.php \
+    "$tmp/regression.html" "$bundle_uri"
 else
-    php tests/render-alias-list-fixture.php "$tmp/regression.html" "$bundle_uri"
+  php tests/render-alias-list-fixture.php "$tmp/regression.html" "$bundle_uri"
 fi
 
 # Execute the production formatters rather than test copies. Select them from
@@ -31,18 +31,18 @@ fi
 awk '
     /^function formatGoto\(/ { copying = 1 }
     copying { print }
-' "$tmp/regression.html.server-side.js" > "$tmp/alias-formatters.js"
+' "$tmp/regression.html.server-side.js" >"$tmp/alias-formatters.js"
 
-if ! grep -q '^function formatGoto' "$tmp/alias-formatters.js" \
-    || ! grep -q '^function formatControlls' "$tmp/alias-formatters.js"; then
-    echo "FAIL: could not extract the production alias formatters" >&2
-    exit 2
+if ! grep -q '^function formatGoto' "$tmp/alias-formatters.js" ||
+  ! grep -q '^function formatControlls' "$tmp/alias-formatters.js"; then
+  echo "FAIL: could not extract the production alias formatters" >&2
+  exit 2
 fi
 
 {
-    printf '<script>\n'
-    cat "$tmp/alias-formatters.js"
-    cat <<'HTML'
+  printf '<script>\n'
+  cat "$tmp/alias-formatters.js"
+  cat <<'HTML'
 
 const payload = '"<svg/onload=document.body.dataset.pwned=1>"@example.com';
 const normalLongDestination = 'first.destination@example.com,second.destination@example.net';
@@ -126,20 +126,20 @@ $(function () {
 </script>
 </body>
 HTML
-} >> "$tmp/regression.html"
+} >>"$tmp/regression.html"
 
 "$browser" \
-    --headless \
-    --disable-gpu \
-    --allow-file-access-from-files \
-    --user-data-dir="$tmp/profile" \
-    --virtual-time-budget=1000 \
-    --dump-dom "file://$tmp/regression.html" > "$tmp/rendered.html" 2> "$tmp/chromium.log"
+  --headless \
+  --disable-gpu \
+  --allow-file-access-from-files \
+  --user-data-dir="$tmp/profile" \
+  --virtual-time-budget=1000 \
+  --dump-dom "file://$tmp/regression.html" >"$tmp/rendered.html" 2>"$tmp/chromium.log"
 
 if ! grep -q 'data-test-result="pass"' "$tmp/rendered.html"; then
-    failures="$(grep -o 'data-test-failures="[^"]*"' "$tmp/rendered.html" || true)"
-    echo "FAIL: production alias destination formatter is unsafe: ${failures:-no browser verdict}" >&2
-    exit 1
+  failures="$(grep -o 'data-test-failures="[^"]*"' "$tmp/rendered.html" || true)"
+  echo "FAIL: production alias destination formatter is unsafe: ${failures:-no browser verdict}" >&2
+  exit 1
 fi
 
 echo "OK: browser rendered alias destinations as literal text with non-HTML titles"

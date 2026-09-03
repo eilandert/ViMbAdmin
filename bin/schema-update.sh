@@ -10,7 +10,5 @@ exit
 # proxies:
 ./doctrine-cli.php orm:generate-proxies
 
-
 echo "####   ./doctrine-cli.php orm:schema-tool:drop --force && ./doctrine-cli.php orm:schema-tool:create "
 echo "####   ./doctrine-cli.php orm:schema-tool:create "
-

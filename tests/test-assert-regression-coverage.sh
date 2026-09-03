@@ -175,14 +175,14 @@ run_guard
   printf 'Coverage guard accepted a unit runner that discovers tests without executing them.\n' >&2
   exit 1
 }
-grep -qF 'Unit test runner does not discover and execute tracked PHP tests.' \
+grep -qF 'Unit test runner discovery or requested subset is incorrect.' \
   "$test_root/output" || {
   cat "$test_root/output" >&2
   exit 1
 }
 cp -- "$runner" "$test_root/tests/run-unit-tests.sh"
 
-cat > "$test_root/tests/run-unit-tests.sh" <<'SH'
+cat >"$test_root/tests/run-unit-tests.sh" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -210,7 +210,7 @@ run_guard
   printf 'Coverage guard accepted discovery and execution prose in dead code.\n' >&2
   exit 1
 }
-grep -qF 'Unit test runner does not discover and execute tracked PHP tests.' \
+grep -qF 'Unit test runner discovery or requested subset is incorrect.' \
   "$test_root/output" || {
   cat "$test_root/output" >&2
   exit 1
@@ -224,7 +224,24 @@ run_guard
   printf 'Coverage guard accepted filesystem discovery of an untracked test.\n' >&2
   exit 1
 }
-grep -qF 'Unit test runner does not discover and execute tracked PHP tests.' \
+grep -qF 'Unit test runner discovery or requested subset is incorrect.' \
+  "$test_root/output" || {
+  cat "$test_root/output" >&2
+  exit 1
+}
+cp -- "$runner" "$test_root/tests/run-unit-tests.sh"
+
+# A runner that ignores an explicit subset still discovers the full manifest,
+# but defeats focused local and CI invocations. The executable contract must
+# reject that regression rather than accepting the discovery loop alone.
+sed -i '/^[[:space:]]*selected_tests=("\$@")$/d' \
+  "$test_root/tests/run-unit-tests.sh"
+run_guard
+[[ $guard_status -ne 0 ]] || {
+  printf 'Coverage guard accepted a unit runner that ignores its requested subset.\n' >&2
+  exit 1
+}
+grep -qF 'Unit test runner discovery or requested subset is incorrect.' \
   "$test_root/output" || {
   cat "$test_root/output" >&2
   exit 1
@@ -239,7 +256,7 @@ run_guard
   printf 'Coverage guard accepted duplicate execution of a tracked test.\n' >&2
   exit 1
 }
-grep -qF 'Unit test runner does not discover and execute tracked PHP tests.' \
+grep -qF 'Unit test runner discovery or requested subset is incorrect.' \
   "$test_root/output" || {
   cat "$test_root/output" >&2
   exit 1

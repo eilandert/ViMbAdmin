@@ -14,6 +14,10 @@ readonly excluded_tests=(
 )
 
 if [[ ${1:-} == --print-excluded-tests ]]; then
+  [[ $# -eq 1 ]] || {
+    printf 'usage: %s [--print-excluded-tests|tests/test-*.php ...]\n' "$0" >&2
+    exit 2
+  }
   printf '%s\n' "${excluded_tests[@]}"
   exit 0
 fi
@@ -32,13 +36,28 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if ! git ls-files 'tests/test-*.php' | sort > "$manifest"; then
+if ! git ls-files 'tests/test-*.php' | sort >"$manifest"; then
   printf 'Could not enumerate tracked PHP tests.\n' >&2
   exit 1
 fi
 
-mapfile -t tracked_tests < "$manifest"
-for test in "${tracked_tests[@]}"; do
+mapfile -t tracked_tests <"$manifest"
+selected_tests=("${tracked_tests[@]}")
+if [[ $# -gt 0 ]]; then
+  selected_tests=("$@")
+  for test in "${selected_tests[@]}"; do
+    if [[ $test != tests/test-*.php ]] || ! grep -qxF -- "$test" "$manifest"; then
+      printf 'Requested test is not a tracked PHP unit test: %s\n' "$test" >&2
+      exit 2
+    fi
+    if [[ $test == tests/test-phpstan-*.php ]] || is_excluded "$test"; then
+      printf 'Requested test belongs to another CI job: %s\n' "$test" >&2
+      exit 2
+    fi
+  done
+fi
+
+for test in "${selected_tests[@]}"; do
   [[ $test == tests/test-phpstan-*.php ]] && continue
   is_excluded "$test" && continue
   echo "== $test =="

@@ -6,11 +6,11 @@ cd "$(dirname "$0")/.."
 
 browser="${CHROMIUM_BIN:-}"
 if [[ -z "$browser" ]]; then
-    browser="$(command -v chromium || command -v chromium-browser || command -v google-chrome || true)"
+  browser="$(command -v chromium || command -v chromium-browser || command -v google-chrome || true)"
 fi
 if [[ -z "$browser" ]]; then
-    echo "FAIL: Chromium is required for the residual stored-XSS regression" >&2
-    exit 2
+  echo "FAIL: Chromium is required for the residual stored-XSS regression" >&2
+  exit 2
 fi
 
 tmp="$(mktemp -d /tmp/vimbadmin-residual-stored-xss.XXXXXX)"
@@ -19,15 +19,15 @@ trap 'rm -rf "$tmp"' EXIT
 cp public/js/min.bundle-v16.js "$tmp/min.bundle-v16.js"
 bundle_uri="file://$tmp/min.bundle-v16.js"
 if [[ -n ${PHP_RENDERER:-} ]]; then
-    PHP_CONTAINER_WRITE_DIR=$tmp \
-        "$PHP_RENDERER" tests/render-residual-stored-xss-fixture.php \
-        "$tmp/regression.html" "$bundle_uri"
+  PHP_CONTAINER_WRITE_DIR=$tmp \
+    "$PHP_RENDERER" tests/render-residual-stored-xss-fixture.php \
+    "$tmp/regression.html" "$bundle_uri"
 else
-    php tests/render-residual-stored-xss-fixture.php \
-        "$tmp/regression.html" "$bundle_uri"
+  php tests/render-residual-stored-xss-fixture.php \
+    "$tmp/regression.html" "$bundle_uri"
 fi
 
-cat <<'HTML' >> "$tmp/regression.html"
+cat <<'HTML' >>"$tmp/regression.html"
 <script>
 const payload = 'destination@example.test,'.repeat(3) +
     '"<svg/onload=document.body.dataset.pwned=1>"@example.test';
@@ -132,17 +132,17 @@ $(function () {
 HTML
 
 "$browser" \
-    --headless \
-    --disable-gpu \
-    --allow-file-access-from-files \
-    --user-data-dir="$tmp/profile" \
-    --virtual-time-budget=1000 \
-    --dump-dom "file://$tmp/regression.html" > "$tmp/rendered.html" 2> "$tmp/chromium.log"
+  --headless \
+  --disable-gpu \
+  --allow-file-access-from-files \
+  --user-data-dir="$tmp/profile" \
+  --virtual-time-budget=1000 \
+  --dump-dom "file://$tmp/regression.html" >"$tmp/rendered.html" 2>"$tmp/chromium.log"
 
 if ! grep -q 'data-test-result="pass"' "$tmp/rendered.html"; then
-    failures="$(grep -o 'data-test-failures="[^"]*"' "$tmp/rendered.html" || true)"
-    echo "FAIL: residual stored-XSS rendering is unsafe: ${failures:-no browser verdict}" >&2
-    exit 1
+  failures="$(grep -o 'data-test-failures="[^"]*"' "$tmp/rendered.html" || true)"
+  echo "FAIL: residual stored-XSS rendering is unsafe: ${failures:-no browser verdict}" >&2
+  exit 1
 fi
 
 echo 'OK: mailbox purge and log data render as literal text outside HTML tooltips'
