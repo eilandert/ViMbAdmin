@@ -37,6 +37,21 @@ class ViMbAdmin_Service_QueueRunner
     const RUN_ONE_NOT_CLAIMED = 0;
     const RUN_ONE_COMPLETED = 1;
 
+    private const DELETE_PROGRESS_KEY = '_queue_runner_delete';
+    private const DELETE_PROGRESS_VERSION = 1;
+    private const DELETE_MODE_BACKUP = 'backup';
+    private const DELETE_MODE_INSTANT = 'instant';
+
+    /** @var list<string> */
+    private const DELETE_STEPS = [
+        'backup',
+        'archive',
+        'mailbox-delete',
+        'maildir-home',
+        'mailbox-row',
+        'audit',
+    ];
+
     /** @var \Doctrine\ORM\EntityManager */
     private $em;
 
@@ -370,34 +385,246 @@ class ViMbAdmin_Service_QueueRunner
                 break;
 
             case \Entities\MailboxTask::TYPE_DELETE:
-                if ($this->autopruneDays() === 0) {
-                    $task->appendLog('autoprune.days=0 — instant delete, no backup');
-                    $doveadm->mailboxDelete($user);
-                    $this->removeMaildirHome($task, $doveadm, $user);
-                    $task->appendLog('removing ViMbAdmin mailbox row');
-                    $this->removeMailboxRow($user);
-                    $this->logAudit($task, \Entities\Log::ACTION_MAILBOX_PURGE,
-                        "deleted {$user} (instant, autoprune.days=0 — no backup)");
-                    break;
-                }
-
-                $dest = $this->backupDest($task);
-                $task->appendLog("backup -> {$dest}");
-                $doveadm->backup($user, $dest);
-                $task->appendLog('recording archive row (autoprune on)');
-                $this->recordArchive($task, $dest, true, $doveadm);
-                $task->appendLog('mailbox delete (empty store)');
-                $doveadm->mailboxDelete($user);
-                $this->removeMaildirHome($task, $doveadm, $user);
-                $task->appendLog('removing ViMbAdmin mailbox row');
-                $this->removeMailboxRow($user);
-                $this->logAudit($task, \Entities\Log::ACTION_MAILBOX_PURGE,
-                    "deleted {$user} (backup {$dest}, autoprune on — prunes after queue.autoprune.days)");
+                $this->executeDelete($task, $doveadm, $user);
                 break;
 
             default:
                 throw new ViMbAdmin_Exception('unknown task type: ' . $task->getType());
         }
+    }
+
+    /**
+     * Delete is deliberately checkpointed after every successful side effect.
+     * A retry therefore resumes after the last durable checkpoint instead of
+     * replaying backup/archive/destruction from the beginning.
+     *
+     * @return void
+     */
+    private function executeDelete(\Entities\MailboxTask $task, ViMbAdmin_Doveadm $doveadm, string $user)
+    {
+        $progress = $this->deletePlan($task);
+        $mode = $progress['mode'];
+        $dest = $progress['destination'];
+
+        if ($mode === self::DELETE_MODE_BACKUP) {
+            if ($dest === null) {
+                throw new \LogicException('Backup delete plan must contain a destination.');
+            }
+            $this->deleteStep($task, 'backup', function() use ($task, $doveadm, $user, $dest): void {
+                $task->appendLog("backup -> {$dest}");
+                $this->backupDelete($task, $doveadm, $user, $dest);
+            });
+            $this->deleteStep($task, 'archive', function() use ($task, $doveadm, $dest): void {
+                $task->appendLog('recording archive row (autoprune on)');
+                $this->recordArchive($task, $dest, true, $doveadm);
+            });
+        }
+        if ($mode === self::DELETE_MODE_INSTANT) {
+            $task->appendLog('autoprune.days=0 — instant delete, no backup');
+        }
+
+        $this->deleteStep($task, 'mailbox-delete', function() use ($task, $doveadm, $user): void {
+            $task->appendLog('mailbox delete (empty store)');
+            $doveadm->mailboxDelete($user);
+        });
+        $this->deleteStep($task, 'maildir-home', function() use ($task, $doveadm, $user): void {
+            $this->removeMaildirHome($task, $doveadm, $user);
+        });
+        $this->deleteStep($task, 'mailbox-row', function() use ($task, $user): void {
+            $task->appendLog('removing ViMbAdmin mailbox row');
+            $this->removeMailboxRow($user);
+        });
+        $this->deleteStep($task, 'audit', function() use ($task, $user, $dest, $mode): void {
+            $message = $mode === self::DELETE_MODE_INSTANT
+                ? "deleted {$user} (instant, autoprune.days=0 — no backup)"
+                : "deleted {$user} (backup {$dest}, autoprune on — prunes after queue.autoprune.days)";
+            $this->stageAudit($task, \Entities\Log::ACTION_MAILBOX_PURGE, $message);
+        });
+    }
+
+    /**
+     * Pin the workflow selected for the first attempt. Configuration can change
+     * before a retry; changing the workflow under existing checkpoints would
+     * make their names ambiguous and could skip a required backup.
+     * The resolved backup destination is pinned for the same reason: a retry
+     * must archive and protect the exact location written by its first attempt.
+     *
+     * @return array{mode:string,destination:string|null,completed:list<string>}
+     */
+    private function deletePlan(\Entities\MailboxTask $task): array
+    {
+        $progress = $this->deleteProgress($task);
+        if ($progress !== null) {
+            return $progress;
+        }
+
+        $mode = $this->autopruneDays() === 0
+            ? self::DELETE_MODE_INSTANT
+            : self::DELETE_MODE_BACKUP;
+        $destination = $mode === self::DELETE_MODE_BACKUP
+            ? $this->backupDest($task)
+            : null;
+        $this->writeDeleteProgress($task, $mode, $destination, []);
+        $this->em->flush();
+        $progress = $this->deleteProgress($task);
+        if ($progress === null) {
+            throw new \LogicException('Delete plan must exist after initialization.');
+        }
+        return $progress;
+    }
+
+    /** @param callable():void $operation */
+    private function deleteStep(\Entities\MailboxTask $task, string $step, callable $operation): void
+    {
+        $progress = $this->deleteProgress($task);
+        if ($progress === null) {
+            throw new \LogicException('Delete progress must be initialized before running a step.');
+        }
+        if (in_array($step, $progress['completed'], true)) {
+            $task->appendLog("skip completed delete step: {$step}");
+            return;
+        }
+
+        $operation();
+        $progress['completed'][] = $step;
+        $this->writeDeleteProgress(
+            $task,
+            $progress['mode'],
+            $progress['destination'],
+            $progress['completed']
+        );
+        $this->em->flush();
+    }
+
+    /**
+     * Protect pre-checkpoint tasks that failed after their mailbox was emptied.
+     * A populated destination is evidence of a usable prior backup; never let
+     * an empty live store replace it.
+     */
+    private function backupDelete(
+        \Entities\MailboxTask $task,
+        ViMbAdmin_Doveadm $doveadm,
+        string $user,
+        string $dest
+    ): void {
+        if ($this->backupContainsMail($doveadm, $dest)) {
+            $home = $this->maildirRoot() . '/' . self::assertPathSafe($task->requiredUsername());
+            if (!$doveadm->maildirHasMail($home)) {
+                throw new ViMbAdmin_Exception(
+                    "refusing to overwrite existing backup for {$user} from an empty mail store"
+                );
+            }
+        }
+
+        $doveadm->backup($user, $dest);
+    }
+
+    /** A missing destination is the normal first-backup case; other errors fail closed. */
+    private function backupContainsMail(ViMbAdmin_Doveadm $doveadm, string $dest): bool
+    {
+        try {
+            return $doveadm->maildirHasMail($dest);
+        } catch (ViMbAdmin_Exception $e) {
+            $message = strtolower($e->getMessage());
+            foreach (["doesn't exist", 'does not exist', 'not exist', 'no such file', 'exit 68'] as $missing) {
+                if (str_contains($message, $missing)) {
+                    return false;
+                }
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * @return array{mode:string,destination:string|null,completed:list<string>}|null
+     */
+    private function deleteProgress(\Entities\MailboxTask $task): ?array
+    {
+        $data = $this->decodeTaskData($task);
+        if (!array_key_exists(self::DELETE_PROGRESS_KEY, $data)) {
+            return null;
+        }
+
+        $progress = $data[self::DELETE_PROGRESS_KEY];
+        if (!is_array($progress)
+            || ($progress['version'] ?? null) !== self::DELETE_PROGRESS_VERSION
+            || !in_array($progress['mode'] ?? null, [self::DELETE_MODE_BACKUP, self::DELETE_MODE_INSTANT], true)
+            || !array_key_exists('destination', $progress)
+            || !isset($progress['completed'])
+            || !is_array($progress['completed'])
+            || !array_is_list($progress['completed'])) {
+            throw new \RuntimeException('mailbox delete task contains invalid progress metadata');
+        }
+
+        $destination = $progress['destination'];
+        if (($progress['mode'] === self::DELETE_MODE_BACKUP
+                && (!is_string($destination) || $destination === '' || str_contains($destination, "\0")))
+            || ($progress['mode'] === self::DELETE_MODE_INSTANT && $destination !== null)) {
+            throw new \RuntimeException('mailbox delete task contains invalid progress metadata');
+        }
+
+        $completed = [];
+        foreach ($progress['completed'] as $step) {
+            if (!is_string($step)
+                || !in_array($step, self::DELETE_STEPS, true)
+                || in_array($step, $completed, true)) {
+                throw new \RuntimeException('mailbox delete task contains invalid progress metadata');
+            }
+            $completed[] = $step;
+        }
+
+        $expected = $progress['mode'] === self::DELETE_MODE_BACKUP
+            ? self::DELETE_STEPS
+            : array_slice(self::DELETE_STEPS, 2);
+        if ($completed !== array_slice($expected, 0, count($completed))) {
+            throw new \RuntimeException('mailbox delete task contains invalid progress metadata');
+        }
+
+        return [
+            'mode' => $progress['mode'],
+            'destination' => $destination,
+            'completed' => $completed,
+        ];
+    }
+
+    /** @param list<string> $completed */
+    private function writeDeleteProgress(
+        \Entities\MailboxTask $task,
+        string $mode,
+        ?string $destination,
+        array $completed
+    ): void {
+        $data = $this->decodeTaskData($task);
+        $data[self::DELETE_PROGRESS_KEY] = [
+            'version' => self::DELETE_PROGRESS_VERSION,
+            'mode' => $mode,
+            'destination' => $destination,
+            'completed' => $completed,
+        ];
+        $task->setData($this->encodeTaskData($data));
+    }
+
+    /** @return array<string, mixed> */
+    private function decodeTaskData(\Entities\MailboxTask $task): array
+    {
+        $raw = $task->getData();
+        if ($raw === null || $raw === '') {
+            return [];
+        }
+
+        $data = json_decode($raw, true);
+        if (!is_array($data) || ($data !== [] && array_is_list($data))) {
+            throw new \RuntimeException('mailbox delete task data must be a JSON object');
+        }
+
+        $object = [];
+        foreach ($data as $key => $value) {
+            if (!is_string($key)) {
+                throw new \RuntimeException('mailbox delete task data must be a JSON object');
+            }
+            $object[$key] = $value;
+        }
+        return $object;
     }
 
     /** @return string */
@@ -581,24 +808,33 @@ class ViMbAdmin_Service_QueueRunner
      * @param string $message
      * @return void
      */
-    private function logAudit(\Entities\MailboxTask $task, $action, $message)
+    private function logAudit(\Entities\MailboxTask $task, string $action, string $message)
     {
         try {
-            $log = new \Entities\Log();
-            $log->setAction($action)
-                ->setData($message)
-                ->setTimestamp(new \DateTime());
-            if ($task->getRequestedBy()) {
-                $log->setAdmin($task->getRequestedBy());
-            }
-            if ($task->getDomain()) {
-                $log->setDomain($task->getDomain());
-            }
-            $this->em->persist($log);
+            $this->stageAudit($task, $action, $message);
             $this->em->flush();
         } catch (\Throwable $e) {
             error_log('QueueRunner::logAudit: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Stage an audit row without flushing. DELETE uses this so the row and its
+     * durable completion checkpoint commit in the same EntityManager flush.
+     */
+    private function stageAudit(\Entities\MailboxTask $task, string $action, string $message): void
+    {
+        $log = new \Entities\Log();
+        $log->setAction($action)
+            ->setData($message)
+            ->setTimestamp(new \DateTime());
+        if ($task->getRequestedBy()) {
+            $log->setAdmin($task->getRequestedBy());
+        }
+        if ($task->getDomain()) {
+            $log->setDomain($task->getDomain());
+        }
+        $this->em->persist($log);
     }
 
     /** @return int */
