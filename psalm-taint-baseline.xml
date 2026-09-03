@@ -5,6 +5,19 @@
       <code><![CDATA[$path]]></code>
     </TaintedFile>
   </file>
+  <file src="library/ViMbAdmin/BruteForce.php">
+    <TaintedFile>
+      <code><![CDATA[$cursorPath]]></code>
+      <code><![CDATA[$f]]></code>
+      <code><![CDATA[$f]]></code>
+      <code><![CDATA[$file]]></code>
+      <code><![CDATA[$lockFile]]></code>
+      <code><![CDATA[$path]]></code>
+      <code><![CDATA[$path]]></code>
+      <code><![CDATA[$path]]></code>
+      <code><![CDATA[$this->_statedir]]></code>
+    </TaintedFile>
+  </file>
   <file src="library/ViMbAdmin/Service/QueueRunner.php">
     <TaintedHtml>
       <code><![CDATA[" - #{$task->getId()} {$task->getType()} {$task->getUsername()}: {$task->getStatus()}\n"]]></code>

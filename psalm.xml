@@ -25,16 +25,11 @@
         </ignoreFiles>
     </projectFiles>
 
-    <issueHandlers>
-        <!--
-            Every BruteForce state filename is derived from hash('sha256',
-            $ip) in _file(). Psalm does not model hash() as a filename
-            sanitizer, so these TaintedFile reports are false positives.
-        -->
-        <TaintedFile>
-            <errorLevel type="suppress">
-                <file name="library/ViMbAdmin/BruteForce.php" />
-            </errorLevel>
-        </TaintedFile>
-    </issueHandlers>
+    <!--
+        BruteForce.php's known TaintedFile reports are retained as exact code
+        entries in psalm-taint-baseline.xml. Per-IP state filenames use
+        hash('sha256', $ip); directory, lock, cursor and suffix components are
+        trusted configuration or fixed literals. Do not add a file-wide issue
+        handler here: it would hide a new sink before the drift check sees it.
+    -->
 </psalm>

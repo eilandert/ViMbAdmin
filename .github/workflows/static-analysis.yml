@@ -132,6 +132,7 @@ jobs:
       - name: Verify Psalm taint baseline regeneration
         run: |
           bash tests/test-regenerate-psalm-taint-baseline.sh
+          bash tests/test-psalm-taint-contract.sh
           bash tests/regenerate-psalm-taint-baseline.sh --check
 
       - name: Psalm taint analysis

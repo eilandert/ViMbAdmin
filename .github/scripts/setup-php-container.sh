@@ -17,7 +17,11 @@ install_verified_phar() {
   printf '%s  %s\n' "$expected_sha256" "$temporary" | sha256sum --check --status
   install -m 0755 "$temporary" "$destination"
   rm -f "$temporary"
-  "$destination" --version
+  if [[ $name == psalm ]]; then
+    "$destination" --root=/tmp --version
+  else
+    "$destination" --version
+  fi
 }
 
 install_verified_phar composer "$composer_sha256" \
