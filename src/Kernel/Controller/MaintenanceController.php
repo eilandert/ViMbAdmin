@@ -564,16 +564,7 @@ final class MaintenanceController extends AbstractController
             return $this->renderDashboard([$confirmFlag => true]);
         }
 
-        $em        = $this->em();
-        $mailboxes = $em->getRepository('\\Entities\\Mailbox')->findBy(['active' => 1]);
-
-        $queued = 0;
-        foreach ($mailboxes as $mailbox) {
-            if (\ViMbAdmin_MailboxQueue::enqueue($em, $mailbox, $type, $guard)) {
-                $queued++;
-            }
-        }
-        $em->flush();
+        $queued = \ViMbAdmin_MailboxQueue::enqueueAllActive($this->em(), $type, $guard);
 
         $this->logMaintenance($guard, "queued {$label} for all active mailboxes ({$queued} task(s))");
         $this->flash(sprintf('Queued %s for %d mailbox(es). The runner will process them in the background.', $label, $queued));

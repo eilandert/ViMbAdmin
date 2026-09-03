@@ -18,6 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: \Repositories\MailboxTask::class)]
 #[ORM\Table(name: 'mailbox_task')]
 #[ORM\Index(name: 'mailbox_task_status_idx', columns: ['status'])]
+#[ORM\Index(name: 'mailbox_task_username_type_status_idx', columns: ['username', 'type', 'status'])]
 #[ORM\UniqueConstraint(name: 'mailbox_task_open_unique', columns: ['username', 'type', 'open_task'])]
 class MailboxTask
 {

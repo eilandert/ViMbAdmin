@@ -22,6 +22,42 @@
 class ViMbAdmin_MailboxQueue
 {
     /**
+     * Queue one task for every active mailbox in a single database statement.
+     * Existing open tasks of the same type are left untouched by the unique
+     * open-task constraint; terminal task history remains unrestricted.
+     *
+     * @param \Doctrine\ORM\EntityManager $em
+     * @param string $type    One of MailboxTask::TYPE_*
+     * @param \Entities\Admin|null $by
+     * @param int $priority
+     * @return int number of newly queued tasks
+     */
+    public static function enqueueAllActive( $em, $type, ?\Entities\Admin $by = null, $priority = 0 ): int
+    {
+        $requestedById = $by !== null ? $by->getId() : null;
+        if( $by !== null && $requestedById === null )
+            throw new \LogicException( 'Mailbox task associations must be persisted before enqueue.' );
+
+        $affected = $em->getConnection()->executeStatement(
+            'INSERT INTO mailbox_task'
+            . ' (type, username, status, priority, created_at, Domain_id, Admin_id)'
+            . ' SELECT :type, m.username, :status, :priority, CURRENT_TIMESTAMP, m.Domain_id, :admin'
+            . ' FROM mailbox m WHERE m.active = 1'
+            . ' ON DUPLICATE KEY UPDATE id = mailbox_task.id',
+            [
+                'type'     => $type,
+                'status'   => \Entities\MailboxTask::STATUS_PENDING,
+                'priority' => (int) $priority,
+                'admin'    => $requestedById,
+            ]
+        );
+        if( !is_int( $affected ) || $affected < 0 )
+            throw new \UnexpectedValueException( 'Mailbox task bulk insert returned an invalid affected-row count.' );
+
+        return $affected;
+    }
+
+    /**
      * Queue a task for a mailbox. Refuses to stack a second open
      * (PENDING/RUNNING) task of the same type for the same username.
      *
