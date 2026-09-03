@@ -478,7 +478,7 @@ never lost.
 | Entry point | Immediate response | Drain bound | Execution context |
 |---|---|---|---|
 | `queue.cli-run` | exit `0`; no output unless `--verbose` | Repeats `max_per_run` batches until empty/throttled; `--once` stops after one batch | CLI process |
-| `POST /queue/trigger` | HTTP `200` JSON `{"triggered":true}` after bearer/IP validation | Repeats batches until empty/throttled, 100 batches, or 60 seconds | Same FPM worker, after response send; no fork/spawn |
+| `POST /queue/trigger` | HTTP `200` JSON `{"triggered":true}` after bearer/IP validation | Repeats until empty/throttled; stops starting another batch after 100 batches or once 60 seconds has elapsed (an in-flight batch completes) | Same FPM worker, after response send; no fork/spawn |
 | Queue page **Run now** | Redirect + flash status | One `max_per_run` batch | Synchronous web request |
 
 The forms below are for **bare-metal/source** installs or an *extra* off-box

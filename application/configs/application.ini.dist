@@ -193,8 +193,9 @@ doveadm.http.timeout = 900
 doveadm.backup.dest  = "maildir:/backups/%d/%u"
 
 ; Maximum tasks per batch. CLI repeats batches until empty unless --once; the
-; HTTP trigger repeats after sending its acknowledgement, bounded by 100 batches
-; or 60 seconds. The Queue-page Run now action drains one batch.
+; HTTP trigger repeats after sending its acknowledgement, but stops starting
+; another batch after 100 batches or once 60 seconds has elapsed. An in-flight
+; batch completes. The Queue-page Run now action drains one batch.
 queue.runner.max_per_run = 5
 
 ; Maximum number of queue runners allowed to drain CONCURRENTLY. A DB lease
