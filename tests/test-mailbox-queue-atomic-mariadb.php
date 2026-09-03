@@ -651,6 +651,105 @@ try {
     $connection->executeStatement('DELETE FROM mailbox WHERE Domain_id = ?', [$domainId]);
     $connection->executeStatement('DELETE FROM domain WHERE id = ?', [$domainId]);
 
+    // Operator transitions must make their status decision in the UPDATE, not
+    // from a possibly stale managed entity.
+    $connection->executeStatement(
+        'INSERT INTO mailbox_task (type, username, status, priority, created_at) VALUES'
+        . ' (?, ?, ?, 0, CURRENT_TIMESTAMP), (?, ?, ?, 0, CURRENT_TIMESTAMP)',
+        [
+            \Entities\MailboxTask::TYPE_REPAIR, 'cancel-race@example.test', \Entities\MailboxTask::STATUS_PENDING,
+            \Entities\MailboxTask::TYPE_REPAIR, 'cancel-win@example.test', \Entities\MailboxTask::STATUS_PENDING,
+        ],
+    );
+    $cancelRaceId = mailboxQueueRequiredCount($connection->fetchOne(
+        'SELECT id FROM mailbox_task WHERE username = ?', ['cancel-race@example.test'],
+    ));
+    $cancelWinId = mailboxQueueRequiredCount($connection->fetchOne(
+        'SELECT id FROM mailbox_task WHERE username = ?', ['cancel-win@example.test'],
+    ));
+    $cancelRace = $taskRepo->find($cancelRaceId);
+    $cancelWin = $taskRepo->find($cancelWinId);
+    if (!$cancelRace instanceof \Entities\MailboxTask || !$cancelWin instanceof \Entities\MailboxTask) {
+        throw new RuntimeException('cancel transition fixtures could not be loaded');
+    }
+    $connection->executeStatement(
+        'UPDATE mailbox_task SET status = ? WHERE id = ?',
+        [\Entities\MailboxTask::STATUS_RUNNING, $cancelRaceId],
+    );
+    $lostCancel = $taskRepo->cancelIfPending($cancelRace, 'Integration Admin');
+    $wonCancel = $taskRepo->cancelIfPending($cancelWin, 'Integration Admin');
+    $cancelRows = $connection->fetchAllKeyValue(
+        'SELECT username, status FROM mailbox_task WHERE username IN (?, ?)',
+        ['cancel-race@example.test', 'cancel-win@example.test'],
+    );
+    mailboxQueueAtomicCheck('conditional cancellation loses safely to a concurrent claim and updates pending work',
+        !$lostCancel && $wonCancel
+        && ($cancelRows['cancel-race@example.test'] ?? null) === \Entities\MailboxTask::STATUS_RUNNING
+        && ($cancelRows['cancel-win@example.test'] ?? null) === \Entities\MailboxTask::STATUS_CANCELLED);
+    $connection->executeStatement('DELETE FROM mailbox_task WHERE username LIKE ?', ['cancel-%@example.test']);
+
+    $connection->executeStatement(
+        'CREATE TABLE IF NOT EXISTS setting (name VARCHAR(64) NOT NULL, value VARCHAR(255) NULL,'
+        . ' updated_at DATETIME NULL, PRIMARY KEY (name)) ENGINE=InnoDB'
+    );
+    $connection->delete('setting', ['name' => \ViMbAdmin_Setting::LAST_PRUNE_SWEEP]);
+    $gateNow = new DateTimeImmutable('2026-09-03T08:00:00+00:00');
+    $gateCutoff = $gateNow->modify('-8 hours');
+    $firstGateClaim = \ViMbAdmin_Setting::claimTimestamp(
+        $em, \ViMbAdmin_Setting::LAST_PRUNE_SWEEP, $gateCutoff, $gateNow
+    );
+    $secondGateClaim = \ViMbAdmin_Setting::claimTimestamp(
+        $em, \ViMbAdmin_Setting::LAST_PRUNE_SWEEP, $gateCutoff, $gateNow
+    );
+    mailboxQueueAtomicCheck('timestamp gate has one winner while the fresh value closes later claims',
+        $firstGateClaim && !$secondGateClaim);
+
+    $connection->executeStatement(
+        'INSERT INTO domain (domain, created) VALUES (?, CURRENT_TIMESTAMP)', ['orphan-temp.example.test'],
+    );
+    $tempDomainId = mailboxQueueRequiredCount($connection->lastInsertId());
+    $connection->executeStatement(
+        'INSERT INTO queue_runner (slot, host, pid, started_at, heartbeat_at)'
+        . " VALUES (3, 'integration', 3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+    );
+    $tempRunnerId = mailboxQueueRequiredCount($connection->lastInsertId());
+    $connection->executeStatement(
+        'INSERT INTO mailbox_task (type, username, status, priority, created_at, QueueRunner_id)'
+        . ' VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP, ?), (?, ?, ?, 0, CURRENT_TIMESTAMP, NULL)',
+        [
+            \Entities\MailboxTask::TYPE_BACKUP_ORPHAN, 'live-temp@orphan-temp.example.test', \Entities\MailboxTask::STATUS_RUNNING, $tempRunnerId,
+            \Entities\MailboxTask::TYPE_BACKUP_ORPHAN, 'dead-temp@orphan-temp.example.test', \Entities\MailboxTask::STATUS_FAILED,
+        ],
+    );
+    $liveTempTaskId = mailboxQueueRequiredCount($connection->fetchOne(
+        'SELECT id FROM mailbox_task WHERE username = ?', ['live-temp@orphan-temp.example.test'],
+    ));
+    $deadTempTaskId = mailboxQueueRequiredCount($connection->fetchOne(
+        'SELECT id FROM mailbox_task WHERE username = ?', ['dead-temp@orphan-temp.example.test'],
+    ));
+    $tempPrefix = '{PLAIN}!vimbadmin-orphan-backup-temp-v1:';
+    $connection->executeStatement(
+        'INSERT INTO mailbox (username, password, local_part, active, created, Domain_id) VALUES'
+        . ' (?, ?, ?, 0, CURRENT_TIMESTAMP, ?), (?, ?, ?, 0, CURRENT_TIMESTAMP, ?),'
+        . ' (?, ?, ?, 0, CURRENT_TIMESTAMP, ?)',
+        [
+            'live-temp@orphan-temp.example.test', $tempPrefix . $liveTempTaskId . '!', 'live-temp', $tempDomainId,
+            'dead-temp@orphan-temp.example.test', $tempPrefix . $deadTempTaskId . '!', 'dead-temp', $tempDomainId,
+            'unrelated@orphan-temp.example.test', '{PLAIN}!ordinary-inactive!', 'unrelated', $tempDomainId,
+        ],
+    );
+    $sweeper = new \ViMbAdmin_Service_QueueRunner($em, []);
+    (new ReflectionMethod($sweeper, 'sweepOrphanBackupTemps'))->invoke($sweeper);
+    $remainingTemps = $connection->fetchFirstColumn(
+        'SELECT username FROM mailbox WHERE Domain_id = ? ORDER BY username', [$tempDomainId],
+    );
+    mailboxQueueAtomicCheck('orphan-temp sweep deletes dead sentinels but preserves live and unrelated inactive rows',
+        $remainingTemps === ['live-temp@orphan-temp.example.test', 'unrelated@orphan-temp.example.test']);
+    $connection->executeStatement('DELETE FROM mailbox WHERE Domain_id = ?', [$tempDomainId]);
+    $connection->executeStatement('DELETE FROM mailbox_task WHERE username LIKE ?', ['%@orphan-temp.example.test']);
+    $connection->executeStatement('DELETE FROM queue_runner WHERE id = ?', [$tempRunnerId]);
+    $connection->executeStatement('DELETE FROM domain WHERE id = ?', [$tempDomainId]);
+
     // Upgrade fencing: pre-ownership RUNNING work may still have an old runner.
     // The additive migrator must remain entirely inert until that work reaches
     // a terminal state under the old schema.

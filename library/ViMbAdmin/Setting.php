@@ -6,13 +6,15 @@
  * A single `setting(name PK, value, updated_at)` table for small bits of
  * instance state that don't deserve their own entity -- currently the
  * "last time the queue runner started" and "last time a prune ran"
- * timestamps shown on the Maintenance tab.
+ * timestamps shown on the Maintenance tab, plus the queue runner's atomic
+ * autoprune-sweep gate.
  *
  * Raw DBAL (not a Doctrine entity) on purpose: there is nothing relational
  * here, the table is created by ViMbAdmin_Schema::extraSql(), and the helper
  * must work from both the web request and the CLI queue runner without
- * dragging in entity metadata. All methods are fail-soft: a missing table or
- * a DB error never throws into the caller (the timestamps are informational).
+ * dragging in entity metadata. Informational reads/writes are fail-soft; gate
+ * operations deliberately propagate database errors because silently losing
+ * a gate can turn every queue drain into a full maintenance sweep.
  */
 class ViMbAdmin_Setting
 {
@@ -66,6 +68,34 @@ class ViMbAdmin_Setting
         {
             // informational state only -- swallow.
         }
+    }
+
+    /**
+     * Atomically acquire a timestamp gate when it is absent or older than the
+     * supplied cutoff. Unlike informational settings, failures propagate.
+     *
+     * @param \Doctrine\ORM\EntityManager $em
+     */
+    public static function claimTimestamp( $em, string $name, \DateTimeInterface $cutoff, \DateTimeInterface $now ): bool
+    {
+        $connection = $em->getConnection();
+        $affected = $connection->executeStatement(
+            'UPDATE setting SET value = ?, updated_at = NOW()'
+            . ' WHERE name = ? AND CAST(value AS UNSIGNED) < ?',
+            [ (string) $now->getTimestamp(), $name, $cutoff->getTimestamp() ]
+        );
+        if( !is_int($affected) || $affected < 0 || $affected > 1 )
+            throw new \UnexpectedValueException('Setting timestamp gate update returned an invalid affected-row count.');
+        if( $affected === 1 )
+            return true;
+
+        $inserted = $connection->executeStatement(
+            'INSERT IGNORE INTO setting (name, value, updated_at) VALUES (?, ?, NOW())',
+            [ $name, (string) $now->getTimestamp() ]
+        );
+        if( !is_int($inserted) || $inserted < 0 || $inserted > 1 )
+            throw new \UnexpectedValueException('Setting timestamp gate insert returned an invalid affected-row count.');
+        return $inserted === 1;
     }
 
     /**

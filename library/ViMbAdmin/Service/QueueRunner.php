@@ -31,6 +31,7 @@
 class ViMbAdmin_Service_QueueRunner
 {
     private const ORPHAN_SCAN_MAX = 500;
+    private const ORPHAN_TEMP_PASSWORD_PREFIX = '{PLAIN}!vimbadmin-orphan-backup-temp-v1:';
     /** Refresh often enough that an active request cannot reach the 30m TTL. */
     const LEASE_HEARTBEAT_INTERVAL = 60;
     const RUN_ONE_BUSY = -1;
@@ -224,6 +225,7 @@ class ViMbAdmin_Service_QueueRunner
         $processed = 0;
         $acquired = $this->withLease(function(\Entities\QueueRunner $lease) use ($em, $repo, $max, $verbose, &$processed): void {
             $repo->reapStaleRunning();
+            $this->sweepOrphanBackupTemps();
 
             // Periodic autoprune sweep (gated to once / 8h): enqueue a PRUNE task
             // for each expired autoprune backup.
@@ -238,6 +240,10 @@ class ViMbAdmin_Service_QueueRunner
                 try {
                     $doveadm = $this->doveadmForLease($lease);
                     $this->execute($task, $doveadm);
+                    // Long doveadm calls can outlive the database wait_timeout.
+                    // Reconnect before publishing their successful result so a
+                    // completed destructive operation is not recorded FAILED.
+                    $this->ensureDatabaseConnection();
                     $task->setStatus(\Entities\MailboxTask::STATUS_DONE);
                     $task->setRunner(null);
                     $task->appendLog('done');
@@ -301,6 +307,7 @@ class ViMbAdmin_Service_QueueRunner
             $error = null;
             try {
                 $this->execute($task, $this->doveadmForLease($lease));
+                $this->ensureDatabaseConnection();
             } catch (\Throwable $e) {
                 $error = $e;
             }
@@ -392,6 +399,7 @@ class ViMbAdmin_Service_QueueRunner
                 $dest = $this->backupDest($task);
                 $task->appendLog("backup -> {$dest}");
                 $doveadm->backup($user, $dest);
+                $this->ensureDatabaseConnection();
                 $task->appendLog('recording archive row');
                 $this->recordArchive($task, $dest, false, $doveadm);
                 $task->appendLog('mailbox delete (empty store, keep account)');
@@ -502,6 +510,7 @@ class ViMbAdmin_Service_QueueRunner
         }
 
         $operation();
+        $this->ensureDatabaseConnection();
         $progress['completed'][] = $step;
         $this->writeDeleteProgress(
             $task,
@@ -901,15 +910,8 @@ class ViMbAdmin_Service_QueueRunner
     {
         $em = $this->em;
 
-        $last = ViMbAdmin_Setting::get($em, ViMbAdmin_Setting::LAST_PRUNE_SWEEP);
-        if ($last !== null) {
-            $lastTs = strtotime((string) $last);
-            if ($lastTs !== false && (time() - $lastTs) < 8 * 3600) {
-                return;
-            }
-        }
-
-        ViMbAdmin_Setting::set($em, ViMbAdmin_Setting::LAST_PRUNE_SWEEP, (new \DateTime())->format('c'));
+        $now = new \DateTimeImmutable();
+        if (!$this->claimAutopruneSweep($now)) return;
 
         try {
             $days   = $this->autopruneDays();
@@ -966,6 +968,16 @@ class ViMbAdmin_Service_QueueRunner
         } catch (\Throwable $e) {
             error_log('QueueRunner::autopruneSweep: ' . $e->getMessage());
         }
+    }
+
+    private function claimAutopruneSweep(\DateTimeImmutable $now): bool
+    {
+        return ViMbAdmin_Setting::claimTimestamp(
+            $this->em,
+            ViMbAdmin_Setting::LAST_PRUNE_SWEEP,
+            $now->modify('-8 hours'),
+            $now
+        );
     }
 
     /**
@@ -1050,9 +1062,13 @@ class ViMbAdmin_Service_QueueRunner
         $root = $this->maildirRoot();
         $conn = $em->getConnection();
 
-        $exists = (int) $em->createQuery('SELECT COUNT(m.id) FROM \Entities\Mailbox m WHERE m.username = :u')
-            ->setParameter('u', $user)->getSingleScalarResult();
-        if ($exists > 0) {
+        $tempPassword = self::ORPHAN_TEMP_PASSWORD_PREFIX . $task->getId() . '!';
+        $existing = $conn->fetchAssociative(
+            'SELECT id, password, active, Domain_id FROM mailbox WHERE username = ?',
+            [$user]
+        );
+        if (is_array($existing) && (($existing['password'] ?? null) !== $tempPassword
+                || !in_array($existing['active'] ?? null, [0, '0', false], true))) {
             $task->appendLog('backup-orphan: a real mailbox now exists — skipping');
             return;
         }
@@ -1090,7 +1106,7 @@ class ViMbAdmin_Service_QueueRunner
 
         $home      = $root . '/' . $user;
         $localPart = strstr($user, '@', true) ?: $user;
-        $tempId    = null;
+        $tempId    = is_array($existing) ? self::positiveInteger($existing['id'] ?? null, 'Orphan temp mailbox id') : null;
         $keepDomain = false;   // set true once an Archive row references $domain
 
         try {
@@ -1098,17 +1114,31 @@ class ViMbAdmin_Service_QueueRunner
                 throw new \LogicException('Backup orphan domain could not be loaded.');
             }
 
-            $conn->insert('mailbox', [
-                'username'   => $user,
-                'password'   => '{PLAIN}!orphan-backup-no-login!',
-                'local_part' => $localPart,
-                'quota'      => 0,
-                'active'     => 0,
-                'created'    => (new \DateTime())->format('Y-m-d H:i:s'),
-                'Domain_id'  => $domain->requiredId(),
-            ]);
-            $tempId = (int) $conn->lastInsertId();
-            $task->appendLog("backup-orphan: temp user row #{$tempId} created");
+            if ($tempId === null) {
+                try {
+                    $conn->insert('mailbox', [
+                        'username'   => $user,
+                        'password'   => $tempPassword,
+                        'local_part' => $localPart,
+                        'quota'      => 0,
+                        'active'     => 0,
+                        'created'    => (new \DateTime())->format('Y-m-d H:i:s'),
+                        'Domain_id'  => $domain->requiredId(),
+                    ]);
+                    $tempId = (int) $conn->lastInsertId();
+                    $task->appendLog("backup-orphan: temp user row #{$tempId} created");
+                } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException $e) {
+                    $adopt = $conn->fetchAssociative(
+                        'SELECT id, password, active FROM mailbox WHERE username = ?', [$user]
+                    );
+                    if (!is_array($adopt) || ($adopt['password'] ?? null) !== $tempPassword
+                        || !in_array($adopt['active'] ?? null, [0, '0', false], true)) throw $e;
+                    $tempId = self::positiveInteger($adopt['id'] ?? null, 'Orphan temp mailbox id');
+                    $task->appendLog("backup-orphan: adopted temp user row #{$tempId}");
+                }
+            } else {
+                $task->appendLog("backup-orphan: adopted temp user row #{$tempId}");
+            }
 
             $task->setDomain($domain);
 
@@ -1127,6 +1157,7 @@ class ViMbAdmin_Service_QueueRunner
                 $dest = $this->backupDest($task);
                 $task->appendLog("orphan: has mail — backup -> {$dest}");
                 $doveadm->backup($user, $dest);
+                $this->ensureDatabaseConnection();
 
                 $task->appendLog('orphan: recording archive row');
                 $this->recordArchive($task, $dest, false, $doveadm);
@@ -1187,6 +1218,33 @@ class ViMbAdmin_Service_QueueRunner
                 $doveadm->authCacheFlush();
             } catch (\Throwable $e) {
             }
+        }
+    }
+
+    /** Delete only sentinel rows whose owning backup task is no longer running. */
+    private function sweepOrphanBackupTemps(): void
+    {
+        $affected = $this->em->getConnection()->executeStatement(
+            'DELETE m FROM mailbox m LEFT JOIN mailbox_task t'
+            . ' ON t.id = CAST(SUBSTRING_INDEX(SUBSTRING(m.password, CHAR_LENGTH(?) + 1), ?, 1) AS UNSIGNED)'
+            . ' AND t.type = ? AND t.status = ?'
+            . ' WHERE m.active = 0 AND m.password LIKE ? AND t.id IS NULL',
+            [self::ORPHAN_TEMP_PASSWORD_PREFIX, '!', \Entities\MailboxTask::TYPE_BACKUP_ORPHAN,
+                \Entities\MailboxTask::STATUS_RUNNING, self::ORPHAN_TEMP_PASSWORD_PREFIX . '%!']
+        );
+        if (!is_int($affected) || $affected < 0) {
+            throw new \UnexpectedValueException('Orphan temp mailbox sweep returned an invalid affected-row count.');
+        }
+    }
+
+    private function ensureDatabaseConnection(): void
+    {
+        $connection = $this->em->getConnection();
+        try {
+            $connection->fetchOne('SELECT 1');
+        } catch (\Throwable $e) {
+            $connection->close();
+            $connection->fetchOne('SELECT 1');
         }
     }
 
