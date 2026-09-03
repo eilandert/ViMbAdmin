@@ -52,8 +52,15 @@ class OSS_Captcha_Image
                 throw new RuntimeException('Unable to create captcha directory');
             }
         }
-        $this->cleanup($dir);
-        $this->render($dir . '/' . $id . '.png', $word);
+        $path = $dir . '/' . $id . '.png';
+        try {
+            $this->cleanup($dir);
+            $this->render($path, $word);
+        } catch (Throwable $error) {
+            unset($_SESSION['OSS_Captcha_' . $id]);
+            @unlink($path);
+            throw $error;
+        }
 
         return $id;
     }
@@ -127,8 +134,18 @@ class OSS_Captcha_Image
             imagestring($image, 5, 70, 31, $word, $foreground);
         }
 
-        imagepng($image, $path);
-        imagedestroy($image);
+        try {
+            if (!$this->writeImage($image, $path)) {
+                throw new RuntimeException('Unable to write captcha image');
+            }
+        } finally {
+            imagedestroy($image);
+        }
+    }
+
+    protected function writeImage(GdImage $image, string $path): bool
+    {
+        return imagepng($image, $path);
     }
 
     private function cleanup(string $dir): void

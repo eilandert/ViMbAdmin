@@ -19,6 +19,15 @@ mkdir($root, 0770, true);
 OSS_Runtime::configure(['temporary_directory' => $root], '', new stdClass());
 $_SESSION = [];
 
+final class FailingCaptchaImage extends OSS_Captcha_Image
+{
+    protected function writeImage(GdImage $image, string $path): bool
+    {
+        file_put_contents($path, 'partial');
+        return false;
+    }
+}
+
 echo "== standalone captcha ==\n";
 
 $captcha = new OSS_Captcha_Image(0, 0, 6, 60);
@@ -32,6 +41,17 @@ try {
     $captchaRangeRejected = $exception->getMessage() === 'Captcha dot noise is outside its permitted range';
 }
 check('malformed captcha noise is rejected before generation', $captchaRangeRejected);
+
+$writeFailureThrown = false;
+try {
+    (new FailingCaptchaImage(0, 0, 6, 60))->generate();
+} catch (RuntimeException $exception) {
+    $writeFailureThrown = $exception->getMessage() === 'Unable to write captcha image';
+}
+check('failed PNG output throws and removes session and partial file state',
+    $writeFailureThrown
+        && count($_SESSION) === 1
+        && (glob($root . '/captchas/*.png') ?: []) === [$path]);
 
 check('generated id is a 32-character hex value', preg_match('/^[a-f0-9]{32}$/', $id) === 1);
 check('generated image exists', $path !== null && is_file($path));

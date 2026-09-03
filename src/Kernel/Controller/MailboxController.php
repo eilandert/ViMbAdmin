@@ -1275,9 +1275,26 @@ final class MailboxController extends AbstractController
              . "Connection: close\r\n\r\n";
 
         @stream_set_timeout($fp, 1);
-        @fwrite($fp, $req);
+        self::writeRequest($fp, $req);
         // Fire-and-forget: do not read the body — the trigger drains on its own.
         @fclose($fp);
+    }
+
+    /** @param resource $stream */
+    private static function writeRequest($stream, string $request): bool
+    {
+        $offset = 0;
+        $length = strlen($request);
+        while ($offset < $length) {
+            $written = @fwrite($stream, substr($request, $offset));
+            if ($written === false || $written === 0) {
+                error_log('kickQueueAsync: short write — cron will drain');
+                return false;
+            }
+            $offset += $written;
+        }
+
+        return true;
     }
 
     /**
