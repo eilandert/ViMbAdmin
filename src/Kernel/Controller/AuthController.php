@@ -553,14 +553,17 @@ final class AuthController extends AbstractController
      * The current password is verified against the MAILBOX password (not an admin)
      * with the configured mailbox scheme, and on success the new password is hashed
      * + stored — all via the already-framework-free {@see \OSS_Auth_Password}
-     * (PHP-native dovecot hashing), so no ZF1. The demo account is refused. A
-     * wrong username or
-     * current password gives the same generic "Invalid username or password" as
-     * ZF1 (no user enumeration).
+     * (PHP-native dovecot hashing), so no ZF1. The source-IP brute-force gate
+     * refuses locked sources and counts failed credential checks. The demo
+     * account is refused. A wrong username or current password gives the same
+     * generic "Invalid username or password" as ZF1 (no user enumeration).
      */
     public function changePasswordAction(): Response
     {
         $options = $this->container->options();
+        $bf      = $this->bruteForce($options);
+
+        $bf->assertNotLocked(null);
 
         if ($this->isPost() && \ViMbAdmin_Demo::isLocked(
             $options,
@@ -573,33 +576,42 @@ final class AuthController extends AbstractController
         $minPw = self::optionInt($options, 8, 'defaults', 'mailbox', 'min_password_length');
         $form  = $this->buildChangePasswordForm($minPw);
 
-        if ($this->isPost() && $form->isValid($this->postData())) {
-            $v       = $form->values();
-            $username = self::requiredString($v['username'] ?? null, 'Mailbox username');
-            $mailbox = $this->mailboxRepository()->findOneBy(['username' => $username]);
+        if ($this->isPost()) {
+            $post = $this->postData();
 
-            $pwOpts = [
-                'pwhash'   => self::optionNullableString($options, 'defaults', 'mailbox', 'password_scheme'),
-                'username' => $username,
-            ];
+            if ($form->isValid($post)) {
+                $v        = $form->values();
+                $username = self::requiredString($v['username'] ?? null, 'Mailbox username');
+                $mailbox  = $this->mailboxRepository()->findOneBy(['username' => $username]);
 
-            if ($mailbox !== null
-                && self::mailboxPasswordMatches(
-                    $mailbox,
-                    self::requiredString($v['current_password'] ?? null, 'Current mailbox password'),
-                    $pwOpts,
-                )) {
-                $mailbox->setPassword(\OSS_Auth_Password::hash(
-                    self::requiredString($v['new_password'] ?? null, 'New mailbox password'),
-                    $pwOpts,
-                ));
-                $this->em()->flush();
-                $this->flash('You have successfully changed your password.');
-                return $this->redirect('auth/change-password');
+                $pwOpts = [
+                    'pwhash'   => self::optionNullableString($options, 'defaults', 'mailbox', 'password_scheme'),
+                    'username' => $username,
+                ];
+
+                if ($mailbox !== null
+                    && self::mailboxPasswordMatches(
+                        $mailbox,
+                        self::requiredString($v['current_password'] ?? null, 'Current mailbox password'),
+                        $pwOpts,
+                    )) {
+                    $mailbox->setPassword(\OSS_Auth_Password::hash(
+                        self::requiredString($v['new_password'] ?? null, 'New mailbox password'),
+                        $pwOpts,
+                    ));
+                    $this->em()->flush();
+                    $this->flash('You have successfully changed your password.');
+                    return $this->redirect('auth/change-password');
+                }
+
+                // The limiter is shared with administrator login and keyed only
+                // by source IP. Never let a valid mailbox credential clear that
+                // shared state; only failed mailbox checks add an attempt.
+                $bf->record($username, null);
+
+                // Generic message — do not reveal whether the username exists.
+                $this->flash('Invalid username or password.', FlashMessages::ERROR);
             }
-
-            // Generic message — do not reveal whether the username exists.
-            $this->flash('Invalid username or password.', FlashMessages::ERROR);
         }
 
         return $this->view('auth/native-change-password.phtml', [
