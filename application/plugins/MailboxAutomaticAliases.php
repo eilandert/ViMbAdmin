@@ -389,15 +389,15 @@ class ViMbAdminPlugin_MailboxAutomaticAliases extends ViMbAdmin_Plugin implement
      */
     private function getAlias( ViMbAdmin_Plugin_MutationContext $controller, $alias )
     {
-        $aliasRepository = $controller->getD2EM()->getRepository( "\\Entities\\Alias" );
-        if( !$aliasRepository instanceof \Repositories\Alias )
-            throw new \LogicException( 'Alias entity must use Repositories\\Alias.' );
         $domain = $controller->getDomain();
         $domain->requiredId();
         $admin = $controller->getAdmin();
         if( !$admin->isSuper() && !$admin->canManageDomain( $domain ) )
             throw new \LogicException( 'Admin cannot manage the automatic alias domain.' );
 
+        $aliasRepository = $controller->getD2EM()->getRepository( "\\Entities\\Alias" );
+        if( !$aliasRepository instanceof \Repositories\Alias )
+            throw new \LogicException( 'Alias entity must use Repositories\\Alias.' );
         $aliasEntity = $aliasRepository->findOneBy( [ 'address' => $alias, 'Domain' => $domain ] );
         if( !$aliasEntity instanceof \Entities\Alias )
             return null;

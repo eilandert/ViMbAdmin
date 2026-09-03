@@ -43,8 +43,12 @@ final class AutomaticAliasRepository extends \Repositories\Alias
         $address = $criteria['address'] ?? null;
         $domain = $criteria['Domain'] ?? null;
         $alias = is_string($address) ? ($this->aliases[$address] ?? null) : null;
-        if (!$alias instanceof \Entities\Alias || !$domain instanceof \Entities\Domain) {
+        if (!$alias instanceof \Entities\Alias) {
             return null;
+        }
+
+        if (!$domain instanceof \Entities\Domain) {
+            return $alias;
         }
 
         $aliasDomain = $alias->getDomain();
@@ -76,6 +80,7 @@ final class AutomaticAliasEntityManager extends \Doctrine\ORM\Decorator\EntityMa
     /** @var list<object> */
     public array $persisted = [];
     public int $flushes = 0;
+    public int $repositoryCalls = 0;
 
     public function __construct(private AutomaticAliasRepository $repository)
     {
@@ -92,6 +97,7 @@ final class AutomaticAliasEntityManager extends \Doctrine\ORM\Decorator\EntityMa
      */
     public function getRepository(string $class): \Doctrine\ORM\EntityRepository
     {
+        $this->repositoryCalls++;
         if (ltrim($class, '\\') !== \Entities\Alias::class) {
             throw new \LogicException('The automatic-alias double only serves the Alias repository.');
         }
@@ -397,6 +403,7 @@ $failures += checkAutomaticAlias(
     'unauthorized lookup fails before persistence or flush',
     $unauthorizedContext->getD2EM()->persisted === []
         && $unauthorizedContext->getD2EM()->flushes === 0
+        && $unauthorizedContext->getD2EM()->repositoryCalls === 0
         && $unauthorizedContext->messages === [],
 );
 
