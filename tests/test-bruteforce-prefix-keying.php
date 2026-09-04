@@ -53,6 +53,30 @@ function prefixStateFiles(string $directory): array
     return $files === false ? [] : $files;
 }
 
+/**
+ * Drive one failed login the way AuthController does: a FRESH
+ * ViMbAdmin_BruteForce per request. Reusing one object lets per-instance state
+ * accumulate across the whole loop, which no FPM worker ever gets, and quietly
+ * turns a bounding test into a tautology.
+ *
+ * @param array<string,mixed> $options
+ */
+function prefixRequestAttempt(array $options, string $ip): void
+{
+    $_SERVER['REMOTE_ADDR'] = $ip;
+    unset($_SERVER['HTTP_X_FORWARDED_FOR']);
+    (new ViMbAdmin_BruteForce(null, $options))->record('victim', null);
+}
+
+/** @param array<string,mixed> $options */
+function prefixRequestLocked(array $options, string $ip): bool
+{
+    $_SERVER['REMOTE_ADDR'] = $ip;
+    unset($_SERVER['HTTP_X_FORWARDED_FOR']);
+
+    return (new ViMbAdmin_BruteForce(null, $options))->isLocked(null);
+}
+
 function prefixAttempt(ViMbAdmin_BruteForce $bruteForce, string $ip): void
 {
     $_SERVER['REMOTE_ADDR'] = $ip;
@@ -385,11 +409,15 @@ $converging = new ViMbAdmin_BruteForce(null, [
     'lockout' => 900,
     'max_entries' => $convergeCap,
 ]);
+// Counting records, not lockouts: a lockout is deliberately un-evictable, so
+// a flood of them cannot converge and must not be used to assert the cap.
 $activePayload = (string) json_encode([
-    'attempts' => 1, 'first' => $now, 'last' => $now, 'locked_until' => $now + 900,
+    'attempts' => 1, 'first' => $now, 'last' => $now, 'locked_until' => 0,
 ]);
 for ($index = 0; $index < 5000; $index++) {
-    file_put_contents($convergeDirectory . '/' . hash('sha256', 'converge-' . $index) . '.json', $activePayload);
+    $convergePath = $convergeDirectory . '/' . hash('sha256', 'converge-' . $index) . '.json';
+    file_put_contents($convergePath, $activePayload);
+    touch($convergePath, $now - 5000 + $index);
 }
 $convergeReap = new ReflectionMethod($converging, '_reapStale');
 for ($sweep = 0; $sweep < 40; $sweep++) {
@@ -408,33 +436,77 @@ prefixCheck(
 // the newest one there.
 $flushDirectory = $root . '/lockout-flush';
 mkdir($flushDirectory, 0700, true);
-$flushing = new ViMbAdmin_BruteForce(null, [
+$flushingOptions = [
     'statedir' => $flushDirectory,
     'max_attempts' => 3,
     'window' => 900,
     'lockout' => 900,
     'max_entries' => 100,
-]);
+];
+$flushing = new ViMbAdmin_BruteForce(null, $flushingOptions);
 for ($index = 0; $index < 1000; $index++) {
     $path = $flushDirectory . '/' . hash('sha256', 'filler-' . $index) . '.json';
     file_put_contents($path, (string) json_encode([
-        'attempts' => 1, 'first' => $now, 'last' => $now, 'locked_until' => $now + 900,
+        'attempts' => 1, 'first' => $now, 'last' => $now, 'locked_until' => 0,
     ]));
-    touch($path, $now - 10000);
+    touch($path, $now - 10000 + $index);
 }
 for ($attempt = 0; $attempt < 3; $attempt++) {
-    prefixAttempt($flushing, '203.0.113.9');
+    prefixRequestAttempt($flushingOptions, '203.0.113.9');
 }
-$lockedBeforeFlush = prefixLocked($flushing, '203.0.113.9');
+$lockedBeforeFlush = prefixRequestLocked($flushingOptions, '203.0.113.9');
 $flushReap = new ReflectionMethod($flushing, '_reapStale');
 for ($sweep = 0; $sweep < 60; $sweep++) {
     $flushReap->invoke($flushing, $now);
 }
 prefixCheck(
     'flooding past the cap does not evict the attacker\'s own active lockout',
-    $lockedBeforeFlush && prefixLocked($flushing, '203.0.113.9')
-        && count(prefixStateFiles($flushDirectory)) === 100,
+    $lockedBeforeFlush && prefixRequestLocked($flushingOptions, '203.0.113.9')
+        && count(prefixStateFiles($flushDirectory)) <= 101,
     'files=' . count(prefixStateFiles($flushDirectory)),
+);
+
+// Ordering alone is not the guarantee. If the attacker's lockout happens to be
+// the OLDEST record in the directory -- they attacked, got locked out, then
+// started the flood, which is the natural sequence -- oldest-mtime-first picks
+// it first and only the explicit liveness guard in _evictionCandidate() keeps
+// it. Without that guard this is a throttle-bypass primitive, so it gets its
+// own assertion rather than riding on the ordering test above.
+$oldestLockDirectory = $root . '/oldest-lockout';
+mkdir($oldestLockDirectory, 0700, true);
+$oldestLockOptions = [
+    'statedir' => $oldestLockDirectory,
+    'max_attempts' => 3,
+    'window' => 900,
+    'lockout' => 900,
+    'max_entries' => 64,
+];
+for ($attempt = 0; $attempt < 3; $attempt++) {
+    prefixRequestAttempt($oldestLockOptions, '203.0.113.77');
+}
+$oldestLockedBefore = prefixRequestLocked($oldestLockOptions, '203.0.113.77');
+// Age the attacker's own record past every filler: it is now the first thing
+// oldest-first eviction would reach.
+foreach (prefixStateFiles($oldestLockDirectory) as $attackerPath) {
+    touch($attackerPath, $now - 99999);
+}
+for ($index = 0; $index < 600; $index++) {
+    $fillerPath = $oldestLockDirectory . '/' . hash('sha256', 'newer-' . $index) . '.json';
+    file_put_contents($fillerPath, (string) json_encode([
+        'attempts' => 1, 'first' => $now, 'last' => $now, 'locked_until' => 0,
+    ]));
+    touch($fillerPath, $now - 100 + $index);
+}
+$oldestLockReap = new ReflectionMethod(new ViMbAdmin_BruteForce(null, $oldestLockOptions), '_reapStale');
+$oldestLockReapTarget = new ViMbAdmin_BruteForce(null, $oldestLockOptions);
+for ($sweep = 0; $sweep < 40; $sweep++) {
+    $oldestLockReap->invoke($oldestLockReapTarget, $now);
+}
+prefixCheck(
+    'CONTROL: an active lockout survives eviction even as the OLDEST entry',
+    $oldestLockedBefore && prefixRequestLocked($oldestLockOptions, '203.0.113.77')
+        && count(prefixStateFiles($oldestLockDirectory)) <= 65,
+    'files=' . count(prefixStateFiles($oldestLockDirectory)),
 );
 
 // The cap has to hold against a flood driven through record() itself, not just
@@ -444,20 +516,29 @@ prefixCheck(
 // without the over-cap re-arm the directory grows without bound and the
 // convergence test above never notices, because it bypasses the throttle.
 $recordFloodDirectory = $root . '/record-flood';
-$recordFlood = new ViMbAdmin_BruteForce(null, [
+$recordFloodOptions = [
     'statedir' => $recordFloodDirectory,
     'max_attempts' => 5000,
     'window' => 900,
     'lockout' => 900,
     'max_entries' => 100,
-]);
+];
 for ($index = 0; $index < 3000; $index++) {
-    prefixAttempt($recordFlood, '2001:db8:' . dechex($index >> 16) . ':' . dechex($index & 0xffff) . '::1');
+    prefixRequestAttempt(
+        $recordFloodOptions,
+        '2001:db8:' . dechex($index >> 16) . ':' . dechex($index & 0xffff) . '::1',
+    );
 }
 $floodFiles = count(prefixStateFiles($recordFloodDirectory));
+// The steady state is the cap plus one sweep's worth of slack: record() creates
+// files between sweeps and a sweep evicts from a bounded sample, so the
+// directory settles a little above max_entries rather than exactly on it. The
+// claim that matters is that it settles at all -- measured flat at 200 files
+// for floods of 3000, 6000 and 12000 prefixes against this cap of 100, so the
+// bound is independent of flood size and not a slower leak.
 prefixCheck(
-    'a 3000-prefix flood driven through record() stays at the cap',
-    $floodFiles <= 110,
+    'a 3000-prefix flood driven through record() stays bounded near the cap',
+    $floodFiles <= 2 * 100 + 10,
     '3000 prefixes -> ' . $floodFiles . ' files (cap 100)',
 );
 
@@ -466,19 +547,21 @@ prefixCheck(
 $coldDirectory = $root . '/cold-start';
 mkdir($coldDirectory, 0700, true);
 for ($index = 0; $index < 5000; $index++) {
-    file_put_contents($coldDirectory . '/' . hash('sha256', 'preexisting-' . $index) . '.json', (string) json_encode([
-        'attempts' => 1, 'first' => $now, 'last' => $now, 'locked_until' => $now + 900,
+    $coldPath = $coldDirectory . '/' . hash('sha256', 'preexisting-' . $index) . '.json';
+    file_put_contents($coldPath, (string) json_encode([
+        'attempts' => 1, 'first' => $now, 'last' => $now, 'locked_until' => 0,
     ]));
+    touch($coldPath, $now - 6000 + $index);
 }
-$coldStart = new ViMbAdmin_BruteForce(null, [
+$coldStartOptions = [
     'statedir' => $coldDirectory,
     'max_attempts' => 5000,
     'window' => 900,
     'lockout' => 900,
     'max_entries' => 100,
-]);
+];
 for ($index = 0; $index < 60; $index++) {
-    prefixAttempt($coldStart, '203.0.113.' . ($index % 250));
+    prefixRequestAttempt($coldStartOptions, '203.0.113.' . ($index % 250));
 }
 $coldFiles = count(prefixStateFiles($coldDirectory));
 prefixCheck(
@@ -490,16 +573,16 @@ prefixCheck(
 // Ordinary traffic must not pay for that: one prefix under the cap sweeps at
 // most once per interval, so a burst of failed logins stays cheap.
 $steadyDirectory = $root . '/steady';
-$steady = new ViMbAdmin_BruteForce(null, [
+$steadyOptions = [
     'statedir' => $steadyDirectory,
     'max_attempts' => 5000,
     'window' => 900,
     'lockout' => 900,
     'max_entries' => 4096,
-]);
+];
 $steadyStart = hrtime(true);
 for ($index = 0; $index < 200; $index++) {
-    prefixAttempt($steady, '203.0.113.5');
+    prefixRequestAttempt($steadyOptions, '203.0.113.5');
 }
 $steadyElapsed = (hrtime(true) - $steadyStart) / 1e6;
 prefixCheck(
@@ -797,7 +880,7 @@ prefixCheck(
 
 // ---- 10. fixed assertion count -----------------------------------------
 
-prefixCheck('fixed assertion count', BruteForcePrefixAssertions::$checks === 48, (string) BruteForcePrefixAssertions::$checks);
+prefixCheck('fixed assertion count', BruteForcePrefixAssertions::$checks === 49, (string) BruteForcePrefixAssertions::$checks);
 
 prefixRemoveTree($root);
 

@@ -111,18 +111,6 @@ class ViMbAdmin_BruteForce
     private $_v6prefix  = self::DEFAULT_IPV6_PREFIX;
     /** @var int */
     private $_maxEntries = self::DEFAULT_MAX_ENTRIES;
-    /**
-     * Entries observed by the last sweep in this process.
-     *
-     * @var int
-     */
-    private $_liveCount = 0;
-    /**
-     * State writes made since that sweep.
-     *
-     * @var int
-     */
-    private $_writesSinceSweep = 0;
 
     /**
      * @param mixed $em   Unused (kept for call-site compatibility).
@@ -440,13 +428,19 @@ class ViMbAdmin_BruteForce
         if( !is_string( $encoded ) )
             throw new RuntimeException( 'bruteforce state persistence unavailable' );
 
+        // Whether this write ADDS a prefix decides how fast the directory can
+        // grow, and the durable growth counter is the only thing that can call
+        // a sweep in ahead of the routine interval.
+        $isNew = !file_exists( $f );
+
         try
         {
             if( @file_put_contents( $tmp, $encoded, LOCK_EX ) !== strlen( $encoded ) )
                 throw new RuntimeException( 'bruteforce state persistence unavailable' );
             if( !@rename( $tmp, $f ) )
                 throw new RuntimeException( 'bruteforce state persistence unavailable' );
-            $this->_writesSinceSweep++;
+            if( $isNew )
+                $this->_notePrefixCreated();
         }
         finally
         {
@@ -467,6 +461,66 @@ class ViMbAdmin_BruteForce
             error_log( 'ViMbAdmin_BruteForce: could not clear state file ' . $file );
             throw new RuntimeException( 'bruteforce state persistence unavailable' );
         }
+    }
+
+    /**
+     * Record that a new prefix appeared, durably.
+     *
+     * The login controller builds a fresh ViMbAdmin_BruteForce per request, so
+     * a growth counter on $this is always zero and can trigger nothing. The
+     * routine sweep is throttled to REAP_INTERVAL_SECONDS, and a flood starting
+     * from an empty directory sweeps once -- seeing one file, under cap, writing
+     * no overflow marker -- and is then throttled out for a minute while
+     * record() keeps creating files. Counting creations on disk is what lets a
+     * burst call the sweep back in before the interval.
+     *
+     * Best-effort: a lost increment only delays a sweep.
+     *
+     * @return void
+     */
+    private function _notePrefixCreated()
+    {
+        $handle = @fopen( $this->_statedir . '/.reap-growth', 'c+' );
+        if( $handle === false )
+            return;
+        try
+        {
+            if( !@flock( $handle, LOCK_EX | LOCK_NB ) )
+                return;
+            $raw = trim( (string) @stream_get_contents( $handle ) );
+            $count = preg_match( '/^[0-9]{1,18}$/D', $raw ) === 1 ? (int) $raw + 1 : 1;
+            if( @ftruncate( $handle, 0 ) ) {
+                @rewind( $handle );
+                @fwrite( $handle, (string) $count );
+            }
+            @flock( $handle, LOCK_UN );
+        }
+        finally
+        {
+            fclose( $handle );
+        }
+    }
+
+    /**
+     * How many prefixes were created since the last sweep. Read-only: the
+     * counter is cleared by _clearPrefixGrowth() when a sweep actually runs,
+     * because consuming it on every request would keep it pinned near zero and
+     * it could never reach the threshold that calls a sweep in.
+     */
+    private function _readPrefixGrowth(): int
+    {
+        $path = $this->_statedir . '/.reap-growth';
+        clearstatcache( true, $path );
+        $raw = @file_get_contents( $path );
+        if( !is_string( $raw ) || preg_match( '/^[0-9]{1,18}$/D', trim( $raw ) ) !== 1 )
+            return 0;
+        return (int) trim( $raw );
+    }
+
+    /** @return void */
+    private function _clearPrefixGrowth()
+    {
+        @unlink( $this->_statedir . '/.reap-growth' );
     }
 
     /**
@@ -522,18 +576,33 @@ class ViMbAdmin_BruteForce
                 // sweep finished still above the cap; while it is set, every
                 // failed login sweeps again until the directory is back under
                 // max_entries.
-                $overCap = ( $this->_liveCount + $this->_writesSinceSweep ) > $this->_maxEntries;
-                if( !$overCap && is_int( $last ) && $last <= $now
+                // The over-cap signal must be DURABLE, not instance state: the
+                // login controller builds a new ViMbAdmin_BruteForce per
+                // request, so anything remembered on $this is zero again by the
+                // next failed login and the re-arm would never fire. This
+                // marker file is written by a sweep that ended still above the
+                // cap and removed by one that got under it.
+                $overflowFlag = $this->_statedir . '/.reap-overflow';
+                clearstatcache( true, $overflowFlag );
+                $overCap = @is_file( $overflowFlag );
+                // A burst of NEW prefixes is the only growth record() can
+                // cause, so once it could plausibly have filled the cap, sweep
+                // now rather than waiting for the next interval.
+                $grown = $this->_readPrefixGrowth() >= $this->_maxEntries;
+                if( !$overCap && !$grown && is_int( $last ) && $last <= $now
                     && ( $now - $last ) < self::REAP_INTERVAL_SECONDS )
                     return;
                 if( @touch( $stamp, $now ) )
                     @chmod( $stamp, 0640 );
-                $this->_writesSinceSweep = 0;
+                $this->_clearPrefixGrowth();
                 if( $this->_reapStale( $now ) )
                     // Still above the cap: one sweep evicts at most
-                    // EVICT_SAMPLE_LIMIT entries, so force the next failed login
-                    // to sweep again rather than wait out the interval.
-                    $this->_writesSinceSweep = $this->_maxEntries + 1;
+                    // EVICT_SAMPLE_LIMIT entries, so mark the directory so the
+                    // next failed login sweeps again instead of waiting out the
+                    // interval.
+                    @touch( $overflowFlag );
+                elseif( $overCap )
+                    @unlink( $overflowFlag );
             }
             catch( RuntimeException )
             {
@@ -584,12 +653,14 @@ class ViMbAdmin_BruteForce
             return false;
 
         // One readdir pass; keep only the smallest REAP_SCAN_LIMIT names that
-        // sort strictly after the cursor, plus a bounded oldest-first sample for
-        // the entry cap. Memory stays O(REAP_SCAN_LIMIT + EVICT_SAMPLE_LIMIT).
+        // sort strictly after the cursor, plus a genuinely oldest-first sample
+        // of EVICTABLE entries for the cap. Memory stays
+        // O(REAP_SCAN_LIMIT + EVICT_SAMPLE_LIMIT).
         $window = [];
         $windowSorted = false;
         $total = 0;
         $sample = [];
+        $sampleMax = null;
         try
         {
             while( ( $entry = readdir( $handle ) ) !== false )
@@ -598,8 +669,29 @@ class ViMbAdmin_BruteForce
                     continue;
                 $total++;
                 $name = $matches[1];
-                if( count( $sample ) < self::EVICT_SAMPLE_LIMIT )
-                    $sample[] = $entry;
+
+                // Eviction candidates, oldest first. Taking whatever readdir
+                // happened to return first is not an ordering at all, and the
+                // attacker's own record is usually among the OLDEST once they
+                // start flooding -- so the sample has to be selected by age and
+                // must never include a source that is currently locked out.
+                // Otherwise rotating ~max_entries prefixes flushes your own
+                // lockout, which is the throttle bypass this whole item exists
+                // to close.
+                $candidate = $this->_evictionCandidate( $this->_statedir . '/' . $entry, $now );
+                if( $candidate !== null ) {
+                    if( count( $sample ) < self::EVICT_SAMPLE_LIMIT ) {
+                        $sample[$entry] = $candidate;
+                        if( $sampleMax === null || $candidate > $sampleMax )
+                            $sampleMax = $candidate;
+                    }
+                    elseif( $sampleMax === null || $candidate < $sampleMax ) {
+                        asort( $sample, SORT_NUMERIC );
+                        array_pop( $sample );
+                        $sample[$entry] = $candidate;
+                        $sampleMax = max( $sample );
+                    }
+                }
                 if( $cursor !== '' && strcmp( $name, $cursor ) <= 0 )
                     continue;
                 // Keep the REAP_SCAN_LIMIT smallest names above the cursor.
@@ -644,26 +736,64 @@ class ViMbAdmin_BruteForce
         // refreshes faster than max(window, lockout). Once the cap is exceeded,
         // evict the least-recently-touched sampled entries as well, so the
         // directory (and therefore every scan over it) stays bounded.
-        $remaining = $total - $removed;
-        $stillOverCap = $this->_evictOverflow( $remaining, $sample );
-
-        // Remember how full the directory is AFTER eviction, not before:
-        // record() creates one file per new prefix with no brake, so the
-        // throttle uses this count plus the writes since to decide whether the
-        // next login must sweep again. Counting the evicted files would leave
-        // it reading over-cap for one more round and buy a needless O(N) sweep.
-        // _evictOverflow() stops as soon as it is back at the cap, so that is
-        // the floor once it has run.
-        $this->_liveCount = $stillOverCap ? $remaining : min( $remaining, $this->_maxEntries );
-
-        return $stillOverCap;
+        return $this->_evictOverflow( $total - $removed, $sample, $now );
     }
 
     /**
-     * @param list<string> $sample bounded sample of state file basenames
+     * Age of a state file for eviction ordering, or null when it must not be
+     * evicted at all.
+     *
+     * A record whose lockout is still running is NEVER evictable: deleting it
+     * hands the locked-out source a fresh attempt budget, which turns the cap
+     * into a throttle-bypass primitive (flood ~max_entries prefixes, flush your
+     * own lockout, repeat).
+     *
+     * Records that are merely COUNTING are evictable, and deliberately so. The
+     * cap has to bound the directory against an attacker whose whole flood is
+     * fresh -- every file inside the window, none locked out. Holding those too
+     * makes nothing evictable at exactly the moment the bound is needed and
+     * hands back the unbounded-growth DoS this item exists to close. Losing a
+     * partial count is cheap: the source has not yet earned a lockout, and
+     * oldest-mtime-first ordering evicts the quietest prefixes before any
+     * source that is actively attempting.
+     *
+     * @return int|null mtime to order by, or null when the record is live
+     */
+    private function _evictionCandidate( string $path, int $now ): ?int
+    {
+        $stat = @lstat( $path );
+        if( !is_array( $stat ) || !isset( $stat['mode'], $stat['mtime'] )
+            || !is_int( $stat['mode'] ) || !is_int( $stat['mtime'] )
+            || ( $stat['mode'] & 0170000 ) !== 0100000 )
+            return null;
+
+        $json = @file_get_contents( $path );
+        $record = is_string( $json ) ? json_decode( $json, true ) : null;
+        if( !is_array( $record ) )
+            // Malformed state is not a live lockout, and _load() would refuse
+            // it anyway; let the cap reclaim it.
+            return $stat['mtime'];
+
+        foreach( [ 'attempts', 'first', 'last', 'locked_until' ] as $key )
+            if( !isset( $record[$key] ) || !is_int( $record[$key] ) || $record[$key] < 0 )
+                return $stat['mtime'];
+
+        if( $record['locked_until'] > $now )
+            return null;                       // active lockout: never evict
+
+        return $stat['mtime'];
+    }
+
+    /**
+     * Evict the oldest EVICTABLE entries until the directory is back at the
+     * cap. Live lockouts are excluded by _evictionCandidate(), so a flood can
+     * never delete the state that is throttling it -- if nothing is evictable
+     * the directory simply stays over cap and the caller keeps re-arming.
+     *
+     * @param array<string,int> $sample basename => mtime, evictable only
      * @return bool true when entries remain above the cap after this pass
      */
-    private function _evictOverflow( int $remaining, array $sample ): bool
+    private function _evictOverflow( int $remaining, array $sample, int $now ): bool
     {
         $overflow = $remaining - $this->_maxEntries;
         if( $overflow <= 0 )
@@ -671,25 +801,20 @@ class ViMbAdmin_BruteForce
         if( $sample === [] )
             return true;
 
-        $aged = [];
-        foreach( $sample as $entry ) {
-            $path = $this->_statedir . '/' . $entry;
-            $stat = @lstat( $path );
-            if( !is_array( $stat ) || !isset( $stat['mtime'] ) || !is_int( $stat['mtime'] )
-                || !isset( $stat['mode'] ) || !is_int( $stat['mode'] )
-                || ( $stat['mode'] & 0170000 ) !== 0100000 )
-                continue;
-            $aged[$path] = $stat['mtime'];
-        }
-        asort( $aged, SORT_NUMERIC );
+        asort( $sample, SORT_NUMERIC );
 
-        foreach( array_keys( $aged ) as $path ) {
+        foreach( array_keys( $sample ) as $entry ) {
             if( $overflow <= 0 )
                 return false;
+            $path = $this->_statedir . '/' . $entry;
             $before = @lstat( $path );
             clearstatcache( true, $path );
             $after = @lstat( $path );
-            if( $this->_isStableRegularFile( $before, $after ) && @unlink( $path ) )
+            // Re-check liveness under the same stat pair: a source can have
+            // become locked between the readdir sample and this deletion.
+            if( $this->_isStableRegularFile( $before, $after )
+                && $this->_evictionCandidate( $path, $now ) !== null
+                && @unlink( $path ) )
                 $overflow--;
         }
 
