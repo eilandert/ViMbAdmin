@@ -7,6 +7,7 @@ require __DIR__ . '/../library/OSS/Runtime.php';
 require __DIR__ . '/../library/ViMbAdmin/Net.php';
 require __DIR__ . '/../library/ViMbAdmin/Doveadm.php';
 require __DIR__ . '/../library/ViMbAdmin/BruteForce.php';
+require __DIR__ . '/support/bruteforce-state-path.php';
 
 $checks = 0;
 $failures = 0;
@@ -54,7 +55,8 @@ $check('brute-force proxy and whitelist lists retain only strings',
     ));
 $stateDir = sys_get_temp_dir() . '/vimbadmin-bf-shape-' . bin2hex(random_bytes(4));
 $bruteForce = new ViMbAdmin_BruteForce(null, ['statedir' => $stateDir]);
-$file = $stateDir . '/' . hash('sha256', '127.0.0.1') . '.json';
+// State is keyed on the source network prefix, not the exact address.
+$file = bruteForceStatePath($stateDir, '127.0.0.1');
 mkdir($stateDir, 0750, true);
 file_put_contents($file, '{"attempts":"1","first":0,"last":0,"locked_until":0}');
 $check('malformed brute-force state fails closed with an explicit abort', $fails(

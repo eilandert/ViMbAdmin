@@ -10,6 +10,7 @@
       <code><![CDATA[$cursorPath]]></code>
       <code><![CDATA[$lockFile]]></code>
       <code><![CDATA[$this->_statedir]]></code>
+      <code><![CDATA[$this->_statedir . '/.reap-lock']]></code>
     </TaintedFile>
   </file>
   <file src="library/ViMbAdmin/Service/QueueRunner.php">
