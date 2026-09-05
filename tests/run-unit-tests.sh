@@ -42,7 +42,7 @@ trap cleanup EXIT
 # test that truncates mid-run (an early exit()/return) still exits 0 but
 # leaves no verdict line behind.
 readonly verdict_re_all_passed='^ALL PASSED( \([0-9]+ checks?\))?$'
-readonly verdict_re_ok_assertions='^OK: all .* assertions passed( \(PHP [^)]*\))?$'
+readonly verdict_re_ok_assertions='^OK: all [^[:space:]].{0,120} assertions passed( \(PHP [^)]*\))?$'
 verdict_ok() {
   local last_line
   last_line=$(grep -v '^[[:space:]]*$' "$1" | tail -n 1) || true
@@ -85,7 +85,7 @@ for test in "${selected_tests[@]}"; do
     exit "$php_status"
   fi
   if ! verdict_ok "$test_output"; then
-    last_line=$(grep -v '^[[:space:]]*$' "$test_output" | tail -n 1)
+    last_line=$(grep -v '^[[:space:]]*$' "$test_output" | tail -n 1) || true
     printf 'Test exited 0 but printed no terminal verdict: %s\nlast line: %s\n' \
       "$test" "${last_line:-<empty output>}" >&2
     exit 1
