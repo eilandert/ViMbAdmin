@@ -16,6 +16,7 @@ require_once __DIR__ . '/../application/Repositories/Mailbox.php';
 
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Decorator\EntityManagerDecorator;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
@@ -60,7 +61,7 @@ final class ControllerAliasIdentityResources
 {
     /** @param array<string,mixed> $options */
     public function __construct(
-        private readonly EntityManager $entityManager,
+        private readonly EntityManagerInterface $entityManager,
         private readonly ControllerAliasIdentitySession $session,
         private readonly ControllerAliasIdentityView $view,
         private readonly array $options = [],
@@ -86,6 +87,38 @@ final class ControllerAliasIdentityAdmin extends \Entities\Admin
     public function getSuper(): bool { return true; }
     public function getActive(): bool { return true; }
     public function isSuper(): bool { return true; }
+}
+
+/**
+ * A domain admin (not super) who administers exactly the domains handed to it.
+ * Used to prove `mid`/`alid` scope checks, which are no-ops for a super admin.
+ */
+final class ControllerAliasIdentityScopedAdmin extends \Entities\Admin
+{
+    /** @param list<\Entities\Domain> $managed */
+    public function __construct(private readonly array $managed = [])
+    {
+        parent::__construct();
+        $this->setUsername('domainadmin@example.test');
+    }
+
+    public function getId(): int { return 2; }
+    public function getUsername(): string { return 'domainadmin@example.test'; }
+    public function getSuper(): bool { return false; }
+    public function getActive(): bool { return true; }
+    public function isSuper(): bool { return false; }
+
+    /** @param \Entities\Domain $domain */
+    public function canManageDomain($domain): bool
+    {
+        foreach ($this->managed as $d) {
+            if ($d->requiredId() === $domain->requiredId()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
 
 final class ControllerAliasIdentityAliasRepository extends \Repositories\Alias
@@ -256,6 +289,42 @@ function controllerAliasIdentityContainer(
     $admin = new ControllerAliasIdentityAdmin();
     return new Container(
         new ControllerAliasIdentityResources($entityManager, $session, $view, $options),
+        new Auth($session, static fn(int $id): object => $admin),
+    );
+}
+
+/**
+ * Entity manager that records persists and skips the real flush, so a
+ * successful controller path can be asserted without ORM mapping metadata.
+ */
+final class ControllerAliasIdentityRecordingEntityManager extends EntityManagerDecorator
+{
+    /** @var list<object> */
+    public array $persisted = [];
+    /** @var list<object> */
+    public array $removed = [];
+    public int $flushes = 0;
+
+    /** @param array<string,EntityRepository<covariant object>> $repositories */
+    public function __construct(array $repositories)
+    {
+        parent::__construct(controllerAliasIdentityEntityManager($repositories));
+    }
+
+    public function persist(object $object): void { $this->persisted[] = $object; }
+    public function remove(object $object): void { $this->removed[] = $object; }
+    public function flush(): void { $this->flushes++; }
+}
+
+/** Container bound to an arbitrary admin identity (default: the super admin). */
+function controllerAliasIdentityContainerFor(
+    EntityManagerInterface $entityManager,
+    ControllerAliasIdentitySession $session,
+    ControllerAliasIdentityView $view,
+    \Entities\Admin $admin,
+): Container {
+    return new Container(
+        new ControllerAliasIdentityResources($entityManager, $session, $view, []),
         new Auth($session, static fn(int $id): object => $admin),
     );
 }
@@ -886,6 +955,120 @@ controllerAliasIdentityCheck('mail settings reject a null username before render
         && $emailView->renders === 0
         && $emailEntityManager->getUnitOfWork()->getScheduledEntityInsertions() === []
         && $emailEntityManager->getUnitOfWork()->getScheduledEntityDeletions() === []);
+
+// VIM-D03: `deleteAliasAction` scope-checks BOTH ids. A domain admin passing a
+// `mid` for a mailbox outside their domains must be indistinguishable from
+// "no such mailbox" and must not mutate the alias or write an audit row.
+$scopeIdent = static function(\Entities\Domain $domain, int $id): \Entities\Domain {
+    (new ReflectionProperty(\Entities\Domain::class, 'id'))->setValue($domain, $id);
+    return $domain;
+};
+
+$ownedDomain   = $scopeIdent((new \Entities\Domain())->setDomain('owned.test')->setAliasCount(4), 10);
+$foreignDomain = $scopeIdent((new \Entities\Domain())->setDomain('foreign.test')->setAliasCount(9), 20);
+$scopedAdmin   = new ControllerAliasIdentityScopedAdmin([$ownedDomain]);
+
+$scopeBaseSession = ['identity' => ['id' => 2], 'csrfToken' => 'test-token'];
+$scopeRoute = new RouteMatch('mailbox', 'delete-alias', MailboxController::class, 'deleteAliasAction', [
+    'mid' => '3',
+    'alid' => '7',
+    'csrf' => 'test-token',
+]);
+
+// (a) The VIM-D03 attack: the alias sits in a domain the admin DOES administer
+// (so the pre-fix alias-only authorisation passed), while `mid` points at a
+// mailbox in a domain they do not administer. Pre-fix, this trimmed the foreign
+// mailbox's address out of the alias and wrote an ALIAS_DELETE audit row for a
+// destination that was never on it.
+$foreignMailbox = (new \Entities\Mailbox())->setUsername('victim@foreign.test')->setDomain($foreignDomain);
+$foreignAlias   = (new \Entities\Alias())
+    ->setAddress('team@owned.test')
+    ->setGoto('victim@foreign.test,other@owned.test')
+    ->setDomain($ownedDomain);
+$foreignSession = new ControllerAliasIdentitySession($scopeBaseSession);
+$foreignEm = new ControllerAliasIdentityRecordingEntityManager([
+    'Entities\\Alias' => new ControllerAliasIdentityAliasRepository([$foreignAlias]),
+    'Entities\\Mailbox' => new ControllerAliasIdentityMailboxRepository($foreignMailbox),
+]);
+$foreignResponse = (new MailboxController(
+    controllerAliasIdentityContainerFor($foreignEm, $foreignSession, new ControllerAliasIdentityView(), $scopedAdmin),
+    $scopeRoute,
+))->deleteAliasAction();
+controllerAliasIdentityCheck('delete-alias refuses a mid outside the admin\'s domains without mutation or audit row',
+    $foreignResponse->status === 302
+        && ($foreignResponse->headers['Location'] ?? null) === '/mailbox/list'
+        && $foreignAlias->getGoto() === 'victim@foreign.test,other@owned.test'
+        && $ownedDomain->getAliasCount() === 4
+        && $foreignEm->persisted === []
+        && $foreignEm->removed === []
+        && $foreignEm->flushes === 0
+        && $foreignSession->values() === $scopeBaseSession);
+
+// (b) The mirror pairing: owned mailbox, alias in a foreign domain. The
+// alias-only check already rejected this; it must keep doing so.
+$ownedMailbox = (new \Entities\Mailbox())->setUsername('user@owned.test')->setDomain($ownedDomain);
+$crossAlias   = (new \Entities\Alias())
+    ->setAddress('team@foreign.test')
+    ->setGoto('user@owned.test,other@foreign.test')
+    ->setDomain($foreignDomain);
+$crossSession = new ControllerAliasIdentitySession($scopeBaseSession);
+$crossEm = new ControllerAliasIdentityRecordingEntityManager([
+    'Entities\\Alias' => new ControllerAliasIdentityAliasRepository([$crossAlias]),
+    'Entities\\Mailbox' => new ControllerAliasIdentityMailboxRepository($ownedMailbox),
+]);
+$crossResponse = (new MailboxController(
+    controllerAliasIdentityContainerFor($crossEm, $crossSession, new ControllerAliasIdentityView(), $scopedAdmin),
+    $scopeRoute,
+))->deleteAliasAction();
+controllerAliasIdentityCheck('delete-alias refuses an alias from another domain than the mailbox',
+    $crossResponse->status === 302
+        && ($crossResponse->headers['Location'] ?? null) === '/mailbox/list'
+        && $crossAlias->getGoto() === 'user@owned.test,other@foreign.test'
+        && $crossEm->persisted === []
+        && $crossEm->removed === []
+        && $crossEm->flushes === 0
+        && $crossSession->values() === $scopeBaseSession);
+
+// (c) The rejection for a foreign mid is byte-identical to the rejection for a
+// mailbox that does not exist at all: probing `mid` leaks nothing.
+$missingSession = new ControllerAliasIdentitySession($scopeBaseSession);
+$missingEm = new ControllerAliasIdentityRecordingEntityManager([
+    'Entities\\Alias' => new ControllerAliasIdentityAliasRepository([$foreignAlias]),
+    'Entities\\Mailbox' => new ControllerAliasIdentityMailboxRepository(null),
+]);
+$missingResponse = (new MailboxController(
+    controllerAliasIdentityContainerFor($missingEm, $missingSession, new ControllerAliasIdentityView(), $scopedAdmin),
+    $scopeRoute,
+))->deleteAliasAction();
+controllerAliasIdentityCheck('delete-alias rejection is indistinguishable from a non-existent mailbox',
+    $missingResponse->status === $foreignResponse->status
+        && $missingResponse->headers === $foreignResponse->headers
+        && $missingResponse->body === $foreignResponse->body
+        && $missingSession->values() === $foreignSession->values());
+
+// (d) In-scope deletion is unchanged: the destination is trimmed, an audit row
+// is written, and the redirect goes back to the mailbox's alias list.
+$inScopeAlias = (new \Entities\Alias())
+    ->setAddress('team@owned.test')
+    ->setGoto('user@owned.test,other@owned.test')
+    ->setDomain($ownedDomain);
+$inScopeSession = new ControllerAliasIdentitySession($scopeBaseSession);
+$inScopeEm = new ControllerAliasIdentityRecordingEntityManager([
+    'Entities\\Alias' => new ControllerAliasIdentityAliasRepository([$inScopeAlias]),
+    'Entities\\Mailbox' => new ControllerAliasIdentityMailboxRepository($ownedMailbox),
+]);
+$inScopeResponse = (new MailboxController(
+    controllerAliasIdentityContainerFor($inScopeEm, $inScopeSession, new ControllerAliasIdentityView(), $scopedAdmin),
+    $scopeRoute,
+))->deleteAliasAction();
+controllerAliasIdentityCheck('delete-alias still trims a destination and audits it for an in-scope mailbox',
+    $inScopeResponse->status === 302
+        && str_starts_with((string) ($inScopeResponse->headers['Location'] ?? ''), '/mailbox/aliases/mid/')
+        && $inScopeAlias->getGoto() === 'other@owned.test'
+        && count($inScopeEm->persisted) === 1
+        && $inScopeEm->persisted[0] instanceof \Entities\Log
+        && $inScopeEm->removed === []
+        && $inScopeEm->flushes === 1);
 
 echo ControllerAliasIdentityState::$failures === 0
     ? "\nALL PASSED\n"

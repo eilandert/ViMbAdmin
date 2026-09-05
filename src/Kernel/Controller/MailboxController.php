@@ -924,6 +924,11 @@ final class MailboxController extends AbstractController
      * NOTE: also fixes a latent deployment bug — the aliases-page delete link
      * carried no `csrf` segment, so `_assertCsrf()` always failed; it now carries
      * `$csrfToken`.
+     *
+     * Both `mid` and `alid` are scoped: the mailbox's domain must be one the
+     * admin administers, and the alias must belong to that same domain. Every
+     * rejection is the same redirect to `mailbox/list`, so probing `mid` reveals
+     * nothing.
      */
     public function deleteAliasAction(): Response
     {
@@ -948,8 +953,18 @@ final class MailboxController extends AbstractController
         if (!$mailbox instanceof \Entities\Mailbox || !$alias instanceof \Entities\Alias) {
             return $this->redirect('mailbox/list');
         }
-        $domain = $alias->getDomain();
+        $domain = $mailbox->getDomain();
         if (!$domain instanceof \Entities\Domain || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
+            return $this->redirect('mailbox/list');
+        }
+        // The alias must live in the same domain as the mailbox it is being
+        // detached from: scoping only the alias let an admin pass any `mid`,
+        // including mailboxes in domains they do not administer.
+        $aliasDomain = $alias->getDomain();
+        $mailboxDomainId = $domain->getId();
+        if (!$aliasDomain instanceof \Entities\Domain
+            || ($aliasDomain !== $domain
+                && ($mailboxDomainId === null || $aliasDomain->getId() !== $mailboxDomainId))) {
             return $this->redirect('mailbox/list');
         }
 
