@@ -924,6 +924,12 @@ final class MailboxController extends AbstractController
      * NOTE: also fixes a latent deployment bug — the aliases-page delete link
      * carried no `csrf` segment, so `_assertCsrf()` always failed; it now carries
      * `$csrfToken`.
+     *
+     * Both `mid` and `alid` are authorised independently: the admin must manage
+     * the mailbox's domain AND the alias's domain. The two domains need not
+     * match — detaching a mailbox from a cross-domain alias is supported. Every
+     * rejection is the same redirect to `mailbox/list`, so probing `mid` reveals
+     * nothing.
      */
     public function deleteAliasAction(): Response
     {
@@ -948,8 +954,19 @@ final class MailboxController extends AbstractController
         if (!$mailbox instanceof \Entities\Mailbox || !$alias instanceof \Entities\Alias) {
             return $this->redirect('mailbox/list');
         }
-        $domain = $alias->getDomain();
+        $domain = $mailbox->getDomain();
         if (!$domain instanceof \Entities\Domain || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
+            return $this->redirect('mailbox/list');
+        }
+        // Authorise the alias independently of the mailbox. The two need not
+        // share a domain: `Repositories\Alias::loadForMailbox()` and
+        // `loadWithMailbox()` deliberately list cross-domain aliases (they scope
+        // on `a.Domain.Admins`, not on the mailbox's domain), and the aliases
+        // page renders a delete link for every row it returns. Requiring the
+        // same domain here would silently no-op a link the app itself rendered.
+        $aliasDomain = $alias->getDomain();
+        if (!$aliasDomain instanceof \Entities\Domain
+            || (!$admin->isSuper() && !$admin->canManageDomain($aliasDomain))) {
             return $this->redirect('mailbox/list');
         }
 
@@ -959,7 +976,9 @@ final class MailboxController extends AbstractController
         if ($user === $identity['goto']) {
             $em->remove($alias);
             $this->logAlias($admin, "removed alias {$identity['address']}");
-            $domain->setAliasCount($domain->getAliasCount() - 1);
+            // The counter belongs to the ALIAS's domain, which is not
+            // necessarily the mailbox's — see the cross-domain note above.
+            $aliasDomain->setAliasCount($aliasDomain->getAliasCount() - 1);
             $this->flash('You have successfully removed the alias.');
         } else {
             $gotos = explode(',', $identity['goto']);
