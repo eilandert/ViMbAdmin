@@ -486,8 +486,21 @@ resources.auth.oss.lost_password.use_captcha = true
 ;; seconds once it makes `max_attempts` failures inside `window` seconds. A
 ;; fully successful login (password + 2FA) clears the counter. Whitelisted
 ;; IPs / CIDRs are never counted or locked.
+;;
+;; The unauthenticated /auth/lost-password page is rate-limited too -- each
+;; render mints a captcha and would otherwise be a free way to grow the session
+;; record and burn server CPU -- but on a SEPARATE budget in its own state
+;; subdirectory, with its own ceiling below. It must not share `max_attempts`:
+;; anyone in a source prefix (a /24, a NAT, a residential /64) could then lock
+;; every admin behind that prefix out of /auth/login with a handful of bare
+;; unauthenticated GETs, and an ordinary user reloading the page or clicking
+;; "new image" would lock themselves out. `window`, `lockout`, the prefix
+;; widths, the whitelist and [trustedproxy] are shared.
 bruteforce.enabled      = 1
 bruteforce.max_attempts = 5
+;; Separate, deliberately generous ceiling for /auth/lost-password renders,
+;; counted over the same `window` and locking for the same `lockout`:
+bruteforce.lost_password_max_attempts = 30
 bruteforce.window       = 900
 bruteforce.lockout      = 900
 ;; Counting is keyed on the source *network prefix*, not the exact address, so

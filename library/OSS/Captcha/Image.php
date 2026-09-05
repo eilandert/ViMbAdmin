@@ -4,6 +4,17 @@ class OSS_Captcha_Image
 {
     private const MAX_FILES = 500;
 
+    /**
+     * Live captcha entries kept in one session. A captcha that is minted but
+     * never submitted is only removed by _isValid(), so without a cap an
+     * unauthenticated flood of renders grows the session record forever. The
+     * limit is per session and generous enough that no legitimate flow (one
+     * mint per render, plus "click for a new image") ever reaches it.
+     */
+    private const MAX_SESSION_ENTRIES = 8;
+
+    private const SESSION_PREFIX = 'OSS_Captcha_';
+
     private int $dotNoise;
     private int $lineNoise;
     private int $wordLen;
@@ -41,7 +52,11 @@ class OSS_Captcha_Image
         }
         $word = OSS_String::randomFromSet('23456789ABCDEFGHJKLMNPQRSTUVWXYZ', $this->wordLen);
 
-        $sessionKey = 'OSS_Captcha_' . $id;
+        // Drop expired entries and enforce the per-session cap BEFORE storing
+        // this one, so the fresh captcha is never the entry that gets evicted.
+        self::pruneSession(self::MAX_SESSION_ENTRIES - 1);
+
+        $sessionKey = self::SESSION_PREFIX . $id;
         $_SESSION[$sessionKey] = [
             'word' => $word,
             'expires' => time() + $this->timeout,
@@ -66,11 +81,55 @@ class OSS_Captcha_Image
         return $id;
     }
 
+    /**
+     * Remove expired captcha entries from the session and evict the
+     * soonest-expiring survivors until at most $keep remain.
+     *
+     * The scan is over session keys carrying the captcha prefix only, and the
+     * eviction it performs is what keeps that set at MAX_SESSION_ENTRIES, so
+     * the per-call cost is bounded by the cap rather than by attacker input.
+     * Malformed entries (wrong shape, missing/!int expiry) count as expired.
+     */
+    private static function pruneSession(int $keep): void
+    {
+        // No session started (CLI, or a request before session_start()): nothing
+        // to prune. $_SESSION is array-typed once it exists.
+        if (!isset($_SESSION)) {
+            return;
+        }
+
+        $now = time();
+        $live = [];
+        foreach ($_SESSION as $key => $entry) {
+            if (!is_string($key) || !str_starts_with($key, self::SESSION_PREFIX)) {
+                continue;
+            }
+            $expires = is_array($entry) ? ($entry['expires'] ?? null) : null;
+            if (!is_int($expires) || $expires < $now) {
+                unset($_SESSION[$key]);
+                continue;
+            }
+            $live[$key] = $expires;
+        }
+
+        $excess = count($live) - max(0, $keep);
+        if ($excess <= 0) {
+            return;
+        }
+
+        // Evict the entries closest to expiry first: they are the oldest mints
+        // and the ones a legitimate user is least likely to still be looking at.
+        asort($live);
+        foreach (array_slice(array_keys($live), 0, $excess) as $key) {
+            unset($_SESSION[$key]);
+        }
+    }
+
     public static function _isValid(mixed $id, mixed $value): bool
     {
         if( !is_string( $id ) )
             return false;
-        $key = 'OSS_Captcha_' . $id;
+        $key = self::SESSION_PREFIX . $id;
         $captcha = $_SESSION[$key] ?? null;
         unset($_SESSION[$key]);
         $path = self::path((string) $id);
