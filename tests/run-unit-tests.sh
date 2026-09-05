@@ -42,7 +42,7 @@ trap cleanup EXIT
 # test that truncates mid-run (an early exit()/return) still exits 0 but
 # leaves no verdict line behind.
 readonly verdict_re_all_passed='^ALL PASSED( \([0-9]+ checks?\))?$'
-readonly verdict_re_ok_assertions='^OK: all [^[:space:]].{0,120} assertions passed( \(PHP [^)]*\))?$'
+readonly verdict_re_ok_assertions='^OK: all [A-Za-z0-9][A-Za-z0-9_+ -]{0,120} assertions passed( \(PHP [^)]*\))?$'
 verdict_ok() {
   local last_line
   last_line=$(grep -v '^[[:space:]]*$' "$1" | tail -n 1) || true
@@ -77,9 +77,10 @@ for test in "${selected_tests[@]}"; do
   is_excluded "$test" && continue
   echo "== $test =="
   : >"$test_output"
-  php "$test" | tee "$test_output"
-  status=("${PIPESTATUS[@]}")
-  php_status=${status[0]}
+  # `set -e` would abort at the pipeline itself under `pipefail`, so the failure
+  # is caught here instead — otherwise the diagnostic below is unreachable.
+  php_status=0
+  { php "$test" | tee "$test_output"; } || php_status=${PIPESTATUS[0]}
   if ((php_status != 0)); then
     printf 'Test failed: %s (exit %d)\n' "$test" "$php_status" >&2
     exit "$php_status"
