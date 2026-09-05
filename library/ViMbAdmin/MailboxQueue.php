@@ -26,7 +26,7 @@ class ViMbAdmin_MailboxQueue
      * Existing open tasks of the same type are left untouched by the unique
      * open-task constraint; terminal task history remains unrestricted.
      *
-     * @param \Doctrine\ORM\EntityManager $em
+     * @param \Doctrine\ORM\EntityManagerInterface $em
      * @param string $type    One of MailboxTask::TYPE_*
      * @param \Entities\Admin|null $by
      * @param int $priority
@@ -61,7 +61,7 @@ class ViMbAdmin_MailboxQueue
      * Queue a task for a mailbox. Refuses to stack a second open
      * (PENDING/RUNNING) task of the same type for the same username.
      *
-     * @param \Doctrine\ORM\EntityManager $em
+     * @param \Doctrine\ORM\EntityManagerInterface $em
      * @param \Entities\Mailbox $mailbox
      * @param string $type    One of MailboxTask::TYPE_*
      * @param \Entities\Admin|null $by

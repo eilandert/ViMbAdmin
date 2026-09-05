@@ -18,6 +18,7 @@ require_once __DIR__ . '/../application/Repositories/Mailbox.php';
 
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Decorator\EntityManagerDecorator;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
@@ -217,18 +218,16 @@ final class CsrfMutationRepositoryFactory implements RepositoryFactory
 }
 
 /**
- * Extends the CONCRETE Doctrine EntityManager, not EntityManagerDecorator.
+ * The entity manager every surface below is driven through, recording the
+ * mutations it is asked to perform instead of touching a database.
  *
- * DomainController::em() and ArchiveController::em() narrow to the concrete
- * `Doctrine\ORM\EntityManager` class, while Admin/Alias/MailboxController accept
- * `EntityManagerInterface`. A decorator satisfies only the latter, so with the
- * CSRF guard short-circuited every Domain/Archive surface used to abort in
- * `em()` with "Doctrine entity manager resource has an invalid type" before it
- * could reach the repository — which is precisely what made those surfaces'
- * inert assertions vacuous. Extending the concrete class keeps all 14 surfaces
- * reachable under the mutant.
+ * It extends EntityManagerDecorator, the extension point Doctrine sanctions
+ * (`EntityManager` itself is `@final`). Every controller's `em()` accepts
+ * `EntityManagerInterface`, which the decorator satisfies, so with the CSRF
+ * guard short-circuited all 14 surfaces reach their repository and the inert
+ * assertions are two-sided rather than vacuous.
  */
-final class CsrfMutationEntityManager extends EntityManager
+final class CsrfMutationEntityManager extends EntityManagerDecorator
 {
     public int $flushes = 0;
     /** @var list<object> */
@@ -243,7 +242,7 @@ final class CsrfMutationEntityManager extends EntityManager
         $configuration->enableNativeLazyObjects(true);
         $configuration->setRepositoryFactory(new CsrfMutationRepositoryFactory($repositories));
         $connection = DriverManager::getConnection(['driver' => 'pdo_mysql', 'serverVersion' => '8.0'], $configuration);
-        parent::__construct($connection, $configuration);
+        parent::__construct(new EntityManager($connection, $configuration));
     }
 
     public function persist(object $object): void { $this->persisted[] = $object; }

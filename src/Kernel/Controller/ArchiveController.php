@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
-use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityManagerInterface;
 use Entities\Admin;
 use LogicException;
 use Repositories\Archive as ArchiveRepository;
@@ -486,10 +486,10 @@ final class ArchiveController extends AbstractController
         return $this->redirect('archive/list');
     }
 
-    protected function em(): EntityManager
+    protected function em(): EntityManagerInterface
     {
         $em = parent::em();
-        if (!$em instanceof EntityManager) {
+        if (!$em instanceof EntityManagerInterface) {
             throw new LogicException('Doctrine entity manager resource has an invalid type');
         }
 
