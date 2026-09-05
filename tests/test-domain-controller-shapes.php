@@ -227,8 +227,14 @@ $adminsTemplate = file_get_contents(__DIR__ . '/../application/views/domain/admi
 $listScript = file_get_contents(__DIR__ . '/../application/views/domain/js/list.js');
 $check('administrator removal posts the CSRF token in the request body (VIM-D05)',
     is_string($adminsTemplate)
-        && str_contains($adminsTemplate, 'class="remove-admin-form"')
-        && str_contains($adminsTemplate, 'name="csrf" value="{$csrfToken|escape}"')
+        // The token must live INSIDE the removal form: asserting the class and
+        // the hidden field independently would pass with the field in some
+        // other form on the page and the removal request unprotected.
+        && preg_match(
+            '/<form\b[^>]*class="remove-admin-form"[^>]*>(?:(?!<\/form>).)*'
+            . 'name="csrf" value="\{\$csrfToken\|escape\}"/s',
+            $adminsTemplate,
+        ) === 1
         && !str_contains($adminsTemplate, 'csrf=$csrfToken'));
 $check('active-toggle request carries the rendered CSRF token',
     is_string($listScript) && str_contains($listScript, '"csrf": "{$csrfToken}"'));

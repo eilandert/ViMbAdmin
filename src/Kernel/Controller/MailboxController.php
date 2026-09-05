@@ -920,7 +920,7 @@ final class MailboxController extends AbstractController
     }
 
     /**
-     * GET /mailbox/delete-alias/mid/<id>/alid/<id>/csrf/<token> — remove a mailbox
+     * POST /mailbox/delete-alias (mid, alid, csrf in the body) — remove a mailbox
      * from one of its aliases (or delete the alias if this mailbox was its only
      * destination).
      *
@@ -1106,7 +1106,7 @@ final class MailboxController extends AbstractController
     }
 
     /**
-     * GET /mailbox/queue-repair/mid/<id>/csrf/<token> — enqueue a REPAIR task.
+     * POST /mailbox/queue-repair (mid, csrf in the body) — enqueue a REPAIR task.
      */
     public function queueRepairAction(): Response
     {
@@ -1114,7 +1114,7 @@ final class MailboxController extends AbstractController
     }
 
     /**
-     * GET /mailbox/queue-archive/mid/<id>/csrf/<token> — enqueue an ARCHIVE task.
+     * POST /mailbox/queue-archive (mid, csrf in the body) — enqueue an ARCHIVE task.
      */
     public function queueArchiveAction(): Response
     {
@@ -1122,7 +1122,7 @@ final class MailboxController extends AbstractController
     }
 
     /**
-     * GET /mailbox/queue-delete/mid/<id>/csrf/<token> — enqueue a DELETE task.
+     * POST /mailbox/queue-delete (mid, csrf in the body) — enqueue a DELETE task.
      */
     public function queueDeleteAction(): Response
     {

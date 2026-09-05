@@ -694,14 +694,20 @@ foreach ([
     'AdminController'   => ['purgeAction'],
     'ArchiveController' => ['toggleAutopruneAction', 'deleteAction', 'restoreAction'],
     'DomainController'  => ['purgeAction', 'removeAdminAction', 'ajaxToggleActiveAction'],
-    'MailboxController' => ['deleteAliasAction', 'queueMailboxTask'],
+    'MailboxController' => ['purgeAction', 'deleteAliasAction', 'queueMailboxTask'],
 ] as $class => $methods) {
     $source = file_get_contents(__DIR__ . "/../src/Kernel/Controller/{$class}.php");
     foreach ($methods as $method) {
+        // Bound the search to the method's OWN body: a lazy match across the
+        // whole file would happily find the next postBodyCsrfValid() in some
+        // LATER method and report a guard this one does not have. Stop at the
+        // next `    public|private function`, i.e. the following declaration.
         $check("{$class}::{$method} guards on the POST body token",
             is_string($source)
                 && preg_match(
-                    '/function ' . preg_quote($method, '/') . '\(.*?postBodyCsrfValid\(\)/s',
+                    '/function ' . preg_quote($method, '/') . '\('
+                    . '(?:(?!\n    (?:public|private|protected) function ).)*?'
+                    . 'postBodyCsrfValid\(\)/s',
                     $source,
                 ) === 1);
     }
@@ -738,6 +744,6 @@ foreach ([
             && !preg_match('/purge_dialog_delete.*attr\(\s*[\'"]href/', $contents));
 }
 
-$check('fixed assertion count', $checks === 130);
+$check('fixed assertion count', $checks === 131);
 echo $failures === 0 ? "ALL PASSED\n" : "{$failures} FAILED\n";
 exit($failures === 0 ? 0 : 1);
