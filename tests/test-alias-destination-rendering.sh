@@ -46,7 +46,7 @@ fi
 
 const payload = '"<svg/onload=document.body.dataset.pwned=1>"@example.com';
 const normalLongDestination = 'first.destination@example.com,second.destination@example.net';
-const expectedDeleteUrl = 'http://localhost/alias/delete/alid/41/csrf/test-csrf-token';
+const expectedDeleteAction = 'http://localhost/alias/delete';
 
 const dynamicRows = document.createElement('table');
 dynamicRows.innerHTML = '<tbody>' +
@@ -107,15 +107,37 @@ $(function () {
             failures.push('server-rendered full title changed');
         }
         if (!document.getElementById('edit_alias_41')) failures.push('dynamic edit action removed');
+        // VIM-D05: deletion is a POST carrying the token in the body, not a
+        // GET link with the token in the URL. Assert that contract -- the
+        // control is a submit button inside a CSRF-bearing form -- rather than
+        // the href shape it deliberately no longer has.
         const dynamicDelete = document.getElementById('delete-alias-41');
         if (!dynamicDelete) failures.push('dynamic delete action removed');
-        if (dynamicDelete && dynamicDelete.getAttribute('href') !== expectedDeleteUrl) {
-            failures.push('dynamic delete action missing CSRF token');
+        const deleteForm = dynamicDelete && dynamicDelete.closest('form');
+        if (dynamicDelete && !deleteForm) {
+            failures.push('dynamic delete action is not inside a form');
+        }
+        if (deleteForm && deleteForm.getAttribute('method').toLowerCase() !== 'post') {
+            failures.push('dynamic delete form is not a POST');
+        }
+        if (deleteForm && deleteForm.action !== expectedDeleteAction) {
+            failures.push('dynamic delete form action changed');
+        }
+        if (deleteForm) {
+            const token = deleteForm.querySelector('input[name="csrf"]');
+            if (!token || token.value !== 'test-csrf-token') {
+                failures.push('dynamic delete action missing CSRF token');
+            }
+            const alid = deleteForm.querySelector('input[name="alid"]');
+            if (!alid || alid.value !== '41') {
+                failures.push('dynamic delete form lost its alias id');
+            }
+        }
+        if (dynamicDelete && dynamicDelete.getAttribute('href')) {
+            failures.push('dynamic delete action is still a GET link');
         }
         const confirmedDelete = document.getElementById('purge_dialog_delete');
-        if (!confirmedDelete || confirmedDelete.getAttribute('href') !== expectedDeleteUrl) {
-            failures.push('delete confirmation lost dynamic action URL');
-        }
+        if (!confirmedDelete) failures.push('delete confirmation control removed');
         if (!document.getElementById('edit_alias_43')) failures.push('server-rendered edit action removed');
         if (!document.getElementById('delete-alias-43')) failures.push('server-rendered delete action removed');
 
