@@ -109,6 +109,14 @@ final class ViMbAdmin_Version
     protected static $_lastestVersion = null;
 
     /**
+     * Memoized result of gitCommit(). False means not yet computed;
+     * null or a string means the result has been cached.
+     *
+     * @var string|null|false
+     */
+    private static $_gitCommitCache = false;
+
+    /**
      * Compare the specified version string $version
      * with the current ViMbAdmin_Version::VERSION.
      *
@@ -131,10 +139,16 @@ final class ViMbAdmin_Version
      * truth at runtime). Returns the 40-char SHA, or null if the marker is
      * absent (e.g. running straight from a working tree in dev).
      *
+     * Result is memoized on the first call.
+     *
      * @return string|null
      */
     public static function gitCommit()
     {
+        // Return cached result (includes the case where we cached null).
+        if( self::$_gitCommitCache !== false )
+            return self::$_gitCommitCache;
+
         // Dev fallback: a real .git in the tree (the image strips it).
         $root = dirname( dirname( __DIR__ ) );          // .../ (app root)
         // NOTE: the marker lives at the app ROOT, NOT under var/ -- var/ is a
@@ -144,7 +158,10 @@ final class ViMbAdmin_Version
         {
             $sha = trim( (string) file_get_contents( $marker ) );
             if( preg_match( '/^[0-9a-f]{7,40}$/i', $sha ) )
+            {
+                self::$_gitCommitCache = $sha;
                 return $sha;
+            }
         }
         $head = $root . '/.git/HEAD';
         if( is_readable( $head ) )
@@ -152,13 +169,30 @@ final class ViMbAdmin_Version
             $ref = trim( (string) file_get_contents( $head ) );
             if( strpos( $ref, 'ref:' ) === 0 )
             {
-                $path = $root . '/.git/' . trim( substr( $ref, 4 ) );
+                $refPath = trim( substr( $ref, 4 ) );
+                // CWE-22 hardening: constrain the ref path to reject directory traversal.
+                // Only allow refs/ prefix with alphanumerics, dots, slashes, hyphens, underscores.
+                if( !preg_match( '~^refs/[A-Za-z0-9._/-]+$~', $refPath )
+                    || strpos( $refPath, '..' ) !== false )
+                {
+                    self::$_gitCommitCache = null;
+                    return null;
+                }
+                $path = $root . '/.git/' . $refPath;
                 if( is_readable( $path ) )
-                    return trim( (string) file_get_contents( $path ) );
+                {
+                    $sha = trim( (string) file_get_contents( $path ) );
+                    self::$_gitCommitCache = $sha;
+                    return $sha;
+                }
             }
             elseif( preg_match( '/^[0-9a-f]{40}$/i', $ref ) )
+            {
+                self::$_gitCommitCache = $ref;
                 return $ref;
+            }
         }
+        self::$_gitCommitCache = null;
         return null;
     }
 
