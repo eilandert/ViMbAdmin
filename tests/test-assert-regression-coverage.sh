@@ -169,7 +169,8 @@ done
 cp -- "$test_root/static-analysis.yml.valid" "$test_root/.github/workflows/static-analysis.yml"
 
 # shellcheck disable=SC2016 # Match the runner's literal loop variable.
-sed -i '/^[[:space:]]*php "\$test"$/d' "$test_root/tests/run-unit-tests.sh"
+sed -i '/^[[:space:]]*php "\$test" | tee "\$test_output"$/d' \
+  "$test_root/tests/run-unit-tests.sh"
 run_guard
 [[ $guard_status -ne 0 ]] || {
   printf 'Coverage guard accepted a unit runner that discovers tests without executing them.\n' >&2
@@ -249,7 +250,7 @@ grep -qF 'Unit test runner discovery or requested subset is incorrect.' \
 cp -- "$runner" "$test_root/tests/run-unit-tests.sh"
 
 # shellcheck disable=SC2016 # Duplicate the literal runner invocation.
-sed -i '/^[[:space:]]*php "$test"$/a\  php "$test"' \
+sed -i '/^[[:space:]]*php "$test" | tee "$test_output"$/a\  php "$test" | tee -a "$test_output"' \
   "$test_root/tests/run-unit-tests.sh"
 run_guard
 [[ $guard_status -ne 0 ]] || {
