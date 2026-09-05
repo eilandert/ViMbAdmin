@@ -100,7 +100,7 @@ class ViMbAdmin_Doveadm
     /** @var \CurlHandle|null */
     private $_handle = null;
 
-    /** @var \CurlMultiHandle|null  Lazily initialized, never false after init check */
+    /** @var \CurlMultiHandle|null  Lazily initialized on first _post(), closed in __destruct() */
     private $_multi = null;
 
     /**
