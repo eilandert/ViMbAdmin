@@ -96,7 +96,7 @@
 
             {if $stats.mailboxes + $stats.aliases > 0}
                 <form method="post" action="{genUrl controller='maintenance' action='disable-inactive'}"
-                      onsubmit="return confirm('Disable {$stats.mailboxes} mailbox(es) and {$stats.aliases} alias(es) of inactive domains?');">
+                      data-confirm="Disable {$stats.mailboxes} mailbox(es) and {$stats.aliases} alias(es) of inactive domains?">
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <button class="btn btn-warning" type="submit">
                         Disable {$stats.mailboxes} mailbox(es) + {$stats.aliases} alias(es)
@@ -141,7 +141,7 @@
                 <pre style="max-height:18em;overflow:auto;">{foreach from=$schemaSql item=stmt}{$stmt|escape};
 {/foreach}</pre>
                 <form method="post" action="{genUrl controller='maintenance' action='schema-update'}"
-                      onsubmit="return confirm('Apply {$schemaSql|@count} schema statement(s) to the live database?');">
+                      data-confirm="Apply {$schemaSql|@count} schema statement(s) to the live database?">
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <input type="hidden" name="confirm" value="1" />
                     <button class="btn btn-danger" type="submit">Apply {$schemaSql|@count} statement(s)</button>
@@ -188,7 +188,7 @@
             </p>
             {if isset( $confirmRecalcAll )}
                 <form method="post" action="{genUrl controller='maintenance' action='recalc-all'}"
-                      onsubmit="return confirm('Queue quota recalc for ALL {$activeMailboxCount} active mailboxes?');">
+                      data-confirm="Queue quota recalc for ALL {$activeMailboxCount} active mailboxes?">
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <input type="hidden" name="confirm" value="1" />
                     <button class="btn btn-warning" type="submit">Yes, queue {$activeMailboxCount} recalc task(s)</button>
@@ -221,7 +221,7 @@
 
             {if isset( $confirmRepairAll )}
                 <form method="post" action="{genUrl controller='maintenance' action='repair-all'}"
-                      onsubmit="return confirm('Queue repair/optimize for ALL {$activeMailboxCount} active mailboxes?');">
+                      data-confirm="Queue repair/optimize for ALL {$activeMailboxCount} active mailboxes?">
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <input type="hidden" name="confirm" value="1" />
                     <button class="btn btn-danger" type="submit">
@@ -256,7 +256,7 @@
 
             {if isset( $confirmPruneExpired )}
                 <form method="post" action="{genUrl controller='maintenance' action='prune-expired'}"
-                      onsubmit="return confirm('Prune {$pruneExpiredCount} expired archive backup(s)? This permanently deletes their mail backups.');">
+                      data-confirm="Prune {$pruneExpiredCount} expired archive backup(s)? This permanently deletes their mail backups.">
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <input type="hidden" name="confirm" value="1" />
                     <button class="btn btn-danger" type="submit">Yes, prune {$pruneExpiredCount} expired backup(s)</button>
@@ -264,7 +264,7 @@
                 </form>
             {elseif isset( $confirmPruneAll )}
                 <form method="post" action="{genUrl controller='maintenance' action='prune-all'}"
-                      onsubmit="return confirm('Delete ALL {$pruneAllCount} autoprune-on archive backup(s) regardless of age? This cannot be undone.');">
+                      data-confirm="Delete ALL {$pruneAllCount} autoprune-on archive backup(s) regardless of age? This cannot be undone.">
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <input type="hidden" name="confirm" value="1" />
                     <button class="btn btn-danger" type="submit">Yes, delete all {$pruneAllCount} autoprune backup(s)</button>
@@ -313,7 +313,7 @@
                                 <td>{$o|escape}</td>
                                 <td>
                                     <form method="post" action="{genUrl controller='maintenance' action='backup-orphans'}"
-                                          onsubmit="return confirm('Import {$o|escape}? Mail is backed up then the source maildir is removed (empty leftovers are just removed).');">
+                                          data-confirm="Import {$o|escape}? Mail is backed up then the source maildir is removed (empty leftovers are just removed).">
                                         <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                                         <input type="hidden" name="username" value="{$o|escape}" />
                                         <button class="btn btn-mini btn-primary" type="submit">Import</button>
@@ -325,7 +325,7 @@
                     </table>
 
                     <form method="post" action="{genUrl controller='maintenance' action='backup-orphans'}" style="display:inline;"
-                          onsubmit="return confirm('Import all {$orphans|@count} unmanaged maildir(s)? Each is backed up to the archive (if it holds mail) then its source maildir is removed; empty leftovers are just removed.');">
+                          data-confirm="Import all {$orphans|@count} unmanaged maildir(s)? Each is backed up to the archive (if it holds mail) then its source maildir is removed; empty leftovers are just removed.">
                         <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                         <input type="hidden" name="confirm" value="1" />
                         <button class="btn btn-primary" type="submit">Import all {$orphans|@count}</button>

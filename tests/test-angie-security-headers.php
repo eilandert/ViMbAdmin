@@ -31,7 +31,7 @@ $required = [
     'Permissions-Policy         "accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()" always',
     'Cross-Origin-Opener-Policy "same-origin"                       always',
     'Strict-Transport-Security  "max-age=31536000; includeSubDomains" always',
-    'Content-Security-Policy "default-src \'self\'; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; img-src \'self\' data:; font-src \'self\' data:; connect-src \'self\'; form-action \'self\'; frame-ancestors \'none\'; base-uri \'self\'; object-src \'none\'" always',
+    'Content-Security-Policy "default-src \'self\'; script-src \'self\'; style-src \'self\' \'unsafe-inline\'; img-src \'self\' data:; font-src \'self\' data:; connect-src \'self\'; form-action \'self\'; frame-ancestors \'none\'; base-uri \'self\'; object-src \'none\'" always',
     'Cache-Control "public, max-age=604800, immutable"',
 ];
 

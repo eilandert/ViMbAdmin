@@ -95,12 +95,18 @@ function vmArchiveBytes( v )
 function formatArchiveControls( row )
 {
     var id    = row.id;
-    var jsName = String( row.username ).replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+    // The confirmations are carried as data-confirm attributes and enforced by the
+    // delegated guard in 990-vimbadmin.js -- an inline onsubmit attribute is not permitted under
+    // the nonce-only script-src (VIM-D07). The name therefore lands in an HTML
+    // attribute, not a JS string literal, so it needs attribute escaping
+    // (htmlAttr() from 910-vimbadmin.functions.js, which unlike htmlEntity()
+    // also escapes quotes) rather than backslash escaping.
+    var jsName = htmlAttr( row.username );
     var str   = '<div class="btn-group">';
 
     if( $.inArray( row.status, archiveAllowRestore ) != -1 )
         str += '<form method="post" action="{genUrl controller="archive" action="restore"}" class="archive-action-form" style="display: inline;"'
-             + ' onsubmit="return confirm(\'Restore ' + jsName + '? Recreates the mailbox if it was deleted, syncs the backed-up mail back, then removes the backup.\');">'
+             + ' data-confirm="Restore ' + jsName + '? Recreates the mailbox if it was deleted, syncs the backed-up mail back, then removes the backup.">'
              + '<input type="hidden" name="arid" value="' + id + '" />'
              + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
              + '<button class="btn btn-mini have-tooltip" id="restore-archive-' + id + '" title="Restore mail back into the mailbox" type="submit">'
@@ -108,7 +114,7 @@ function formatArchiveControls( row )
 
     if( $.inArray( row.status, archiveAllowDelete ) != -1 )
         str += '<form method="post" action="{genUrl controller="archive" action="delete"}" class="archive-action-form" style="display: inline;"'
-             + ' onsubmit="return confirm(\'Permanently delete the backup for ' + jsName + '? This removes the /backups maildir and cannot be undone.\');">'
+             + ' data-confirm="Permanently delete the backup for ' + jsName + '? This removes the /backups maildir and cannot be undone.">'
              + '<input type="hidden" name="arid" value="' + id + '" />'
              + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
              + '<button class="btn btn-mini btn-danger have-tooltip" id="delete-archive-' + id + '" title="Delete backup permanently" type="submit">'
@@ -116,14 +122,14 @@ function formatArchiveControls( row )
 
     if( row.autoprune )
         str += '<form method="post" action="{genUrl controller="archive" action="toggle-autoprune"}" class="archive-action-form" style="display: inline;"'
-             + ' onsubmit="return confirm(\'Disable autoprune for ' + jsName + '? Its backup will no longer expire automatically.\');">'
+             + ' data-confirm="Disable autoprune for ' + jsName + '? Its backup will no longer expire automatically.">'
              + '<input type="hidden" name="arid" value="' + id + '" />'
              + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
              + '<button class="btn btn-mini have-tooltip" id="autoprune-archive-' + id + '" title="Disable autoprune" type="submit">'
              + '<i class="icon-off"></i></button></form>';
     else
         str += '<form method="post" action="{genUrl controller="archive" action="toggle-autoprune"}" class="archive-action-form" style="display: inline;"'
-             + ' onsubmit="return confirm(\'Enable autoprune for ' + jsName + '? This resets its archived date to now, so the prune window restarts.\');">'
+             + ' data-confirm="Enable autoprune for ' + jsName + '? This resets its archived date to now, so the prune window restarts.">'
              + '<input type="hidden" name="arid" value="' + id + '" />'
              + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
              + '<button class="btn btn-mini btn-warning have-tooltip" id="autoprune-archive-' + id + '" title="Enable autoprune (resets archived date to now)" type="submit">'

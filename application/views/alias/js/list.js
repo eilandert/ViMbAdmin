@@ -156,7 +156,7 @@ function formatActive( id, active )
     var active_class = active ? 'success': 'danger';
     var active_msg = active ? 'Yes': 'No';
     return '<div id="throb-toggle-active-' + id + '" style="float: right;"></div>\
-    <span id="toggle-active-' +id + '" onclick="toggleActive( \'toggle-active-' + id +  '\', ' + id +  ' );" class="btn btn-mini btn-' + active_class + '">' + active_msg + '</span>';
+    <span id="toggle-active-' +id + '" data-toggle-active="' + id + '" class="btn btn-mini btn-' + active_class + '">' + active_msg + '</span>';
 }
 
 function formatGoto( id, goto )
@@ -252,3 +252,15 @@ function formatControlls( id )
     
 }
 {/if}
+
+//
+// Delegated event bindings (VIM-D07). These replace inline onclick attributes,
+// which a CSP nonce does not whitelist -- only 'unsafe-inline' did. Delegation
+// from `document` also covers the rows the DataTables renderers build after page
+// load, which per-element binding at ready-time would miss.
+//
+jQuery( document ).on( 'click', '[data-toggle-active]', function() {
+    var id = jQuery( this ).attr( 'data-toggle-active' );
+    toggleActive( 'toggle-active-' + id, id );
+} );
+

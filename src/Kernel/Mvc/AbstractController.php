@@ -9,6 +9,7 @@ use ViMbAdmin\Kernel\Flash\FlashMessages;
 use ViMbAdmin\Kernel\Http\Response;
 use ViMbAdmin\Kernel\Mail\Mailer;
 use ViMbAdmin\Kernel\RouteMatch;
+use ViMbAdmin\Kernel\Security\ContentSecurityPolicy;
 use ViMbAdmin\Kernel\Security\Csrf;
 use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
 
@@ -352,7 +353,15 @@ abstract class AbstractController
             $this->assignView($view, $key, $value);
         }
 
-        return new Response($this->renderView($view, $script), $status);
+        // Fresh per-response CSP nonce. The views stamp it on every inline
+        // <script> so the policy below can drop 'unsafe-inline' from script-src;
+        // it must be minted here (not in the web server) because only the
+        // application can hand the value to the templates. Assigned last so an
+        // action variable can never shadow it and desync view from header.
+        $csp = new ContentSecurityPolicy();
+        $this->assignView($view, 'cspNonce', $csp->nonce());
+
+        return new Response($this->renderView($view, $script), $status, headers: $csp->headers());
     }
 
     /** @return array<string,mixed> */

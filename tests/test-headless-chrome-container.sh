@@ -21,7 +21,7 @@ require "  --user \"${dollar}(id -u):${dollar}(id -g)\""
 require "  --env \"HOME=${dollar}fixture_dir\""
 require "  --mount \"type=bind,src=${dollar}fixture_dir,dst=${dollar}fixture_dir\""
 require "  \"${dollar}image\" google-chrome --no-sandbox \"${dollar}@\""
-require 'vimbadmin-(alias-destination|residual-stored-xss)'
+require 'vimbadmin-(alias-destination|residual-stored-xss|confirm-guard)'
 
 require_php() {
   local pattern=$1
