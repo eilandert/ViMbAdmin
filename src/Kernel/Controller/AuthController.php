@@ -40,9 +40,10 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  *      native identity slot), clear
  *      the brute-force counter and stamp last-login.
  *
- * The unauthenticated lost-password page is gated on the same
- * {@see \ViMbAdmin_BruteForce} per-source state: it refuses a locked source and
- * counts every request, so a flood of captcha-minting renders throttles itself.
+ * The unauthenticated lost-password page is rate-limited by its own
+ * {@see \ViMbAdmin_BruteForce} instance -- a separate state namespace and its own
+ * generous ceiling -- so a flood of captcha-minting renders throttles itself
+ * without being able to spend the login budget and lock admins out of login.
  *
  * Remember-me cookies and login-history are intentionally NOT carried over in
  * this first cut (dropping remember-me is a safe reduction). Login, logout, setup,
@@ -55,6 +56,16 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
 final class AuthController extends AbstractController
 {
     private const LOGIN_ERROR = 'Invalid username or password. Please try again.';
+
+    /**
+     * Brute-force state subdirectory for the unauthenticated lost-password
+     * render budget. Keeping it out of the login directory is what stops a
+     * lost-password flood from locking anyone out of /auth/login.
+     */
+    private const LOST_PASSWORD_BRUTE_FORCE_SCOPE = 'lost-password';
+
+    /** Default ceiling for that budget (bruteforce.lost_password_max_attempts). */
+    private const LOST_PASSWORD_MAX_ATTEMPTS = 30;
 
     private static function requiredString(mixed $value, string $name): string
     {
@@ -673,10 +684,26 @@ final class AuthController extends AbstractController
         $entityClass = $this->authEntityClass($options);
 
         // Unauthenticated and free to hit: every request here mints a captcha
-        // and does template work, so it is gated on the same per-source
-        // brute-force state as login. Refuse a locked-out source (429 + exit),
-        // then count this request, so a sustained flood locks itself out.
-        $bruteForce = $this->bruteForce($options);
+        // and does template work, so it is rate-limited per source. Refuse a
+        // locked-out source (429 + exit), then count this request, so a
+        // sustained flood locks itself out.
+        //
+        // Deliberately its OWN namespace and budget, NOT login's. Sharing them
+        // would let anyone in the source prefix spend the login budget with
+        // bare unauthenticated GETs -- no credentials, no POST, no CSRF -- and
+        // lock every admin behind that prefix (a /24, a NAT, a residential /64)
+        // out of /auth/login. The budget is also generous, because a user who
+        // reloads the page or clicks "new image" a few times is not an attack.
+        $bruteForce = $this->bruteForce(
+            $options,
+            self::LOST_PASSWORD_BRUTE_FORCE_SCOPE,
+            self::optionInt(
+                $options,
+                self::LOST_PASSWORD_MAX_ATTEMPTS,
+                'bruteforce',
+                'lost_password_max_attempts',
+            ),
+        );
         $bruteForce->assertNotLocked(null);
         $bruteForce->record(null, null);
 
@@ -994,10 +1021,27 @@ final class AuthController extends AbstractController
 
     /**
      * The brute-force gate, built exactly as AuthController::_bruteForce() does.
+     *
+     * With no $scope this is the login budget: the state directory, the
+     * attempt ceiling and every other [bruteforce] setting are used exactly as
+     * configured. That default path must stay byte-identical, because existing
+     * lockout state on disk lives under that directory.
+     *
+     * A $scope appends one fixed subdirectory segment to the resolved state
+     * directory, giving that caller a private counter namespace that can never
+     * spend (or be spent by) the login budget, and overrides the ceiling with
+     * $maxAttempts. Window, lockout, prefix widths, whitelist and the
+     * trusted-proxy policy are deliberately shared.
+     *
+     * @param array<string,mixed> $options
+     * @param ?non-empty-string   $scope       fixed namespace segment, or null for the login budget
+     * @param ?int                $maxAttempts ceiling for the scoped budget (ignored when $scope is null)
      */
-    /** @param array<string,mixed> $options */
-    private function bruteForce(array $options): \ViMbAdmin_BruteForce
-    {
+    private function bruteForce(
+        array $options,
+        ?string $scope = null,
+        ?int $maxAttempts = null,
+    ): \ViMbAdmin_BruteForce {
         $opts = self::optionArray($options, [], 'bruteforce');
         $stateDir = self::optionNullableString($opts, 'statedir');
         if ($stateDir === null || $stateDir === '') {
@@ -1005,6 +1049,14 @@ final class AuthController extends AbstractController
             $opts['statedir'] = $appPath . '/../var/bruteforce';
         } else {
             $opts['statedir'] = $stateDir;
+        }
+        if ($scope !== null) {
+            // The segment is a compile-time constant chosen by the caller, not
+            // request data; rtrim keeps the join single-slashed either way.
+            $opts['statedir'] = rtrim($opts['statedir'], '/') . '/' . $scope;
+            if ($maxAttempts !== null) {
+                $opts['max_attempts'] = $maxAttempts;
+            }
         }
         if (isset($options['trustedproxy'])) {
             $opts['trustedproxy'] = self::optionArray($options, [], 'trustedproxy');

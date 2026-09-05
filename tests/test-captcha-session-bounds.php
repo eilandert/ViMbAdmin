@@ -179,7 +179,12 @@ final class CaptchaBoundsBootstrap
 /**
  * @return array{controller:AuthController,view:CaptchaBoundsView,session:CaptchaBoundsSession}
  */
-function captchaBoundsController(string $stateDirectory, bool $useCaptcha, int $maxAttempts = 5): array
+function captchaBoundsController(
+    string $stateDirectory,
+    bool $useCaptcha,
+    int $maxAttempts = 5,
+    ?int $lostPasswordMaxAttempts = null,
+): array
 {
     CaptchaBoundsAdminRepository::$admin = null;
 
@@ -204,11 +209,13 @@ function captchaBoundsController(string $stateDirectory, bool $useCaptcha, int $
             'pwhash' => 'crypt:sha512',
             'lost_password' => ['use_captcha' => $useCaptcha ? '1' : '0'],
         ]]],
-        'bruteforce' => [
+        'bruteforce' => array_merge([
             'enabled' => '1',
             'max_attempts' => (string) $maxAttempts,
             'statedir' => $stateDirectory,
-        ],
+        ], $lostPasswordMaxAttempts === null
+            ? []
+            : ['lost_password_max_attempts' => (string) $lostPasswordMaxAttempts]),
     ];
     $container = new Container(
         new CaptchaBoundsBootstrap($entityManager, $session, $view, $options),
@@ -373,31 +380,68 @@ captchaBoundsCheck('requestnewimage leaves only the held and the freshly minted 
         && is_string($refreshId)
         && captchaSessionHas($refreshId));
 
-// --- 6. the lost-password flood is throttled -------------------------------
-// assertNotLocked() answers a locked source with 429 + exit, so the flood runs
-// in a subprocess and the parent asserts on its exit status and output.
-$stateD = $root . '/bf-d';
+// --- 6. the lost-password flood throttles ITSELF and not login -------------
+// The whole point of the split budget: a flood of unauthenticated
+// /auth/lost-password renders must lock the source out of lost-password, and
+// must NOT lock that same source out of /auth/login. assertNotLocked() answers
+// a locked source with 429 + exit, so the refusal itself is probed in a
+// subprocess; the lock state is read here with isLocked(), which reads exactly
+// what assertNotLocked() would refuse on.
 $_SESSION = [];
 $stateE = $root . '/bf-e';
-$flood = captchaBoundsController($stateE, true, 3);
+$lostPasswordBudget = 3;
+$flood = captchaBoundsController($stateE, true, 5, $lostPasswordBudget);
+
+// The login budget, built exactly as the login/change-password call sites build
+// it: the configured statedir, untouched. If lostPasswordAction() ever spends
+// this, an unauthenticated GET flood locks real admins out of /auth/login.
+$loginBudget = static fn(): ViMbAdmin_BruteForce => new ViMbAdmin_BruteForce(null, [
+    'enabled' => '1',
+    'max_attempts' => '5',
+    'statedir' => $stateE,
+]);
+$lostPasswordState = static fn(): ViMbAdmin_BruteForce => new ViMbAdmin_BruteForce(null, [
+    'enabled' => '1',
+    'max_attempts' => (string) $lostPasswordBudget,
+    'statedir' => $stateE . '/lost-password',
+]);
+
 $floodStatuses = [];
 $floodLocked = false;
-for ($i = 0; $i < 6; $i++) {
-    // The 429 path exits, so detect the lock without taking it: isLocked()
-    // reads the same state assertNotLocked() would refuse on.
-    $bruteForce = new ViMbAdmin_BruteForce(null, [
-        'enabled' => '1',
-        'max_attempts' => '3',
-        'statedir' => $stateE,
-    ]);
-    if ($bruteForce->isLocked(null)) {
+$floodRequests = 0;
+$loginLockedDuringFlood = false;
+for ($i = 0; $i < 12; $i++) {
+    // The action 429s and exits on ANY budget it consults, which would kill
+    // this process before the assertions below. Stop on either lock and let
+    // the assertions read which one actually fired: that is what makes the
+    // "not login" check able to go red instead of taking the suite down.
+    if ($lostPasswordState()->isLocked(null)) {
         $floodLocked = true;
         break;
     }
+    if ($loginBudget()->isLocked(null)) {
+        $loginLockedDuringFlood = true;
+        break;
+    }
     $floodStatuses[] = captchaBoundsRequest($flood['controller'])->status;
+    $floodRequests++;
 }
-captchaBoundsCheck('a sustained unauthenticated lost-password flood locks the source out',
-    $floodLocked && count($floodStatuses) === 3 && $floodStatuses === [200, 200, 200]);
+captchaBoundsCheck('a sustained unauthenticated lost-password flood locks the source out of lost-password',
+    $floodLocked && $floodStatuses === [200, 200, 200]);
+// Its own budget, and only its own: locking must not cost more than the
+// configured lost-password ceiling.
+captchaBoundsCheck('the lost-password lockout needs no more than its own budget',
+    $floodRequests === $lostPasswordBudget);
+// THE NEGATIVE CONTROL for the split: same source, same flood, login untouched.
+captchaBoundsCheck('the lost-password flood does NOT lock the source out of login',
+    !$loginLockedDuringFlood && !$loginBudget()->isLocked(null));
+
+// The login budget's state directory must stay byte-identical for its existing
+// callers, so no live lockout state is orphaned or relocated by the split.
+captchaBoundsCheck('the lost-password budget lives in its own state subdirectory',
+    is_dir($stateE . '/lost-password')
+        && !file_exists(bruteForceStatePath($stateE, $floodSource))
+        && file_exists(bruteForceStatePath($stateE . '/lost-password', $floodSource)));
 
 // A locked source is actually refused by the action: run it in a subprocess,
 // because the 429 path terminates the request. The probe boots the same
@@ -406,6 +450,7 @@ $probeScript = __DIR__ . '/support/captcha-lost-password-probe.php';
 $probeEnvironment = [
     'CAPTCHA_BOUNDS_PROBE_ROOT' => $root,
     'CAPTCHA_BOUNDS_PROBE_STATEDIR' => $stateE,
+    'CAPTCHA_BOUNDS_PROBE_MAX_ATTEMPTS' => (string) $lostPasswordBudget,
     'CAPTCHA_BOUNDS_PROBE_REMOTE_ADDR' => $floodSource,
 ];
 $probeCommand = '';

@@ -9,10 +9,12 @@
  * directory and is expected to print the 429 body and terminate; if the gate is
  * missing it falls through and prints NOT-REFUSED instead.
  *
- * The caller passes the locked brute-force state directory and a writable temp
- * root in the CAPTCHA_BOUNDS_PROBE_STATEDIR and CAPTCHA_BOUNDS_PROBE_ROOT
- * environment variables, along with the source address in
- * CAPTCHA_BOUNDS_PROBE_REMOTE_ADDR.
+ * The caller passes the BASE brute-force state directory (the one the login
+ * budget uses; the controller appends its own lost-password subdirectory) and a
+ * writable temp root in the CAPTCHA_BOUNDS_PROBE_STATEDIR and
+ * CAPTCHA_BOUNDS_PROBE_ROOT environment variables, along with the source address
+ * in CAPTCHA_BOUNDS_PROBE_REMOTE_ADDR and the lost-password ceiling in
+ * CAPTCHA_BOUNDS_PROBE_MAX_ATTEMPTS.
  */
 
 declare(strict_types=1);
@@ -96,6 +98,7 @@ function captchaProbeEnv(string $name): string
 
 $probeRoot = captchaProbeEnv('CAPTCHA_BOUNDS_PROBE_ROOT');
 $probeStateDir = captchaProbeEnv('CAPTCHA_BOUNDS_PROBE_STATEDIR');
+$probeMaxAttempts = captchaProbeEnv('CAPTCHA_BOUNDS_PROBE_MAX_ATTEMPTS');
 $_SERVER['REMOTE_ADDR'] = captchaProbeEnv('CAPTCHA_BOUNDS_PROBE_REMOTE_ADDR');
 
 $_SESSION = [];
@@ -127,7 +130,10 @@ $options = [
     ]]],
     'bruteforce' => [
         'enabled' => '1',
-        'max_attempts' => '3',
+        // Deliberately generous, so the probe can only be refused by the
+        // lost-password budget it is meant to exercise -- never by login's.
+        'max_attempts' => '1000',
+        'lost_password_max_attempts' => $probeMaxAttempts,
         'statedir' => $probeStateDir,
     ],
 ];
