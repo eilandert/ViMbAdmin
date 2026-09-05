@@ -172,7 +172,7 @@ function toggleActive(elid, id) {
         var active_class = active ? 'success': 'danger';
         var active_msg = active ? 'Yes': 'No';
         return '<div id="throb-toggle-active-' + id + '" style="float: right;"></div>\
-        <span id="toggle-active-' +id + '" onclick="toggleActive( \'toggle-active-' + id +  '\', ' + id +  ' );" class="btn btn-mini btn-' + active_class + '">' + active_msg + '</span>';
+        <span id="toggle-active-' +id + '" data-toggle-active="' + id + '" class="btn btn-mini btn-' + active_class + '">' + active_msg + '</span>';
     }
 
     function formatControlls( id )
@@ -223,14 +223,14 @@ function toggleActive(elid, id) {
                         <i class="icon-wrench"></i>\
                     </button>\
                 </form>\
-                <form method="post" action="{genUrl controller="mailbox" action="queue-archive"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" onsubmit="return confirm(\'Archive this mailbox? Backs up + empties the mailbox, keeps the account.\');">\
+                <form method="post" action="{genUrl controller="mailbox" action="queue-archive"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" data-confirm="Archive this mailbox? Backs up + empties the mailbox, keeps the account.">\
                     <input type="hidden" name="mid" value="' + id + '" />\
                     <input type="hidden" name="csrf" value="{$csrfToken}" />\
                     <button class="btn btn-mini have-tooltip" id="archive_' + id + '" title="Archive (queued: backup + empty mailbox, keep account)" type="submit">\
                         <i class="icon-inbox"></i>\
                     </button>\
                 </form>\
-                <form method="post" action="{genUrl controller="mailbox" action="queue-delete"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" onsubmit="return confirm(\'DELETE this mailbox? Backs up, then removes the mail AND the account. This cannot be undone from here.\');">\
+                <form method="post" action="{genUrl controller="mailbox" action="queue-delete"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" data-confirm="DELETE this mailbox? Backs up, then removes the mail AND the account. This cannot be undone from here.">\
                     <input type="hidden" name="mid" value="' + id + '" />\
                     <input type="hidden" name="csrf" value="{$csrfToken}" />\
                     <button class="btn btn-mini have-tooltip btn-danger" id="delete_' + id + '" title="Delete (queued: backup, then remove mailbox + account)" type="submit">\
@@ -309,3 +309,76 @@ function toggleActive(elid, id) {
     }
 
 {/if}
+
+//
+// Delegated event bindings (VIM-D07). These replace inline onclick attributes,
+// which a CSP nonce does not whitelist -- only 'unsafe-inline' did. Delegation
+// from `document` also covers the rows the DataTables renderers build after page
+// load, which per-element binding at ready-time would miss.
+//
+jQuery( document ).on( 'click', '[data-toggle-active]', function() {
+    var id = jQuery( this ).attr( 'data-toggle-active' );
+    toggleActive( 'toggle-active-' + id, id );
+} );
+
+
+//
+// Email-settings modal behaviour (VIM-D07). This used to be an inline <script>
+// inside the ajax-loaded mailbox/native-email-settings.phtml fragment. A nonce
+// cannot work there: the fragment is fetched by a separate request and injected
+// into this already-loaded page, so it would have to carry THIS response's
+// nonce, which it cannot know. The fragment now ships no script at all and the
+// behaviour lives here, bound by delegation so it applies to the markup the
+// moment it is injected. The POST target is read from the form's own action
+// attribute rather than templated in, so no per-fragment data is needed.
+//
+jQuery( document ).on( 'change', '#type', function() {
+    if( jQuery( this ).val() == "other" )
+        jQuery( '#other_email' ).slideDown( "slow" );
+    else
+        jQuery( '#other_email' ).slideUp( "slow" );
+} );
+
+jQuery( document ).on( 'click', '#modal_dialog_save', function() {
+    var form = jQuery( '#email_settings_form' );
+    if( form.length === 0 )
+        return;
+
+    tt_throbber( 32, 14, 1.8 ).appendTo( jQuery( '#esfooter' ).get(0) ).start();
+
+    jQuery('#modal_dialog_save').attr('disabled', 'disabled' ).addClass( 'disabled' );
+    jQuery('#modal_dialog_cancel').attr('disabled', 'disabled' ).addClass( 'disabled' );
+
+    jQuery.ajax({
+        url: form.attr( 'action' ),
+        data: form.serialize(),
+        async: true,
+        cache: false,
+        type: 'POST',
+        timeout: 10000,
+        success: function(data) {
+            if( data == "ok" ) {
+                dialog.modal('hide');
+                location.reload();
+            }
+            else if( data == "error" ) {
+                dialog.modal('hide');
+                location.reload();
+            }
+            else if( data.substring(0, 26) == '<div class="modal-header">' ){
+                jQuery('#modal_dialog').html( data );
+            }
+            else {
+                dialog.modal('hide');
+                ossAddMessage( 'An unexpected error has occurred.', 'error' );
+            }
+        },
+        error: ossAjaxErrorHandler
+    });
+} );
+
+// The fragment's Close button; previously bound inline on re-render only.
+jQuery( document ).on( 'click', '#modal_dialog_cancel', function() {
+    if( typeof dialog !== 'undefined' && dialog )
+        dialog.modal('hide');
+} );

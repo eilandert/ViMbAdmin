@@ -57,7 +57,7 @@
             <td>{$alias.domain}</td>
             <td>
                 <div id="throb-toggle-active-{$alias.id}" style="float: right;"></div>
-                <span id="toggle-active-{$alias.id}" onclick="toggleActive( 'toggle-active-{$alias.id}', {$alias.id} );" class="btn btn-mini {if $alias.active}btn-success{else}btn-danger{/if}">{$alias.active|yesno}</span>
+                <span id="toggle-active-{$alias.id}" data-toggle-active="{$alias.id}" class="btn btn-mini {if $alias.active}btn-success{else}btn-danger{/if}">{$alias.active|yesno}</span>
             </td>
             <td>
                 <div id="alias-goto-{$alias.id}" {if $alias.goto|strlen > 50 } title="{$alias.goto|regex_replace:"/[,]/":", "}"{/if}>

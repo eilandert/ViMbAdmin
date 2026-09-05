@@ -37,7 +37,7 @@ function insertGoto( address )
 {
     str = '<div id="goto-div-' + gotoId + '" style="margin-top: 5px; margin-bottom: 5px;">' + "\n"
             + '<input type="text" name="goto[]" value="' + address + '" size="40" title="Goto" readonly="readonly" style="border-radius: 4px 0 0 4px;"/>' + "\n"
-            + '<span title="Remove got to" class="btn add-on" onclick="removeGoto(' + gotoId + ');" style="margin-left: -5px; height: 20px; border-radius: 0 4px 4px 0;" >' + "\n"
+            + '<span title="Remove got to" class="btn add-on" data-remove-goto="' + gotoId + '" style="margin-left: -5px; height: 20px; border-radius: 0 4px 4px 0;" >' + "\n"
             + '<i class="icon-minus"></i>' + "\n"
             + '</span>' + "\n"
             + '</div>';
@@ -87,3 +87,14 @@ function addGoto()
 
     return false;
 }
+
+//
+// Delegated event bindings (VIM-D07). These replace inline onclick attributes,
+// which a CSP nonce does not whitelist -- only 'unsafe-inline' did. Delegation
+// from `document` also covers the rows the DataTables renderers build after page
+// load, which per-element binding at ready-time would miss.
+//
+jQuery( document ).on( 'click', '[data-remove-goto]', function() {
+    removeGoto( jQuery( this ).attr( 'data-remove-goto' ) );
+} );
+

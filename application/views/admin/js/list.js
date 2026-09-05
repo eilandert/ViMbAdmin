@@ -67,3 +67,20 @@ function purgeAdmin( event ){
         delDialog.modal('hide');
     });
 };
+
+//
+// Delegated event bindings (VIM-D07). These replace inline onclick attributes,
+// which a CSP nonce does not whitelist -- only 'unsafe-inline' did. Delegation
+// from `document` also covers the rows the DataTables renderers build after page
+// load, which per-element binding at ready-time would miss.
+//
+jQuery( document ).on( 'click', '[data-toggle-active]', function() {
+    var id = jQuery( this ).attr( 'data-toggle-active' );
+    toggleActive( 'toggle-active-' + id, id );
+} );
+
+jQuery( document ).on( 'click', '[data-toggle-super]', function() {
+    var id = jQuery( this ).attr( 'data-toggle-super' );
+    toggleSuper( 'toggle-super-' + id, id );
+} );
+

@@ -138,6 +138,88 @@ check(
     $unstamped === []
 );
 
+// --- no inline event handlers ---------------------------------------------
+// A CSP nonce whitelists <script> elements only; it does NOT whitelist inline
+// event-handler attributes, which 'unsafe-inline' used to permit. So a single
+// on*= attribute creeping back into a view is a silently dead handler --
+// including the confirm() guards on destructive actions. Scan the view JS files
+// too: several build HTML strings that used to carry the attributes.
+$handlerSources = $views;
+$jsIt = new RecursiveIteratorIterator(
+    new RecursiveDirectoryIterator(__DIR__ . '/../application/views', FilesystemIterator::SKIP_DOTS)
+);
+foreach ($jsIt as $jsFile) {
+    if ($jsFile->isFile() && str_ends_with($jsFile->getFilename(), '.js')) {
+        $handlerSources[] = $jsFile->getPathname();
+    }
+}
+
+$withHandlers = [];
+foreach ($handlerSources as $source) {
+    $body = file_get_contents($source);
+    if (!is_string($body)) {
+        continue;
+    }
+    // Attribute position only: preceded by whitespace and followed by `=`, so
+    // JS like `el.onclick` or a prose mention of onsubmit does not match.
+    if (preg_match_all('/\son(?:click|submit|change|load|error|keyup|keydown|blur|focus|mouseover|mouseout|input|dblclick)\s*=/i', $body, $hits) === 1) {
+        $withHandlers[] = basename(dirname($source)) . '/' . basename($source)
+            . ' (' . implode(' ', array_unique($hits[0])) . ')';
+    }
+}
+check(
+    'no inline on*= event handler remains in application/views (' . implode(', ', $withHandlers) . ')',
+    $withHandlers === []
+);
+
+// The confirmations they carried must still exist, as data-confirm attributes
+// enforced by the delegated guard. A migration that dropped them instead of
+// moving them would leave destructive actions unguarded.
+$confirmCount = 0;
+foreach ($handlerSources as $source) {
+    $body = file_get_contents($source);
+    if (is_string($body)) {
+        $confirmCount += substr_count($body, 'data-confirm="');
+    }
+}
+check('the destructive-action confirmations survived the migration', $confirmCount >= 25);
+
+// And the guard that enforces them must ship.
+$appJs = file_get_contents(__DIR__ . '/../public/js/990-vimbadmin.js');
+check('990-vimbadmin.js readable', is_string($appJs));
+if (is_string($appJs)) {
+    check(
+        'a delegated submit guard binds form[data-confirm]',
+        str_contains($appJs, "'submit', 'form[data-confirm]'")
+    );
+    check(
+        'the guard blocks the submit when confirm() is declined',
+        str_contains($appJs, 'if ( !window.confirm( message ) )')
+            && str_contains($appJs, 'event.preventDefault();')
+    );
+}
+
+// Production serves the prebuilt bundle when use_minified_js is on, so the guard
+// has to be in there too -- shipping it only in 990-vimbadmin.js would leave
+// every minified deployment with unguarded destructive actions.
+$bundle = file_get_contents(__DIR__ . '/../public/js/min.bundle-v16.js');
+check('min.bundle-v16.js readable', is_string($bundle));
+if (is_string($bundle)) {
+    check(
+        'the minified bundle carries the delegated confirm guard',
+        str_contains($bundle, 'form[data-confirm]') && str_contains($bundle, 'window.confirm(')
+    );
+}
+
+// The ajax-loaded modal fragment must ship no script at all: it is injected into
+// an already-loaded page, so it could only ever carry the wrong nonce.
+$fragment = file_get_contents(__DIR__ . '/../application/views/mailbox/native-email-settings.phtml');
+check('email-settings fragment readable', is_string($fragment));
+check(
+    'the ajax email-settings fragment carries no <script>',
+    is_string($fragment) && stripos($fragment, '<script') === false
+);
+
 // The shipped Angie config must not also emit a dynamic-HTML CSP: a second
 // add_header would replace the application's nonced policy on those responses.
 $conf = file_get_contents(__DIR__ . '/../contrib/angie/vimbadmin.conf');

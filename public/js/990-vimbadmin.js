@@ -670,3 +670,31 @@ jQuery.extend( jQuery.fn.dataTableExt.oSort, {
         return ((a < b) ? 1 : ((a > b) ? -1 : 0));
     }
 } );
+
+
+//****************************************************************************
+// Delegated confirmation guard for destructive submits (VIM-D07)
+//****************************************************************************
+//
+// These confirmations used to live in inline onsubmit="return confirm('...')"
+// attributes. A CSP nonce does not whitelist inline event handlers -- only
+// 'unsafe-inline' did -- so with script-src nonce-only they would silently stop
+// firing and every destructive action would proceed without asking. The prompt
+// now travels as a data-confirm attribute and one delegated handler enforces it,
+// which also covers rows the DataTables renderers build after page load.
+//
+// preventDefault() on cancel is what actually blocks the submit; returning false
+// from a delegated jQuery handler would too, but being explicit keeps the
+// behaviour obvious and testable.
+jQuery( document ).on( 'submit', 'form[data-confirm]', function( event ) {
+    var message = jQuery( this ).attr( 'data-confirm' );
+
+    if ( typeof message !== 'string' || message === '' ) {
+        return;
+    }
+
+    if ( !window.confirm( message ) ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    }
+} );
