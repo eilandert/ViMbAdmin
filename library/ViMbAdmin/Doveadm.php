@@ -100,6 +100,9 @@ class ViMbAdmin_Doveadm
     /** @var \CurlHandle|null */
     private $_handle = null;
 
+    /** @var \CurlMultiHandle|null */
+    private $_multi = null;
+
     /**
      * @param string $url     Full endpoint URL, e.g. http://dovecot:8081/doveadm/v1
      * @param string $apiKey  The doveadm_api_key (sent base64-encoded as X-Dovecot-API)
@@ -121,6 +124,9 @@ class ViMbAdmin_Doveadm
 
     public function __destruct()
     {
+        if( $this->_multi !== null )
+            curl_multi_close( $this->_multi );
+        $this->_multi = null;
         if( $this->_handle !== null )
             curl_close( $this->_handle );
         $this->_handle = null;
@@ -244,7 +250,13 @@ class ViMbAdmin_Doveadm
                 throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to configure cURL request' ) );
             }
 
-            $multi = curl_multi_init();
+            if( $this->_multi === null )
+            {
+                $this->_multi = curl_multi_init();
+                if( $this->_multi === false )
+                    throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to initialize cURL multi handle' ) );
+            }
+            $multi = $this->_multi;
             $added = false;
             try
             {
@@ -254,14 +266,14 @@ class ViMbAdmin_Doveadm
                 $added = true;
 
                 $this->driveTransfer(
-                    static function() use ( $multi ): array {
+                    function() use ( $multi ): array {
                         $running = 0;
                         $status = curl_multi_exec( $multi, $running );
                         if( !is_int( $running ) )
                             throw new ViMbAdmin_Exception( _( 'doveadm HTTP request returned invalid cURL state' ) );
                         return [ $status, $running ];
                     },
-                    static function() use ( $multi ): int {
+                    function() use ( $multi ): int {
                         return curl_multi_select( $multi, self::TRANSFER_POLL_SECONDS );
                     }
                 );
@@ -275,7 +287,6 @@ class ViMbAdmin_Doveadm
             {
                 if( $added )
                     curl_multi_remove_handle( $multi, $ch );
-                curl_multi_close( $multi );
             }
 
             if( !is_string( $body ) || $errno !== CURLE_OK )
