@@ -1021,8 +1021,9 @@ controllerAliasIdentityCheck('delete-alias refuses a mid outside the admin\'s do
         && $foreignEm->flushes === 0
         && $foreignSession->values() === $scopeBaseSession);
 
-// (b) The mirror pairing: owned mailbox, alias in a foreign domain. The
-// alias-only check already rejected this; it must keep doing so.
+// (b) The alias-side guard: the mailbox is in a domain the admin manages, but
+// the alias is not. This is what the alias authorisation defends — an admin
+// must not detach a mailbox from an alias whose domain is outside their scope.
 $ownedMailbox = (new \Entities\Mailbox())->setUsername('user@owned.test')->setDomain($ownedDomain);
 $crossAlias   = (new \Entities\Alias())
     ->setAddress('team@foreign.test')
@@ -1037,7 +1038,7 @@ $crossResponse = (new MailboxController(
     controllerAliasIdentityContainerFor($crossEm, $crossSession, new ControllerAliasIdentityView(), $scopedAdmin),
     $scopeRoute,
 ))->deleteAliasAction();
-controllerAliasIdentityCheck('delete-alias refuses an alias from another domain than the mailbox',
+controllerAliasIdentityCheck('delete-alias refuses an alias whose domain the admin does not manage',
     $crossResponse->status === 302
         && ($crossResponse->headers['Location'] ?? null) === '/mailbox/list'
         && $crossAlias->getGoto() === 'user@owned.test,other@foreign.test'
@@ -1045,6 +1046,41 @@ controllerAliasIdentityCheck('delete-alias refuses an alias from another domain 
         && $crossEm->removed === []
         && $crossEm->flushes === 0
         && $crossSession->values() === $scopeBaseSession);
+
+// (b2) The supported cross-domain flow, and the regression this guard must not
+// break: an admin who manages BOTH domains detaches a mailbox in one from an
+// alias in the other. `Repositories\Alias::loadWithMailbox()` lists exactly
+// this row and application/views/mailbox/aliases.phtml renders a delete link
+// for it, so it must succeed — trimming the destination and writing the audit
+// row. Requiring alias.Domain == mailbox.Domain would silently no-op it.
+$multiDomainAdmin = new ControllerAliasIdentityScopedAdmin([$ownedDomain, $foreignDomain]);
+$crossOkMailbox = (new \Entities\Mailbox())->setUsername('user@foreign.test')->setDomain($foreignDomain);
+$crossOkAlias   = (new \Entities\Alias())
+    ->setAddress('team@owned.test')
+    ->setGoto('user@foreign.test,other@owned.test')
+    ->setDomain($ownedDomain);
+$crossOkSession = new ControllerAliasIdentitySession($scopeBaseSession);
+$crossOkEm = new ControllerAliasIdentityRecordingEntityManager([
+    'Entities\\Alias' => new ControllerAliasIdentityAliasRepository([$crossOkAlias]),
+    'Entities\\Mailbox' => new ControllerAliasIdentityMailboxRepository($crossOkMailbox),
+]);
+$crossOkResponse = (new MailboxController(
+    controllerAliasIdentityContainerFor(
+        $crossOkEm,
+        $crossOkSession,
+        new ControllerAliasIdentityView(),
+        $multiDomainAdmin,
+    ),
+    $scopeRoute,
+))->deleteAliasAction();
+controllerAliasIdentityCheck('delete-alias still detaches a mailbox from a cross-domain alias it manages',
+    $crossOkResponse->status === 302
+        && str_starts_with((string) ($crossOkResponse->headers['Location'] ?? ''), '/mailbox/aliases/mid/')
+        && $crossOkAlias->getGoto() === 'other@owned.test'
+        && count($crossOkEm->persisted) === 1
+        && $crossOkEm->persisted[0] instanceof \Entities\Log
+        && $crossOkEm->removed === []
+        && $crossOkEm->flushes === 1);
 
 // (c) The rejection for a foreign mid is byte-identical to the rejection for a
 // mailbox that does not exist at all: probing `mid` leaks nothing.

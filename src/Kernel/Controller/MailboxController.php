@@ -925,8 +925,9 @@ final class MailboxController extends AbstractController
      * carried no `csrf` segment, so `_assertCsrf()` always failed; it now carries
      * `$csrfToken`.
      *
-     * Both `mid` and `alid` are scoped: the mailbox's domain must be one the
-     * admin administers, and the alias must belong to that same domain. Every
+     * Both `mid` and `alid` are authorised independently: the admin must manage
+     * the mailbox's domain AND the alias's domain. The two domains need not
+     * match — detaching a mailbox from a cross-domain alias is supported. Every
      * rejection is the same redirect to `mailbox/list`, so probing `mid` reveals
      * nothing.
      */
@@ -957,14 +958,15 @@ final class MailboxController extends AbstractController
         if (!$domain instanceof \Entities\Domain || (!$admin->isSuper() && !$admin->canManageDomain($domain))) {
             return $this->redirect('mailbox/list');
         }
-        // The alias must live in the same domain as the mailbox it is being
-        // detached from: scoping only the alias let an admin pass any `mid`,
-        // including mailboxes in domains they do not administer.
+        // Authorise the alias independently of the mailbox. The two need not
+        // share a domain: `Repositories\Alias::loadForMailbox()` and
+        // `loadWithMailbox()` deliberately list cross-domain aliases (they scope
+        // on `a.Domain.Admins`, not on the mailbox's domain), and the aliases
+        // page renders a delete link for every row it returns. Requiring the
+        // same domain here would silently no-op a link the app itself rendered.
         $aliasDomain = $alias->getDomain();
-        $mailboxDomainId = $domain->getId();
         if (!$aliasDomain instanceof \Entities\Domain
-            || ($aliasDomain !== $domain
-                && ($mailboxDomainId === null || $aliasDomain->getId() !== $mailboxDomainId))) {
+            || (!$admin->isSuper() && !$admin->canManageDomain($aliasDomain))) {
             return $this->redirect('mailbox/list');
         }
 
