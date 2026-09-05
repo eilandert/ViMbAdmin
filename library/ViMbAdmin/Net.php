@@ -18,8 +18,11 @@ class ViMbAdmin_Net
      * @param array<string,mixed> $server   typically $_SERVER
      * @param string $mode     'auto' (default) | 'off' | 'on'
      *                          - off : always REMOTE_ADDR (ignore XFF)
-     *                          - auto: trust XFF only if REMOTE_ADDR is a
-     *                                  private/loopback address (a local proxy)
+     *                          - auto: trust XFF only if REMOTE_ADDR is in a
+     *                                  private, loopback or link-local network
+     *                                  (a local proxy). Other reserved ranges
+     *                                  (CGNAT, TEST-NET, 240/4, ...) are NOT
+     *                                  evidence of a proxy and are rejected.
      *                          - on  : trust XFF only if REMOTE_ADDR is in $proxies
      * @param array<array-key,mixed> $proxies IP/CIDR list of trusted proxies (mode 'on')
      * @return string
@@ -42,26 +45,17 @@ class ViMbAdmin_Net
         if( $xff === '' )
             return $remote;
 
-        $trusted = function( string $ip ) use ( $mode, $proxies ): bool {
-            if( $mode === 'auto' )
-                return self::isPrivate( $ip );
-            foreach( $proxies as $p ) {
-                if (!is_string($p)) continue;
-                $p = trim($p);
-                if( $p !== '' && self::ipInCidr( $ip, $p ) )
-                    return true;
-            }
-            return false;
-        };
-
         // Only peel XFF if the request actually came through a trusted proxy.
-        if( !$trusted( $remote ) )
+        // The direct-peer check and the chain walk share one predicate so the
+        // two can never disagree about what counts as a proxy.
+        if( !self::isTrustedForwardedHeaderPeer( $remote, $mode, $proxies ) )
             return $remote;
 
         $chain = array_map( 'trim', explode( ',', $xff ) );
         for( $i = count( $chain ) - 1; $i >= 0; $i-- ) {
             $ip = $chain[ $i ];
-            if( $ip !== '' && filter_var( $ip, FILTER_VALIDATE_IP ) && !$trusted( $ip ) )
+            if( $ip !== '' && filter_var( $ip, FILTER_VALIDATE_IP )
+                && !self::isTrustedForwardedHeaderPeer( $ip, $mode, $proxies ) )
                 return $ip;
         }
         return $remote;

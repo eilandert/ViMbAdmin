@@ -46,6 +46,44 @@ networkCheck(
     ViMbAdmin_Net::clientIp(['REMOTE_ADDR' => '10.0.0.2', 'HTTP_X_FORWARDED_FOR' => '10.0.0.3'], 'on', ['10.0.0.0/8']) === '10.0.0.2'
 );
 
+// Negative controls: reserved-but-not-private ranges are NOT evidence of a
+// local reverse proxy, so a peer in one of them must never have its
+// X-Forwarded-For peeled in auto mode (VIM-D06).
+foreach( [ '100.64.0.1', '192.0.2.10', '198.51.100.7', '203.0.113.9', '240.0.0.1', '0.0.0.1' ] as $reservedPeer ) {
+    networkCheck(
+        "auto mode ignores X-Forwarded-For from reserved peer {$reservedPeer}",
+        ViMbAdmin_Net::clientIp(
+            ['REMOTE_ADDR' => $reservedPeer, 'HTTP_X_FORWARDED_FOR' => '8.8.4.4']
+        ) === $reservedPeer
+    );
+}
+networkCheck(
+    'auto mode ignores X-Forwarded-For from a reserved IPv6 peer',
+    ViMbAdmin_Net::clientIp(
+        ['REMOTE_ADDR' => '2001:db8::1', 'HTTP_X_FORWARDED_FOR' => '8.8.4.4']
+    ) === '2001:db8::1'
+);
+// A chain hop in a reserved-but-not-private range is a real client, not a
+// proxy, so the walk must return it instead of skipping past it.
+networkCheck(
+    'auto mode returns a CGNAT chain hop rather than skipping it',
+    ViMbAdmin_Net::clientIp(
+        ['REMOTE_ADDR' => '10.0.0.2', 'HTTP_X_FORWARDED_FOR' => '8.8.4.4, 100.64.0.1']
+    ) === '100.64.0.1'
+);
+networkCheck(
+    'auto mode returns a TEST-NET chain hop rather than skipping it',
+    ViMbAdmin_Net::clientIp(
+        ['REMOTE_ADDR' => '127.0.0.1', 'HTTP_X_FORWARDED_FOR' => '8.8.4.4, 192.0.2.10']
+    ) === '192.0.2.10'
+);
+networkCheck(
+    'auto mode returns a 240/4 chain hop rather than skipping it',
+    ViMbAdmin_Net::clientIp(
+        ['REMOTE_ADDR' => '10.0.0.2', 'HTTP_X_FORWARDED_FOR' => '8.8.4.4, 240.0.0.1']
+    ) === '240.0.0.1'
+);
+
 networkCheck('loopback is private', ViMbAdmin_Net::isPrivate('127.0.0.1'));
 networkCheck('public IPv4 is not private', !ViMbAdmin_Net::isPrivate('8.8.8.8'));
 networkCheck('IPv6 unique-local is private', ViMbAdmin_Net::isPrivate('fd00::1'));

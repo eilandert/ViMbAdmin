@@ -115,8 +115,8 @@ By layer. Stock upstream had **none** of the application-layer items below.
 - **CSPRNG** — tokens, salts, backup codes use `random_int()` (replaced
   `str_shuffle`/`mt_rand`).
 - **Real client IP** — spoof-resistant trusted-proxy resolver
-  (`trustedproxy.mode`, default `auto`) feeds the brute-force limiter and MCP IP
-  allowlist the actual client. See
+  (`trustedproxy.mode`, shipped default `off`) feeds the brute-force limiter and
+  MCP IP allowlist the actual client. See
   [Real client IP behind a proxy](#real-client-ip-behind-a-proxy).
 
 ### MCP adapter (optional, off by default)
@@ -375,6 +375,22 @@ password change does not clear shared administrator-login failures.
 
 The brute-force limiter (and MCP per-token IP allowlist) need the **real** client
 IP, not your reverse proxy's.
+
+`trustedproxy.mode` ships as `off`: `X-Forwarded-For` is ignored and
+`REMOTE_ADDR` is the client. Enable it only when ViMbAdmin actually sits behind
+a reverse proxy you control and that proxy overwrites `X-Forwarded-For` —
+anything you trust here can choose the IP the limiter and the allowlist see.
+
+- `off` — always `REMOTE_ADDR` (default).
+- `auto` — honour `X-Forwarded-For` only when `REMOTE_ADDR` is private,
+  loopback or link-local (`10/8`, `127/8`, `169.254/16`, `172.16/12`,
+  `192.168/16`, `::1`, `fc00::/7`, `fe80::/10`). Other reserved ranges — CGNAT
+  `100.64/10`, TEST-NET, `240/4`, `0/8` — are *not* evidence of a proxy and are
+  rejected.
+- `on` — honour it only when `REMOTE_ADDR` matches `trustedproxy.proxies[]`.
+
+In `auto` and `on` the client is the right-most chain address that is not
+itself a trusted proxy, so prepended spoofed entries are never selected.
 
 ## MCP adapter
 
