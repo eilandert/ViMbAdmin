@@ -532,25 +532,31 @@ bruteforce.whitelist[]  = "::1"
 ;; treat as "the client" when ViMbAdmin runs behind a reverse proxy (TLS
 ;; terminator, the Docker image's edge, a load balancer).
 ;;
-;;   auto : (default) use X-Forwarded-For only when the direct connection
-;;          (REMOTE_ADDR) comes from a private/loopback address -- i.e. a local
-;;          reverse proxy. Standalone (public REMOTE_ADDR) just uses REMOTE_ADDR.
-;;          Safe for the common "proxy on the same host/LAN" case with no config.
+;;   off  : (shipped default) ignore X-Forwarded-For entirely; always use
+;;          REMOTE_ADDR. Correct and safe when ViMbAdmin is reached directly.
+;;   auto : use X-Forwarded-For only when the direct connection (REMOTE_ADDR)
+;;          comes from a private, loopback or link-local network -- i.e. a
+;;          local reverse proxy. Convenient for the common "proxy on the same
+;;          host/LAN" case with no further config.
 ;;   on   : trust X-Forwarded-For only when REMOTE_ADDR is one of the proxies
 ;;          listed below (use this if your proxy has a public IP).
-;;   off  : ignore X-Forwarded-For entirely; always use REMOTE_ADDR.
+;;
+;; Turn this on ONLY when ViMbAdmin sits behind a reverse proxy you control and
+;; that proxy overwrites X-Forwarded-For. Any peer this setting trusts can
+;; choose the IP the brute-force limiter and the MCP allowlist see, so trusting
+;; a network you do not own hands attackers lockout evasion and allowlist bypass.
 ;;
 ;; X-Forwarded-For is client-spoofable, so the real client is taken as the
 ;; right-most address in the chain that is NOT a trusted proxy.
-trustedproxy.mode = "auto"
+trustedproxy.mode = "off"
 ;; For mode "on", list the proxy IPs/CIDRs allowed to set X-Forwarded-For:
 ;;; trustedproxy.proxies[] = "10.0.0.0/8"
 ;;; trustedproxy.proxies[] = "172.16.0.0/12"
 
 ;; You can also let the web server rewrite REMOTE_ADDR itself (Angie/nginx
 ;; `realip` module) -- see the realip block in contrib/angie/vimbadmin.conf.
-;; If you do that, leave trustedproxy.mode = "auto" (REMOTE_ADDR is then already
-;; the client) or "off".
+;; If you do that, leave trustedproxy.mode = "off" -- REMOTE_ADDR is then
+;; already the real client.
 
 ;; Session files default to PHP's session.save_path; set this only to override
 ;; (e.g. a writable app-local dir). Unset = PHP/SAPI default.

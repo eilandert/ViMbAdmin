@@ -145,9 +145,10 @@ and database lookups bound to the exact identity the caller supplied.
 - The endpoint never uses the admin session; it is bearer-only. It also
   bypasses the login rate-limiter (its own `location`).
 - The per-token IP check uses the resolved client IP. Behind a reverse proxy,
-  set `trustedproxy.mode` in `application.ini` (default `auto` — trusts
-  `X-Forwarded-For` only from a private/loopback proxy) or let the web server
-  rewrite `REMOTE_ADDR` (Angie `realip`). Otherwise the check sees the proxy's
-  IP, not the client's.
+  set `trustedproxy.mode` in `application.ini` (shipped default `off` — turn it
+  to `auto` or `on` only behind a reverse proxy you control; `auto` trusts
+  `X-Forwarded-For` only from a private, loopback or link-local peer) or let the
+  web server rewrite `REMOTE_ADDR` (Angie `realip`). Otherwise the check sees
+  the proxy's IP, not the client's.
 - `last_used_at` is updated per successful call (cheap audit trail);
   `mcp.cli-token-list` shows it.
