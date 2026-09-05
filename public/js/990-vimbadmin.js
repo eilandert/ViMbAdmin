@@ -111,8 +111,8 @@ function tt_throbber( size, lines, strokewidth, fallback )
  *
  * First function unbinds toggle element, removes label type and pointer.
  * Then creates throbber and add it to div trobber with id throb-{toggle element id}.
- * div for throbber should be created manualy. Function only assings throbber to it. After
- * that it calls AJAX for passed URL and data. If responce ok flag ok is set to true otherwise
+ * div for throbber should be created manually. Function only assigns throbber to it. After
+ * that it calls AJAX for passed URL and data. If response ok flag ok is set to true otherwise
  * error message is show. If we have AJAX error ten ossAjaxErrorHandler calls. After AJAX error
  * or success handlers function sets back label type and pointer by flags On and Ok , kills throbber
  * end bind same function again for toggle element.
@@ -186,8 +186,8 @@ function ossToggle( e, Url, data, delElement )
 /**
  * This function is opening modal dialog with contact us form.
  *
- * First it creats the throbber witch is shown while form is loading by ajax.
- * When fuction creats and opens modal dialog witch is showing throbber.
+ * First it creates the throbber witch is shown while form is loading by ajax.
+ * When function creates and opens modal dialog witch is showing throbber.
  * When form is load the throbber is replaced by it. If ajax gets en error the
  * ossAjaxErrorHandler is called.
  *
@@ -257,7 +257,7 @@ function tt_openModalDialog(event) {
  * it checks if buttons are shown that mean that ajax crashed then modal dialog was
  * submitting and enabling modal dialog buttons. If buttons not visible that means
  * that ajax crashed then the content was loading so it close modal dialog.
- * After that it cheks if throbber (canvas) is showing and if so it closes that too.
+ * After that it checks if throbber (canvas) is showing and if so it closes that too.
  * And after that it calls ossAddMessage.
  *
  */
@@ -281,7 +281,7 @@ function ossAjaxErrorHandler( XMLHttpRequest, textStatus, errorThrown )
     if( $('canvas').length ){
         $('canvas').remove();
     }
-    ossAddMessage( 'An unexpected error occured.', 'error', true );
+    ossAddMessage( 'An unexpected error occurred.', 'error', true );
 }
 
 
@@ -291,7 +291,7 @@ function ossAjaxErrorHandler( XMLHttpRequest, textStatus, errorThrown )
  * Function defines message box. And when check where the message should be shown.
  * First it is looking for modal dialog to display oss message in it.
  * If modal dialog was not found it looks for class breadcrumb, witch is page header,
- * and insert oss message after it. And finaly if no modal dialog or breadcrumb was found
+ * and insert oss message after it. And finally if no modal dialog or breadcrumb was found
  * it insert oss message at the top of main div.
  *
  * @param msg  This is main text of oss message.
@@ -337,7 +337,7 @@ function ossAddMessage( msg, type, handled )
 /**
  * This function is for validating input field.
  *
- * Function cheks if the input field has tha value if not set error,
+ * Function checks if the input field has tha value if not set error,
  * and sets valid to false. If value not empty and email flag sets to
  * true then function calls validate email, and if email validate function
  * removes class error, if email not valid function add set error and sets
