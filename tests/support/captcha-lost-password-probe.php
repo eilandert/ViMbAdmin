@@ -9,8 +9,10 @@
  * directory and is expected to print the 429 body and terminate; if the gate is
  * missing it falls through and prints NOT-REFUSED instead.
  *
- * The caller defines CAPTCHA_BOUNDS_PROBE_STATEDIR (the locked brute-force
- * state directory) and CAPTCHA_BOUNDS_PROBE_ROOT (a writable temp root).
+ * The caller passes the locked brute-force state directory and a writable temp
+ * root in the CAPTCHA_BOUNDS_PROBE_STATEDIR and CAPTCHA_BOUNDS_PROBE_ROOT
+ * environment variables, along with the source address in
+ * CAPTCHA_BOUNDS_PROBE_REMOTE_ADDR.
  */
 
 declare(strict_types=1);
@@ -81,9 +83,24 @@ final class CaptchaProbeBootstrap
     public function getOptions(): array { return $this->options; }
 }
 
+function captchaProbeEnv(string $name): string
+{
+    $value = getenv($name);
+    if (!is_string($value) || $value === '') {
+        fwrite(STDERR, $name . " is not set\n");
+        exit(2);
+    }
+
+    return $value;
+}
+
+$probeRoot = captchaProbeEnv('CAPTCHA_BOUNDS_PROBE_ROOT');
+$probeStateDir = captchaProbeEnv('CAPTCHA_BOUNDS_PROBE_STATEDIR');
+$_SERVER['REMOTE_ADDR'] = captchaProbeEnv('CAPTCHA_BOUNDS_PROBE_REMOTE_ADDR');
+
 $_SESSION = [];
 OSS_Runtime::configure(
-    ['temporary_directory' => CAPTCHA_BOUNDS_PROBE_ROOT],
+    ['temporary_directory' => $probeRoot],
     '',
     new stdClass(),
 );
@@ -111,7 +128,7 @@ $options = [
     'bruteforce' => [
         'enabled' => '1',
         'max_attempts' => '3',
-        'statedir' => CAPTCHA_BOUNDS_PROBE_STATEDIR,
+        'statedir' => $probeStateDir,
     ],
 ];
 

@@ -44,12 +44,68 @@ function captchaBoundsCheck(string $label, bool $condition): void
     if (!$condition) { CaptchaBoundsState::$failures++; }
 }
 
+/**
+ * The live session, read opaquely.
+ *
+ * These helpers exist so the assertions below observe what production code
+ * actually left in $_SESSION. Reading the superglobal directly would let
+ * static analysis narrow it to the literal array each test block assigns and
+ * then constant-fold the very assertions whose point is that generate() and
+ * lostPasswordAction() mutate it behind that assignment.
+ *
+ * @return array<string,mixed>
+ */
+function captchaSession(): array
+{
+    /** @var mixed $session */
+    $session = $GLOBALS['_SESSION'] ?? [];
+    if (!is_array($session)) {
+        return [];
+    }
+
+    $typed = [];
+    foreach ($session as $key => $value) {
+        if (is_string($key)) {
+            $typed[$key] = $value;
+        }
+    }
+
+    return $typed;
+}
+
+/** @return list<string> */
 function captchaSessionKeys(): array
 {
     return array_values(array_filter(
-        array_keys($_SESSION),
-        static fn(mixed $key): bool => is_string($key) && str_starts_with($key, 'OSS_Captcha_'),
+        array_keys(captchaSession()),
+        static fn(string $key): bool => str_starts_with($key, 'OSS_Captcha_'),
     ));
+}
+
+/** Is there a live session entry for this captcha id? */
+function captchaSessionHas(string $id): bool
+{
+    return array_key_exists('OSS_Captcha_' . $id, captchaSession());
+}
+
+/** The stored word for a captcha id, or '' when the entry is absent/malformed. */
+function captchaSessionWord(string $id): string
+{
+    $entry = captchaSession()['OSS_Captcha_' . $id] ?? null;
+    if (!is_array($entry)) {
+        return '';
+    }
+    $word = $entry['word'] ?? null;
+
+    return is_string($word) ? $word : '';
+}
+
+/** A value from the session by key path, as a plain string ('' when absent). */
+function captchaSessionScalar(string $key): string
+{
+    $value = captchaSession()[$key] ?? null;
+
+    return is_scalar($value) ? (string) $value : '';
 }
 
 final class CaptchaBoundsSession implements SessionStorage
@@ -76,9 +132,10 @@ final class CaptchaBoundsView
     {
         $form = $this->values['formHtml'] ?? null;
 
-        return ($is = $this->values['captchaId'] ?? null) === null
-            ? (is_string($form) ? $form : $script)
-            : (is_string($form) ? $form : $script) . '<!--captcha:' . (string) $is . '-->';
+        $body = is_string($form) ? $form : $script;
+        $captchaId = $this->values['captchaId'] ?? null;
+
+        return is_string($captchaId) ? $body . '<!--captcha:' . $captchaId . '-->' : $body;
     }
 }
 
@@ -191,12 +248,13 @@ function captchaBoundsRequest(AuthController $controller, ?array $post = null): 
 $root = sys_get_temp_dir() . '/vimbadmin-captcha-bounds-' . bin2hex(random_bytes(6));
 mkdir($root, 0770, true);
 OSS_Runtime::configure(['temporary_directory' => $root], '', new stdClass());
-$_SERVER['REMOTE_ADDR'] = '203.0.113.42';
+$floodSource = '203.0.113.42';
+$_SERVER['REMOTE_ADDR'] = $floodSource;
 
 echo "== captcha session bounds ==\n";
 
 // --- 1. session key count stays bounded across many generate() calls --------
-$_SESSION = ['identity' => ['id' => 1]];
+$_SESSION = ['unrelated-marker' => 'untouched'];
 for ($i = 0; $i < 200; $i++) {
     (new OSS_Captcha_Image(0, 0, 6, 1800))->generate();
 }
@@ -206,7 +264,7 @@ captchaBoundsCheck(
     count($bounded) > 0 && count($bounded) <= 8,
 );
 captchaBoundsCheck('capping does not disturb unrelated session state',
-    ($_SESSION['identity']['id'] ?? null) === 1);
+    captchaSessionScalar('unrelated-marker') === 'untouched');
 
 // Over-cap eviction takes the entries CLOSEST to expiry first, so a captcha
 // with a long life outlives the short-lived ones it competes with, and the
@@ -217,9 +275,9 @@ for ($i = 0; $i < 20; $i++) {
     $latest = (new OSS_Captcha_Image(0, 0, 6, 60))->generate();
 }
 captchaBoundsCheck('eviction drops the soonest-expiring captcha, not the longest-lived one',
-    isset($_SESSION['OSS_Captcha_' . $longLived]));
+    captchaSessionHas($longLived));
 captchaBoundsCheck('the newest captcha survives the per-session cap',
-    isset($_SESSION['OSS_Captcha_' . $latest]));
+    captchaSessionHas($latest));
 
 // --- 2. expired entries are pruned -----------------------------------------
 $_SESSION = [];
@@ -228,16 +286,16 @@ $_SESSION['OSS_Captcha_' . str_repeat('b', 32)] = ['word' => 'BBBBBB', 'expires'
 $_SESSION['OSS_Captcha_' . str_repeat('c', 32)] = 'not an array at all';
 (new OSS_Captcha_Image(0, 0, 6, 1800))->generate();
 captchaBoundsCheck('an expired captcha session entry is pruned by generate()',
-    !isset($_SESSION['OSS_Captcha_' . str_repeat('a', 32)]));
+    !captchaSessionHas(str_repeat('a', 32)));
 captchaBoundsCheck('a malformed captcha session entry is pruned by generate()',
-    !isset($_SESSION['OSS_Captcha_' . str_repeat('c', 32)]));
+    !captchaSessionHas(str_repeat('c', 32)));
 captchaBoundsCheck('an unexpired captcha session entry survives the prune',
-    isset($_SESSION['OSS_Captcha_' . str_repeat('b', 32)]));
+    captchaSessionHas(str_repeat('b', 32)));
 
 // --- 3. captcha validation still succeeds on the happy path ----------------
 $_SESSION = [];
 $happyId = (new OSS_Captcha_Image(0, 0, 6, 1800))->generate();
-$happyWord = $_SESSION['OSS_Captcha_' . $happyId]['word'];
+$happyWord = captchaSessionWord($happyId);
 captchaBoundsCheck('a freshly minted captcha validates against its own word',
     OSS_Captcha_Image::_isValid($happyId, $happyWord));
 captchaBoundsCheck('a wrong answer is still rejected',
@@ -248,12 +306,13 @@ $_SESSION = [];
 $stateA = $root . '/bf-a';
 $withCaptcha = captchaBoundsController($stateA, true);
 $response = captchaBoundsRequest($withCaptcha['controller']);
-$renderedId = $withCaptcha['view']->values['captchaId'] ?? null;
+$renderedIdValue = $withCaptcha['view']->values['captchaId'] ?? null;
+$renderedId = is_string($renderedIdValue) ? $renderedIdValue : '';
 captchaBoundsCheck('a rendered lost-password GET carries a captcha id',
-    is_string($renderedId) && preg_match('/^[a-f0-9]{32}$/', $renderedId) === 1
+    $renderedId !== '' && preg_match('/^[a-f0-9]{32}$/', $renderedId) === 1
         && $response->status === 200);
 captchaBoundsCheck('one lost-password render mints exactly one captcha session entry',
-    captchaSessionKeys() === ['OSS_Captcha_' . $renderedId]);
+    $renderedId !== '' && captchaSessionKeys() === ['OSS_Captcha_' . $renderedId]);
 
 // The redirect path (submitting a valid form for an unknown user) renders
 // nothing, so it must mint nothing.
@@ -273,7 +332,7 @@ $_SESSION = [];
 $stateB2 = $root . '/bf-b2';
 $captchaRedirect = captchaBoundsController($stateB2, true);
 $captchaRedirectId = (new OSS_Captcha_Image(0, 0, 6, 1800))->generate();
-$captchaRedirectWord = $_SESSION['OSS_Captcha_' . $captchaRedirectId]['word'];
+$captchaRedirectWord = captchaSessionWord($captchaRedirectId);
 $redirect2 = captchaBoundsRequest($captchaRedirect['controller'], [
     'csrf' => 'csrf-sentinel',
     'username' => 'nobody@example.test',
@@ -308,10 +367,11 @@ captchaBoundsCheck('requestnewimage re-renders with a fresh captcha and keeps th
         && str_contains($refreshResponse->body, 'someone@example.test'));
 captchaBoundsCheck('requestnewimage short-circuits before validation (no error, held captcha not consumed)',
     !str_contains($refreshResponse->body, 'does not match that of the image')
-        && isset($_SESSION['OSS_Captcha_' . $heldId]));
+        && captchaSessionHas($heldId));
 captchaBoundsCheck('requestnewimage leaves only the held and the freshly minted captcha',
     count(captchaSessionKeys()) === 2
-        && in_array('OSS_Captcha_' . $refreshId, captchaSessionKeys(), true));
+        && is_string($refreshId)
+        && captchaSessionHas($refreshId));
 
 // --- 6. the lost-password flood is throttled -------------------------------
 // assertNotLocked() answers a locked source with 429 + exit, so the flood runs
@@ -342,18 +402,26 @@ captchaBoundsCheck('a sustained unauthenticated lost-password flood locks the so
 // A locked source is actually refused by the action: run it in a subprocess,
 // because the 429 path terminates the request. The probe boots the same
 // controller wiring standalone (it does not re-enter this test's checks).
-$lockedProbe = $root . '/locked-probe.php';
-$probeSource = '<?php' . "\n"
-    . 'declare(strict_types=1);' . "\n"
-    . '$_SERVER[\'REMOTE_ADDR\'] = ' . var_export($_SERVER['REMOTE_ADDR'], true) . ';' . "\n"
-    . 'define(\'CAPTCHA_BOUNDS_PROBE_STATEDIR\', ' . var_export($stateE, true) . ');' . "\n"
-    . 'define(\'CAPTCHA_BOUNDS_PROBE_ROOT\', ' . var_export($root, true) . ');' . "\n"
-    . 'require ' . var_export(__DIR__ . '/support/captcha-lost-password-probe.php', true) . ';' . "\n";
-file_put_contents($lockedProbe, $probeSource);
+$probeScript = __DIR__ . '/support/captcha-lost-password-probe.php';
+$probeEnvironment = [
+    'CAPTCHA_BOUNDS_PROBE_ROOT' => $root,
+    'CAPTCHA_BOUNDS_PROBE_STATEDIR' => $stateE,
+    'CAPTCHA_BOUNDS_PROBE_REMOTE_ADDR' => $floodSource,
+];
+$probeCommand = '';
+foreach ($probeEnvironment as $probeName => $probeValue) {
+    $probeCommand .= $probeName . '=' . escapeshellarg($probeValue) . ' ';
+}
+$probeCommand .= escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($probeScript) . ' 2>&1';
 $probeOutput = [];
 $probeStatus = 0;
-exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($lockedProbe) . ' 2>&1', $probeOutput, $probeStatus);
+exec($probeCommand, $probeOutput, $probeStatus);
 $probeText = implode("\n", $probeOutput);
+// Guard against a vacuous pass: a probe that died before reaching the action
+// (missing env, boot error) also prints no NOT-REFUSED, so require the 429 body
+// AND that the probe did not exit with its own setup failure status.
+captchaBoundsCheck('the locked-source probe reached the action (no setup failure)',
+    $probeStatus !== 2 && !str_contains($probeText, 'is not set'));
 captchaBoundsCheck('a locked source is refused by lostPasswordAction with 429',
     str_contains($probeText, 'Too many failed login attempts')
         && !str_contains($probeText, 'NOT-REFUSED'));
