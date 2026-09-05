@@ -28,15 +28,31 @@ trap 'rm -rf "$tmp"' EXIT
 
 cp public/js/100-jquery.js "$tmp/jquery.js"
 
-# Only the delegated guard, taken verbatim from the shipped file, so this test
-# exercises production code rather than a copy that can drift.
-awk '/^jQuery\( document \)\.on\( .submit., .form\[data-confirm\]./ { copying = 1 }
-     copying { print }' public/js/990-vimbadmin.js >"$tmp/guard.js"
+# The guard is exercised twice: once from the source file, and once from the
+# minified bundle production actually serves. A bundle whose minification broke
+# the guard would otherwise ship unnoticed -- a string check cannot catch that.
+extract_guard() {
+  # $1 = source file, $2 = destination
+  case "$1" in
+    *min.bundle*)
+      # The bundle is one line; ship it whole rather than trying to slice it.
+      cp "$1" "$2"
+      ;;
+    *)
+      awk '/^jQuery\( document \)\.on\( .submit., .form\[data-confirm\]./ { copying = 1 }
+           copying { print }' "$1" >"$2"
+      ;;
+  esac
 
-if ! grep -q 'window.confirm' "$tmp/guard.js"; then
-  echo "FAIL: could not extract the delegated confirm guard from 990-vimbadmin.js" >&2
-  exit 2
-fi
+  if ! grep -q 'data-confirm' "$2"; then
+    echo "FAIL: could not extract the delegated confirm guard from $1" >&2
+    exit 2
+  fi
+}
+
+run_case() {
+  # $1 = label, $2 = js source file
+  extract_guard "$2" "$tmp/guard.js"
 
 cat >"$tmp/regression.html" <<HTML
 <!doctype html>
@@ -125,19 +141,25 @@ $(function () {
 HTML
 } >>"$tmp/regression.html"
 
-"$browser" \
-  --headless \
-  --disable-gpu \
-  --allow-file-access-from-files \
-  --user-data-dir="$tmp/profile" \
-  --virtual-time-budget=1000 \
-  --dump-dom "file://$tmp/regression.html" >"$tmp/rendered.html" 2>"$tmp/chromium.log"
+  rm -rf "$tmp/profile"
+  "$browser" \
+    --headless \
+    --disable-gpu \
+    --allow-file-access-from-files \
+    --user-data-dir="$tmp/profile" \
+    --virtual-time-budget=1000 \
+    --dump-dom "file://$tmp/regression.html" >"$tmp/rendered.html" 2>"$tmp/chromium.log"
 
-if ! grep -q 'data-test-result="pass"' "$tmp/rendered.html"; then
-  failures="$(grep -o 'data-test-failures="[^"]*"' "$tmp/rendered.html" || true)"
-  echo "FAIL: delegated confirm guard is unsafe: ${failures:-no browser verdict}" >&2
-  exit 1
-fi
+  if ! grep -q 'data-test-result="pass"' "$tmp/rendered.html"; then
+    failures="$(grep -o 'data-test-failures="[^"]*"' "$tmp/rendered.html" || true)"
+    echo "FAIL: delegated confirm guard is unsafe in $1: ${failures:-no browser verdict}" >&2
+    exit 1
+  fi
 
-echo "OK: a cancelled confirm blocks the submit and an accepted one lets it through"
+  echo "ok   $1: a cancelled confirm blocks the submit and an accepted one lets it through"
+}
+
+run_case "source (990-vimbadmin.js)" public/js/990-vimbadmin.js
+run_case "minified bundle (min.bundle-v16.js)" public/js/min.bundle-v16.js
+
 echo "ALL PASSED"

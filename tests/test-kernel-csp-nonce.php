@@ -166,7 +166,8 @@ foreach ($handlerSources as $source) {
     }
     // Attribute position only: preceded by whitespace and followed by `=`, so
     // JS like `el.onclick` or a prose mention of onsubmit does not match.
-    if (preg_match_all('/\son(?:click|submit|change|load|error|keyup|keydown|blur|focus|mouseover|mouseout|input|dblclick)\s*=/i', $body, $hits) === 1) {
+    $handlerHits = preg_match_all('/\son(?:click|submit|change|load|error|keyup|keydown|blur|focus|mouseover|mouseout|input|dblclick)\s*=/i', $body, $hits);
+    if ($handlerHits !== false && $handlerHits > 0) {
         $withHandlers[] = basename(dirname($source)) . '/' . basename($source)
             . ' (' . implode(' ', array_unique($hits[0])) . ')';
     }
