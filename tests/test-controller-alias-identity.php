@@ -82,6 +82,16 @@ final class ControllerAliasIdentityResources
 
 final class ControllerAliasIdentityAdmin extends \Entities\Admin
 {
+    public function __construct()
+    {
+        parent::__construct();
+        // Set the backing field too, not just the getter override: audit-row
+        // formatting goes through requiredUsername(), so a fixture without it
+        // turns any mutation that reaches logAlias() into a fatal instead of a
+        // named assertion failure.
+        $this->setUsername('admin@example.test');
+    }
+
     public function getId(): int { return 1; }
     public function getUsername(): string { return 'admin@example.test'; }
     public function getSuper(): bool { return true; }
@@ -975,11 +985,18 @@ $scopeRoute = new RouteMatch('mailbox', 'delete-alias', MailboxController::class
     'csrf' => 'test-token',
 ]);
 
-// (a) The VIM-D03 attack: the alias sits in a domain the admin DOES administer
-// (so the pre-fix alias-only authorisation passed), while `mid` points at a
-// mailbox in a domain they do not administer. Pre-fix, this trimmed the foreign
-// mailbox's address out of the alias and wrote an ALIAS_DELETE audit row for a
-// destination that was never on it.
+// (a) The VIM-D03 attack, and the case where the two guards diverge: the alias
+// sits in a domain the admin DOES administer (so the pre-fix alias-only
+// authorisation passed), while `mid` points at a mailbox in a domain they do
+// not. Pre-fix, this trimmed the foreign mailbox's address out of the alias and
+// wrote an ALIAS_DELETE audit row for a destination that was never on it.
+//
+// This is what pins `$domain = $mailbox->getDomain()` specifically: reverting
+// that line alone re-authorises against the alias's (owned) domain, and because
+// the alias-domain guard then compares that same object against itself it also
+// passes, so the foreign mailbox is trimmed. Note the mirror shape — mailbox
+// and alias BOTH in the foreign domain — cannot discriminate the two guards,
+// since `canManageDomain` rejects it either way.
 $foreignMailbox = (new \Entities\Mailbox())->setUsername('victim@foreign.test')->setDomain($foreignDomain);
 $foreignAlias   = (new \Entities\Alias())
     ->setAddress('team@owned.test')
