@@ -22,3 +22,4 @@ if ($loopStart === false || $loopEnd === false
     exit(1);
 }
 echo "ok - reset token comparison checks every candidate with hash_equals\n";
+echo "ALL PASSED\n";

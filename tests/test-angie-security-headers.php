@@ -48,3 +48,4 @@ if (staticLocationHeaders($mutant) === $required) {
 }
 
 echo "Angie static-response security headers passed\n";
+echo "ALL PASSED\n";

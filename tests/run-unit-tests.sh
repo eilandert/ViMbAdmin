@@ -31,10 +31,25 @@ is_excluded() {
 }
 
 manifest=$(mktemp)
+test_output=$(mktemp)
 cleanup() {
-  rm -f "$manifest"
+  rm -f "$manifest" "$test_output"
 }
 trap cleanup EXIT
+
+# A terminal verdict is required as the LAST non-empty stdout line, or the
+# runner treats an exit-0 test as unproven rather than scoring it a pass — a
+# test that truncates mid-run (an early exit()/return) still exits 0 but
+# leaves no verdict line behind.
+readonly verdict_re_all_passed='^ALL PASSED( \([0-9]+ checks?\))?$'
+readonly verdict_re_ok_assertions='^OK: all .* assertions passed( \(PHP [^)]*\))?$'
+verdict_ok() {
+  local last_line
+  last_line=$(grep -v '^[[:space:]]*$' "$1" | tail -n 1) || true
+  [[ $last_line =~ $verdict_re_all_passed ]] && return 0
+  [[ $last_line =~ $verdict_re_ok_assertions ]] && return 0
+  return 1
+}
 
 if ! git ls-files 'tests/test-*.php' | sort >"$manifest"; then
   printf 'Could not enumerate tracked PHP tests.\n' >&2
@@ -61,5 +76,18 @@ for test in "${selected_tests[@]}"; do
   [[ $test == tests/test-phpstan-*.php ]] && continue
   is_excluded "$test" && continue
   echo "== $test =="
-  php "$test"
+  : >"$test_output"
+  php "$test" | tee "$test_output"
+  status=("${PIPESTATUS[@]}")
+  php_status=${status[0]}
+  if ((php_status != 0)); then
+    printf 'Test failed: %s (exit %d)\n' "$test" "$php_status" >&2
+    exit "$php_status"
+  fi
+  if ! verdict_ok "$test_output"; then
+    last_line=$(grep -v '^[[:space:]]*$' "$test_output" | tail -n 1)
+    printf 'Test exited 0 but printed no terminal verdict: %s\nlast line: %s\n' \
+      "$test" "${last_line:-<empty output>}" >&2
+    exit 1
+  fi
 done

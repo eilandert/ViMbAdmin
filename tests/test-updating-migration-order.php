@@ -15,4 +15,8 @@ $ok = $ok && is_string($migration)
 $ok = $ok && is_string($migration)
     && str_contains($migration, "@have_archive_table = 1 AND @have = 0");
 echo ($ok ? 'ok   ' : 'FAIL ') . "migration seeds legacy quota before schema update\n";
-exit($ok ? 0 : 1);
+if (!$ok) {
+    exit(1);
+}
+echo "ALL PASSED\n";
+exit(0);

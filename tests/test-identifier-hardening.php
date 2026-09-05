@@ -17,4 +17,8 @@ $failed = array_keys(array_filter($checks, static fn (bool $ok): bool => !$ok));
 foreach ($checks as $label => $ok) {
     echo ($ok ? 'ok   ' : 'FAIL ') . $label . "\n";
 }
-exit($failed === [] ? 0 : 1);
+if ($failed !== []) {
+    exit(1);
+}
+echo 'ALL PASSED (' . count($checks) . " checks)\n";
+exit(0);
