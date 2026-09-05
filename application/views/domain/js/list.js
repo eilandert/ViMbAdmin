@@ -249,7 +249,7 @@ function formatControlls( id, name )
             </a>';
             
      {if $user->isSuper()}
-        str += '<span  class="btn btn-mini have-tooltip"  id="purge-domain-' + id + '" title="Purge" data-purge-domain="' + id + '" data-domain-name="' + htmlEntity( String( name ) ) + '">\
+        str += '<span  class="btn btn-mini have-tooltip"  id="purge-domain-' + id + '" title="Purge" data-purge-domain="' + id + '" data-domain-name="' + htmlAttr( name ) + '">\
             <i class="icon-trash"></i>\
         </span>';
     {/if}

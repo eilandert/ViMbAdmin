@@ -152,6 +152,26 @@
         return $( '<div />' ).text( str ).html();
     }
 
+   /**
+    * Escapes a value for use inside a quoted HTML attribute.
+    *
+    * htmlEntity() is not enough here: a text node's innerHTML escapes only
+    * & < > and U+00A0, leaving " and ' intact, so a value carrying a quote
+    * breaks out of the attribute it was interpolated into. Validators
+    * currently reject quotes in the names that reach these sinks, but that
+    * guarantee lives far from the sink -- escape at the sink instead.
+    *
+    * @param string str
+    * @return string
+    * @uses jQuery
+    */
+    function htmlAttr(str)
+    {
+        return htmlEntity( String( str ) )
+            .replace( /"/g, '&quot;' )
+            .replace( /'/g, '&#39;' );
+    }
+
 
     /**
     * does what PHP html_entity_decode() does

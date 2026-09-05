@@ -106,14 +106,14 @@
                         <i class="icon-wrench"></i>
                     </button>
                     </form>
-                    <form method="post" action="{genUrl controller='mailbox' action='queue-archive'}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" data-confirm="Archive {$mbox.username|escape:'javascript'|escape}? Backs up + empties the mailbox, keeps the account.">
+                    <form method="post" action="{genUrl controller='mailbox' action='queue-archive'}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" data-confirm="Archive {$mbox.username|escape}? Backs up + empties the mailbox, keeps the account.">
                     <input type="hidden" name="mid" value="{$mbox.id}" />
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <button class="btn btn-mini have-tooltip" id="archive_{$mbox.id}" title="Archive (queued: backup + empty mailbox, keep account)" type="submit">
                         <i class="icon-inbox"></i>
                     </button>
                     </form>
-                    <form method="post" action="{genUrl controller='mailbox' action='queue-delete'}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" data-confirm="DELETE {$mbox.username|escape:'javascript'|escape}? Backs up, then removes the mail AND the account. This cannot be undone from here.">
+                    <form method="post" action="{genUrl controller='mailbox' action='queue-delete'}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" data-confirm="DELETE {$mbox.username|escape}? Backs up, then removes the mail AND the account. This cannot be undone from here.">
                     <input type="hidden" name="mid" value="{$mbox.id}" />
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <button class="btn btn-mini have-tooltip btn-danger" id="delete_{$mbox.id}" title="Delete (queued: backup, then remove mailbox + account)" type="submit">

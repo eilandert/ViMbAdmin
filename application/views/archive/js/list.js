@@ -98,9 +98,10 @@ function formatArchiveControls( row )
     // The confirmations are carried as data-confirm attributes and enforced by the
     // delegated guard in 990-vimbadmin.js -- an inline onsubmit attribute is not permitted under
     // the nonce-only script-src (VIM-D07). The name therefore lands in an HTML
-    // attribute, not a JS string literal, so it needs HTML escaping (htmlEntity()
-    // from 910-vimbadmin.functions.js) rather than backslash escaping.
-    var jsName = htmlEntity( String( row.username ) );
+    // attribute, not a JS string literal, so it needs attribute escaping
+    // (htmlAttr() from 910-vimbadmin.functions.js, which unlike htmlEntity()
+    // also escapes quotes) rather than backslash escaping.
+    var jsName = htmlAttr( row.username );
     var str   = '<div class="btn-group">';
 
     if( $.inArray( row.status, archiveAllowRestore ) != -1 )

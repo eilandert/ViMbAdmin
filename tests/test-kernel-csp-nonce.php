@@ -105,16 +105,38 @@ $views = [];
 $it = new RecursiveIteratorIterator(
     new RecursiveDirectoryIterator(__DIR__ . '/../application/views', FilesystemIterator::SKIP_DOTS)
 );
+/** @var list<string> $viewJs */
+$viewJs = [];
 foreach ($it as $file) {
-    if ($file->isFile() && str_ends_with($file->getFilename(), '.phtml')) {
+    if (!$file instanceof SplFileInfo || !$file->isFile()) {
+        continue;
+    }
+    if (str_ends_with($file->getFilename(), '.phtml')) {
         $views[] = $file->getPathname();
+    } elseif (str_ends_with($file->getFilename(), '.js')) {
+        $viewJs[] = $file->getPathname();
     }
 }
 check('view scan found templates', count($views) > 0);
 
+// A .js file under application/views/ can be a template fragment that opens
+// with a literal <script> tag, so the inline-script scan must cover those too:
+// one that is included but unstamped is silently blocked by the nonce-only
+// script-src, and scanning only .phtml would never see it.
 $unstamped = [];
 $inlineCount = 0;
-foreach ($views as $view) {
+$inlineScanTargets = $views;
+foreach ($viewJs as $jsPath) {
+    $jsBody = file_get_contents($jsPath);
+    // Only a .js fragment that IS a template -- one whose very first
+    // non-whitespace is a <script> tag -- carries an inline script. A prose
+    // mention of <script> inside a comment further down is not one, so anchor
+    // rather than scanning the whole body and flagging documentation.
+    if (is_string($jsBody) && preg_match('/\A\s*<script\b/i', $jsBody) === 1) {
+        $inlineScanTargets[] = $jsPath;
+    }
+}
+foreach ($inlineScanTargets as $view) {
     $body = file_get_contents($view);
     if (!is_string($body)) {
         continue;
@@ -145,18 +167,7 @@ check(
 // including the confirm() guards on destructive actions. Scan the view JS files
 // too: several build HTML strings that used to carry the attributes.
 /** @var list<string> $handlerSources */
-$handlerSources = $views;
-$jsIt = new RecursiveIteratorIterator(
-    new RecursiveDirectoryIterator(__DIR__ . '/../application/views', FilesystemIterator::SKIP_DOTS)
-);
-foreach ($jsIt as $jsFile) {
-    if (!$jsFile instanceof SplFileInfo) {
-        continue;
-    }
-    if ($jsFile->isFile() && str_ends_with($jsFile->getFilename(), '.js')) {
-        $handlerSources[] = $jsFile->getPathname();
-    }
-}
+$handlerSources = array_merge($views, $viewJs);
 
 $withHandlers = [];
 foreach ($handlerSources as $source) {
