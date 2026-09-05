@@ -119,6 +119,27 @@ foreach ($it as $file) {
 }
 check('view scan found templates', count($views) > 0);
 
+// A .js fragment counts as a template only when its first meaningful token is
+// a <script> tag. The tag name is delimited so a near miss like <script-data>
+// is not mistaken for one, and the BOM is matched as raw bytes rather than
+// under /u so an invalid-UTF-8 fragment cannot make preg_match() return false
+// and silently reinstate the blind spot this anchor exists to close.
+$anchor = '/\A(?:\xEF\xBB\xBF)?\s*(?:\{\*.*?\*\}\s*)*<script(?=[\s\/>])/is';
+
+// Pin the anchor's behaviour directly, so the cases below stay covered without
+// fixture files on disk: [body, is-a-template].
+foreach ([
+    ["<script>x</script>", true],
+    ["\xEF\xBB\xBF<script>x</script>", true],
+    ["{* smarty *}\n<script>x</script>", true],
+    ["\xEF\xBB\xBF{* a *}{* b *}\n<script >x</script>", true],
+    ["<script-data>x</script-data>", false],
+    ["// prose mentioning <script> further down", false],
+] as $i => $case) {
+    [$body, $want] = $case;
+    check("fragment anchor case {$i}", preg_match($anchor, $body) === ($want ? 1 : 0));
+}
+
 // A .js file under application/views/ can be a template fragment that opens
 // with a literal <script> tag, so the inline-script scan must cover those too:
 // one that is included but unstamped is silently blocked by the nonce-only
@@ -129,10 +150,23 @@ $inlineScanTargets = $views;
 foreach ($viewJs as $jsPath) {
     $jsBody = file_get_contents($jsPath);
     // Only a .js fragment that IS a template -- one whose very first
-    // non-whitespace is a <script> tag -- carries an inline script. A prose
+    // meaningful token is a <script> tag -- carries an inline script. A prose
     // mention of <script> inside a comment further down is not one, so anchor
     // rather than scanning the whole body and flagging documentation.
-    if (is_string($jsBody) && preg_match('/\A\s*<script\b/i', $jsBody) === 1) {
+    //
+    // The anchor still has to tolerate what a real template may legally put in
+    // front of that tag: a UTF-8 BOM, and any run of Smarty {* ... *} comments.
+    // Neither is executable content, so skipping such a fragment would let an
+    // unstamped inline script through this gate unseen (VIM-D16).
+    // The BOM is matched as raw bytes rather than under /u, so an invalid-UTF-8
+    // fragment cannot make preg_match() return false and silently reinstate the
+    // blind spot this anchor exists to close.
+    if (!is_string($jsBody)) {
+        continue;
+    }
+    $isTemplate = preg_match($anchor, $jsBody);
+    check("inline-script anchor evaluated for {$jsPath}", $isTemplate !== false);
+    if ($isTemplate === 1) {
         $inlineScanTargets[] = $jsPath;
     }
 }
