@@ -509,6 +509,48 @@ prefixCheck(
     'files=' . count(prefixStateFiles($oldestLockDirectory)),
 );
 
+// An all-locked directory is over cap with nothing evictable -- live lockouts
+// are deliberately un-evictable. That is a standing condition no sweep can
+// change, so the over-cap re-arm must NOT fire on it: if it did, every failed
+// login would bypass the interval throttle and pay a full O(N) readdir that can
+// never make progress, turning the DoS fix into a DoS. The claim is about
+// per-request COST, so it is measured against directory size.
+$lockedFloodOptions = static function (string $dir): array {
+    return [
+        'statedir' => $dir,
+        'max_attempts' => 1,
+        'window' => 900,
+        'lockout' => 900,
+        'max_entries' => 100,
+    ];
+};
+$lockedCost = [];
+foreach ([2000, 16000] as $lockedN) {
+    $lockedDirectory = $root . '/locked-flood-' . $lockedN;
+    mkdir($lockedDirectory, 0700, true);
+    for ($index = 0; $index < $lockedN; $index++) {
+        file_put_contents(
+            $lockedDirectory . '/' . hash('sha256', 'locked-' . $index) . '.json',
+            (string) json_encode([
+                'attempts' => 9, 'first' => $now, 'last' => $now, 'locked_until' => $now + 900,
+            ]),
+        );
+    }
+    $lockedOpts = $lockedFloodOptions($lockedDirectory);
+    // Warm one sweep so the throttle stamp and any marker are established.
+    prefixRequestAttempt($lockedOpts, '198.51.100.1');
+    $lockedStart = hrtime(true);
+    for ($index = 0; $index < 10; $index++) {
+        prefixRequestAttempt($lockedOpts, '198.51.100.' . (2 + $index));
+    }
+    $lockedCost[$lockedN] = (hrtime(true) - $lockedStart) / 1e6;
+}
+prefixCheck(
+    'CONTROL: an all-locked over-cap directory does not re-arm an unbounded per-request sweep',
+    $lockedCost[16000] < 4 * max($lockedCost[2000], 0.5),
+    sprintf('N=2000: %.2f ms, N=16000: %.2f ms for 10 requests', $lockedCost[2000], $lockedCost[16000]),
+);
+
 // The cap has to hold against a flood driven through record() itself, not just
 // against direct _reapStale() calls. One sweep evicts at most
 // EVICT_SAMPLE_LIMIT entries and the routine sweep is throttled to once a
@@ -880,7 +922,7 @@ prefixCheck(
 
 // ---- 10. fixed assertion count -----------------------------------------
 
-prefixCheck('fixed assertion count', BruteForcePrefixAssertions::$checks === 49, (string) BruteForcePrefixAssertions::$checks);
+prefixCheck('fixed assertion count', BruteForcePrefixAssertions::$checks === 50, (string) BruteForcePrefixAssertions::$checks);
 
 prefixRemoveTree($root);
 

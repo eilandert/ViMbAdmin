@@ -596,10 +596,11 @@ class ViMbAdmin_BruteForce
                     @chmod( $stamp, 0640 );
                 $this->_clearPrefixGrowth();
                 if( $this->_reapStale( $now ) )
-                    // Still above the cap: one sweep evicts at most
-                    // EVICT_SAMPLE_LIMIT entries, so mark the directory so the
+                    // Still above the cap AND this sweep evicted something, so
+                    // another one will get further: mark the directory so the
                     // next failed login sweeps again instead of waiting out the
-                    // interval.
+                    // interval. A sweep that could evict nothing does not set
+                    // this -- see _evictOverflow().
                     @touch( $overflowFlag );
                 elseif( $overCap )
                     @unlink( $overflowFlag );
@@ -730,8 +731,6 @@ class ViMbAdmin_BruteForce
         $next = count( $window ) < self::REAP_SCAN_LIMIT ? '' : (string) end( $window );
         $this->_saveReapCursor( $cursorPath, $next );
 
-
-
         // Hard cap: stale-only reaping cannot bound a directory an attacker
         // refreshes faster than max(window, lockout). Once the cap is exceeded,
         // evict the least-recently-touched sampled entries as well, so the
@@ -787,11 +786,19 @@ class ViMbAdmin_BruteForce
     /**
      * Evict the oldest EVICTABLE entries until the directory is back at the
      * cap. Live lockouts are excluded by _evictionCandidate(), so a flood can
-     * never delete the state that is throttling it -- if nothing is evictable
-     * the directory simply stays over cap and the caller keeps re-arming.
+     * never delete the state that is throttling it.
+     *
+     * The return value is "re-arming the next sweep would help", NOT "still
+     * over cap". When nothing in the directory is evictable -- every record
+     * carries a live lockout -- being over cap is a standing condition no
+     * amount of sweeping can change, and re-arming on it would make every
+     * failed login pay an unbounded O(N) scan forever. Progress is the
+     * condition: report true only when this pass actually evicted something
+     * and is still over cap, so the routine interval throttles the hopeless
+     * case back to once per REAP_INTERVAL_SECONDS.
      *
      * @param array<string,int> $sample basename => mtime, evictable only
-     * @return bool true when entries remain above the cap after this pass
+     * @return bool true when another sweep would make further progress
      */
     private function _evictOverflow( int $remaining, array $sample, int $now ): bool
     {
@@ -799,10 +806,13 @@ class ViMbAdmin_BruteForce
         if( $overflow <= 0 )
             return false;
         if( $sample === [] )
-            return true;
+            // Over cap with nothing evictable: no sweep can improve this, so
+            // do not re-arm.
+            return false;
 
         asort( $sample, SORT_NUMERIC );
 
+        $evicted = 0;
         foreach( array_keys( $sample ) as $entry ) {
             if( $overflow <= 0 )
                 return false;
@@ -814,11 +824,13 @@ class ViMbAdmin_BruteForce
             // become locked between the readdir sample and this deletion.
             if( $this->_isStableRegularFile( $before, $after )
                 && $this->_evictionCandidate( $path, $now ) !== null
-                && @unlink( $path ) )
+                && @unlink( $path ) ) {
                 $overflow--;
+                $evicted++;
+            }
         }
 
-        return $overflow > 0;
+        return $overflow > 0 && $evicted > 0;
     }
 
     private function _saveReapCursor( string $path, string $cursor ): void
