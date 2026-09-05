@@ -250,13 +250,10 @@ class ViMbAdmin_Doveadm
                 throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to configure cURL request' ) );
             }
 
+            // curl_multi_init() returns a CurlMultiHandle on PHP 8 and never
+            // false, so there is no failure branch to test here.
             if( $this->_multi === null )
-            {
-                $multiHandle = curl_multi_init();
-                if( $multiHandle === false )
-                    throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to initialize cURL multi handle' ) );
-                $this->_multi = $multiHandle;
-            }
+                $this->_multi = curl_multi_init();
             $multi = $this->_multi;
             $added = false;
             try
@@ -267,14 +264,14 @@ class ViMbAdmin_Doveadm
                 $added = true;
 
                 $this->driveTransfer(
-                    function() use ( $multi ): array {
+                    static function() use ( $multi ): array {
                         $running = 0;
                         $status = curl_multi_exec( $multi, $running );
                         if( !is_int( $running ) )
                             throw new ViMbAdmin_Exception( _( 'doveadm HTTP request returned invalid cURL state' ) );
                         return [ $status, $running ];
                     },
-                    function() use ( $multi ): int {
+                    static function() use ( $multi ): int {
                         return curl_multi_select( $multi, self::TRANSFER_POLL_SECONDS );
                     }
                 );

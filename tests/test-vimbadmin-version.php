@@ -15,95 +15,92 @@ $check = static function (string $label, mixed $actual, mixed $expected) use (&$
 
 echo "== ViMbAdmin version metadata ==\n";
 
-// Test gitCommit() memoization and path constraint (CWE-22)
+// gitCommit(): ref-path hardening (CWE-22) and memoization.
+// These drive the real method against a temp tree via its $root test seam,
+// so mutating the guard in Version.php turns them red.
 echo "\n== gitCommit() memoization and ref path hardening ==\n";
 
-// Create a temporary directory with a .git structure for testing
-// Use random_bytes for cryptographic uniqueness of the test directory name
-$tmpDir = sys_get_temp_dir() . '/vimbadmin-test-' . bin2hex(random_bytes(4));
-@mkdir($tmpDir);
-@mkdir($tmpDir . '/.git');
-@mkdir($tmpDir . '/.git/refs');
-@mkdir($tmpDir . '/.git/refs/heads');
+$tmpDir = sys_get_temp_dir() . '/vimbadmin-test-' . bin2hex(random_bytes(8));
+$rmTree = static function (string $dir) use (&$rmTree): void {
+    if (!is_dir($dir)) { return; }
+    foreach (scandir($dir) as $e) {
+        if ($e === '.' || $e === '..') { continue; }
+        $p = $dir . '/' . $e;
+        is_dir($p) ? $rmTree($p) : @unlink($p);
+    }
+    @rmdir($dir);
+};
+// Write $head into a fresh tree and return what gitCommit() makes of it.
+$probe = static function (string $head, ?string $refFile, ?string $refBody, ?string $planted = null) use ($tmpDir, $rmTree) {
+    $rmTree($tmpDir);
+    @mkdir($tmpDir . '/.git', 0700, true);
+    // A readable file OUTSIDE .git, reachable only by traversing out of it.
+    // refs/heads/ must physically exist or the '..' hops cannot resolve at all,
+    // which would make the probe pass for the wrong reason.
+    if ($planted !== null) {
+        @mkdir($tmpDir . '/.git/refs/heads', 0700, true);
+        file_put_contents($tmpDir . '/planted', $planted . "\n");
+    }
+    file_put_contents($tmpDir . '/.git/HEAD', $head);
+    if ($refFile !== null) {
+        @mkdir(dirname($tmpDir . '/.git/' . $refFile), 0700, true);
+        file_put_contents($tmpDir . '/.git/' . $refFile, $refBody);
+    }
+    return ViMbAdmin_Version::gitCommit($tmpDir);
+};
+
+$sha = 'abcdef0123456789abcdef0123456789abcdef01';
 
 try {
-    // Test 1: Normal ref: refs/heads/master path
-    @file_put_contents($tmpDir . '/.git/HEAD', "ref: refs/heads/master\n");
-    @file_put_contents($tmpDir . '/.git/refs/heads/master', "abcdef0123456789abcdef0123456789abcdef01\n");
+    // Accepts a normal ref and returns the SHA it points at.
+    $check('normal ref resolves to its SHA',
+        $probe("ref: refs/heads/master\n", 'refs/heads/master', $sha . "\n"), $sha);
 
-    $refMethod = new ReflectionMethod(ViMbAdmin_Version::class, 'gitCommit');
-    $refMethod->setAccessible(true);
+    // Traversal out of .git is refused even though the target IS readable --
+    // 'planted' sits outside .git, so a null here can only come from the guard,
+    // never from an unreadable path.
+    $planted = 'cafebabe0123456789cafebabe0123456789cafe';
+    $check('traversal ref is rejected even when its target is readable',
+        $probe("ref: refs/heads/../../../planted\n", null, null, $planted), null);
+    $check('traversal ref with single .. is rejected',
+        $probe("ref: refs/../../planted\n", null, null, $planted), null);
+    // Control: without traversal, that same planted content IS reachable,
+    // proving the probe can see the file and the rejection above is the guard.
+    $check('non-traversing ref reaches a planted target',
+        $probe("ref: refs/heads/planted\n", 'refs/heads/planted', $planted . "\n"), $planted);
 
-    // We need to mock the method to use our tmpDir instead. Let's use a different approach:
-    // Test the ref path validation directly
-    $gitHeadContent = "ref: refs/heads/master\n";
-    $ref = trim($gitHeadContent);
-    if (strpos($ref, 'ref:') === 0) {
-        $refPath = trim(substr($ref, 4));
-        // This is the validation we added
-        $valid = preg_match('~^refs/[A-Za-z0-9._/-]+$~', $refPath) && strpos($refPath, '..') === false;
-        $check('normal ref path passes validation', $valid, true);
-    }
+    // A ref outside the refs/ namespace is refused. 'planted' is placed at the
+    // exact path the ref names and IS readable, so null can only be the ^refs/
+    // prefix constraint -- not a missing file. This is what pins the regex
+    // independently of the '..' check.
+    $check('non-refs ref is rejected even when its target is readable',
+        $probe("ref: config\n", 'config', $planted . "\n"), null);
+    $check('absolute-looking ref is rejected',
+        $probe("ref: /etc/passwd\n", null, null), null);
 
-    // Test 2: Reject directory traversal attempt
-    $maliciousRef = "ref: refs/heads/../../etc/passwd";
-    $refPath = trim(substr($maliciousRef, 4));
-    $valid = preg_match('~^refs/[A-Za-z0-9._/-]+$~', $refPath) && strpos($refPath, '..') === false;
-    $check('directory traversal attempt is rejected', $valid, false);
+    // A detached 40-char SHA in HEAD is still honoured.
+    $check('detached HEAD sha is returned',
+        $probe($sha . "\n", null, null), $sha);
 
-    // Test 3: Reject non-refs prefix
-    $invalidRef = "ref: objects/abc123";
-    $refPath = trim(substr($invalidRef, 4));
-    $valid = preg_match('~^refs/[A-Za-z0-9._/-]+$~', $refPath) && strpos($refPath, '..') === false;
-    $check('non-refs path is rejected', $valid, false);
-
-    // Test 4: Valid refs with various branch names (alphanumeric, dots, slashes, hyphens, underscores)
-    $validPaths = [
-        'refs/heads/master',
-        'refs/heads/feature-123',
-        'refs/heads/feature.stable',
-        'refs/heads/release/4.0',
-        'refs/heads/feat_underscore',
-        'refs/tags/v4.0.0',
-        'refs/remotes/origin/main',
-    ];
-    foreach ($validPaths as $path) {
-        $valid = preg_match('~^refs/[A-Za-z0-9._/-]+$~', $path) && strpos($path, '..') === false;
-        $check("valid ref path '$path' passes", $valid, true);
-    }
-
-    // Test 5: Invalid paths with .. segments
-    $invalidPaths = [
-        'refs/../etc/passwd',
-        'refs/heads/../../../etc/passwd',
-        'refs/heads/master..',
-    ];
-    foreach ($invalidPaths as $path) {
-        $valid = preg_match('~^refs/[A-Za-z0-9._/-]+$~', $path) && strpos($path, '..') === false;
-        $check("path with '..' is rejected: '$path'", $valid, false);
-    }
-
-    // Test memoization by checking if static cache works
-    // We'll create a mini reflection test
+    // Memoization: the seam path must NOT populate the production cache...
     $cacheProperty = new ReflectionProperty(ViMbAdmin_Version::class, '_gitCommitCache');
     $cacheProperty->setAccessible(true);
-
-    // Reset cache to test memoization
     $cacheProperty->setValue(null, false);
+    $probe("ref: refs/heads/master\n", 'refs/heads/master', $sha . "\n");
+    $check('test seam does not poison the production memo',
+        $cacheProperty->getValue(), false);
 
-    // The actual gitCommit() call will try to read from the real .git, but since we're in tests,
-    // it should return null and cache that. A second call should return the cached null immediately.
-    // We can't easily test this without mocking the entire filesystem, so we'll just verify
-    // the cache property exists and is accessible.
-    $check('cache property is accessible', true, true);
-
+    // ...while the default path computes once and then serves the cache.
+    $first = ViMbAdmin_Version::gitCommit();
+    $check('production call populates the memo',
+        $cacheProperty->getValue(), $first);
+    $cacheProperty->setValue(null, 'sentinel-from-cache');
+    $check('second production call is served from the memo',
+        ViMbAdmin_Version::gitCommit(), 'sentinel-from-cache');
+    $cacheProperty->setValue(null, false);
 } finally {
-    // Clean up temp directory
-    @unlink($tmpDir . '/.git/refs/heads/master');
-    @rmdir($tmpDir . '/.git/refs/heads');
-    @rmdir($tmpDir . '/.git/refs');
-    @rmdir($tmpDir . '/.git');
-    @rmdir($tmpDir);
+    $rmTree($tmpDir);
+    @unlink(sys_get_temp_dir() . '/vimbadmin-outside-target');
 }
 
 $commit = '0123456789abcdef0123456789abcdef01234567';

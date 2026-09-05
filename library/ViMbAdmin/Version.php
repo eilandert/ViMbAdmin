@@ -139,18 +139,23 @@ final class ViMbAdmin_Version
      * truth at runtime). Returns the 40-char SHA, or null if the marker is
      * absent (e.g. running straight from a working tree in dev).
      *
-     * Result is memoized on the first call.
+     * Result is memoized on the first call. The memo covers only the default
+     * (production) root; an explicit $root is a test seam and is never cached,
+     * so a test tree can never poison the value the application reads.
      *
+     * @param string|null $root  Test seam. Null uses the real application root.
      * @return string|null
      */
-    public static function gitCommit()
+    public static function gitCommit( $root = null )
     {
+        $useCache = ( $root === null );
         // Return cached result (includes the case where we cached null).
-        if( self::$_gitCommitCache !== false )
+        if( $useCache && self::$_gitCommitCache !== false )
             return self::$_gitCommitCache;
 
         // Dev fallback: a real .git in the tree (the image strips it).
-        $root = dirname( dirname( __DIR__ ) );          // .../ (app root)
+        if( $root === null )
+            $root = dirname( dirname( __DIR__ ) );      // .../ (app root)
         // NOTE: the marker lives at the app ROOT, NOT under var/ -- var/ is a
         // writable volume at runtime and would shadow a baked-in file.
         $marker = $root . '/GIT_COMMIT';
@@ -159,7 +164,8 @@ final class ViMbAdmin_Version
             $sha = trim( (string) file_get_contents( $marker ) );
             if( preg_match( '/^[0-9a-f]{7,40}$/i', $sha ) )
             {
-                self::$_gitCommitCache = $sha;
+                if( $useCache )
+                    self::$_gitCommitCache = $sha;
                 return $sha;
             }
         }
@@ -175,24 +181,28 @@ final class ViMbAdmin_Version
                 if( !preg_match( '~^refs/[A-Za-z0-9._/-]+$~', $refPath )
                     || strpos( $refPath, '..' ) !== false )
                 {
-                    self::$_gitCommitCache = null;
+                    if( $useCache )
+                        self::$_gitCommitCache = null;
                     return null;
                 }
                 $path = $root . '/.git/' . $refPath;
                 if( is_readable( $path ) )
                 {
                     $sha = trim( (string) file_get_contents( $path ) );
-                    self::$_gitCommitCache = $sha;
+                    if( $useCache )
+                        self::$_gitCommitCache = $sha;
                     return $sha;
                 }
             }
             elseif( preg_match( '/^[0-9a-f]{40}$/i', $ref ) )
             {
-                self::$_gitCommitCache = $ref;
+                if( $useCache )
+                    self::$_gitCommitCache = $ref;
                 return $ref;
             }
         }
-        self::$_gitCommitCache = null;
+        if( $useCache )
+            self::$_gitCommitCache = null;
         return null;
     }
 
