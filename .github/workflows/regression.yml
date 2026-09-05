@@ -61,7 +61,7 @@ jobs:
           CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
           bash tests/test-residual-stored-xss-rendering.sh
 
-      - name: Delegated confirm-guard blocks cancelled destructive submits (VIM-D07)
+      - name: Delegated confirm-guard blocks cancelled submits (VIM-D07)
         run: >-
           CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
           bash tests/test-confirm-guard-behaviour.sh

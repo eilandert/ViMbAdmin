@@ -144,11 +144,15 @@ check(
 // on*= attribute creeping back into a view is a silently dead handler --
 // including the confirm() guards on destructive actions. Scan the view JS files
 // too: several build HTML strings that used to carry the attributes.
+/** @var list<string> $handlerSources */
 $handlerSources = $views;
 $jsIt = new RecursiveIteratorIterator(
     new RecursiveDirectoryIterator(__DIR__ . '/../application/views', FilesystemIterator::SKIP_DOTS)
 );
 foreach ($jsIt as $jsFile) {
+    if (!$jsFile instanceof SplFileInfo) {
+        continue;
+    }
     if ($jsFile->isFile() && str_ends_with($jsFile->getFilename(), '.js')) {
         $handlerSources[] = $jsFile->getPathname();
     }
