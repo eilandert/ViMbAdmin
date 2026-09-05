@@ -1088,14 +1088,20 @@ controllerAliasIdentityCheck('delete-alias still detaches a mailbox from a cross
 // mailbox's domain instead leaves the alias's domain overcounted and silently
 // corrupts an unrelated domain's total. Case (b2) cannot catch this: its alias
 // has two gotos, so it takes the trim branch and touches no counter.
-$countAdmin = new ControllerAliasIdentityScopedAdmin([$ownedDomain, $foreignDomain]);
-$countMailbox = (new \Entities\Mailbox())->setUsername('solo@foreign.test')->setDomain($foreignDomain);
+// Fresh domains per case: this is the only block that really decrements a
+// counter, so sharing $ownedDomain with the earlier cases would make case (a)'s
+// hard-coded count assertion fail if anyone reorders these blocks -- a failure
+// that points at the wrong line.
+$countOwned   = $scopeIdent((new \Entities\Domain())->setDomain('owned.test')->setAliasCount(4), 10);
+$countForeign = $scopeIdent((new \Entities\Domain())->setDomain('foreign.test')->setAliasCount(9), 20);
+$countAdmin = new ControllerAliasIdentityScopedAdmin([$countOwned, $countForeign]);
+$countMailbox = (new \Entities\Mailbox())->setUsername('solo@foreign.test')->setDomain($countForeign);
 $countAlias   = (new \Entities\Alias())
     ->setAddress('solo-alias@owned.test')
     ->setGoto('solo@foreign.test')
-    ->setDomain($ownedDomain);
-$ownedCountBefore   = $ownedDomain->getAliasCount();
-$foreignCountBefore = $foreignDomain->getAliasCount();
+    ->setDomain($countOwned);
+$ownedCountBefore   = $countOwned->getAliasCount();
+$foreignCountBefore = $countForeign->getAliasCount();
 $countSession = new ControllerAliasIdentitySession($scopeBaseSession);
 $countEm = new ControllerAliasIdentityRecordingEntityManager([
     'Entities\\Alias' => new ControllerAliasIdentityAliasRepository([$countAlias]),
@@ -1112,9 +1118,10 @@ $countResponse = (new MailboxController(
 ))->deleteAliasAction();
 controllerAliasIdentityCheck('delete-alias decrements the alias domain, not the mailbox domain',
     $countResponse->status === 302
+        && str_starts_with((string) ($countResponse->headers['Location'] ?? ''), '/mailbox/aliases/mid/')
         && $countEm->removed === [$countAlias]
-        && $ownedDomain->getAliasCount() === $ownedCountBefore - 1
-        && $foreignDomain->getAliasCount() === $foreignCountBefore
+        && $countOwned->getAliasCount() === $ownedCountBefore - 1
+        && $countForeign->getAliasCount() === $foreignCountBefore
         && count($countEm->persisted) === 1
         && $countEm->persisted[0] instanceof \Entities\Log
         && $countEm->flushes === 1);
