@@ -145,10 +145,11 @@ final class AdminController extends AbstractController
     }
 
     /**
-     * GET /admin/purge/aid/<id>/csrf/<token> — permanently delete an admin.
+     * POST /admin/purge — permanently delete an admin.
      *
-     * The full state-changing path natively: CSRF-guarded (the link the native
-     * admin/list mints carries the session token), super-only, refuses a missing
+     * The full state-changing path natively: CSRF-guarded in the POST body (the
+     * form the native admin/list mints carries the session token as a hidden
+     * field, so the token never lands in a URL), super-only, refuses a missing
      * target or self-purge with a flashed error, otherwise purges via the
      * framework-free ViMbAdmin_Service_Admin and flashes success — each followed
      * by a redirect to admin/list, where the {OSS_Message} renderer shows the
@@ -161,7 +162,7 @@ final class AdminController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        if (!$this->csrfValid()) {
+        if (!$this->postBodyCsrfValid()) {
             $this->flash('Invalid or missing security token. Please retry from the list page.', FlashMessages::ERROR);
             return $this->redirect('admin/list');
         }
@@ -374,9 +375,8 @@ final class AdminController extends AbstractController
 
     /**
      * Whether the request carries a valid CSRF token in the POST body (`csrf`
-     * field). The 2FA forms POST the token as a hidden input rather than carrying
-     * it in the URL like the GET-link actions, so the base {@see csrfValid()}
-     * (which reads the route params) does not see it.
+     * field). The 2FA forms POST the token as a hidden input, so the base
+     * {@see csrfValid()} (which reads the route params) does not see it.
      */
     private function postCsrfValid(): bool
     {

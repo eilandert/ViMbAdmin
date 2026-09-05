@@ -216,15 +216,27 @@ function toggleActive(elid, id) {
                 <a class="btn btn-mini have-tooltip" id="modal-dialog-mailbox_settings_' + id + '" title="Send Settings" href="{genUrl controller="mailbox" action="email-settings"}/mid/' + id + '">\
                     <i class="icon-envelope"></i>\
                 </a>\
-                <a class="btn btn-mini have-tooltip" id="repair_' + id + '" title="Repair / optimize (queued)" href="{genUrl controller="mailbox" action="queue-repair"}/mid/' + id + '/csrf/{$csrfToken}">\
-                    <i class="icon-wrench"></i>\
-                </a>\
-                <a class="btn btn-mini have-tooltip" id="archive_' + id + '" title="Archive (queued: backup + empty mailbox, keep account)" href="{genUrl controller="mailbox" action="queue-archive"}/mid/' + id + '/csrf/{$csrfToken}">\
-                    <i class="icon-inbox"></i>\
-                </a>\
-                <a class="btn btn-mini have-tooltip btn-danger" id="delete_' + id + '" title="Delete (queued: backup, then remove mailbox + account)" href="{genUrl controller="mailbox" action="queue-delete"}/mid/' + id + '/csrf/{$csrfToken}">\
-                    <i class="icon-trash"></i>\
-                </a>';
+                <form method="post" action="{genUrl controller="mailbox" action="queue-repair"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;">\
+                    <input type="hidden" name="mid" value="' + id + '" />\
+                    <input type="hidden" name="csrf" value="{$csrfToken}" />\
+                    <button class="btn btn-mini have-tooltip" id="repair_' + id + '" title="Repair / optimize (queued)" type="submit">\
+                        <i class="icon-wrench"></i>\
+                    </button>\
+                </form>\
+                <form method="post" action="{genUrl controller="mailbox" action="queue-archive"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" onsubmit="return confirm(\'Archive this mailbox? Backs up + empties the mailbox, keeps the account.\');">\
+                    <input type="hidden" name="mid" value="' + id + '" />\
+                    <input type="hidden" name="csrf" value="{$csrfToken}" />\
+                    <button class="btn btn-mini have-tooltip" id="archive_' + id + '" title="Archive (queued: backup + empty mailbox, keep account)" type="submit">\
+                        <i class="icon-inbox"></i>\
+                    </button>\
+                </form>\
+                <form method="post" action="{genUrl controller="mailbox" action="queue-delete"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" onsubmit="return confirm(\'DELETE this mailbox? Backs up, then removes the mail AND the account. This cannot be undone from here.\');">\
+                    <input type="hidden" name="mid" value="' + id + '" />\
+                    <input type="hidden" name="csrf" value="{$csrfToken}" />\
+                    <button class="btn btn-mini have-tooltip btn-danger" id="delete_' + id + '" title="Delete (queued: backup, then remove mailbox + account)" type="submit">\
+                        <i class="icon-trash"></i>\
+                    </button>\
+                </form>';
                 
                 {if isset( $action_list_menu)}
                     {assign var="action" value=$action_list_menu}

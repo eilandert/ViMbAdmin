@@ -500,11 +500,13 @@ final class AliasController extends AbstractController
     }
 
     /**
-     * GET /alias/delete/alid/<id>/csrf/<token> — delete an alias.
+     * POST /alias/delete — delete an alias.
      *
-     * Faithful port of the ZF1 CSRF-guarded `deleteAction`: the token (carried in
-     * the URL, the same one the list's delete link mints) is asserted FIRST — an
-     * invalid/missing token flashes + bounces to the list. A missing alias (or a
+     * Faithful port of the ZF1 CSRF-guarded `deleteAction`, hardened to a POST:
+     * the token must arrive in the POST body (the list's delete form mints it as
+     * a hidden field), so a bare GET — replayable from history, a prefetch or a
+     * leaked Referer — cannot reach the mutation. An invalid/missing token, or a
+     * non-POST, flashes + bounces to the list. A missing alias (or a
      * domain the admin cannot manage) redirects to the list. The mutation runs
      * through the extracted {@see \ViMbAdmin_Service_Alias::delete} with the plugin
      * pre-remove/pre-flush/post-flush hooks threaded over the native
@@ -518,8 +520,8 @@ final class AliasController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        // _assertCsrf(): the token is carried in the URL on the delete link.
-        if (!$this->csrfValid()) {
+        // _assertCsrf(): the token must travel in the POST body, never the URL.
+        if (!$this->postBodyCsrfValid()) {
             $this->flash('Invalid or missing security token. Please retry from the list page.', FlashMessages::ERROR);
             return $this->redirect('alias/list');
         }

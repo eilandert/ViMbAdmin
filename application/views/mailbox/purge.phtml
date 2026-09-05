@@ -75,6 +75,7 @@
     <br />
 
     <form name="purge_mailbox_form" id="purge_mailbox_form" method="post" action="">
+        <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
         <fieldset class="form-actions">
             <a class="btn" href="{genUrl controller='mailbox' action='list'}">Cancel</a>
             <button class="btn btn-danger" type="submit" value="purge" name="purge">Purge</button>

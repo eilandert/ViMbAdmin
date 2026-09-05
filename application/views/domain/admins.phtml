@@ -32,9 +32,14 @@
             <tr id="admin_{$admin->getId()}">
                 <td>{$admin->getUsername()}{if !$admin->getActive()} <em>(inactive)</em>{/if}</td>
                 <td>
-                    <a class="btn btn-small have-tooltip" href="{genUrl controller='domain' action='remove-admin' aid=$admin->getId() did=$domain->getId() csrf=$csrfToken}" ref="{$admin->getUsername()}" id="remove-admin-{$admin->getId()}" title="Remove">
-                        <i class="icon-minus"></i>
-                    </a>
+                    <form method="post" action="{genUrl controller='domain' action='remove-admin'}" class="remove-admin-form" style="display: inline;">
+                        <input type="hidden" name="aid" value="{$admin->getId()}" />
+                        <input type="hidden" name="did" value="{$domain->getId()}" />
+                        <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
+                        <button class="btn btn-small have-tooltip" ref="{$admin->getUsername()}" id="remove-admin-{$admin->getId()}" title="Remove" type="submit">
+                            <i class="icon-minus"></i>
+                        </button>
+                    </form>
                 </td>
             </tr>
         {/if}

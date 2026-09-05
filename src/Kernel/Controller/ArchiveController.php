@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
-use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityManagerInterface;
 use Entities\Admin;
 use LogicException;
 use Repositories\Archive as ArchiveRepository;
@@ -262,11 +262,12 @@ final class ArchiveController extends AbstractController
     }
 
     /**
-     * GET /archive/toggle-autoprune/arid/<id>/csrf/<token> — flip autoprune.
+     * POST /archive/toggle-autoprune — flip autoprune.
      *
-     * Faithful port of the ZF1 `toggleAutopruneAction`: the CSRF token (carried in
-     * the URL, the same one the archive-list link mints) is asserted first — an
-     * invalid/missing token flashes + bounces to the list. The archive is resolved
+     * Faithful port of the ZF1 `toggleAutopruneAction`, hardened to a POST: the
+     * CSRF token must arrive in the POST body (the archive-list form mints it as
+     * a hidden field) — an invalid/missing token, or a non-POST, flashes +
+     * bounces to the list. The archive is resolved
      * from `arid` and a non-super admin is authorised against its domain (the ZF1
      * `loadArchive` check). The flip / timestamp bookkeeping / log / flush live in
      * the framework-free `ViMbAdmin_Service_Archive::toggleAutoprune`, which
@@ -280,8 +281,8 @@ final class ArchiveController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        // _assertCsrf(): the token is carried in the URL on the toggle link.
-        if (!$this->csrfValid()) {
+        // _assertCsrf(): the token must travel in the POST body, never the URL.
+        if (!$this->postBodyCsrfValid()) {
             $this->flash('Invalid or missing security token. Please retry from the list page.', FlashMessages::ERROR);
             return $this->redirect('archive/list');
         }
@@ -307,9 +308,10 @@ final class ArchiveController extends AbstractController
     }
 
     /**
-     * GET /archive/delete/arid/<id>/csrf/<token> — delete a backup permanently.
+     * POST /archive/delete — delete a backup permanently.
      *
-     * Faithful port of the ZF1 `deleteAction`: CSRF-gated, resolve + authorise the
+     * Faithful port of the ZF1 `deleteAction`, hardened to a POST whose body
+     * carries the CSRF token: resolve + authorise the
      * archive, remove the backup files via the doveadm HTTP API FIRST (a failure
      * aborts with an error flash, before the DB row is touched — matching ZF1), then
      * drop the archive row + log via `ViMbAdmin_Service_Archive::delete`. Redirects
@@ -322,7 +324,7 @@ final class ArchiveController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        if (!$this->csrfValid()) {
+        if (!$this->postBodyCsrfValid()) {
             $this->flash('Invalid or missing security token. Please retry from the list page.', FlashMessages::ERROR);
             return $this->redirect('archive/list');
         }
@@ -356,10 +358,11 @@ final class ArchiveController extends AbstractController
     }
 
     /**
-     * GET /archive/restore/arid/<id>/csrf/<token> — restore a backup into the
+     * POST /archive/restore — restore a backup into the
      * live mailbox.
      *
-     * Faithful port of the ZF1 `restoreAction`: CSRF-gated; only an ARCHIVED
+     * Faithful port of the ZF1 `restoreAction`, hardened to a POST whose body
+     * carries the CSRF token; only an ARCHIVED
      * backup can be restored. (1) If the mailbox was DELETEd it is recreated from
      * the JSON snapshot stored on the archive (original password hash preserved).
      * (2) The backup is synced back into the live store via the doveadm HTTP API
@@ -377,7 +380,7 @@ final class ArchiveController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        if (!$this->csrfValid()) {
+        if (!$this->postBodyCsrfValid()) {
             $this->flash('Invalid or missing security token. Please retry from the list page.', FlashMessages::ERROR);
             return $this->redirect('archive/list');
         }
@@ -483,10 +486,10 @@ final class ArchiveController extends AbstractController
         return $this->redirect('archive/list');
     }
 
-    protected function em(): EntityManager
+    protected function em(): EntityManagerInterface
     {
         $em = parent::em();
-        if (!$em instanceof EntityManager) {
+        if (!$em instanceof EntityManagerInterface) {
             throw new LogicException('Doctrine entity manager resource has an invalid type');
         }
 

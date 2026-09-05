@@ -518,10 +518,11 @@ final class MailboxController extends AbstractController
     /**
      * GET|POST /mailbox/purge/mid/<id>/csrf/<token> — purge a mailbox.
      *
-     * Faithful port of the ZF1 `purgeAction`: the CSRF token (carried in the URL,
-     * the same one the list's purge link mints) is asserted FIRST on both the
-     * GET confirmation and the POST — an invalid/missing token flashes + bounces
-     * to the list. A missing mailbox (or a domain the admin cannot manage)
+     * Faithful port of the ZF1 `purgeAction`, hardened so only the POST mutates.
+     * The read-only GET confirmation still accepts the link token, but the
+     * purge itself requires a POST whose body carries the token (the
+     * confirmation form mints it as a hidden field) — an invalid/missing token
+     * flashes + bounces to the list. A missing mailbox (or a domain the admin cannot manage)
      * redirects to the list. The GET renders the existing `mailbox/purge.phtml`
      * confirmation byte-for-byte (the mailbox plus its dependent + containing
      * aliases). The POST (`purge=purge`) runs the mutation through the extracted
@@ -536,7 +537,8 @@ final class MailboxController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        // _assertCsrf(): the token is in the URL on both the GET and the POST.
+        // _assertCsrf(): the read-only confirmation page accepts the link token;
+        // the mutating POST branch below additionally requires a body token.
         if (!$this->csrfValid()) {
             $this->flash('Invalid or missing security token. Please retry from the list page.', FlashMessages::ERROR);
             return $this->redirect('mailbox/list');
@@ -558,6 +560,13 @@ final class MailboxController extends AbstractController
         $aliasRepo = $this->aliasRepository();
 
         if ($this->isPost() && (($this->postData()['purge'] ?? null) === 'purge')) {
+            // The mutation itself only ever runs on a POST carrying the token in
+            // its body, so a purge cannot be triggered by a URL alone.
+            if (!$this->postBodyCsrfValid()) {
+                $this->flash('Invalid or missing security token. Please retry from the list page.', FlashMessages::ERROR);
+                return $this->redirect('mailbox/list');
+            }
+
             // On-disk file deletion removed: ViMbAdmin has no shared maildir
             // filesystem (mail lives in the Dovecot container, reached over the
             // doveadm HTTP API). Real mail removal goes through the doveadm
@@ -911,7 +920,7 @@ final class MailboxController extends AbstractController
     }
 
     /**
-     * GET /mailbox/delete-alias/mid/<id>/alid/<id>/csrf/<token> — remove a mailbox
+     * POST /mailbox/delete-alias (mid, alid, csrf in the body) — remove a mailbox
      * from one of its aliases (or delete the alias if this mailbox was its only
      * destination).
      *
@@ -922,8 +931,8 @@ final class MailboxController extends AbstractController
      * an ALIAS_DELETE. Redirects back to the mailbox's alias list.
      *
      * NOTE: also fixes a latent deployment bug — the aliases-page delete link
-     * carried no `csrf` segment, so `_assertCsrf()` always failed; it now carries
-     * `$csrfToken`.
+     * carried no `csrf` segment, so `_assertCsrf()` always failed; the control is
+     * now a POST form carrying the token as a hidden field.
      *
      * Both `mid` and `alid` are authorised independently: the admin must manage
      * the mailbox's domain AND the alias's domain. The two domains need not
@@ -938,7 +947,7 @@ final class MailboxController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        if (!$this->csrfValid()) {
+        if (!$this->postBodyCsrfValid()) {
             $this->flash('Invalid or missing security token. Please retry from the list page.', FlashMessages::ERROR);
             return $this->redirect('mailbox/list');
         }
@@ -1097,7 +1106,7 @@ final class MailboxController extends AbstractController
     }
 
     /**
-     * GET /mailbox/queue-repair/mid/<id>/csrf/<token> — enqueue a REPAIR task.
+     * POST /mailbox/queue-repair (mid, csrf in the body) — enqueue a REPAIR task.
      */
     public function queueRepairAction(): Response
     {
@@ -1105,7 +1114,7 @@ final class MailboxController extends AbstractController
     }
 
     /**
-     * GET /mailbox/queue-archive/mid/<id>/csrf/<token> — enqueue an ARCHIVE task.
+     * POST /mailbox/queue-archive (mid, csrf in the body) — enqueue an ARCHIVE task.
      */
     public function queueArchiveAction(): Response
     {
@@ -1113,7 +1122,7 @@ final class MailboxController extends AbstractController
     }
 
     /**
-     * GET /mailbox/queue-delete/mid/<id>/csrf/<token> — enqueue a DELETE task.
+     * POST /mailbox/queue-delete (mid, csrf in the body) — enqueue a DELETE task.
      */
     public function queueDeleteAction(): Response
     {
@@ -1122,7 +1131,8 @@ final class MailboxController extends AbstractController
 
     /**
      * Enqueue a background mailbox-maintenance task (the native port of the ZF1
-     * `_queueMailboxTask`). CSRF-gated GET link; resolve + authorise the mailbox,
+     * `_queueMailboxTask`). CSRF-gated POST (the token travels in the request
+     * body, never the URL); resolve + authorise the mailbox,
      * enqueue via `ViMbAdmin_MailboxQueue` (deduped — a second identical open task
      * is refused with an info notice), audit-log the request, flash and bounce to
      * the list. The cron / native run-now then drains it through the shared
@@ -1135,7 +1145,7 @@ final class MailboxController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        if (!$this->csrfValid()) {
+        if (!$this->postBodyCsrfValid()) {
             $this->flash('Invalid or missing security token. Please retry from the list page.', FlashMessages::ERROR);
             return $this->redirect('mailbox/list');
         }

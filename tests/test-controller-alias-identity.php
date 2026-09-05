@@ -456,6 +456,10 @@ controllerAliasIdentityCheck('alias edit rejects missing goto before rendering',
 controllerAliasIdentityCheck('alias edit identity failure leaves state and flash queue untouched',
     $gotoMissing->getGoto() === null && $aliasSession->values() === ['identity' => ['id' => 1]]);
 
+// mailbox delete-alias is POST-only with a body CSRF token (VIM-D05).
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_POST['csrf'] = 'test-token';
+
 $addressMissing = (new \Entities\Alias())->setGoto('user@example.test')->setDomain($domain);
 $mailbox = (new \Entities\Mailbox())->setUsername('user@example.test')->setDomain($domain);
 $mailboxSession = new ControllerAliasIdentitySession([
@@ -472,7 +476,6 @@ $mailboxController = new MailboxController(
     new RouteMatch('mailbox', 'delete-alias', MailboxController::class, 'deleteAliasAction', [
         'mid' => '3',
         'alid' => '7',
-        'csrf' => 'test-token',
     ]),
 );
 $mailboxError = null;
@@ -517,7 +520,6 @@ $orphanController = new MailboxController(
     new RouteMatch('mailbox', 'delete-alias', MailboxController::class, 'deleteAliasAction', [
         'mid' => '3',
         'alid' => '7',
-        'csrf' => 'test-token',
     ]),
 );
 $orphanResponse = $orphanController->deleteAliasAction();

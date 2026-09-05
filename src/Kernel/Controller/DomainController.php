@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ViMbAdmin\Kernel\Controller;
 
-use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityManagerInterface;
 use Entities\Admin;
 use LogicException;
 use Repositories\Admin as AdminRepository;
@@ -499,10 +499,11 @@ final class DomainController extends AbstractController
     }
 
     /**
-     * GET /domain/remove-admin/did/<id>/aid/<id> — detach an admin from a domain.
+     * POST /domain/remove-admin — detach an admin from a domain.
      *
-     * Super-only, no CSRF (a super-gated GET link, matching the ZF1 action and the
-     * AdminController `removeDomainAction` #40). Detaches via the framework-free
+     * Super-only and CSRF-guarded over the POST body, matching the
+     * AdminController `removeDomainAction`: a bare GET cannot reach the detach.
+     * Detaches via the framework-free
      * `ViMbAdmin_Service_Domain::removeAdmin` (detach + log + flush), then flashes
      * and bounces back to the domain's admins page.
      */
@@ -512,7 +513,7 @@ final class DomainController extends AbstractController
         if ($admin === null || !$admin->isSuper()) {
             return $this->redirect('auth/login');
         }
-        if (!$this->csrfValid()) {
+        if (!$this->postBodyCsrfValid()) {
             $this->flash('Invalid or missing security token. Please retry from the administrators page.', FlashMessages::ERROR);
             return $this->redirect('domain/list');
         }
@@ -607,11 +608,11 @@ final class DomainController extends AbstractController
     }
 
     /**
-     * GET /domain/purge/did/<id>/csrf/<token> — purge a domain and everything in it.
+     * POST /domain/purge — purge a domain and everything in it.
      *
-     * Faithful port of the ZF1 `purgeAction`: super-only, the CSRF token (carried
-     * in the URL) is asserted first — an invalid/missing token flashes + bounces to
-     * the list. The mutation runs through the already-extracted
+     * Faithful port of the ZF1 `purgeAction`, hardened to a POST: super-only, the
+     * CSRF token must arrive in the POST body — an invalid/missing token, or a
+     * non-POST, flashes + bounces to the list. The mutation runs through the already-extracted
      * `ViMbAdmin_Service_Domain::purge` (which delegates to the repository purge
      * that cascades the domain's mailboxes/aliases/archives). No plugin listens to
      * the `domain_purge_*` hooks the ZF1 action fires, so they are a no-op and are
@@ -620,7 +621,8 @@ final class DomainController extends AbstractController
      *
      * NOTE: this also fixes a latent deployment bug — the `domain/js/list.js` purge
      * link was built without a `csrf` segment, so the ZF1 `_assertCsrf()` always
-     * failed and domain purge silently bounced; the link now carries `$csrfToken`.
+     * failed and domain purge silently bounced; the purge control is now a POST
+     * form carrying the token as a hidden field.
      */
     public function purgeAction(): Response
     {
@@ -629,8 +631,8 @@ final class DomainController extends AbstractController
             return $this->redirect('auth/login');
         }
 
-        // _assertCsrf(): the token is carried in the URL on the purge link.
-        if (!$this->csrfValid()) {
+        // _assertCsrf(): the token must travel in the POST body, never the URL.
+        if (!$this->postBodyCsrfValid()) {
             $this->flash('Invalid or missing security token. Please retry from the list page.', FlashMessages::ERROR);
             return $this->redirect('domain/list');
         }
@@ -799,7 +801,10 @@ final class DomainController extends AbstractController
     }
 
     /**
-     * GET /domain/ajax-toggle-active/did/<id> — flip a domain's active flag.
+     * POST /domain/ajax-toggle-active — flip a domain's active flag.
+     *
+     * The token is read from the POST body (`ossToggle` submits it alongside
+     * `did`), so the flip is unreachable by a bare GET.
      */
     public function ajaxToggleActiveAction(): Response
     {
@@ -807,7 +812,7 @@ final class DomainController extends AbstractController
         if ($admin === null) {
             return $this->redirect('auth/login');
         }
-        if (!$this->csrfValid()) {
+        if (!$this->postBodyCsrfValid()) {
             return new Response('ko');
         }
 
@@ -825,10 +830,10 @@ final class DomainController extends AbstractController
         return new Response('ok');
     }
 
-    protected function em(): EntityManager
+    protected function em(): EntityManagerInterface
     {
         $em = parent::em();
-        if (!$em instanceof EntityManager) {
+        if (!$em instanceof EntityManagerInterface) {
             throw new LogicException('Doctrine entity manager resource has an invalid type');
         }
 
