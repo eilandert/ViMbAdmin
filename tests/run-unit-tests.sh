@@ -41,6 +41,10 @@ trap cleanup EXIT
 # runner treats an exit-0 test as unproven rather than scoring it a pass — a
 # test that truncates mid-run (an early exit()/return) still exits 0 but
 # leaves no verdict line behind.
+#
+# These patterns match the shapes the suite actually emits; they are a check
+# that a test reached its end, not an assertion about what it proved. A test
+# is free to print a misleading verdict, so this is a truncation gate only.
 readonly verdict_re_all_passed='^ALL PASSED( \([0-9]+ checks?\))?$'
 readonly verdict_re_ok_assertions='^OK: all [A-Za-z0-9][A-Za-z0-9_+ -]{0,120} assertions passed( \(PHP [^)]*\))?$'
 verdict_ok() {
@@ -77,13 +81,25 @@ for test in "${selected_tests[@]}"; do
   is_excluded "$test" && continue
   echo "== $test =="
   : >"$test_output"
-  # `set -e` would abort at the pipeline itself under `pipefail`, so the failure
-  # is caught here instead — otherwise the diagnostic below is unreachable.
-  php_status=0
-  { php "$test" | tee "$test_output"; } || php_status=${PIPESTATUS[0]}
+  # `set -e`/`pipefail` would abort at the pipeline itself, making the
+  # diagnostics below unreachable, so disable it just long enough to read
+  # PIPESTATUS. It must be captured by the statement immediately following the
+  # pipeline — any other command in between resets it.
+  set +e
+  php "$test" | tee "$test_output"
+  pipe_status=("${PIPESTATUS[@]}")
+  set -e
+  php_status=${pipe_status[0]}
+  tee_status=${pipe_status[1]:-0}
   if ((php_status != 0)); then
     printf 'Test failed: %s (exit %d)\n' "$test" "$php_status" >&2
     exit "$php_status"
+  fi
+  # php succeeded but the pipeline did not, so `tee` failed and the captured
+  # output is unreliable — do not let that surface as a missing verdict.
+  if ((tee_status != 0)); then
+    printf 'Could not capture output for %s (tee exit %d)\n' "$test" "$tee_status" >&2
+    exit 1
   fi
   if ! verdict_ok "$test_output"; then
     last_line=$(grep -v '^[[:space:]]*$' "$test_output" | tail -n 1) || true
