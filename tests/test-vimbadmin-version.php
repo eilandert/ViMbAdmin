@@ -78,6 +78,13 @@ try {
     $check('absolute-looking ref is rejected',
         $probe("ref: /etc/passwd\n", null, null), null);
 
+    // A readable but corrupt ref file is not a commit SHA: it must not be
+    // returned, and must not be memoized as one.
+    $check('corrupt loose ref is rejected',
+        $probe("ref: refs/heads/master\n", 'refs/heads/master', "not-a-sha\n"), null);
+    $check('truncated loose ref is rejected',
+        $probe("ref: refs/heads/master\n", 'refs/heads/master', "abcdef0\n"), null);
+
     // A detached 40-char SHA in HEAD is still honoured.
     $check('detached HEAD sha is returned',
         $probe($sha . "\n", null, null), $sha);

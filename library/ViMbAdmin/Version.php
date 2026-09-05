@@ -188,10 +188,16 @@ final class ViMbAdmin_Version
                 $path = $root . '/.git/' . $refPath;
                 if( is_readable( $path ) )
                 {
+                    // Readable is not well-formed: a corrupt ref file must not
+                    // be returned, and must not be memoized for the process
+                    // lifetime, as a commit SHA.
                     $sha = trim( (string) file_get_contents( $path ) );
-                    if( $useCache )
-                        self::$_gitCommitCache = $sha;
-                    return $sha;
+                    if( preg_match( '/^[0-9a-f]{40}$/i', $sha ) )
+                    {
+                        if( $useCache )
+                            self::$_gitCommitCache = $sha;
+                        return $sha;
+                    }
                 }
             }
             elseif( preg_match( '/^[0-9a-f]{40}$/i', $ref ) )
