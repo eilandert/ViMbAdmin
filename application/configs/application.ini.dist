@@ -244,7 +244,7 @@ queue.runner.allowed_ips = "10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0
 ;;
 ;; Settings email default values.
 ;;
-;; Substituions are as follows:
+;; Substitutions are as follows:
 ;;
 ;;     %d -> domain part of email address
 ;;     %u -> user part of email address
@@ -392,7 +392,7 @@ vimbadmin_plugins.AccessPermissions.type.SIEVE = "SIEVE"
 
 vimbadmin_plugins.MailboxAutomaticAliases.enabled = false
 
-; These aliases should always exist, it is not recommened to delete it
+; These aliases should always exist, it is not recommended to delete it
 vimbadmin_plugins.MailboxAutomaticAliases.defaultAliases[] = "postmaster"
 vimbadmin_plugins.MailboxAutomaticAliases.defaultAliases[] = "abuse"
 vimbadmin_plugins.MailboxAutomaticAliases.defaultAliases[] = "info"
@@ -475,8 +475,9 @@ resources.auth.oss.lost_password.use_captcha = true
 ;;   - the login page advertises the credentials below.
 ;; The password is shown verbatim on the login page (a shared public secret),
 ;; so DO NOT point this at a real account.
-;;; demo.account  = "demo@example.com"
-;;; demo.password = "letmein"
+;; Set both keys to enable it; the password value is yours to choose.
+;;; demo.account  =
+;;; demo.password =
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
