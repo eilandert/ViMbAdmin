@@ -1082,6 +1082,43 @@ controllerAliasIdentityCheck('delete-alias still detaches a mailbox from a cross
         && $crossOkEm->removed === []
         && $crossOkEm->flushes === 1);
 
+// (b3) Whole-alias removal across domains: the alias's ONLY goto is this
+// mailbox, so it is deleted outright and a domain's alias counter is
+// decremented. The counter belongs to the ALIAS's domain — decrementing the
+// mailbox's domain instead leaves the alias's domain overcounted and silently
+// corrupts an unrelated domain's total. Case (b2) cannot catch this: its alias
+// has two gotos, so it takes the trim branch and touches no counter.
+$countAdmin = new ControllerAliasIdentityScopedAdmin([$ownedDomain, $foreignDomain]);
+$countMailbox = (new \Entities\Mailbox())->setUsername('solo@foreign.test')->setDomain($foreignDomain);
+$countAlias   = (new \Entities\Alias())
+    ->setAddress('solo-alias@owned.test')
+    ->setGoto('solo@foreign.test')
+    ->setDomain($ownedDomain);
+$ownedCountBefore   = $ownedDomain->getAliasCount();
+$foreignCountBefore = $foreignDomain->getAliasCount();
+$countSession = new ControllerAliasIdentitySession($scopeBaseSession);
+$countEm = new ControllerAliasIdentityRecordingEntityManager([
+    'Entities\\Alias' => new ControllerAliasIdentityAliasRepository([$countAlias]),
+    'Entities\\Mailbox' => new ControllerAliasIdentityMailboxRepository($countMailbox),
+]);
+$countResponse = (new MailboxController(
+    controllerAliasIdentityContainerFor(
+        $countEm,
+        $countSession,
+        new ControllerAliasIdentityView(),
+        $countAdmin,
+    ),
+    $scopeRoute,
+))->deleteAliasAction();
+controllerAliasIdentityCheck('delete-alias decrements the alias domain, not the mailbox domain',
+    $countResponse->status === 302
+        && $countEm->removed === [$countAlias]
+        && $ownedDomain->getAliasCount() === $ownedCountBefore - 1
+        && $foreignDomain->getAliasCount() === $foreignCountBefore
+        && count($countEm->persisted) === 1
+        && $countEm->persisted[0] instanceof \Entities\Log
+        && $countEm->flushes === 1);
+
 // (c) The rejection for a foreign mid is byte-identical to the rejection for a
 // mailbox that does not exist at all: probing `mid` leaks nothing.
 $missingSession = new ControllerAliasIdentitySession($scopeBaseSession);

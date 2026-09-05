@@ -976,7 +976,9 @@ final class MailboxController extends AbstractController
         if ($user === $identity['goto']) {
             $em->remove($alias);
             $this->logAlias($admin, "removed alias {$identity['address']}");
-            $domain->setAliasCount($domain->getAliasCount() - 1);
+            // The counter belongs to the ALIAS's domain, which is not
+            // necessarily the mailbox's — see the cross-domain note above.
+            $aliasDomain->setAliasCount($aliasDomain->getAliasCount() - 1);
             $this->flash('You have successfully removed the alias.');
         } else {
             $gotos = explode(',', $identity['goto']);
