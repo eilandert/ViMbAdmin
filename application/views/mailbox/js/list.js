@@ -223,14 +223,14 @@ function toggleActive(elid, id) {
                         <i class="icon-wrench"></i>\
                     </button>\
                 </form>\
-                <form method="post" action="{genUrl controller="mailbox" action="queue-archive"}" class="queue-task-form" style="display: inline;">\
+                <form method="post" action="{genUrl controller="mailbox" action="queue-archive"}" class="queue-task-form" style="display: inline;" onsubmit="return confirm(\'Archive this mailbox? Backs up + empties the mailbox, keeps the account.\');">\
                     <input type="hidden" name="mid" value="' + id + '" />\
                     <input type="hidden" name="csrf" value="{$csrfToken}" />\
                     <button class="btn btn-mini have-tooltip" id="archive_' + id + '" title="Archive (queued: backup + empty mailbox, keep account)" type="submit">\
                         <i class="icon-inbox"></i>\
                     </button>\
                 </form>\
-                <form method="post" action="{genUrl controller="mailbox" action="queue-delete"}" class="queue-task-form" style="display: inline;">\
+                <form method="post" action="{genUrl controller="mailbox" action="queue-delete"}" class="queue-task-form" style="display: inline;" onsubmit="return confirm(\'DELETE this mailbox? Backs up, then removes the mail AND the account. This cannot be undone from here.\');">\
                     <input type="hidden" name="mid" value="' + id + '" />\
                     <input type="hidden" name="csrf" value="{$csrfToken}" />\
                     <button class="btn btn-mini have-tooltip btn-danger" id="delete_' + id + '" title="Delete (queued: backup, then remove mailbox + account)" type="submit">\
