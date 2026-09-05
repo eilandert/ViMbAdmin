@@ -100,7 +100,7 @@ class ViMbAdmin_Doveadm
     /** @var \CurlHandle|null */
     private $_handle = null;
 
-    /** @var \CurlMultiHandle|null */
+    /** @var \CurlMultiHandle|null  Lazily initialized, never false after init check */
     private $_multi = null;
 
     /**
@@ -252,9 +252,10 @@ class ViMbAdmin_Doveadm
 
             if( $this->_multi === null )
             {
-                $this->_multi = curl_multi_init();
-                if( $this->_multi === false )
+                $multiHandle = curl_multi_init();
+                if( $multiHandle === false )
                     throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to initialize cURL multi handle' ) );
+                $this->_multi = $multiHandle;
             }
             $multi = $this->_multi;
             $added = false;
