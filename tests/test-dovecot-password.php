@@ -132,4 +132,8 @@ check('oversized unsalted {SHA256} digest → false',
     ) === false);
 
 echo "\n" . ($failures === 0 ? "PASS" : "FAIL ({$failures})") . "\n";
-exit($failures === 0 ? 0 : 1);
+if ($failures !== 0) {
+    exit(1);
+}
+echo "ALL PASSED\n";
+exit(0);

@@ -17,4 +17,8 @@ foreach ($templates as $name => $path) {
         $failed++;
     }
 }
-exit($failed === 0 ? 0 : 1);
+if ($failed !== 0) {
+    exit(1);
+}
+echo 'ALL PASSED (' . count($templates) . " checks)\n";
+exit(0);

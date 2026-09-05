@@ -105,6 +105,22 @@ git -C "$test_root" config user.name 'Regression coverage test'
 git -C "$test_root" add tests .github regression.yml.valid static-analysis.yml.valid
 git -C "$test_root" commit -q --no-gpg-sign -m fixture
 
+# A mutation that matches nothing is a silent no-op: the guard is then handed an
+# unmodified runner and "passes" while asserting nothing. That regression has
+# happened once, when the runner's invocation grew a `tee` pipeline and two seds
+# below stopped matching. Fail loudly instead of asserting on a no-op.
+mutate_runner() {
+  local expression=$1 target="$test_root/tests/run-unit-tests.sh"
+
+  cp -- "$target" "$test_root/runner-before-mutation"
+  sed -i "$expression" "$target"
+  if cmp -s "$test_root/runner-before-mutation" "$target"; then
+    printf 'Self-test mutation matched nothing (runner shape changed?): %s\n' \
+      "$expression" >&2
+    exit 1
+  fi
+}
+
 run_guard() {
   if command -v actionlint >/dev/null; then
     actionlint "$test_root/.github/workflows/regression.yml" \
@@ -169,7 +185,7 @@ done
 cp -- "$test_root/static-analysis.yml.valid" "$test_root/.github/workflows/static-analysis.yml"
 
 # shellcheck disable=SC2016 # Match the runner's literal loop variable.
-sed -i '/^[[:space:]]*php "\$test"$/d' "$test_root/tests/run-unit-tests.sh"
+mutate_runner '/^[[:space:]]*php "\$test" | tee "\$test_output"$/d'
 run_guard
 [[ $guard_status -ne 0 ]] || {
   printf 'Coverage guard accepted a unit runner that discovers tests without executing them.\n' >&2
@@ -217,8 +233,7 @@ grep -qF 'Unit test runner discovery or requested subset is incorrect.' \
 }
 cp -- "$runner" "$test_root/tests/run-unit-tests.sh"
 
-sed -i "s|git ls-files 'tests/test-\\*.php'|find tests -name 'test-*.php' -print|" \
-  "$test_root/tests/run-unit-tests.sh"
+mutate_runner "s|git ls-files 'tests/test-\\*.php'|find tests -name 'test-*.php' -print|"
 run_guard
 [[ $guard_status -ne 0 ]] || {
   printf 'Coverage guard accepted filesystem discovery of an untracked test.\n' >&2
@@ -234,8 +249,7 @@ cp -- "$runner" "$test_root/tests/run-unit-tests.sh"
 # A runner that ignores an explicit subset still discovers the full manifest,
 # but defeats focused local and CI invocations. The executable contract must
 # reject that regression rather than accepting the discovery loop alone.
-sed -i '/^[[:space:]]*selected_tests=("\$@")$/d' \
-  "$test_root/tests/run-unit-tests.sh"
+mutate_runner '/^[[:space:]]*selected_tests=("\$@")$/d'
 run_guard
 [[ $guard_status -ne 0 ]] || {
   printf 'Coverage guard accepted a unit runner that ignores its requested subset.\n' >&2
@@ -249,8 +263,7 @@ grep -qF 'Unit test runner discovery or requested subset is incorrect.' \
 cp -- "$runner" "$test_root/tests/run-unit-tests.sh"
 
 # shellcheck disable=SC2016 # Duplicate the literal runner invocation.
-sed -i '/^[[:space:]]*php "$test"$/a\  php "$test"' \
-  "$test_root/tests/run-unit-tests.sh"
+mutate_runner '/^[[:space:]]*php "$test" | tee "$test_output"$/a\  php "$test" | tee -a "$test_output"'
 run_guard
 [[ $guard_status -ne 0 ]] || {
   printf 'Coverage guard accepted duplicate execution of a tracked test.\n' >&2

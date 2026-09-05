@@ -93,6 +93,9 @@ case "$1" in
     ;;
 esac
 printf '%s\n' "$1" >> "$VIMBADMIN_RUNNER_PHP_LOG"
+# The runner requires a terminal verdict line before it scores a test a pass,
+# so the stub must emit one; this harness asserts discovery, not verdicts.
+printf 'ALL PASSED\n'
 SH
   chmod +x "$stub_path/git" "$stub_path/php"
 
