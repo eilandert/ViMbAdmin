@@ -490,6 +490,20 @@ bruteforce.enabled      = 1
 bruteforce.max_attempts = 5
 bruteforce.window       = 900
 bruteforce.lockout      = 900
+;; Counting is keyed on the source *network prefix*, not the exact address, so
+;; an attacker rotating addresses inside one allocation cannot buy extra
+;; attempts (an IPv6 host routinely holds a whole /64). Widen or narrow with
+;; care: /32 and /128 restore per-address counting and reopen that bypass.
+;; The trade-off runs the other way too: with the /24 default and
+;; max_attempts = 5, five failed logins from one office NAT or CGNAT pool lock
+;; out everyone else behind that same block for the lockout window. Widen
+;; max_attempts, or narrow the prefix toward /32, for a user base that shares
+;; egress addresses.
+bruteforce.ipv4_prefix  = 24
+bruteforce.ipv6_prefix  = 64
+;; Hard cap on state files. Once exceeded, the least-recently-touched entries
+;; are evicted, so a flood cannot grow the state directory without bound.
+bruteforce.max_entries  = 4096
 ;; State directory (defaults to APPLICATION_PATH/../var/bruteforce):
 ;;; bruteforce.statedir  = "/opt/vimbadmin/var/bruteforce"
 ;; Whitelist (repeat for each entry; single IPs or CIDR):

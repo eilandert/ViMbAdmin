@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/support/bruteforce-state-path.php';
 require_once __DIR__ . '/../application/Entities/Mailbox.php';
 require_once __DIR__ . '/../application/Entities/MailboxPreference.php';
 require_once __DIR__ . '/../application/Entities/Domain.php';
@@ -177,7 +178,7 @@ function authMailboxPasswordRun(
 /** @return array{attempts:int,first:int,last:int,locked_until:int}|null */
 function authMailboxPasswordState(string $stateDirectory, string $ip): ?array
 {
-    $path = $stateDirectory . '/' . hash('sha256', $ip) . '.json';
+    $path = bruteForceStatePath($stateDirectory, $ip);
     if (!is_file($path)) {
         return null;
     }

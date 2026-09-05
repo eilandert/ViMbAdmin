@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../library/ViMbAdmin/Net.php';
 require __DIR__ . '/../library/ViMbAdmin/BruteForce.php';
+require __DIR__ . '/support/bruteforce-state-path.php';
 
 const BRUTE_FORCE_PERSISTENCE_ERROR = 'bruteforce state persistence unavailable';
 
@@ -187,7 +188,7 @@ $ip = '192.0.2.77';
 $workers = 20;
 $attemptsPerWorker = 10;
 $workerResult = bruteForceRunWorkers($stateDirectory, $ip, $syncDirectory, $workers, $attemptsPerWorker);
-$stateFile = $stateDirectory . '/' . hash('sha256', $ip) . '.json';
+$stateFile = bruteForceStatePath($stateDirectory, $ip);
 $decoded = is_file($stateFile) ? json_decode((string) file_get_contents($stateFile), true) : null;
 
 bruteForceCheck('all synchronized worker processes complete within the bound',
@@ -256,7 +257,7 @@ bruteForceCheck('whitelisted sources skip persistence when clearing state', $whi
 $deleteDirectory = $root . '/delete-failure';
 bruteForceCreateDirectory($deleteDirectory);
 $deleteIp = '192.0.2.83';
-$deleteState = $deleteDirectory . '/' . hash('sha256', $deleteIp) . '.json';
+$deleteState = bruteForceStatePath($deleteDirectory, $deleteIp);
 bruteForceCreateDirectory($deleteState);
 $deleteFailure = new ViMbAdmin_BruteForce(null, ['statedir' => $deleteDirectory]);
 $_SERVER['REMOTE_ADDR'] = $deleteIp;
@@ -269,7 +270,7 @@ bruteForceCheck('state removal failure denies persistence', bruteForcePersistenc
 $writeIp = '192.0.2.79';
 $writeDirectory = $root . '/write-failure';
 bruteForceCreateDirectory($writeDirectory);
-$writeState = $writeDirectory . '/' . hash('sha256', $writeIp) . '.json';
+$writeState = bruteForceStatePath($writeDirectory, $writeIp);
 bruteForceCreateDirectory($writeState . '.' . getmypid() . '.tmp');
 $writeFailure = new ViMbAdmin_BruteForce(null, ['statedir' => $writeDirectory]);
 $writeDenied = bruteForcePersistenceDenied(static function() use ($writeFailure, $writeIp): void {
@@ -285,7 +286,7 @@ bruteForceCheck('state write failure denies persistence', $writeDenied && !is_fi
 $renameDirectory = $root . '/rename-failure';
 bruteForceCreateDirectory($renameDirectory);
 $renameIp = '192.0.2.80';
-$renameState = $renameDirectory . '/' . hash('sha256', $renameIp) . '.json';
+$renameState = bruteForceStatePath($renameDirectory, $renameIp);
 bruteForceCreateDirectory($renameState);
 $renameFailure = new ViMbAdmin_BruteForce(null, ['statedir' => $renameDirectory]);
 $renameDenied = bruteForcePersistenceDenied(static function() use ($renameFailure, $renameIp): void {

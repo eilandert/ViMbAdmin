@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/support/bruteforce-state-path.php';
 foreach (glob(__DIR__ . '/../application/Entities/*.php') ?: [] as $entityFile) {
     require_once $entityFile;
 }
@@ -315,7 +316,7 @@ function authInputShapeLoginOptions(string $stateDirectory, array $extra = []): 
 
 function authInputShapeBruteForceAttempts(string $stateDirectory, string $ip): ?int
 {
-    $path = $stateDirectory . '/' . hash('sha256', $ip) . '.json';
+    $path = bruteForceStatePath($stateDirectory, $ip);
     $contents = is_file($path) ? file_get_contents($path) : false;
     $state = is_string($contents) ? json_decode($contents, true) : null;
 
@@ -822,7 +823,7 @@ $totpClearState = __DIR__ . '/../var/tmp/test-totp-clear-failure-' . getmypid();
 if (!mkdir($totpClearState, 0700, true)) {
     throw new RuntimeException('could not create TOTP clear-failure fixture');
 }
-$totpClearStateFile = $totpClearState . '/' . hash('sha256', $testIp) . '.json';
+$totpClearStateFile = bruteForceStatePath($totpClearState, $testIp);
 if (!mkdir($totpClearStateFile, 0700)) {
     throw new RuntimeException('could not create TOTP clear-failure state entry');
 }
@@ -854,8 +855,10 @@ try {
     $totpClearException = $exception;
 } finally {
     rmdir($totpClearStateFile);
-    if (is_file($totpClearState . '/.lock')) {
-        unlink($totpClearState . '/.lock');
+    foreach (['/.lock', '/.reap-lock', '/.reap-stamp', '/.reap-cursor'] as $sidecar) {
+        if (is_file($totpClearState . $sidecar)) {
+            unlink($totpClearState . $sidecar);
+        }
     }
     rmdir($totpClearState);
 }
