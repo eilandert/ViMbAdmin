@@ -70,9 +70,13 @@
                             <a class="btn btn-mini have-tooltip {if $admin->isSuper()}hide{/if}" id="admin_domains_{$admin->getId()}" title="List Domains" href="{genUrl controller='admin' action='domains' aid=$admin->getId()}">
                                 <i class="icon-screenshot"></i>
                             </a>
-                            <a class="btn btn-mini have-tooltip" id="purge-admin-{$admin->getId()}" title="Purge"  href="{genUrl controller='admin' action='purge' aid=$admin->getId() csrf=$csrfToken}" ref="{$admin->getUsername()}">
-                                <i class="icon-trash"></i>
-                            </a>
+                            <form method="post" action="{genUrl controller='admin' action='purge'}" class="purge-admin-form" style="display: inline;">
+                                <input type="hidden" name="aid" value="{$admin->getId()}" />
+                                <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
+                                <button class="btn btn-mini have-tooltip" id="purge-admin-{$admin->getId()}" title="Purge" ref="{$admin->getUsername()}" type="submit">
+                                    <i class="icon-trash"></i>
+                                </button>
+                            </form>
                         {/if}
 
                     </div>

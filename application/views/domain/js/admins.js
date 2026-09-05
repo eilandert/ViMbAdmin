@@ -21,7 +21,7 @@ $(document).ready( function()
         ]
     });
     
-    $( "a[id|='remove-admin']" ).bind( 'click', removeAdmin );
+    $( "button[id|='remove-admin']" ).bind( 'click', removeAdmin );
 
 }); // document onready
 
@@ -42,7 +42,13 @@ function removeAdmin( event ) {
         show: true
     });
 
-    $( '#purge_dialog_delete' ).attr( "href", element.attr( "href" ) );
+    // The control is a submit button inside a CSRF-bearing POST form; the
+    // dialog's confirm button submits that form so the token stays in the body.
+    var targetForm = element.closest( 'form' );
+    $( '#purge_dialog_delete' ).unbind( 'click' ).bind( 'click', function( ev ){
+        ev.preventDefault();
+        targetForm.get( 0 ).submit();
+    });
 
     $( '#purge_dialog_cancel' ).click( function(){
         delDialog.modal('hide');

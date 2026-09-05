@@ -275,6 +275,11 @@ foreach ([
 }
 $_GET = $oldGet;
 
+// The destructive archive actions are POST-only and read their CSRF token from
+// the request body (VIM-D05), so drive them as a POST from here on.
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_POST['csrf'] = 'test-token';
+
 // Non-super authorization requires a real domain before any mutation.
 $missingDomain = (new \Entities\Archive())->setUsername('box@example.test');
 $authManager = archiveIdentityEntityManager([
@@ -289,7 +294,6 @@ $authController = new ArchiveController(
     archiveIdentityContainer($authManager, $authSession, $authView, false),
     new RouteMatch('archive', 'toggle-autoprune', ArchiveController::class, 'toggleAutopruneAction', [
         'arid' => '7',
-        'csrf' => 'test-token',
     ]),
 );
 $authError = null;
@@ -322,7 +326,6 @@ $deleteController = new ArchiveController(
     archiveIdentityContainer($deleteManager, $deleteSession, $deleteView, true),
     new RouteMatch('archive', 'delete', ArchiveController::class, 'deleteAction', [
         'arid' => '7',
-        'csrf' => 'test-token',
     ]),
 );
 $deleteError = null;
@@ -354,7 +357,6 @@ $restoreController = new ArchiveController(
     archiveIdentityContainer($restoreManager, $restoreSession, new ArchiveIdentityView(), true),
     new RouteMatch('archive', 'restore', ArchiveController::class, 'restoreAction', [
         'arid' => '7',
-        'csrf' => 'test-token',
     ]),
 );
 $restoreError = null;
@@ -388,7 +390,7 @@ $nativeSnapshotSession = new ArchiveIdentitySession(['identity' => ['id' => 1], 
 $nativeSnapshotController = new ArchiveController(
     archiveIdentityContainer($nativeSnapshotManager, $nativeSnapshotSession, new ArchiveIdentityView(), true),
     new RouteMatch('archive', 'restore', ArchiveController::class, 'restoreAction', [
-        'arid' => '7', 'csrf' => 'test-token',
+        'arid' => '7',
     ]),
 );
 $nativeSnapshotResponse = $nativeSnapshotController->restoreAction();

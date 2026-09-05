@@ -85,9 +85,13 @@
                             {/if}
                         {/foreach}
                     {/if}
-                    <a class="btn btn-mini have-tooltip" id="delete-alias-{$alias.id}" title="Delete" href="{genUrl controller='alias' action='delete' alid=$alias.id csrf=$csrfToken}">
-                        <i class="icon-trash"></i>
-                    </a>
+                    <form method="post" action="{genUrl controller='alias' action='delete'}" class="delete-alias-form" style="display: inline;">
+                        <input type="hidden" name="alid" value="{$alias.id}" />
+                        <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
+                        <button class="btn btn-mini have-tooltip" id="delete-alias-{$alias.id}" title="Delete" type="submit">
+                            <i class="icon-trash"></i>
+                        </button>
+                    </form>
                     {if isset( $action_list_menu)}
                         {assign var="action" value=$action_list_menu}
                         <{$action.tagName} {foreach $action as $attrib => $value}{if !$attrib|in_array:[ "tagName", "child", "menu" ]}{$attrib}="{$value|replace:'%id%':$oid}" {/if}{/foreach}>

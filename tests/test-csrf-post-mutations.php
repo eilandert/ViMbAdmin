@@ -5,11 +5,13 @@ declare(strict_types=1);
 require __DIR__ . '/../vendor/autoload.php';
 
 require_once __DIR__ . '/../application/Entities/Admin.php';
+require_once __DIR__ . '/../application/Entities/Archive.php';
 require_once __DIR__ . '/../application/Entities/Alias.php';
 require_once __DIR__ . '/../application/Entities/Domain.php';
 require_once __DIR__ . '/../application/Entities/Log.php';
 require_once __DIR__ . '/../application/Entities/Mailbox.php';
 require_once __DIR__ . '/../application/Repositories/Admin.php';
+require_once __DIR__ . '/../application/Repositories/Archive.php';
 require_once __DIR__ . '/../application/Repositories/Alias.php';
 require_once __DIR__ . '/../application/Repositories/Domain.php';
 require_once __DIR__ . '/../application/Repositories/Mailbox.php';
@@ -25,6 +27,8 @@ use Doctrine\ORM\Repository\RepositoryFactory;
 use ViMbAdmin\Kernel\Container;
 use ViMbAdmin\Kernel\Controller\AdminController;
 use ViMbAdmin\Kernel\Controller\AliasController;
+use ViMbAdmin\Kernel\Controller\ArchiveController;
+use ViMbAdmin\Kernel\Controller\DomainController;
 use ViMbAdmin\Kernel\Controller\MailboxController;
 use ViMbAdmin\Kernel\Http\Response;
 use ViMbAdmin\Kernel\RouteMatch;
@@ -122,6 +126,27 @@ final class CsrfMutationMailboxRepository extends Repositories\Mailbox
     }
 }
 
+final class CsrfMutationArchive extends Entities\Archive
+{
+    public function __construct()
+    {
+        $this->setUsername('user@example.test');
+        $this->setStatus(\Entities\Archive::STATUS_ARCHIVED);
+    }
+}
+
+final class CsrfMutationArchiveRepository extends Repositories\Archive
+{
+    public int $lookups = 0;
+    public function __construct(private readonly ?Entities\Archive $result) {}
+    /** @SuppressWarnings("PHPMD.UnusedFormalParameter") */
+    public function find(mixed $id, LockMode|int|null $lockMode = null, ?int $lockVersion = null): ?object
+    {
+        $this->lookups++;
+        return $this->result;
+    }
+}
+
 final class CsrfMutationRepositoryFactory implements RepositoryFactory
 {
     /** @var array<string,EntityRepository<covariant object>> */
@@ -161,7 +186,11 @@ final class CsrfMutationEntityManager extends EntityManagerDecorator
         parent::__construct(new EntityManager($connection, $configuration));
     }
 
+    /** @var list<object> */
+    public array $removed = [];
+
     public function persist(object $object): void { $this->persisted[] = $object; }
+    public function remove(object $object): void { $this->removed[] = $object; }
     public function flush(): void { $this->flushes++; }
 }
 
@@ -183,10 +212,10 @@ final class CsrfMutationBootstrap
 }
 
 /**
- * @param class-string<\ViMbAdmin\Kernel\Controller\AdminController|\ViMbAdmin\Kernel\Controller\AliasController|\ViMbAdmin\Kernel\Controller\MailboxController> $controller
+ * @param class-string<\ViMbAdmin\Kernel\Controller\AdminController|\ViMbAdmin\Kernel\Controller\AliasController|\ViMbAdmin\Kernel\Controller\ArchiveController|\ViMbAdmin\Kernel\Controller\DomainController|\ViMbAdmin\Kernel\Controller\MailboxController> $controller
  * @param array<string,EntityRepository<covariant object>> $repositories
  * @param array<string,string> $params
- * @return array{AdminController|AliasController|MailboxController,CsrfMutationBootstrap,CsrfMutationEntityManager}
+ * @return array{AdminController|AliasController|ArchiveController|DomainController|MailboxController,CsrfMutationBootstrap,CsrfMutationEntityManager}
  */
 function csrfMutationController(string $controller, string $action, array $repositories, array $params): array
 {
@@ -200,7 +229,7 @@ function csrfMutationController(string $controller, string $action, array $repos
 }
 
 function csrfMutationResponse(
-    AdminController|AliasController|MailboxController $controller,
+    AdminController|AliasController|ArchiveController|DomainController|MailboxController $controller,
     string $action,
 ): Response {
     if ($controller instanceof AdminController) {
@@ -208,17 +237,41 @@ function csrfMutationResponse(
             'remove-domain' => $controller->removeDomainAction(),
             'ajax-toggle-active' => $controller->ajaxToggleActiveAction(),
             'ajax-toggle-super' => $controller->ajaxToggleSuperAction(),
+            'purge' => $controller->purgeAction(),
             default => throw new LogicException("Unexpected admin action {$action}"),
         };
     }
-    if ($controller instanceof AliasController && $action === 'ajax-toggle-active') {
-        return $controller->ajaxToggleActiveAction();
+    if ($controller instanceof AliasController) {
+        return match ($action) {
+            'ajax-toggle-active' => $controller->ajaxToggleActiveAction(),
+            'delete' => $controller->deleteAction(),
+            default => throw new LogicException("Unexpected alias action {$action}"),
+        };
     }
-    if ($controller instanceof MailboxController && $action === 'ajax-toggle-active') {
-        return $controller->ajaxToggleActiveAction();
+    if ($controller instanceof ArchiveController) {
+        return match ($action) {
+            'toggle-autoprune' => $controller->toggleAutopruneAction(),
+            'delete' => $controller->deleteAction(),
+            'restore' => $controller->restoreAction(),
+            default => throw new LogicException("Unexpected archive action {$action}"),
+        };
     }
-
-    throw new LogicException("Unexpected controller action {$action}");
+    if ($controller instanceof DomainController) {
+        return match ($action) {
+            'ajax-toggle-active' => $controller->ajaxToggleActiveAction(),
+            'purge' => $controller->purgeAction(),
+            'remove-admin' => $controller->removeAdminAction(),
+            default => throw new LogicException("Unexpected domain action {$action}"),
+        };
+    }
+    return match ($action) {
+        'ajax-toggle-active' => $controller->ajaxToggleActiveAction(),
+        'delete-alias' => $controller->deleteAliasAction(),
+        'queue-repair' => $controller->queueRepairAction(),
+        'queue-archive' => $controller->queueArchiveAction(),
+        'queue-delete' => $controller->queueDeleteAction(),
+        default => throw new LogicException("Unexpected mailbox action {$action}"),
+    };
 }
 
 /**
@@ -271,6 +324,60 @@ $surfaces = [
             $domain = (new Entities\Domain())->setDomain('example.test');
             return ['Entities\\Mailbox' => new CsrfMutationMailboxRepository((new CsrfMutationMailbox())->setDomain($domain))];
         }, 'body' => 'ko',
+    ],
+    'alias delete' => [
+        'class' => AliasController::class, 'action' => 'delete', 'params' => ['alid' => '2'],
+        'repositories' => static function (): array {
+            $domain = (new Entities\Domain())->setDomain('example.test');
+            return ['Entities\\Alias' => new CsrfMutationAliasRepository((new CsrfMutationAlias())->setDomain($domain))];
+        }, 'body' => '',
+    ],
+    'admin purge' => [
+        'class' => AdminController::class, 'action' => 'purge', 'params' => ['aid' => '2'],
+        'repositories' => static fn(): array => [
+            'Entities\\Admin' => new CsrfMutationAdminRepository(new CsrfMutationAdmin(2)),
+        ], 'body' => '',
+    ],
+    'domain purge' => [
+        'class' => DomainController::class, 'action' => 'purge', 'params' => ['did' => '3'],
+        'repositories' => static fn(): array => [
+            'Entities\\Domain' => new CsrfMutationDomainRepository((new Entities\Domain())->setDomain('example.test')),
+        ], 'body' => '',
+    ],
+    'domain remove-admin' => [
+        'class' => DomainController::class, 'action' => 'remove-admin', 'params' => ['aid' => '2', 'did' => '3'],
+        'repositories' => static fn(): array => [
+            'Entities\\Admin' => new CsrfMutationAdminRepository(new CsrfMutationAdmin(2)),
+            'Entities\\Domain' => new CsrfMutationDomainRepository((new Entities\Domain())->setDomain('example.test')),
+        ], 'body' => '',
+    ],
+    'domain toggle-active' => [
+        'class' => DomainController::class, 'action' => 'ajax-toggle-active', 'params' => ['did' => '3'],
+        'repositories' => static fn(): array => [
+            'Entities\\Domain' => new CsrfMutationDomainRepository((new Entities\Domain())->setDomain('example.test')),
+        ], 'body' => 'ko',
+    ],
+    'mailbox delete-alias' => [
+        'class' => MailboxController::class, 'action' => 'delete-alias', 'params' => ['mid' => '2', 'alid' => '4'],
+        'repositories' => static function (): array {
+            $domain = (new Entities\Domain())->setDomain('example.test');
+            return [
+                'Entities\\Mailbox' => new CsrfMutationMailboxRepository((new CsrfMutationMailbox())->setDomain($domain)),
+                'Entities\\Alias' => new CsrfMutationAliasRepository((new CsrfMutationAlias())->setDomain($domain)),
+            ];
+        }, 'body' => '',
+    ],
+    'archive toggle-autoprune' => [
+        'class' => ArchiveController::class, 'action' => 'toggle-autoprune', 'params' => ['arid' => '5'],
+        'repositories' => static fn(): array => ['Entities\\Archive' => new CsrfMutationArchiveRepository(new CsrfMutationArchive())], 'body' => '',
+    ],
+    'archive delete' => [
+        'class' => ArchiveController::class, 'action' => 'delete', 'params' => ['arid' => '5'],
+        'repositories' => static fn(): array => ['Entities\\Archive' => new CsrfMutationArchiveRepository(new CsrfMutationArchive())], 'body' => '',
+    ],
+    'archive restore' => [
+        'class' => ArchiveController::class, 'action' => 'restore', 'params' => ['arid' => '5'],
+        'repositories' => static fn(): array => ['Entities\\Archive' => new CsrfMutationArchiveRepository(new CsrfMutationArchive())], 'body' => '',
     ],
 ];
 
@@ -339,6 +446,20 @@ $check('valid domain-removal POST performs exactly one authorized mutation',
     $response->status === 302 && !$target->getDomains()->contains($domain)
         && $adminRepository->lookups === 1 && $domainRepository->lookups === 1 && $em->flushes === 1);
 
+// --- positive controls: a valid body token DOES mutate -----------------------
+
+csrfMutationRequest('POST', ['csrf' => 'csrf-token', 'alid' => '2']);
+$domain = (new Entities\Domain())->setDomain('example.test');
+$alias = (new CsrfMutationAlias())->setDomain($domain);
+$aliasRepository = new CsrfMutationAliasRepository($alias);
+[$controller, $bootstrap, $em] = csrfMutationController(AliasController::class, 'delete', ['Entities\\Alias' => $aliasRepository], []);
+$response = csrfMutationResponse($controller, 'delete');
+$check('valid alias-delete POST reaches the authorized mutation',
+    $response->status === 302 && $aliasRepository->lookups === 1
+        && in_array($alias, $em->removed, true) && $em->flushes >= 1);
+
+// --- view layer: every converted control is a CSRF-bearing POST form ---------
+
 $adminJs = file_get_contents(__DIR__ . '/../application/views/admin/js/list.js');
 $aliasJs = file_get_contents(__DIR__ . '/../application/views/alias/js/list.js');
 $mailboxJs = file_get_contents(__DIR__ . '/../application/views/mailbox/js/list.js');
@@ -356,6 +477,79 @@ $check('domain removal uses a CSRF-bearing POST form instead of a confirmation l
         && str_contains($domainsTemplate, 'name="csrf" value="{$csrfToken|escape}"')
         && str_contains($domainsJs, "#remove_domain_form input[name=\"did\"]"));
 
-$check('fixed assertion count', $checks === 38);
+$aliasList     = file_get_contents(__DIR__ . '/../application/views/alias/list.phtml');
+$adminList     = file_get_contents(__DIR__ . '/../application/views/admin/list.phtml');
+$domainAdmins  = file_get_contents(__DIR__ . '/../application/views/domain/admins.phtml');
+$domainList    = file_get_contents(__DIR__ . '/../application/views/domain/list.phtml');
+$domainListJs  = file_get_contents(__DIR__ . '/../application/views/domain/js/list.js');
+$mailboxList   = file_get_contents(__DIR__ . '/../application/views/mailbox/list.phtml');
+$mailboxAlias  = file_get_contents(__DIR__ . '/../application/views/mailbox/aliases.phtml');
+$mailboxPurge  = file_get_contents(__DIR__ . '/../application/views/mailbox/purge.phtml');
+$archiveList   = file_get_contents(__DIR__ . '/../application/views/archive/list.phtml');
+$archiveJs     = file_get_contents(__DIR__ . '/../application/views/archive/js/list.js');
+
+$convertedViews = [
+    'alias list'        => [$aliasList, 'delete-alias-form', 1],
+    'alias list js'     => [$aliasJs, 'delete-alias-form', 1],
+    'admin list'        => [$adminList, 'purge-admin-form', 1],
+    'domain admins'     => [$domainAdmins, 'remove-admin-form', 1],
+    'mailbox aliases'   => [$mailboxAlias, 'delete-alias-form', 1],
+    'mailbox list'      => [$mailboxList, 'queue-task-form', 3],
+    'mailbox list js'   => [$mailboxJs, 'queue-task-form', 3],
+    'archive list'      => [$archiveList, 'archive-action-form', 4],
+    'archive list js'   => [$archiveJs, 'archive-action-form', 4],
+];
+foreach ($convertedViews as $label => [$contents, $marker, $expected]) {
+    $check("{$label}: destructive controls are POST forms carrying the body token",
+        is_string($contents)
+            && substr_count($contents, $marker) === $expected
+            && substr_count($contents, 'name="csrf"') >= $expected
+            && !str_contains($contents, 'csrf=$csrfToken')
+            && !str_contains($contents, '/csrf/{$csrfToken}'));
+}
+
+$check('domain purge is a CSRF-bearing POST form driven by the confirm dialog',
+    is_string($domainList) && is_string($domainListJs)
+        && str_contains($domainList, 'id="purge_domain_form" method="post"')
+        && str_contains($domainList, 'name="csrf" value="{$csrfToken|escape}"')
+        && str_contains($domainListJs, '#purge_domain_form input[name="did"]')
+        && !str_contains($domainListJs, "attr( 'href'"));
+
+$check('mailbox purge confirmation form submits the token in its body',
+    is_string($mailboxPurge)
+        && str_contains($mailboxPurge, 'name="csrf" value="{$csrfToken|escape}"'));
+
+// No controller may still accept a URL-borne token on a destructive action.
+foreach ([
+    'AliasController'   => ['deleteAction'],
+    'AdminController'   => ['purgeAction'],
+    'ArchiveController' => ['toggleAutopruneAction', 'deleteAction', 'restoreAction'],
+    'DomainController'  => ['purgeAction', 'removeAdminAction', 'ajaxToggleActiveAction'],
+    'MailboxController' => ['deleteAliasAction', 'queueMailboxTask'],
+] as $class => $methods) {
+    $source = file_get_contents(__DIR__ . "/../src/Kernel/Controller/{$class}.php");
+    foreach ($methods as $method) {
+        $check("{$class}::{$method} guards on the POST body token",
+            is_string($source)
+                && preg_match(
+                    '/function ' . preg_quote($method, '/') . '\(.*?postBodyCsrfValid\(\)/s',
+                    $source,
+                ) === 1);
+    }
+}
+
+// The confirm dialogs must hand the form off, not an href.
+foreach ([
+    'alias/js/list.js', 'mailbox/js/aliases.js', 'domain/js/admins.js', 'admin/js/list.js',
+] as $script) {
+    $contents = file_get_contents(__DIR__ . '/../application/views/' . $script);
+    $check("{$script}: the confirm dialog submits the POST form rather than following a link",
+        is_string($contents)
+            && str_contains($contents, "element.closest( 'form' )")
+            && str_contains($contents, "targetForm.get( 0 ).submit()")
+            && !preg_match('/purge_dialog_delete.*attr\(\s*[\'"]href/', $contents));
+}
+
+$check('fixed assertion count', $checks === 118);
 echo $failures === 0 ? "ALL PASSED\n" : "{$failures} FAILED\n";
 exit($failures === 0 ? 0 : 1);

@@ -44,27 +44,43 @@
             <td>
                 <div class="btn-group">
                     {if $archive.status|in_array:$allowRestore}
-                        <a class="btn btn-mini have-tooltip" id="restore-archive-{$archive.id}" title="Restore mail back into the mailbox" href="{genUrl controller='archive' action='restore' arid=$archive.id csrf=$csrfToken}"
-                           onclick="return confirm('Restore {$archive.username|escape}? Recreates the mailbox if it was deleted, syncs the backed-up mail back, then removes the backup.');">
-                            <i class="icon-retweet"></i>
-                        </a>
+                        <form method="post" action="{genUrl controller='archive' action='restore'}" class="archive-action-form" style="display: inline;"
+                              onsubmit="return confirm('Restore {$archive.username|escape}? Recreates the mailbox if it was deleted, syncs the backed-up mail back, then removes the backup.');">
+                            <input type="hidden" name="arid" value="{$archive.id}" />
+                            <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
+                            <button class="btn btn-mini have-tooltip" id="restore-archive-{$archive.id}" title="Restore mail back into the mailbox" type="submit">
+                                <i class="icon-retweet"></i>
+                            </button>
+                        </form>
                     {/if}
                     {if $archive.status|in_array:$allowDelete}
-                        <a class="btn btn-mini btn-danger have-tooltip" id="delete-archive-{$archive.id}" title="Delete backup permanently" href="{genUrl controller='archive' action='delete' arid=$archive.id csrf=$csrfToken}"
-                           onclick="return confirm('Permanently delete the backup for {$archive.username|escape}? This removes the /backups maildir and cannot be undone.');">
-                            <i class="icon-trash"></i>
-                        </a>
+                        <form method="post" action="{genUrl controller='archive' action='delete'}" class="archive-action-form" style="display: inline;"
+                              onsubmit="return confirm('Permanently delete the backup for {$archive.username|escape}? This removes the /backups maildir and cannot be undone.');">
+                            <input type="hidden" name="arid" value="{$archive.id}" />
+                            <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
+                            <button class="btn btn-mini btn-danger have-tooltip" id="delete-archive-{$archive.id}" title="Delete backup permanently" type="submit">
+                                <i class="icon-trash"></i>
+                            </button>
+                        </form>
                     {/if}
                     {if $archive.autoprune}
-                        <a class="btn btn-mini have-tooltip" id="autoprune-archive-{$archive.id}" title="Disable autoprune" href="{genUrl controller='archive' action='toggle-autoprune' arid=$archive.id csrf=$csrfToken}"
-                           onclick="return confirm('Disable autoprune for {$archive.username|escape}? Its backup will no longer expire automatically.');">
-                            <i class="icon-off"></i>
-                        </a>
+                        <form method="post" action="{genUrl controller='archive' action='toggle-autoprune'}" class="archive-action-form" style="display: inline;"
+                              onsubmit="return confirm('Disable autoprune for {$archive.username|escape}? Its backup will no longer expire automatically.');">
+                            <input type="hidden" name="arid" value="{$archive.id}" />
+                            <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
+                            <button class="btn btn-mini have-tooltip" id="autoprune-archive-{$archive.id}" title="Disable autoprune" type="submit">
+                                <i class="icon-off"></i>
+                            </button>
+                        </form>
                     {else}
-                        <a class="btn btn-mini btn-warning have-tooltip" id="autoprune-archive-{$archive.id}" title="Enable autoprune (resets archived date to now)" href="{genUrl controller='archive' action='toggle-autoprune' arid=$archive.id csrf=$csrfToken}"
-                           onclick="return confirm('Enable autoprune for {$archive.username|escape}? This resets its archived date to now, so the prune window restarts.');">
-                            <i class="icon-time"></i>
-                        </a>
+                        <form method="post" action="{genUrl controller='archive' action='toggle-autoprune'}" class="archive-action-form" style="display: inline;"
+                              onsubmit="return confirm('Enable autoprune for {$archive.username|escape}? This resets its archived date to now, so the prune window restarts.');">
+                            <input type="hidden" name="arid" value="{$archive.id}" />
+                            <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
+                            <button class="btn btn-mini btn-warning have-tooltip" id="autoprune-archive-{$archive.id}" title="Enable autoprune (resets archived date to now)" type="submit">
+                                <i class="icon-time"></i>
+                            </button>
+                        </form>
                     {/if}
                 </div>
             </td>

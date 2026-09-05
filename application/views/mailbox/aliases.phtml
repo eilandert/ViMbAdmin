@@ -47,9 +47,14 @@
                 </td>
                 <td>
                     <div class="btn-group">
-                        <a class="btn btn-mini have-tooltip" ref="{$alias->getAddress()}" id="delete-alias-{$alias->getId()}" href="{genUrl controller='mailbox' action='delete-alias' mid=$mailbox->getId() alid=$alias->getId() csrf=$csrfToken}" title="Remove" >
-                            <i class="icon-trash"></i>
-                        </a>
+                        <form method="post" action="{genUrl controller='mailbox' action='delete-alias'}" class="delete-alias-form" style="display: inline;">
+                            <input type="hidden" name="mid" value="{$mailbox->getId()}" />
+                            <input type="hidden" name="alid" value="{$alias->getId()}" />
+                            <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
+                            <button class="btn btn-mini have-tooltip" ref="{$alias->getAddress()}" id="delete-alias-{$alias->getId()}" title="Remove" type="submit">
+                                <i class="icon-trash"></i>
+                            </button>
+                        </form>
                     </div>
                 </td>
             </tr>

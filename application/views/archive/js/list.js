@@ -99,27 +99,35 @@ function formatArchiveControls( row )
     var str   = '<div class="btn-group">';
 
     if( $.inArray( row.status, archiveAllowRestore ) != -1 )
-        str += '<a class="btn btn-mini have-tooltip" id="restore-archive-' + id + '" title="Restore mail back into the mailbox"'
-             + ' href="{genUrl controller="archive" action="restore"}/arid/' + id + '/csrf/{$csrfToken}"'
-             + ' onclick="return confirm(\'Restore ' + jsName + '? Recreates the mailbox if it was deleted, syncs the backed-up mail back, then removes the backup.\');">'
-             + '<i class="icon-retweet"></i></a>';
+        str += '<form method="post" action="{genUrl controller="archive" action="restore"}" class="archive-action-form" style="display: inline;"'
+             + ' onsubmit="return confirm(\'Restore ' + jsName + '? Recreates the mailbox if it was deleted, syncs the backed-up mail back, then removes the backup.\');">'
+             + '<input type="hidden" name="arid" value="' + id + '" />'
+             + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
+             + '<button class="btn btn-mini have-tooltip" id="restore-archive-' + id + '" title="Restore mail back into the mailbox" type="submit">'
+             + '<i class="icon-retweet"></i></button></form>';
 
     if( $.inArray( row.status, archiveAllowDelete ) != -1 )
-        str += '<a class="btn btn-mini btn-danger have-tooltip" id="delete-archive-' + id + '" title="Delete backup permanently"'
-             + ' href="{genUrl controller="archive" action="delete"}/arid/' + id + '/csrf/{$csrfToken}"'
-             + ' onclick="return confirm(\'Permanently delete the backup for ' + jsName + '? This removes the /backups maildir and cannot be undone.\');">'
-             + '<i class="icon-trash"></i></a>';
+        str += '<form method="post" action="{genUrl controller="archive" action="delete"}" class="archive-action-form" style="display: inline;"'
+             + ' onsubmit="return confirm(\'Permanently delete the backup for ' + jsName + '? This removes the /backups maildir and cannot be undone.\');">'
+             + '<input type="hidden" name="arid" value="' + id + '" />'
+             + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
+             + '<button class="btn btn-mini btn-danger have-tooltip" id="delete-archive-' + id + '" title="Delete backup permanently" type="submit">'
+             + '<i class="icon-trash"></i></button></form>';
 
     if( row.autoprune )
-        str += '<a class="btn btn-mini have-tooltip" id="autoprune-archive-' + id + '" title="Disable autoprune"'
-             + ' href="{genUrl controller="archive" action="toggle-autoprune"}/arid/' + id + '/csrf/{$csrfToken}"'
-             + ' onclick="return confirm(\'Disable autoprune for ' + jsName + '? Its backup will no longer expire automatically.\');">'
-             + '<i class="icon-off"></i></a>';
+        str += '<form method="post" action="{genUrl controller="archive" action="toggle-autoprune"}" class="archive-action-form" style="display: inline;"'
+             + ' onsubmit="return confirm(\'Disable autoprune for ' + jsName + '? Its backup will no longer expire automatically.\');">'
+             + '<input type="hidden" name="arid" value="' + id + '" />'
+             + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
+             + '<button class="btn btn-mini have-tooltip" id="autoprune-archive-' + id + '" title="Disable autoprune" type="submit">'
+             + '<i class="icon-off"></i></button></form>';
     else
-        str += '<a class="btn btn-mini btn-warning have-tooltip" id="autoprune-archive-' + id + '" title="Enable autoprune (resets archived date to now)"'
-             + ' href="{genUrl controller="archive" action="toggle-autoprune"}/arid/' + id + '/csrf/{$csrfToken}"'
-             + ' onclick="return confirm(\'Enable autoprune for ' + jsName + '? This resets its archived date to now, so the prune window restarts.\');">'
-             + '<i class="icon-time"></i></a>';
+        str += '<form method="post" action="{genUrl controller="archive" action="toggle-autoprune"}" class="archive-action-form" style="display: inline;"'
+             + ' onsubmit="return confirm(\'Enable autoprune for ' + jsName + '? This resets its archived date to now, so the prune window restarts.\');">'
+             + '<input type="hidden" name="arid" value="' + id + '" />'
+             + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
+             + '<button class="btn btn-mini btn-warning have-tooltip" id="autoprune-archive-' + id + '" title="Enable autoprune (resets archived date to now)" type="submit">'
+             + '<i class="icon-time"></i></button></form>';
 
     str += '</div>';
     return str;

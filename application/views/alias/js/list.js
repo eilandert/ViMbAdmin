@@ -10,7 +10,7 @@ function vmAliasServerData( source, data, callback, settings )
 
 $(document).ready( function()
 {
-    $( "a[id|='delete-alias']" ).bind( 'click', deleteAlias );
+    $( "button[id|='delete-alias']" ).bind( 'click', deleteAlias );
     
     {if !isset($options.defaults.server_side.pagination.enable) || $options.defaults.server_side.pagination.enable }
     /* Server-side processing: the full alias list is paged/sorted/searched via
@@ -28,7 +28,7 @@ $(document).ready( function()
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
         'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No aliases.' },
         'fnDrawCallback': function() {
-            $( "a[id|='delete-alias']" ).unbind().bind( 'click', deleteAlias );
+            $( "button[id|='delete-alias']" ).unbind().bind( 'click', deleteAlias );
             $( "a[id|='modal-dialog']" ).unbind().bind( 'click', tt_openModalDialog );
             $( '.have-tooltip' ).tooltip("destroy").tooltip( { html: true, delay: { show: 500, hide: 2 }, trigger: 'hover' } );
             $( '.oss-dropdown' ).each( ossDropdown );
@@ -88,7 +88,13 @@ function deleteAlias( event ){
     else
         element = $( event.target );
 
-    $( '#purge_dialog_delete' ).attr( 'href', element.attr( 'href' ) );
+    // The control is a submit button inside a CSRF-bearing POST form; the
+    // dialog's confirm button submits that form so the token stays in the body.
+    var targetForm = element.closest( 'form' );
+    $( '#purge_dialog_delete' ).unbind( 'click' ).bind( 'click', function( ev ){
+        ev.preventDefault();
+        targetForm.get( 0 ).submit();
+    });
 
     $( '#purge_dialog_cancel' ).click( function(){
         delDialog.modal('hide');
@@ -203,9 +209,13 @@ function formatControlls( id )
                 {/foreach}
             {/if}
             
-    str += '<a class="btn btn-mini have-tooltip" id="delete-alias-' + id + '" title="Delete" href="{genUrl controller="alias" action="delete"}/alid/' + id + '/csrf/{$csrfToken}">\
-                <i class="icon-trash"></i>\
-            </a>';
+    str += '<form method="post" action="{genUrl controller="alias" action="delete"}" class="delete-alias-form" style="display: inline;">\
+                <input type="hidden" name="alid" value="' + id + '" />\
+                <input type="hidden" name="csrf" value="{$csrfToken}" />\
+                <button class="btn btn-mini have-tooltip" id="delete-alias-' + id + '" title="Delete" type="submit">\
+                    <i class="icon-trash"></i>\
+                </button>\
+            </form>';
             
             {if isset( $action_list_menu)}
                 {assign var="action" value=$action_list_menu}

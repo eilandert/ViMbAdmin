@@ -225,8 +225,11 @@ $check('active toggle rejects missing CSRF before lookup or mutation',
 
 $adminsTemplate = file_get_contents(__DIR__ . '/../application/views/domain/admins.phtml');
 $listScript = file_get_contents(__DIR__ . '/../application/views/domain/js/list.js');
-$check('administrator removal link carries the rendered CSRF token',
-    is_string($adminsTemplate) && str_contains($adminsTemplate, 'csrf=$csrfToken'));
+$check('administrator removal posts the CSRF token in the request body (VIM-D05)',
+    is_string($adminsTemplate)
+        && str_contains($adminsTemplate, 'class="remove-admin-form"')
+        && str_contains($adminsTemplate, 'name="csrf" value="{$csrfToken|escape}"')
+        && !str_contains($adminsTemplate, 'csrf=$csrfToken'));
 $check('active-toggle request carries the rendered CSRF token',
     is_string($listScript) && str_contains($listScript, '"csrf": "{$csrfToken}"'));
 
