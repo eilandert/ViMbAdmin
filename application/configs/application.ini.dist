@@ -486,6 +486,12 @@ resources.auth.oss.lost_password.use_captcha = true
 ;; seconds once it makes `max_attempts` failures inside `window` seconds. A
 ;; fully successful login (password + 2FA) clears the counter. Whitelisted
 ;; IPs / CIDRs are never counted or locked.
+;;
+;; The unauthenticated /auth/lost-password page shares this budget: every
+;; request to it is counted and a locked source is refused there too, because
+;; each render mints a captcha and would otherwise be a free way to grow the
+;; session record and burn server CPU. Budget max_attempts accordingly if your
+;; users legitimately reload that page.
 bruteforce.enabled      = 1
 bruteforce.max_attempts = 5
 bruteforce.window       = 900

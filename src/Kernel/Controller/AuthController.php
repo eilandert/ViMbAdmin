@@ -40,6 +40,10 @@ use ViMbAdmin\Kernel\Session\MagicPropertyStorage;
  *      native identity slot), clear
  *      the brute-force counter and stamp last-login.
  *
+ * The unauthenticated lost-password page is gated on the same
+ * {@see \ViMbAdmin_BruteForce} per-source state: it refuses a locked source and
+ * counts every request, so a flood of captcha-minting renders throttles itself.
+ *
  * Remember-me cookies and login-history are intentionally NOT carried over in
  * this first cut (dropping remember-me is a safe reduction). Login, logout, setup,
  * the 2FA flow (totp / totp-setup), the mailbox self-service change-password and
@@ -668,15 +672,18 @@ final class AuthController extends AbstractController
         );
         $entityClass = $this->authEntityClass($options);
 
+        // Unauthenticated and free to hit: every request here mints a captcha
+        // and does template work, so it is gated on the same per-source
+        // brute-force state as login. Refuse a locked-out source (429 + exit),
+        // then count this request, so a sustained flood locks itself out.
+        $bruteForce = $this->bruteForce($options);
+        $bruteForce->assertNotLocked(null);
+        $bruteForce->record(null, null);
+
         $form = $this->buildLostPasswordForm($useCaptcha);
         $form->field('username')?->setValue(
             self::stringOrDefault($this->param('username'), '', 'Password-reset username'),
         );
-
-        // A fresh captcha for THIS render. Validation (below) checks the captcha
-        // id the user actually SAW (submitted), not this freshly minted one —
-        // mirroring ZF1, which also re-generates on every action invocation.
-        $captchaId = $useCaptcha ? (new \OSS_Captcha_Image(0, 0))->generate() : null;
 
         if ($this->isPost()) {
             $post = $this->postData();
@@ -687,7 +694,7 @@ final class AuthController extends AbstractController
                 $form->field('username')?->setValue(
                     self::stringOrDefault($post['username'] ?? null, '', 'Password-reset username'),
                 );
-                return $this->renderLostPassword($form, $useCaptcha, $captchaId);
+                return $this->renderLostPassword($form, $useCaptcha);
             }
 
             if ($form->isValid($post)) {
@@ -739,7 +746,7 @@ final class AuthController extends AbstractController
             }
         }
 
-        return $this->renderLostPassword($form, $useCaptcha, $captchaId);
+        return $this->renderLostPassword($form, $useCaptcha);
     }
 
     /**
@@ -1120,8 +1127,14 @@ final class AuthController extends AbstractController
      * Stamp the current captcha id onto the hidden fields and render the
      * lost-password page (captcha image + refresh wiring live in the view).
      */
-    private function renderLostPassword(Form $form, bool $useCaptcha, ?string $captchaId): Response
+    private function renderLostPassword(Form $form, bool $useCaptcha): Response
     {
+        // Mint the captcha here, at the single site that actually renders the
+        // page, so no request leaves behind a session entry for an image that
+        // was never shown. Validation (above) still checks the captcha id the
+        // user SAW (submitted), not this freshly minted one.
+        $captchaId = $useCaptcha ? (new \OSS_Captcha_Image(0, 0))->generate() : null;
+
         if ($useCaptcha) {
             $form->field('captchaid')?->setValue((string) $captchaId);
             $form->field('requestnewimage')?->setValue('0');
