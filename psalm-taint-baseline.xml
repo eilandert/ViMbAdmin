@@ -8,10 +8,10 @@
   <file src="library/ViMbAdmin/BruteForce.php">
     <TaintedFile>
       <code><![CDATA[$cursorPath]]></code>
-      <code><![CDATA[$lockFile]]></code>
       <code><![CDATA[$overflowFlag]]></code>
       <code><![CDATA[$path]]></code>
       <code><![CDATA[$path]]></code>
+      <code><![CDATA[$this->_lockFile( $ip )]]></code>
       <code><![CDATA[$this->_statedir]]></code>
       <code><![CDATA[$this->_statedir . '/.reap-growth']]></code>
       <code><![CDATA[$this->_statedir . '/.reap-growth']]></code>

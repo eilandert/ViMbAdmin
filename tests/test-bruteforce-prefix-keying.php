@@ -514,7 +514,12 @@ prefixCheck(
 // change, so the over-cap re-arm must NOT fire on it: if it did, every failed
 // login would bypass the interval throttle and pay a full O(N) readdir that can
 // never make progress, turning the DoS fix into a DoS. The claim is about
-// per-request COST, so it is measured against directory size.
+// per-request WORK, not wall-clock time, so it is pinned with observables that
+// a re-armed sweep would necessarily disturb: .reap-overflow stays absent (a
+// sweep that evicted nothing must not set it), .reap-cursor does not move (no
+// further readdir progress is made), and no state file disappears -- all
+// identical at N=2000 and N=16000, which is what "does not scale with
+// directory size" means when expressed as work instead of time.
 $lockedFloodOptions = static function (string $dir): array {
     return [
         'statedir' => $dir,
@@ -524,7 +529,7 @@ $lockedFloodOptions = static function (string $dir): array {
         'max_entries' => 100,
     ];
 };
-$lockedCost = [];
+$lockedObservations = [];
 foreach ([2000, 16000] as $lockedN) {
     $lockedDirectory = $root . '/locked-flood-' . $lockedN;
     mkdir($lockedDirectory, 0700, true);
@@ -537,18 +542,47 @@ foreach ([2000, 16000] as $lockedN) {
         );
     }
     $lockedOpts = $lockedFloodOptions($lockedDirectory);
-    // Warm one sweep so the throttle stamp and any marker are established.
+    // Warm one sweep so the throttle stamp and any marker are established. A
+    // missing .reap-stamp means "never swept" and is always due, so this
+    // request sweeps, finds nothing evictable, and _evictOverflow() must
+    // return false -- leaving .reap-overflow absent. That absence, not a
+    // timing, is the invariant under test: if a broken _evictOverflow() ever
+    // re-armed on an all-locked directory, the marker would appear here and
+    // every one of the 10 requests below would pay a full O(N) sweep again.
     prefixRequestAttempt($lockedOpts, '198.51.100.1');
-    $lockedStart = hrtime(true);
+    $overflowFlag = $lockedDirectory . '/.reap-overflow';
+    $cursorPath = $lockedDirectory . '/.reap-cursor';
+    $overflowAfterWarmup = is_file($overflowFlag);
+    $cursorAfterWarmup = @file_get_contents($cursorPath);
+    $filesAfterWarmup = count(prefixStateFiles($lockedDirectory));
+
     for ($index = 0; $index < 10; $index++) {
         prefixRequestAttempt($lockedOpts, '198.51.100.' . (2 + $index));
     }
-    $lockedCost[$lockedN] = (hrtime(true) - $lockedStart) / 1e6;
+
+    $lockedObservations[$lockedN] = [
+        'overflow_after_warmup' => $overflowAfterWarmup,
+        'overflow_after_requests' => is_file($overflowFlag),
+        'cursor_unchanged' => @file_get_contents($cursorPath) === $cursorAfterWarmup,
+        'files_unchanged' => count(prefixStateFiles($lockedDirectory)) === $filesAfterWarmup,
+    ];
 }
 prefixCheck(
     'CONTROL: an all-locked over-cap directory does not re-arm an unbounded per-request sweep',
-    $lockedCost[16000] < 4 * max($lockedCost[2000], 0.5),
-    sprintf('N=2000: %.2f ms, N=16000: %.2f ms for 10 requests', $lockedCost[2000], $lockedCost[16000]),
+    !$lockedObservations[2000]['overflow_after_warmup']
+        && !$lockedObservations[2000]['overflow_after_requests']
+        && $lockedObservations[2000]['cursor_unchanged']
+        && $lockedObservations[2000]['files_unchanged']
+        && $lockedObservations[16000] === $lockedObservations[2000],
+    sprintf(
+        'N=2000: overflow=%s cursor_unchanged=%s files_unchanged=%s; N=16000: overflow=%s cursor_unchanged=%s files_unchanged=%s',
+        $lockedObservations[2000]['overflow_after_requests'] ? 'yes' : 'no',
+        $lockedObservations[2000]['cursor_unchanged'] ? 'yes' : 'no',
+        $lockedObservations[2000]['files_unchanged'] ? 'yes' : 'no',
+        $lockedObservations[16000]['overflow_after_requests'] ? 'yes' : 'no',
+        $lockedObservations[16000]['cursor_unchanged'] ? 'yes' : 'no',
+        $lockedObservations[16000]['files_unchanged'] ? 'yes' : 'no',
+    ),
 );
 
 // The cap has to hold against a flood driven through record() itself, not just

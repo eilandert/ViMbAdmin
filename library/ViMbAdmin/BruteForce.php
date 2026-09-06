@@ -34,6 +34,7 @@ class ViMbAdmin_BruteForce
 {
     private const LOCK_TIMEOUT_NANOSECONDS = 1_000_000_000;
     private const LOCK_RETRY_MICROSECONDS = 1000;
+    private const LOCK_MAX_RETRY_MICROSECONDS = 64000;
     private const REAP_SCAN_LIMIT = 128;
     private const DEFAULT_IPV4_PREFIX = 24;
     private const DEFAULT_IPV6_PREFIX = 64;
@@ -183,6 +184,7 @@ class ViMbAdmin_BruteForce
             return;
 
         $rec = $this->_withLock(
+            $ip,
             function() use ( $ip ): array { return $this->_load( $ip ); },
             false
         );
@@ -217,7 +219,7 @@ class ViMbAdmin_BruteForce
             return;
 
         $this->_maybeReapStale();
-        $this->_withLock( function() use ( $ip ): void {
+        $this->_withLock( $ip, function() use ( $ip ): void {
             $rec = $this->_load( $ip );
 
             // reset the counter if the window has elapsed since the first hit
@@ -252,7 +254,7 @@ class ViMbAdmin_BruteForce
         $ip = $this->_ip( $request );
         if( $this->_isWhitelisted( $ip ) )
             return;
-        $this->_withLock( function() use ( $ip ): void {
+        $this->_withLock( $ip, function() use ( $ip ): void {
             $this->_delete( $ip );
         } );
     }
@@ -272,6 +274,7 @@ class ViMbAdmin_BruteForce
         if( $this->_isWhitelisted( $ip ) )
             return false;
         $rec = $this->_withLock(
+            $ip,
             function() use ( $ip ): array { return $this->_load( $ip ); },
             false
         );
@@ -345,21 +348,59 @@ class ViMbAdmin_BruteForce
     }
 
     /**
-     * Serialize state mutations on one stable inode. The JSON files are
-     * atomically replaced, so locking them directly would leave a waiter on a
-     * stale pre-rename inode. One directory lock also keeps attacker-selected
-     * source addresses from creating an unbounded set of lock sidecars.
+     * Which of the fixed 256 lock shards serializes this source's record.
+     *
+     * The record filename is sha256(_key($ip)); taking its first byte (two hex
+     * characters) gives a lock sidecar that is stable for a source, cheap to
+     * derive, and -- crucially -- drawn from a FIXED set. The whole point of
+     * the previous single `.lock` inode was that an attacker choosing source
+     * addresses must not be able to create lock files at will; a 256-name
+     * alphabet keeps that property while removing the global contention point,
+     * because two unrelated prefixes now collide only 1/256 of the time
+     * instead of always. Every _withLock() call site (check/record/clear/
+     * isLocked) touches exactly one record, so a per-shard lock is sufficient
+     * for all of them. The reaper is untouched: it keeps its own directory-wide
+     * `.reap-lock` and `.reap-growth` inodes.
+     *
+     * The sidecars are dotfiles and the reap/eviction scan matches only
+     * `^[a-f0-9]{64}\.json$`, so they are never counted as records nor evicted.
+     *
+     * @param string $ip
+     * @return string
+     */
+    private function _lockFile( $ip )
+    {
+        return $this->_statedir . '/.lock.'
+            . substr( hash( 'sha256', $this->_key( $ip ) ), 0, 2 );
+    }
+
+    /**
+     * Serialize state mutations for ONE source on its shard's stable inode.
+     * The JSON files are atomically replaced, so locking them directly would
+     * leave a waiter on a stale pre-rename inode; the shard sidecar is never
+     * renamed, so it stays a valid rendezvous.
+     *
+     * Waiting strategy: try a non-blocking acquire first (the uncontended case,
+     * which is nearly all of them, then costs one syscall). On contention, fall
+     * back to a bounded backoff rather than the previous flat 1 ms spin. PHP's
+     * flock() has no timeout, so a plain blocking LOCK_EX would hang the login
+     * page forever behind a wedged holder -- the bounded-wait guarantee is
+     * load-bearing and is kept. The backoff doubles from 1 ms to
+     * LOCK_MAX_RETRY_MICROSECONDS (64 ms), so a full 1 s wait costs ~20
+     * wakeups instead of ~1000: two orders of magnitude less FPM CPU burned per
+     * wait, while the worst-case latency added by a coarse final sleep is
+     * bounded by one 64 ms slice.
      *
      * @template T
+     * @param string $ip source address whose record this operation touches
      * @param callable():T $operation
      * @param bool $exclusive
      * @return T
      */
-    private function _withLock( callable $operation, $exclusive = true )
+    private function _withLock( $ip, callable $operation, $exclusive = true )
     {
         $this->_ensureDir();
-        $lockFile = $this->_statedir . '/.lock';
-        $handle = @fopen( $lockFile, 'c' );
+        $handle = @fopen( $this->_lockFile( $ip ), 'c' );
         if( $handle === false )
             throw new RuntimeException( 'bruteforce state persistence unavailable' );
 
@@ -367,11 +408,14 @@ class ViMbAdmin_BruteForce
         {
             $mode = ( $exclusive ? LOCK_EX : LOCK_SH ) | LOCK_NB;
             $deadline = hrtime( true ) + self::LOCK_TIMEOUT_NANOSECONDS;
+            $backoff = self::LOCK_RETRY_MICROSECONDS;
             while( !@flock( $handle, $mode ) )
             {
                 if( hrtime( true ) >= $deadline )
                     throw new RuntimeException( 'bruteforce state persistence unavailable' );
-                usleep( self::LOCK_RETRY_MICROSECONDS );
+                usleep( $backoff );
+                if( $backoff < self::LOCK_MAX_RETRY_MICROSECONDS )
+                    $backoff *= 2;
             }
             return $operation();
         }

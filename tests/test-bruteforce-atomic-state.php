@@ -200,12 +200,24 @@ bruteForceCheck('atomic updates preserve the compatible state shape',
 $_SERVER['REMOTE_ADDR'] = '192.0.2.81';
 (new ViMbAdmin_BruteForce(null, ['statedir' => $stateDirectory]))->record('second-source', null);
 $stateEntries = scandir($stateDirectory);
+// The lock is sharded by the first byte of the record digest, so the sidecar
+// alphabet is the fixed set .lock.00 .. .lock.ff -- bounded, and never
+// attacker-grown however many source addresses turn up.
 $lockEntries = is_array($stateEntries)
-    ? array_values(array_filter($stateEntries, static fn(string $entry): bool => str_ends_with($entry, '.lock')))
+    ? array_values(array_filter(
+        $stateEntries,
+        static fn(string $entry): bool => str_starts_with($entry, '.lock'),
+    ))
     : [];
-bruteForceCheck('multiple source addresses use one bounded shared lock inode', $lockEntries === ['.lock']);
+bruteForceCheck(
+    'source addresses use only fixed, bounded lock shard inodes',
+    $lockEntries !== [] && $lockEntries === array_values(array_filter(
+        $lockEntries,
+        static fn(string $entry): bool => preg_match('/^\.lock\.[0-9a-f]{2}$/D', $entry) === 1,
+    )),
+);
 
-$lockHolder = fopen($stateDirectory . '/.lock', 'c');
+$lockHolder = fopen(bruteForceLockShardPath($stateDirectory, '192.0.2.82'), 'c');
 if ($lockHolder === false || !flock($lockHolder, LOCK_EX | LOCK_NB)) {
     throw new RuntimeException('could not establish the brute-force lock-contention fixture');
 }
