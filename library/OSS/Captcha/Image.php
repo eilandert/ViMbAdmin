@@ -208,24 +208,77 @@ class OSS_Captcha_Image
         return imagepng($image, $path);
     }
 
+    /**
+     * Filesystem sweep interval: cleanup() itself is pre-auth, unauthenticated
+     * -reachable work, so the expensive glob()/filemtime() pass is amortised
+     * to run at most once per this many seconds rather than on every request.
+     * Expiry enforcement (the timeout check in _isValid()) is unaffected — only
+     * the filesystem sweep is throttled.
+     */
+    private const SWEEP_INTERVAL_SECONDS = 60;
+
+    /**
+     * True at most once per SWEEP_INTERVAL_SECONDS: reads a same-directory
+     * marker's mtime and, if stale (or absent), touches it and returns true.
+     * The marker never suppresses cleanup indefinitely: a corrupt or
+     * unwritable marker degrades to "always sweep", never to "never sweep",
+     * and the path is fixed and confined to the captcha directory (no
+     * attacker-controlled path component).
+     */
+    private static function dueForSweep(string $dir): bool
+    {
+        $marker = $dir . '/.sweep';
+        // is_file() first: filemtime() also succeeds on a directory, and a
+        // directory sitting at that path (however it got there) must not be
+        // read as a fresh marker and used to suppress the sweep.
+        $mtime = is_file($marker) ? @filemtime($marker) : false;
+        $now = time();
+        // $mtime <= $now guards against a backward clock jump: a marker
+        // stamped in what is now "the future" must not be read as fresh
+        // indefinitely.
+        if (is_int($mtime) && $mtime <= $now && $mtime > $now - self::SWEEP_INTERVAL_SECONDS) {
+            return false;
+        }
+        // touch() races harmlessly: worst case, two requests both sweep once.
+        @touch($marker);
+        return true;
+    }
+
     private function cleanup(string $dir): void
     {
+        // MAX_FILES enforcement is a disk-exhaustion cap and must run on
+        // every request regardless of the sweep throttle below, or an
+        // unauthenticated burst could create unbounded files during the
+        // throttled window. Only the per-file expiry scan (the more
+        // expensive filemtime() pass over every file) is amortised.
         $files = glob($dir . '/*.png') ?: [];
-        $cutoff = time() - max(1, $this->timeout);
+        $due = self::dueForSweep($dir);
 
         $mtimes = [];
-        foreach ($files as $key => $file) {
-            $mtime = (int) @filemtime($file);
-            if ($mtime < $cutoff) {
-                @unlink($file);
-                unset($files[$key]);
-                continue;
+        if ($due) {
+            $cutoff = time() - max(1, $this->timeout);
+            foreach ($files as $key => $file) {
+                $mtime = (int) @filemtime($file);
+                if ($mtime < $cutoff) {
+                    @unlink($file);
+                    unset($files[$key]);
+                    continue;
+                }
+                $mtimes[$file] = $mtime;
             }
-            $mtimes[$file] = $mtime;
         }
 
         if (count($files) < self::MAX_FILES) {
             return;
+        }
+
+        // Without a fresh expiry pass, mtimes for the oldest-first eviction
+        // below are read directly; this still runs every request that is
+        // actually over the cap, sweep throttle notwithstanding.
+        foreach ($files as $file) {
+            if (!isset($mtimes[$file])) {
+                $mtimes[$file] = (int) @filemtime($file);
+            }
         }
 
         usort($files, static fn(string $a, string $b): int => $mtimes[$a] <=> $mtimes[$b]);

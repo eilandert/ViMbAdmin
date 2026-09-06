@@ -69,8 +69,12 @@ foreach ([5 => 1, 400 => 1, 501 => 2] as $candidateCount => $expectedQueries) {
 }
 
 $captcha = $source('library/OSS/Captcha/Image.php');
-$check('captcha cleanup stats candidates once before sorting',
-    substr_count($captcha, '@filemtime($file)') === 1
+$check('captcha cleanup stats each candidate at most once before sorting',
+    // VIM-D11: the throttled expiry scan and the eviction fill-in each stat
+    // a file at most once; the fill-in is guarded by isset() so it never
+    // re-stats a file the expiry scan already priced.
+    substr_count($captcha, '@filemtime($file)') === 2
+    && substr_count($captcha, 'isset($mtimes[$file])') === 1
     && !str_contains($captcha, '@filemtime($a)')
     && str_contains($captcha, '$mtimes[$a] <=> $mtimes[$b]'));
 
