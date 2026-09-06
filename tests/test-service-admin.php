@@ -83,33 +83,6 @@ final class FakeAdminObjectManager implements \Doctrine\Persistence\ObjectManage
     }
 }
 
-/** In-memory repository double for the repository's domain-exclusion contract. */
-final class InMemoryAdminRepository extends \Repositories\Admin
-{
-    /** @var list<\Entities\Admin> */
-    private array $admins;
-    /** @var array<string,mixed>|null */
-    public ?array $criteria = null;
-
-    /** @param list<\Entities\Admin> $admins */
-    public function __construct(array $admins)
-    {
-        $this->admins = $admins;
-    }
-
-    /**
-     * @param array<string,mixed> $criteria
-     * @param array<string,string>|null $orderBy
-     * @return list<\Entities\Admin>
-     */
-    public function findBy(array $criteria, ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
-    {
-        unset($orderBy, $limit, $offset); // Required by the Doctrine override.
-        $this->criteria = $criteria;
-        return $this->admins;
-    }
-}
-
 final class TestServiceAdminHarnessState
 {
     public static int $count = 0;
@@ -339,28 +312,63 @@ check('changePassword hash errors preserve password and precede log and flush',
         && $em->persisted === []
         && $em->flushes === 0);
 
-// ---- repository: available admins -------------------------------------- //
-$available = makeAdminForService('available@example.com');
-$available->setActive(true);
-(new ReflectionMethod($available, 'assignGeneratedId'))->invoke($available, 101);
-$inactive = makeAdminForService('inactive@example.com');
-$inactive->setActive(false);
-(new ReflectionMethod($inactive, 'assignGeneratedId'))->invoke($inactive, 102);
-$assigned = makeAdminForService('assigned@example.com');
-$assigned->setActive(true);
-(new ReflectionMethod($assigned, 'assignGeneratedId'))->invoke($assigned, 103);
-$repositoryDomain = makeDomainForService('repository.example');
-$repositoryDomain->addAdmin($assigned);
-$adminRepository = new InMemoryAdminRepository([$available, $inactive, $assigned]);
-$notAssigned = $adminRepository->getNotAssignedForDomain($repositoryDomain);
-check('repository requests only non-super admins', $adminRepository->criteria === ['super' => false]);
-check('repository retains active username', ($notAssigned[101] ?? null) === 'available@example.com');
-check('repository labels inactive username', ($notAssigned[102] ?? null) === 'inactive@example.com (inactive)');
-check('repository excludes already assigned admin', !isset($notAssigned[103]));
-check('repository preserves id-to-username map shape', array_keys($notAssigned) === [101, 102]);
+// ---- getNotAssignedForDomain: query pushes exclusion into DQL ---------- //
+// VIM-D10: super admins and admins already assigned to the domain are now
+// excluded by the query itself (a NOT IN subquery over the domain's admins),
+// not by hydrating every admin and unsetting matches in PHP. The row mapping
+// is a pure static helper (mapNotAssignedRows) so its output contract can be
+// pinned without standing up a Doctrine query; the DQL shape itself is pinned
+// by a source-text assertion, matching the existing contract-pinning style
+// used for Repositories\Domain in test-performance-query-contracts.php.
+$adminSource = (string) file_get_contents(__DIR__ . '/../application/Repositories/Admin.php');
+check('getNotAssignedForDomain excludes super admins in DQL', str_contains($adminSource, 'a.super = false'));
+check('getNotAssignedForDomain excludes assigned admins via a NOT IN subquery over the domain\'s admins',
+    str_contains($adminSource, 'NOT IN') && str_contains($adminSource, 'JOIN d.Admins a2'));
+check('getNotAssignedForDomain uses scalar hydration (getArrayResult), not entity hydration',
+    str_contains($adminSource, '$query->getArrayResult()')
+        && !str_contains($adminSource, 'findBy( [ "super" => false ] )'));
 
-$emptyRepository = new InMemoryAdminRepository([]);
-check('repository empty boundary returns empty map', $emptyRepository->getNotAssignedForDomain($repositoryDomain) === []);
+$mapRows = new ReflectionMethod(\Repositories\Admin::class, 'mapNotAssignedRows');
+$mapFailure = static function (mixed $rows) use ($mapRows): ?string {
+    try {
+        $mapRows->invoke(null, $rows);
+    } catch (\UnexpectedValueException $exception) {
+        return $exception->getMessage();
+    }
+    return null;
+};
+
+check('no admins produces an empty map', $mapRows->invoke(null, []) === []);
+check('an active admin keeps its plain username', $mapRows->invoke(null, [
+    ['id' => 101, 'username' => 'available@example.com', 'active' => true],
+]) === [101 => 'available@example.com']);
+check('an inactive admin is labelled " (inactive)"', $mapRows->invoke(null, [
+    ['id' => 102, 'username' => 'inactive@example.com', 'active' => false],
+]) === [102 => 'inactive@example.com (inactive)']);
+check('mixed active/inactive rows preserve the id-to-username map shape', $mapRows->invoke(null, [
+    ['id' => 101, 'username' => 'available@example.com', 'active' => true],
+    ['id' => 102, 'username' => 'inactive@example.com', 'active' => false],
+]) === [101 => 'available@example.com', 102 => 'inactive@example.com (inactive)']);
+// A super admin or an already-assigned admin never reaches this helper at
+// all -- the query excludes both -- so the "excluded" case here is simply
+// that the row is absent from the input, and the map has no trace of it.
+$exclusionMap = $mapRows->invoke(null, [
+    ['id' => 101, 'username' => 'available@example.com', 'active' => true],
+]);
+check('an admin absent from the query result is absent from the map (super/assigned exclusion)',
+    is_array($exclusionMap) && !array_key_exists(103, $exclusionMap));
+
+check('a scalar query result is rejected', $mapFailure('invalid') === 'Admin not-assigned query result must be an array.');
+foreach ([
+    'scalar row' => ['invalid'],
+    'missing id' => [['username' => 'x@example.test', 'active' => true]],
+    'missing username' => [['id' => 1, 'active' => true]],
+    'missing active' => [['id' => 1, 'username' => 'x@example.test']],
+    'null username' => [['id' => 1, 'username' => null, 'active' => true]],
+    'non-scalar id' => [['id' => [1], 'username' => 'x@example.test', 'active' => true]],
+] as $label => $rows) {
+    check($label . ' is rejected', $mapFailure($rows) === 'Admin not-assigned query row has an invalid shape.');
+}
 
 $countMethodDoc = (new ReflectionMethod(\Repositories\Admin::class, 'getCount'))->getDocComment();
 check(

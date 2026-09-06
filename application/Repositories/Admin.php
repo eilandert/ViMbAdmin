@@ -3,6 +3,7 @@
 namespace Repositories;
 
 use Doctrine\ORM\EntityRepository;
+use UnexpectedValueException;
 
 /**
  * Admin
@@ -47,24 +48,65 @@ class Admin extends EntityRepository
 
     /**
      * Finds all admins who are not assigned with domain.
-     * 
-     * Finds all admins and iterate through then making an array of 'id' => 'username'
-     * If admin inactive username will be append by '(inactive)' then we iterate
-     * through domain admins and removing all array elements which id is already in domain admins list.
+     *
+     * Builds an array of 'id' => 'username', appending " (inactive)" to the
+     * username when the admin is not active. Super admins and admins already
+     * assigned to the domain are excluded in the query itself.
      *
      * @param \Entities\Domain $domain Domain to look for admins
      * @return array<int|string,string|null>
      */
     public function getNotAssignedForDomain( $domain )
     {
-        $adminNames = [];
-        foreach( $this->findBy( [ "super" => false ] ) as $admin )
-            $adminNames[ $admin->getId() ] = $admin->getActive() ? $admin->getUsername() : $admin->getUsername() . " (inactive)";
+        $dql = 'SELECT a.id AS id, a.username AS username, a.active AS active'
+            . ' FROM \\Entities\\Admin a'
+            . ' WHERE a.super = false'
+            . ' AND a NOT IN ('
+            .     'SELECT a2 FROM \\Entities\\Domain d JOIN d.Admins a2 WHERE d = ?1'
+            . ')';
 
-        foreach( $domain->getAdmins() as $admin )
-            if( isset( $adminNames[ $admin->getId() ] ) )
-                unset( $adminNames[ $admin->getId() ] );
-        
+        $query = $this->getEntityManager()->createQuery( $dql );
+        $query->setParameter( 1, $domain );
+
+        return self::mapNotAssignedRows( $query->getArrayResult() );
+    }
+
+    /**
+     * Map the id/username/active scalar rows from {@see getNotAssignedForDomain}'s
+     * query into an id => username map, appending " (inactive)" when the admin
+     * is not active. Kept as a pure static helper so the row-shape contract can
+     * be pinned by tests without standing up a Doctrine query.
+     *
+     * @param mixed $rows Doctrine::getArrayResult() output
+     * @return array<int|string,string|null>
+     */
+    public static function mapNotAssignedRows( $rows )
+    {
+        if( !is_array( $rows ) )
+            throw new UnexpectedValueException( 'Admin not-assigned query result must be an array.' );
+
+        $adminNames = [];
+        foreach( $rows as $row )
+        {
+            [ $id, $username, $active ] = self::requiredNotAssignedRowShape( $row );
+            $adminNames[ $id ] = $active ? $username : $username . " (inactive)";
+        }
+
         return $adminNames;
+    }
+
+    /**
+     * @param mixed $row One element of getArrayResult() output
+     * @return array{0:int|string,1:string,2:mixed}
+     */
+    private static function requiredNotAssignedRowShape( $row )
+    {
+        if( !is_array( $row ) || !array_key_exists( 'id', $row )
+            || !( is_int( $row['id'] ) || is_string( $row['id'] ) )
+            || !isset( $row['username'] ) || !is_string( $row['username'] )
+            || !array_key_exists( 'active', $row ) )
+            throw new UnexpectedValueException( 'Admin not-assigned query row has an invalid shape.' );
+
+        return [ $row['id'], $row['username'], $row['active'] ];
     }
 }
