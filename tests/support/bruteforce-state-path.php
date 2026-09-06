@@ -46,6 +46,23 @@ if (!function_exists('bruteForceStateKey')) {
         return is_string($network) ? $network . '/' . $bits : 'raw:' . $ip;
     }
 
+    /**
+     * Path of the fixed lock shard serializing this source's record.
+     *
+     * Mirrors ViMbAdmin_BruteForce::_lockFile(): the first byte (two hex
+     * characters) of the same sha256 the record filename uses, so the sidecar
+     * alphabet is the fixed set .lock.00 .. .lock.ff.
+     */
+    function bruteForceLockShardPath(
+        string $stateDirectory,
+        string $ip,
+        int $ipv4Prefix = 24,
+        int $ipv6Prefix = 64,
+    ): string {
+        return $stateDirectory . '/.lock.'
+            . substr(hash('sha256', bruteForceStateKey($ip, $ipv4Prefix, $ipv6Prefix)), 0, 2);
+    }
+
     function bruteForceStatePath(
         string $stateDirectory,
         string $ip,
