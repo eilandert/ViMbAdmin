@@ -479,7 +479,10 @@ class ViMbAdmin_BruteForce
 
         try
         {
-            if( @file_put_contents( $tmp, $encoded, LOCK_EX ) !== strlen( $encoded ) )
+            // $tmp is a fresh, private per-pid path never shared with another
+            // writer, so LOCK_EX buys nothing here -- only the final rename()
+            // needs to be atomic, and it already is.
+            if( @file_put_contents( $tmp, $encoded ) !== strlen( $encoded ) )
                 throw new RuntimeException( 'bruteforce state persistence unavailable' );
             if( !@rename( $tmp, $f ) )
                 throw new RuntimeException( 'bruteforce state persistence unavailable' );
@@ -488,8 +491,10 @@ class ViMbAdmin_BruteForce
         }
         finally
         {
-            if( file_exists( $tmp ) )
-                @unlink( $tmp );
+            // @unlink() already reports absence via its own suppressed return;
+            // the successful rename() above already removed $tmp in the common
+            // case, so this is just best-effort cleanup after a failed write.
+            @unlink( $tmp );
         }
     }
 
@@ -881,7 +886,9 @@ class ViMbAdmin_BruteForce
     {
         $tmp = $path . '.' . getmypid() . '.tmp';
         $value = $cursor . "\n";
-        if( @file_put_contents( $tmp, $value, LOCK_EX ) !== strlen( $value ) || !@rename( $tmp, $path ) )
+        // $tmp is a fresh, private per-pid path: LOCK_EX is redundant, the
+        // atomic rename() below is what makes the update safe to observe.
+        if( @file_put_contents( $tmp, $value ) !== strlen( $value ) || !@rename( $tmp, $path ) )
         {
             @unlink( $tmp );
             throw new RuntimeException( 'bruteforce state persistence unavailable' );
