@@ -449,6 +449,24 @@ $check('list-data returns counts and formats timestamps',
         && is_array($firstPagedRow)
         && ($firstPagedRow['timestamp'] ?? null) === '2026-08-31 12:34:56');
 
+// A leading '*' is the contains toggle: the controller must forward the STRIPPED
+// term plus the flag. Passing $q->search here instead of $q->searchTerm would bind
+// '%*acme%' and silently match nothing, and every non-starred case in this file
+// cannot tell the two properties apart.
+$starredLog = new LogControllerTestLogRepository([], ['rows' => [], 'total' => 9, 'filtered' => 0]);
+$_GET['sSearch'] = ' *acme ';
+$starredController = logController(
+    logEntityManager(['Entities\\Log' => $starredLog]),
+    new LogControllerTestNamespace(['domain' => $domain]),
+    new LogControllerTestView(),
+    new LogControllerTestStorage(['identity' => ['id' => 1]]),
+    static fn(int $id): object => $super,
+);
+$starredController->listDataAction();
+$check('list-data forwards the stripped term and the contains flag for a starred search',
+    $starredLog->pageCalls === [[null, $domain, 'acme', true, 'domain', 'DESC', 5, 25]]);
+$_GET['sSearch'] = ' edit ';
+
 $_GET['sSearch'] = 'abc';
 foreach ([
     'list-specific override' => ['defaults' => ['server_side' => ['pagination' => [

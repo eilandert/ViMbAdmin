@@ -26,6 +26,14 @@ final class DataTableQuery
 {
     public const MAX_LENGTH = 500;
 
+    /**
+     * @param string $search     The raw trimmed request value, sigil included. Kept for
+     *                           callers that need to echo back what the user typed;
+     *                           repositories must NOT bind this.
+     * @param bool   $contains   The user opted into matching anywhere (leading `*`).
+     * @param string $searchTerm The sigil-stripped term repositories bind, via
+     *                           {@see likePattern()}. This is the search value.
+     */
     private function __construct(
         public readonly int $echo,
         public readonly int $start,
