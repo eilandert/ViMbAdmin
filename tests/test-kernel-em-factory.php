@@ -189,7 +189,7 @@ function logCountContract(QueryBuilder $query): bool
         && str_contains($dql, 'a.username LIKE :s')
         && str_contains($dql, 'd.domain LIKE :s')
         && !str_contains($dql, 'l.data LIKE :s')
-        && (logQueryParameters($query)['s'] ?? null) === '%mail%';
+        && (logQueryParameters($query)['s'] ?? null) === 'mail%';
 }
 
 function logSelectedPageContract(QueryBuilder $query): bool
@@ -197,6 +197,17 @@ function logSelectedPageContract(QueryBuilder $query): bool
     return str_contains($query->getDQL(), 'ORDER BY l.action ASC')
         && $query->getFirstResult() === 0
         && $query->getMaxResults() === 1
+        && (logQueryParameters($query)['s'] ?? null) === '50\\%\\_\\\\off%';
+}
+
+/**
+ * The contains toggle keeps the same escaping but restores the leading wildcard,
+ * so a regression that ignores $contains shows up as a changed bound value here
+ * rather than as a silently anchored search.
+ */
+function logContainsPageContract(QueryBuilder $query): bool
+{
+    return str_contains($query->getDQL(), 'l.action LIKE :s')
         && (logQueryParameters($query)['s'] ?? null) === '%50\\%\\_\\\\off%';
 }
 
@@ -228,15 +239,17 @@ function checkLogRepositoryQueryContract(mixed $entityManager): void
     }
 
     $listQuery = invokeRepositoryQuery($repository, 'logListQuery', [$admin, $domain]);
-    $pageQuery = invokeRepositoryQuery($repository, 'pagedLogRowsQuery', [$admin, $domain, '50%_\\off', 'action', 'ASC', -5, 0]);
-    $fallbackQuery = invokeRepositoryQuery($repository, 'pagedLogRowsQuery', [null, null, '', 'unsupported', 'sideways', 4, 9]);
-    $countQuery = invokeRepositoryQuery($repository, 'logCountQuery', [$admin, $domain, 'mail']);
+    $pageQuery = invokeRepositoryQuery($repository, 'pagedLogRowsQuery', [$admin, $domain, '50%_\\off', false, 'action', 'ASC', -5, 0]);
+    $containsQuery = invokeRepositoryQuery($repository, 'pagedLogRowsQuery', [$admin, $domain, '50%_\\off', true, 'action', 'ASC', -5, 0]);
+    $fallbackQuery = invokeRepositoryQuery($repository, 'pagedLogRowsQuery', [null, null, '', false, 'unsupported', 'sideways', 4, 9]);
+    $countQuery = invokeRepositoryQuery($repository, 'logCountQuery', [$admin, $domain, 'mail', false]);
 
     recordRepositoryCheck('Log metadata resolves its entity-specific repository', logMetadataContract($entityManager, $repository));
     recordRepositoryCheck('log list retains all array-hydration fields', logListHydrationContract($listQuery->getDQL()));
     recordRepositoryCheck('log list preserves admin/domain joins and positional parameters', logListScopeContract($listQuery->getDQL(), logQueryParameters($listQuery), $admin, $domain));
     recordRepositoryCheck('paged logs preserve search escaping and scoped count semantics', logCountContract($countQuery));
     recordRepositoryCheck('paged logs preserve selected sorting and clamp pagination bounds', logSelectedPageContract($pageQuery));
+    recordRepositoryCheck('paged logs restore the leading wildcard for a contains search', logContainsPageContract($containsQuery));
     recordRepositoryCheck('paged logs fall back to timestamp descending without a search predicate', logFallbackPageContract($fallbackQuery));
 }
 
