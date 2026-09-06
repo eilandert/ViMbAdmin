@@ -47,6 +47,20 @@ patterns=(
   "\\.${WS}size${WS}\\(${WS}\\)"
   "jQuery${WS}\\.${WS}browser"
   "\\\$${WS}\\.${WS}browser"
+  "jQuery${WS}\\.${WS}now${WS}\\("
+  "\\\$${WS}\\.${WS}now${WS}\\("
+  "jQuery${WS}\\.${WS}isWindow${WS}\\("
+  "\\\$${WS}\\.${WS}isWindow${WS}\\("
+  "jQuery${WS}\\.${WS}camelCase${WS}\\("
+  "\\\$${WS}\\.${WS}camelCase${WS}\\("
+  "jQuery${WS}\\.${WS}nodeName${WS}\\("
+  "\\\$${WS}\\.${WS}nodeName${WS}\\("
+  "jQuery${WS}\\.${WS}unique${WS}\\("
+  "\\\$${WS}\\.${WS}unique${WS}\\("
+  "jQuery${WS}\\.${WS}cssProps"
+  "\\\$${WS}\\.${WS}cssProps"
+  "jQuery${WS}\\.${WS}fx${WS}\\.${WS}interval"
+  "\\\$${WS}\\.${WS}fx${WS}\\.${WS}interval"
 )
 labels=(
   '.bind('
@@ -69,6 +83,20 @@ labels=(
   '.size()'
   'jQuery.browser'
   '$.browser'
+  'jQuery.now'
+  '$.now'
+  'jQuery.isWindow'
+  '$.isWindow'
+  'jQuery.camelCase'
+  '$.camelCase'
+  'jQuery.nodeName'
+  '$.nodeName'
+  'jQuery.unique'
+  '$.unique'
+  'jQuery.cssProps'
+  '$.cssProps'
+  'jQuery.fx.interval'
+  '$.fx.interval'
 )
 
 # scan_files: run every removed-API pattern over the given file list.
@@ -88,7 +116,9 @@ scan_files() {
     hits=$(grep -nE "$pattern" "${files[@]}" 2>/dev/null || true)
     if [ -n "$hits" ]; then
       echo "  removed API '$label' found:"
-      echo "$hits" | sed 's/^/    /'
+      while IFS= read -r line; do
+        echo "    $line"
+      done <<<"$hits"
       fail=1
     fi
   done
@@ -109,20 +139,27 @@ self_test() {
   dirty="$tmpdir/dirty.js"
   clean="$tmpdir/clean.js"
 
-  cat > "$dirty" <<'EOF'
+  cat >"$dirty" <<'EOF'
 $( '#thing' ).bind( 'click', f );
+$.now( );
+$.isWindow( elem );
+$.camelCase( 'foo-bar' );
+$.nodeName( elem );
+$.unique( arr );
+$.cssProps;
+$.fx.interval;
 EOF
 
-  cat > "$clean" <<'EOF'
+  cat >"$clean" <<'EOF'
 $( '#thing' ).on( 'click', f );
 EOF
 
   echo "== self-test: negative control, a reintroduced .bind() must be caught =="
-  if scan_files "$dirty" >/dev/null 2>&1; then
-    echo "  FAIL: scan did not detect reintroduced .bind( 'click', f ) in $dirty" >&2
-    status=1
+  if ! scan_files "$dirty"; then
+    echo "  OK: reintroduced .bind( ) and new APIs were detected"
   else
-    echo "  OK: reintroduced .bind( ) was detected"
+    echo "  FAIL: scan did not detect removed APIs in $dirty" >&2
+    status=1
   fi
 
   echo "== self-test: clean code must not false-positive =="
