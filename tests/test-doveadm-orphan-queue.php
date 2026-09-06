@@ -111,10 +111,19 @@ $check('INBOX text cannot hide another exit code',
     $delete('INBOX', 75, 'cannot delete INBOX (exit 65)') instanceof ViMbAdmin_Doveadm_CommandException);
 
 $doveadm = $source('library/ViMbAdmin/Doveadm.php');
-$check('one easy handle is reset per request and closed at lifecycle end',
+// The handle is created once, reset per request, and released in __destruct().
+// Release is asserted as dropping the reference, NOT as a curl_close() call:
+// curl_close() has been a no-op since PHP 8.0 (the handle is an object freed by
+// refcount) and is deprecated in 8.5, where calling it emits a notice that
+// breaks the runner's terminal-verdict gate.
+// Strip line comments before looking for the call, so the explanatory comment
+// above (which names curl_close) cannot satisfy or defeat the check itself.
+$doveadmCode = preg_replace('/^\s*\/\/.*$/m', '', $doveadm) ?? $doveadm;
+$check('one easy handle is reset per request and released at lifecycle end',
     substr_count($doveadm, '$this->_handle = curl_init();') === 1
     && str_contains($doveadm, 'curl_reset( $ch );')
-    && str_contains($doveadm, 'curl_close( $this->_handle );'));
+    && !str_contains($doveadmCode, 'curl_close(')
+    && preg_match('/__destruct\(\).*?\$this->_handle = null;/s', $doveadm) === 1);
 
 $controller = $source('src/Kernel/Controller/MaintenanceController.php');
 $check('both orphan request handlers use queued or cached discovery',

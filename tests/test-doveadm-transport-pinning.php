@@ -96,7 +96,9 @@ curl_setopt($bare, CURLOPT_URL, 'file://' . $fixture);
 curl_setopt($bare, CURLOPT_RETURNTRANSFER, true);
 $bareBody = curl_exec($bare);
 $bareErrno = curl_errno($bare);
-curl_close($bare);
+// No curl_close(): deprecated in PHP 8.5 and a no-op since 8.0. Unsetting the
+// last reference is what frees the handle.
+unset($bare);
 $check(
     'an unpinned handle can read the file:// fixture (assertions are discriminating)',
     $bareErrno === 0 && is_string($bareBody) && str_contains($bareBody, 'doveadmResponse')

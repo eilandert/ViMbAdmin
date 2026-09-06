@@ -127,8 +127,10 @@ class ViMbAdmin_Doveadm
         if( $this->_multi !== null )
             curl_multi_close( $this->_multi );
         $this->_multi = null;
-        if( $this->_handle !== null )
-            curl_close( $this->_handle );
+        // No curl_close(): since PHP 8.0 the easy handle is an object freed by
+        // refcount, the call has had no effect, and it is deprecated in 8.5 --
+        // where the notice it emits lands after the runner's terminal verdict
+        // and fails the suite. Dropping the reference is what releases it.
         $this->_handle = null;
     }
 
