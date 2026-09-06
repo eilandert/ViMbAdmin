@@ -245,7 +245,7 @@ final class ArchiveController extends AbstractController
         $sortField = [0 => 'username', 1 => 'status', 2 => 'domain', 4 => 'archived_at'][$q->sortColumn] ?? 'archived_at';
 
         $r = $this->archiveRepository()
-            ->pagedForArchiveList($admin, $domain, $q->search, $sortField, $q->sortDir, $q->start, $q->length);
+            ->pagedForArchiveList($admin, $domain, $q->searchTerm, $q->contains, $sortField, $q->sortDir, $q->start, $q->length);
 
         foreach ($r['rows'] as &$row) {
             if (($row['archived_at'] ?? null) instanceof \DateTimeInterface) {

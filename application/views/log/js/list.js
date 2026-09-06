@@ -25,7 +25,7 @@ $(document).ready(function()
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
         'aaSorting': [[ {if !isset( $domain ) || !$domain}4{else}3{/if}, 'desc' ]],
-        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No log entries.' },
+        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No log entries.', 'sSearch': 'Search (prefix * to match anywhere):' },
         'fnDrawCallback': function() {
             if( vm_prefs['iLength'] != $( "select[name|='list_table_length']" ).val() )
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();

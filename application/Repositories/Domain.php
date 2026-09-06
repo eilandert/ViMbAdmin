@@ -3,6 +3,7 @@
 namespace Repositories;
 
 use Doctrine\ORM\EntityRepository;
+use ViMbAdmin\Kernel\DataTable\DataTableQuery;
 
 /**
  * Domain
@@ -225,7 +226,7 @@ class Domain extends EntityRepository
      * @param \Entities\Admin $admin
      * @return array{rows: array<int,array<string,mixed>>, total: int, filtered: int}
      */
-    public function pagedForDomainList( $admin, string $search, string $sortField, string $sortDir, int $start, int $length )
+    public function pagedForDomainList( $admin, string $search, bool $contains, string $sortField, string $sortDir, int $start, int $length )
     {
         $base = function() use ( $admin ): \Doctrine\ORM\QueryBuilder {
             $qb = $this->getEntityManager()->createQueryBuilder()
@@ -237,10 +238,10 @@ class Domain extends EntityRepository
             return $qb;
         };
 
-        $applySearch = function( \Doctrine\ORM\QueryBuilder $qb ) use ( $search ): \Doctrine\ORM\QueryBuilder {
+        $applySearch = function( \Doctrine\ORM\QueryBuilder $qb ) use ( $search, $contains ): \Doctrine\ORM\QueryBuilder {
             if( $search !== '' )
                 $qb->andWhere( '( d.domain LIKE :s OR d.description LIKE :s OR d.transport LIKE :s )' )
-                   ->setParameter( 's', '%' . addcslashes( $search, '%_\\' ) . '%' );
+                   ->setParameter( 's', DataTableQuery::likePattern( $search, $contains ) );
             return $qb;
         };
 

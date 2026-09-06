@@ -29,7 +29,7 @@ $(document).ready( function() {
         'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
-        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No mailboxes.' },
+        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No mailboxes.', 'sSearch': 'Search (prefix * to match anywhere):' },
         'fnDrawCallback': function() {
             {if !isset($options.defaults.list_size.disabled) || !$options.defaults.list_size.disabled}
                 $( "a[id|='dir-size']" ).unbind().bind( "click", showSizes );

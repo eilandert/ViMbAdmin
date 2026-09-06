@@ -219,7 +219,7 @@ final class AliasController extends AbstractController
         $sortField = [0 => 'address', 1 => 'domain', 2 => 'active'][$q->sortColumn] ?? 'address';
 
         $r = $this->aliasRepository()
-            ->pagedForAliasList($admin, $domain, (bool) $ima, $q->search, $sortField, $q->sortDir, $q->start, $q->length);
+            ->pagedForAliasList($admin, $domain, (bool) $ima, $q->searchTerm, $q->contains, $sortField, $q->sortDir, $q->start, $q->length);
 
         return new Response(
             DataTableResult::json($q, $r['total'], $r['filtered'], array_values($r['rows'])),

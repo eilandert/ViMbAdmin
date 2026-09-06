@@ -3,6 +3,7 @@
 namespace Repositories;
 
 use Doctrine\ORM\EntityRepository;
+use ViMbAdmin\Kernel\DataTable\DataTableQuery;
 
 /**
  * Archive
@@ -98,7 +99,7 @@ class Archive extends EntityRepository
      * @param \Entities\Domain|null $domain
      * @return array{rows: array<int,array{id:mixed,username:mixed,status:mixed,archived_at:mixed,autoprune:mixed,maildir_size:mixed,domain:mixed,user_exists:mixed}>, total: int, filtered: int}
      */
-    public function pagedForArchiveList( $admin, $domain, string $search, string $sortField, string $sortDir, int $start, int $length )
+    public function pagedForArchiveList( $admin, $domain, string $search, bool $contains, string $sortField, string $sortDir, int $start, int $length )
     {
         $base = function() use ( $admin, $domain ): \Doctrine\ORM\QueryBuilder {
             $qb = $this->getEntityManager()->createQueryBuilder()
@@ -115,10 +116,10 @@ class Archive extends EntityRepository
             return $qb;
         };
 
-        $applySearch = function( \Doctrine\ORM\QueryBuilder $qb ) use ( $search ): \Doctrine\ORM\QueryBuilder {
+        $applySearch = function( \Doctrine\ORM\QueryBuilder $qb ) use ( $search, $contains ): \Doctrine\ORM\QueryBuilder {
             if( $search !== '' )
                 $qb->andWhere( '( a.username LIKE :s OR d.domain LIKE :s )' )
-                   ->setParameter( 's', '%' . addcslashes( $search, '%_\\' ) . '%' );
+                   ->setParameter( 's', DataTableQuery::likePattern( $search, $contains ) );
             return $qb;
         };
 

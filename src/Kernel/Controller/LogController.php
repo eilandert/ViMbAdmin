@@ -109,7 +109,7 @@ final class LogController extends AbstractController
         $sortField = [0 => 'action', 2 => 'admin', 3 => 'domain', 4 => 'timestamp'][$q->sortColumn] ?? 'timestamp';
 
         $r = $this->logRepository()
-            ->pagedForLogList($targetAdmin, $domain, $q->search, $sortField, $q->sortDir, $q->start, $q->length);
+            ->pagedForLogList($targetAdmin, $domain, $q->searchTerm, $q->contains, $sortField, $q->sortDir, $q->start, $q->length);
 
         // Array-hydrated datetime columns come back as DateTime objects; format
         // to the same string the inline template used before JSON-encoding.
