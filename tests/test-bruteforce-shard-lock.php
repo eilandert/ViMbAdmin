@@ -96,6 +96,14 @@ function shardVoluntarySwitches(): ?int
         : null;
 }
 
+/**
+ * Attempt one state mutation while $lockPath is held exclusively elsewhere and
+ * report whether it completed, how long it took, and how many times the retry
+ * loop woke up (null when the platform does not report context switches).
+ *
+ * @param array<string,mixed> $options
+ * @return array{completed:bool, denied:bool, seconds:float, switches:int|null}
+ */
 function shardAttemptUnderHeldLock(array $options, string $ip, string $lockPath): array
 {
     $holder = fopen($lockPath, 'c');
