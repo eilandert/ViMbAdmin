@@ -135,7 +135,22 @@ class ViMbAdmin_Net
     {
         $parts = explode( '/', $cidr );
         if( count( $parts ) === 1 )
-            return filter_var( $ip, FILTER_VALIDATE_IP ) !== false && $ip === $cidr;
+        {
+            // A bare entry is an exact address, but the same address has many
+            // textual forms ("::0001" / "::1", "2001:DB8::1" / "2001:db8::1").
+            // A raw string comparison fails closed on every one of them, so a
+            // configured trusted proxy silently stops being trusted. Compare
+            // the packed binary instead, which is canonical per address.
+            //
+            // inet_pton() rejects anything that is not a valid address, so
+            // malformed entries still fail closed. Packed lengths differ
+            // between families (4 vs 16 bytes), so an IPv4 entry never matches
+            // an IPv4-mapped IPv6 address or vice versa — the same family
+            // discipline the CIDR branch below applies.
+            $ipBin    = @inet_pton( $ip );
+            $entryBin = @inet_pton( $cidr );
+            return $ipBin !== false && $entryBin !== false && $ipBin === $entryBin;
+        }
         if( count( $parts ) !== 2 || $parts[1] === '' || !ctype_digit( $parts[1] ) )
             return false;
 
