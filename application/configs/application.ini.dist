@@ -183,6 +183,15 @@ mailboxAliases = 1
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; doveadm HTTP endpoint (POST /doveadm/v1) and the X-Dovecot-API bearer key.
+;
+; SECURITY: the default URL is plain http://, so the api_key below is sent in
+; cleartext (Authorization: X-Dovecot-API <base64>) on every request and can be
+; read by anything on the path. That is only safe when the endpoint is reachable
+; exclusively over a trusted network — a container link, loopback, or a private
+; segment you control. If the request crosses any untrusted hop, use an https://
+; URL here. The client pins the transfer to http/https and refuses redirects, so
+; the key cannot be bounced to another host or protocol, but it cannot make a
+; plaintext hop confidential.
 doveadm.http.url     = "http://dovecot:8081/doveadm/v1"
 doveadm.http.api_key = ""
 ; Request timeout in seconds (backup / force-resync of large mailboxes is slow).

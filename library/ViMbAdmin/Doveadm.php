@@ -235,8 +235,38 @@ class ViMbAdmin_Doveadm
                     throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to initialize cURL request' ) );
             }
             $ch = $this->_handle;
+            // The easy handle is reused across calls, so curl_reset() drops
+            // every option set for the previous request. All options below —
+            // the protocol pinning included — must therefore be re-applied on
+            // each call; hoisting them to handle creation would silently
+            // un-pin the handle from the second request onwards.
             curl_reset( $ch );
-            $configured = curl_setopt( $ch, CURLOPT_URL, $this->_url )
+
+            // Pin the transfer to HTTP/HTTPS and refuse redirects. A doveadm
+            // URL that is attacker-influenced (or a redirect from a
+            // compromised endpoint) must not be able to reach file://,
+            // scp://, gopher:// or any other libcurl protocol, and must not
+            // be able to bounce the Authorization header carrying the API key
+            // to a third-party host.
+            //
+            // SECURITY NOTE: the shipped default endpoint
+            // (doveadm.http.url) is plain http://, so the X-Dovecot-API key
+            // in the Authorization header travels in cleartext over that
+            // link. That is only acceptable while the endpoint is reachable
+            // exclusively over a trusted network (a container link or a
+            // loopback/private segment). Deployments crossing any untrusted
+            // path must configure an https:// endpoint.
+            $protocolsPinned = defined( 'CURLOPT_PROTOCOLS_STR' )
+                // Preferred on PHP 8.2+: CURLOPT_PROTOCOLS is deprecated
+                // upstream and warns on newer PHP/libcurl combinations.
+                ? curl_setopt( $ch, CURLOPT_PROTOCOLS_STR, 'http,https' )
+                    && curl_setopt( $ch, CURLOPT_REDIR_PROTOCOLS_STR, 'http,https' )
+                : curl_setopt( $ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS )
+                    && curl_setopt( $ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS );
+
+            $configured = $protocolsPinned
+                && curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, false )
+                && curl_setopt( $ch, CURLOPT_URL, $this->_url )
                 && curl_setopt( $ch, CURLOPT_POST, true )
                 && curl_setopt( $ch, CURLOPT_POSTFIELDS, $payload )
                 && curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true )
