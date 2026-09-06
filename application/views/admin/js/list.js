@@ -24,7 +24,7 @@ $(document).ready( function()
         ]
     });
 
-    $( "button[id|='purge-admin']" ).bind( 'click', purgeAdmin );
+    $( "button[id|='purge-admin']" ).on( 'click', purgeAdmin );
 }); // document onready
 
 
@@ -52,7 +52,7 @@ function purgeAdmin( event ){
     // The control is a submit button inside a CSRF-bearing POST form; the
     // dialog's confirm button submits that form so the token stays in the body.
     var targetForm = element.closest( 'form' );
-    $( '#purge_dialog_delete' ).unbind( 'click' ).bind( 'click', function( ev ){
+    $( '#purge_dialog_delete' ).off( 'click' ).on( 'click', function( ev ){
         ev.preventDefault();
         targetForm.get( 0 ).submit();
     });

@@ -26,7 +26,7 @@ $(document).ready(function()
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
         'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No domains.', 'sSearch': 'Search (prefix * to match anywhere):' },
         'fnDrawCallback': function() {
-            $( "a[id|='modal-dialog']" ).unbind().bind( 'click', tt_openModalDialog );
+            $( "a[id|='modal-dialog']" ).off().on( 'click', tt_openModalDialog );
             $( '.have-tooltip' ).tooltip("destroy").tooltip( { html: true, delay: { show: 500, hide: 2 }, trigger: 'hover' } );
             $( '.oss-dropdown' ).each( ossDropdown );
             if( vm_prefs['iLength'] != $( "select[name|='list_table_length']" ).val() )
@@ -116,18 +116,18 @@ function getEntries( event ){
         return;
      
     clearTimeout( timeOut );    
-    if( $.trim( $( event.target ).val() ).length >= str_len ){ 
+    if( String( $( event.target ).val() ).trim().length >= str_len ){ 
         timeOut = setTimeout( function(){ 
             $('body').css('cursor', 'wait');
             setTimeout( function(){
                 oDataTable.fnClearTable();
                 $.ajax({
                   async: false,
-                  url: "{genUrl controller='domain' action='list-search'}/search/" + $.trim( $( event.target ).val() ),
+                  url: "{genUrl controller='domain' action='list-search'}/search/" + String( $( event.target ).val() ).trim(),
                   success: function(data){
                     if( data !== "ko" && data.substr( 0, 1 ) == "[" )
                     {
-                        data = jQuery.parseJSON( data );
+                        data = JSON.parse( data );
                         $.each( data, function( index, row ){
                                oDataTable.fnAddData([
                                     row.name,
