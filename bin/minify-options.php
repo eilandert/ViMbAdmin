@@ -51,7 +51,10 @@ defined( 'SCRIPTDIR' ) || define( 'SCRIPTDIR', __DIR__ );
 /////////////////////////////////////////////////////////////////////////////////
 //
 // JS Configuration
-$js_compiler = "java -jar " . SCRIPTDIR . "/compiler.jar --compilation_level WHITESPACE_ONLY --warning_level QUIET";
+// --language_in ECMASCRIPT5: the default ECMASCRIPT3 mode reserves identifiers
+// (e.g. `final`) that jQuery 3.7.1 uses as ordinary variable names, so the
+// compiler otherwise fails to parse it even in WHITESPACE_ONLY mode.
+$js_compiler = "java -jar " . SCRIPTDIR . "/compiler.jar --compilation_level WHITESPACE_ONLY --warning_level QUIET --language_in ECMASCRIPT5";
 
 
 // JavaScript files to compress
@@ -87,9 +90,19 @@ $http_js = '{genUrl}/js';
 //
 // For Smarty, the follow works so long as you set $config.use_minified_js
 
+// jQuery Migrate (public/js/jquery-migrate-3.5.2.js) is deliberately named
+// without an NNN- prefix so it falls OUTSIDE the $js_files glob above: it must
+// never ship in the production bundle, only ever load in dev so every
+// deprecation warning surfaces there. Since the glob can't express that, the
+// dev-only <script> row for it is hand-appended after the glob-generated rows
+// here, so each `minify.php` regeneration reproduces it rather than dropping
+// it. It only needs to load before any code *calls* a shimmed API at runtime
+// (event handlers etc.), not immediately after jquery.js itself, so appending
+// it last (after every other dev-mode <script> row) is safe.
 $mini_js_conditional_if   = '{if isset( $config.use_minified_js ) and $config.use_minified_js}';
 $mini_js_conditional_else = '{else}';
-$mini_js_conditional_end  = '{/if}';
+$mini_js_conditional_end  = '    <script type="text/javascript" src="' . $http_js . '/jquery-migrate-3.5.2.js"></script>
+{/if}';
 
 //
 // set the following to false to not use this functionality and maintain it yourself
@@ -133,9 +146,24 @@ $http_css = '{genUrl}/css';
 
 // See $mini_js_conditional_ above for an explanation
 
+// The skin-override stylesheet is a hand-written block that must survive
+// every regeneration: it is unconditional (applies after the bundle/dev
+// {if}/{else}), loaded last so it wins, and gated at runtime on $skinCss
+// rather than on $config.use_minified_css. See
+// application/views/_skins/dark and src/Kernel/Bootstrap.php::skinCss. It is
+// folded into $mini_css_conditional_end (mirroring the JS-side Migrate
+// technique above) so `minify.php` reproduces it instead of silently
+// dropping it.
 $mini_css_conditional_if   = '{if isset( $config.use_minified_css ) and $config.use_minified_css}';
 $mini_css_conditional_else = '{else}';
-$mini_css_conditional_end  = '{/if}';
+$mini_css_conditional_end  = '{/if}
+
+{* Skin override stylesheet, loaded last so it wins. Enable via
+   resources.smarty.skin in application.ini + drop the file at
+   public/css/_skins/<skin>/skin.css. See contrib/THEMING.md. *}
+{if isset( $skinCss ) && $skinCss}
+    <link rel="stylesheet" type="text/css" href="{$skinCss|escape}" />
+{/if}';
 
 //
 // set the following to false to not use this functionality and maintain it yourself
