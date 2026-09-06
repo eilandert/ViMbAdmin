@@ -317,16 +317,17 @@ check('changePassword hash errors preserve password and precede log and flush',
 // excluded by the query itself (a NOT IN subquery over the domain's admins),
 // not by hydrating every admin and unsetting matches in PHP. The row mapping
 // is a pure static helper (mapNotAssignedRows) so its output contract can be
-// pinned without standing up a Doctrine query; the DQL shape itself is pinned
-// by a source-text assertion, matching the existing contract-pinning style
-// used for Repositories\Domain in test-performance-query-contracts.php.
-$adminSource = (string) file_get_contents(__DIR__ . '/../application/Repositories/Admin.php');
-check('getNotAssignedForDomain excludes super admins in DQL', str_contains($adminSource, 'a.super = false'));
-check('getNotAssignedForDomain excludes assigned admins via a NOT IN subquery over the domain\'s admins',
-    str_contains($adminSource, 'NOT IN') && str_contains($adminSource, 'JOIN d.Admins a2'));
-check('getNotAssignedForDomain uses scalar hydration (getArrayResult), not entity hydration',
-    str_contains($adminSource, '$query->getArrayResult()')
-        && !str_contains($adminSource, 'findBy( [ "super" => false ] )'));
+// pinned without standing up a Doctrine query.
+//
+// The exclusion contract itself -- that super admins and already-assigned
+// admins really are filtered out -- is pinned in
+// tests/test-repository-admin-not-assigned.php, which compiles the real DQL
+// through Doctrine and asserts on the generated SQL. Source-text assertions
+// were tried here first and are not adequate: the substrings survive a
+// mutation that neuters the clause containing them, so both "a super admin
+// leaks into the dropdown" and "an assigned admin is offered twice" shipped
+// green. What remains below is the row-mapping contract, which is pure and
+// belongs with the service tests.
 
 $mapRows = new ReflectionMethod(\Repositories\Admin::class, 'mapNotAssignedRows');
 $mapFailure = static function (mixed $rows) use ($mapRows): ?string {

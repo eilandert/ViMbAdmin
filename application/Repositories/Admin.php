@@ -65,10 +65,27 @@ class Admin extends EntityRepository
             .     'SELECT a2 FROM \\Entities\\Domain d JOIN d.Admins a2 WHERE d = ?1'
             . ')';
 
+        return self::mapNotAssignedRows( $this->runNotAssignedQuery( $dql, $domain ) );
+    }
+
+    /**
+     * Execute {@see getNotAssignedForDomain}'s DQL and return its scalar rows.
+     *
+     * Isolated as a seam so tests can substitute fixture rows and pin the
+     * mapping and exclusion contracts without a live database. Production
+     * behaviour is unchanged: the DQL, its parameter and the hydration mode
+     * are all fixed by the caller above.
+     *
+     * @param string $dql The not-assigned query
+     * @param \Entities\Domain $domain Bound to parameter 1
+     * @return mixed Doctrine::getArrayResult() output
+     */
+    protected function runNotAssignedQuery( $dql, $domain )
+    {
         $query = $this->getEntityManager()->createQuery( $dql );
         $query->setParameter( 1, $domain );
 
-        return self::mapNotAssignedRows( $query->getArrayResult() );
+        return $query->getArrayResult();
     }
 
     /**
