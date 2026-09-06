@@ -87,6 +87,10 @@ check('malformed answer consumes the session value and image',
 $expired = $root . '/captchas/' . str_repeat('a', 32) . '.png';
 file_put_contents($expired, 'expired');
 touch($expired, time() - 120);
+// The filesystem sweep inside generate() is amortised (VIM-D11): force it due
+// again here rather than assuming it fires on every call, since prior
+// generate() calls above already left a fresh marker.
+@unlink($root . '/captchas/.sweep');
 (new OSS_Captcha_Image(0, 0, 6, 60))->generate();
 check('generation removes expired captcha files', !file_exists($expired));
 
