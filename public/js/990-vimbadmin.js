@@ -132,10 +132,10 @@ function ossToggle( e, Url, data, delElement )
 
     var on = true;
     if( e.hasClass( 'btn-danger' ) ) {
-        e.removeClass( "btn-danger" ).attr( 'disabled', 'disabled' );
+        e.removeClass( "btn-danger" ).prop( 'disabled', true );
     } else {
         on = false;
-        e.removeClass( "btn-success" ).attr( 'disabled', 'disabled' );
+        e.removeClass( "btn-success" ).prop( 'disabled', true );
     }
 
     var Throb = tt_throbber( 18, 10, 1, 'images/throbber_16px.gif' ).appendTo( $( '#throb-' + e.attr( 'id' ) ).get(0) ).start();
@@ -162,9 +162,9 @@ function ossToggle( e, Url, data, delElement )
             if( !ok ) on = !on;
 
             if( on ) {
-                e.html( "Yes" ).addClass( "btn-success" ).removeAttr( 'disabled' );
+                e.html( "Yes" ).addClass( "btn-success" ).prop( 'disabled', false );
             } else {
-                e.html( "No" ).addClass( "btn-danger" ).removeAttr( 'disabled' );
+                e.html( "No" ).addClass( "btn-danger" ).prop( 'disabled', false );
             }
 
             $( '#throb-' + e.attr( 'id' ) ).html( "" );
@@ -266,8 +266,8 @@ function ossAjaxErrorHandler( XMLHttpRequest, textStatus, errorThrown )
     if( $('#modal_dialog:visible').length )
     {
         if( $('#modal_dialog_save').length ){
-            $('#modal_dialog_save').removeAttr( 'disabled' ).removeClass( 'disabled' );
-            $('#modal_dialog_cancel').removeAttr( 'disabled' ).removeClass( 'disabled' );
+            $('#modal_dialog_save').prop( 'disabled', false ).removeClass( 'disabled' );
+            $('#modal_dialog_cancel').prop( 'disabled', false ).removeClass( 'disabled' );
         }
         else
         {
@@ -407,7 +407,7 @@ function ossDropdown( index ){
 
     var elcode = "<span class=\"btn-group\">";
     elcode += "<a href=\"#\" class=\"btn btn-mini dropdown-toggle";
-    if( $( this ).attr( "disabled" ) == "disabled" )
+    if( $( this ).prop( "disabled" ) )
         elcode += " disabled";
     elcode += "\" style=\"width: " + width + "px; min-height:26px; \" id=\"drop-dwn-" + id + "\" data-toggle=\"dropdown\" >";
     elcode += "<span style=\"float: left; font-size: 13px; line-height:24px;\" id=\"label-drop-" + id + "\">" + label + "</span>";
