@@ -201,16 +201,6 @@ label.error
     margin-left: 5px;
 }
 
-.ui-dialog .ui-dialog-buttonpane
-{
-    text-align: center;
-}
-
-.ui-dialog .ui-dialog-buttonpane .ui-dialog-buttonset
-{
-    float: none;
-}
-
 .red
 {
     color: red !important;
@@ -310,21 +300,6 @@ ul.no_list_type li
     list-style-type: none !important;
     padding-left: 0 !important;
     margin-left: 0 !important;
-}
-
-ul.ui-autocomplete
-{
-    list-style-type: none !important;
-}
-
-ul.ui-autocomplete li
-{
-    list-style-type: none !important;
-}
-
-.ui-autocomplete-loading
-{
-    background: #DFEFFC url('../images/throbber.gif') right center no-repeat !important;
 }
 
 .clickable

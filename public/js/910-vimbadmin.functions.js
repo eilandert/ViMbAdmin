@@ -34,68 +34,6 @@
 
 
     /**
-    * This function is based on the
-    *
-    * Email obfuscator script 2.1 by Tim Williams, University of Arizona
-    * Random encryption key feature by Andrew Moulden, Site Engineering Ltd
-    * This code is freeware provided these four comment lines remain intact
-    * A wizard to generate this code is at http://www.jottings.com/obfuscator/
-    *
-    * Writes the HTML code for a secure email address link into the page.
-    *
-    * @param string coded the encoded email address
-    * @param string key the key
-    * @param string linktext the link text to show as thext in the anchor, defaults to the email address itself
-    * @return void
-    */
-    function obfuscatedEmailLink(coded, key, linktext)
-    {
-        shift = coded.length;
-        link = "";
-
-        for (i = 0; i < coded.length; i++)
-        {
-            if (key.indexOf(coded.charAt(i)) == -1)
-            {
-                ltr = coded.charAt(i);
-                link += (ltr);
-            }
-            else
-            {
-                ltr = (key.indexOf(coded.charAt(i)) - shift + key.length) % key.length;
-                link += (key.charAt(ltr));
-            }
-        }
-
-        if ( (linktext === null) || (linktext == undefined) ) linktext = link;
-
-        document.write("E-Mail: <a href='mailto:" + link + "'>" + linktext + "</a>");
-    }
-
-
-    /**
-    * Returns with the jQuery UI Dialog button object, or with null.
-    *
-    * @param string dialog_selector the class of the dialog (use custom, empty or non-existing classes)
-    * @param string button_name the name of the button, like 'Cancel' or 'Add'
-    * @return object|null
-    */
-    function getDialogButton( dialog_selector, button_name )
-    {
-        var buttons = $( dialog_selector + ' .ui-dialog-buttonpane button' );
-
-        for ( var i = 0; i < buttons.length; ++i )
-        {
-            var jButton = $( buttons[i] );
-
-            if ( jButton.text() == button_name ) return jButton;
-        }
-
-        return null;
-    }
-
-
-    /**
     * does what PHP htmlentities() does
     * this is the string object method version (prototyped)
     *
