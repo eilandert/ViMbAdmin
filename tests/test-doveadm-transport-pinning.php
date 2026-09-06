@@ -165,18 +165,22 @@ echo "\n== doveadm transport failures are not empty successes ==\n";
 // CURLE_OK/'' — the failure exists only in the multi info queue. If _post()
 // does not drain that queue it returns [ 0, '' ], and the caller reads a
 // total transport failure as a successful but empty doveadm reply.
-// Bind an ephemeral port, read which one the kernel handed out, then close
-// the listener. The port is then almost certainly free and refusing, without
-// requiring ext-sockets.
-$probe = @stream_socket_server('tcp://127.0.0.1:0', $errNo, $errStr);
-if (!is_resource($probe)) {
-    throw new RuntimeException("Cannot bind a probe socket: {$errStr}");
-}
-$local = stream_socket_get_name($probe, false);
-fclose($probe);
-$deadPort = is_string($local) ? (int) substr($local, (int) strrpos($local, ':') + 1) : 0;
-if ($deadPort <= 0) {
-    throw new RuntimeException('Could not obtain a closed local port.');
+// Port 1 is privileged: an unprivileged CI job cannot bind it, so unlike a
+// just-released ephemeral port it cannot be claimed by a parallel job between
+// this line and the connection attempt. Verify it really refuses before
+// asserting on the refusal, so an unexpectedly listening port fails loudly
+// rather than silently weakening the assertion.
+$deadPort = 1;
+$reachable = @stream_socket_client(
+    "tcp://127.0.0.1:{$deadPort}",
+    $errNo,
+    $errStr,
+    1,
+    STREAM_CLIENT_CONNECT
+);
+if (is_resource($reachable)) {
+    fclose($reachable);
+    throw new RuntimeException("127.0.0.1:{$deadPort} is listening; cannot test a refused connection.");
 }
 
 $dead = new TransportProbeDoveadm("http://127.0.0.1:{$deadPort}/doveadm/v1", 'test-key', 5);

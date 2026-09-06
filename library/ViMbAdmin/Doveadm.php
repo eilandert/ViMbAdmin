@@ -315,8 +315,9 @@ class ViMbAdmin_Doveadm
                 // curl_error() on the easy handle do NOT carry its result:
                 // they stay CURLE_OK/'' even for a refused connection, a DNS
                 // failure or a timeout. The authoritative CURLE_* code lives
-                // only in the multi info queue, which must be drained before
-                // the handle is removed. Without this, a total transport
+                // only in the multi info queue, which must be read before
+                // curl_multi_remove_handle(), which discards any message still
+                // pending for that handle. Without this, a total transport
                 // failure returned [ 0, '' ] to the caller as a successful —
                 // merely empty — doveadm reply.
                 $errno = null;
