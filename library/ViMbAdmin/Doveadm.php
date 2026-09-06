@@ -100,6 +100,9 @@ class ViMbAdmin_Doveadm
     /** @var \CurlHandle|null */
     private $_handle = null;
 
+    /** @var \CurlMultiHandle|null  Lazily initialized on first _post(), closed in __destruct() */
+    private $_multi = null;
+
     /**
      * @param string $url     Full endpoint URL, e.g. http://dovecot:8081/doveadm/v1
      * @param string $apiKey  The doveadm_api_key (sent base64-encoded as X-Dovecot-API)
@@ -121,6 +124,9 @@ class ViMbAdmin_Doveadm
 
     public function __destruct()
     {
+        if( $this->_multi !== null )
+            curl_multi_close( $this->_multi );
+        $this->_multi = null;
         if( $this->_handle !== null )
             curl_close( $this->_handle );
         $this->_handle = null;
@@ -244,7 +250,11 @@ class ViMbAdmin_Doveadm
                 throw new ViMbAdmin_Exception( _( 'doveadm HTTP: failed to configure cURL request' ) );
             }
 
-            $multi = curl_multi_init();
+            // curl_multi_init() returns a CurlMultiHandle on PHP 8 and never
+            // false, so there is no failure branch to test here.
+            if( $this->_multi === null )
+                $this->_multi = curl_multi_init();
+            $multi = $this->_multi;
             $added = false;
             try
             {
@@ -275,7 +285,6 @@ class ViMbAdmin_Doveadm
             {
                 if( $added )
                     curl_multi_remove_handle( $multi, $ch );
-                curl_multi_close( $multi );
             }
 
             if( !is_string( $body ) || $errno !== CURLE_OK )

@@ -109,6 +109,14 @@ final class ViMbAdmin_Version
     protected static $_lastestVersion = null;
 
     /**
+     * Memoized result of gitCommit(). False means not yet computed;
+     * null or a string means the result has been cached.
+     *
+     * @var string|null|false
+     */
+    private static $_gitCommitCache = false;
+
+    /**
      * Compare the specified version string $version
      * with the current ViMbAdmin_Version::VERSION.
      *
@@ -131,12 +139,23 @@ final class ViMbAdmin_Version
      * truth at runtime). Returns the 40-char SHA, or null if the marker is
      * absent (e.g. running straight from a working tree in dev).
      *
+     * Result is memoized on the first call. The memo covers only the default
+     * (production) root; an explicit $root is a test seam and is never cached,
+     * so a test tree can never poison the value the application reads.
+     *
+     * @param string|null $root  Test seam. Null uses the real application root.
      * @return string|null
      */
-    public static function gitCommit()
+    public static function gitCommit( $root = null )
     {
+        $useCache = ( $root === null );
+        // Return cached result (includes the case where we cached null).
+        if( $useCache && self::$_gitCommitCache !== false )
+            return self::$_gitCommitCache;
+
         // Dev fallback: a real .git in the tree (the image strips it).
-        $root = dirname( dirname( __DIR__ ) );          // .../ (app root)
+        if( $root === null )
+            $root = dirname( dirname( __DIR__ ) );      // .../ (app root)
         // NOTE: the marker lives at the app ROOT, NOT under var/ -- var/ is a
         // writable volume at runtime and would shadow a baked-in file.
         $marker = $root . '/GIT_COMMIT';
@@ -144,7 +163,11 @@ final class ViMbAdmin_Version
         {
             $sha = trim( (string) file_get_contents( $marker ) );
             if( preg_match( '/^[0-9a-f]{7,40}$/i', $sha ) )
+            {
+                if( $useCache )
+                    self::$_gitCommitCache = $sha;
                 return $sha;
+            }
         }
         $head = $root . '/.git/HEAD';
         if( is_readable( $head ) )
@@ -152,13 +175,40 @@ final class ViMbAdmin_Version
             $ref = trim( (string) file_get_contents( $head ) );
             if( strpos( $ref, 'ref:' ) === 0 )
             {
-                $path = $root . '/.git/' . trim( substr( $ref, 4 ) );
+                $refPath = trim( substr( $ref, 4 ) );
+                // CWE-22 hardening: constrain the ref path to reject directory traversal.
+                // Only allow refs/ prefix with alphanumerics, dots, slashes, hyphens, underscores.
+                if( !preg_match( '~^refs/[A-Za-z0-9._/-]+$~', $refPath )
+                    || strpos( $refPath, '..' ) !== false )
+                {
+                    if( $useCache )
+                        self::$_gitCommitCache = null;
+                    return null;
+                }
+                $path = $root . '/.git/' . $refPath;
                 if( is_readable( $path ) )
-                    return trim( (string) file_get_contents( $path ) );
+                {
+                    // Readable is not well-formed: a corrupt ref file must not
+                    // be returned, and must not be memoized for the process
+                    // lifetime, as a commit SHA.
+                    $sha = trim( (string) file_get_contents( $path ) );
+                    if( preg_match( '/^[0-9a-f]{40}$/i', $sha ) )
+                    {
+                        if( $useCache )
+                            self::$_gitCommitCache = $sha;
+                        return $sha;
+                    }
+                }
             }
             elseif( preg_match( '/^[0-9a-f]{40}$/i', $ref ) )
+            {
+                if( $useCache )
+                    self::$_gitCommitCache = $ref;
                 return $ref;
+            }
         }
+        if( $useCache )
+            self::$_gitCommitCache = null;
         return null;
     }
 
