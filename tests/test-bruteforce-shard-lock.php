@@ -81,6 +81,21 @@ function shardProductionLockPath(string $stateDirectory, string $ip): string
  * @param array<string,mixed> $options
  * @return array{completed:bool, denied:bool, seconds:float}
  */
+/**
+ * Voluntary context switches for this process, or null when the platform does
+ * not report them. A wakeup-count assertion that silently degrades to "0 <= 50"
+ * would be vacuous, so callers must treat null as "cannot measure" rather than
+ * as a pass.
+ */
+function shardVoluntarySwitches(): ?int
+{
+    $usage = getrusage();
+
+    return is_array($usage) && isset($usage['ru_nvcsw']) && is_int($usage['ru_nvcsw'])
+        ? $usage['ru_nvcsw']
+        : null;
+}
+
 function shardAttemptUnderHeldLock(array $options, string $ip, string $lockPath): array
 {
     $holder = fopen($lockPath, 'c');
@@ -89,6 +104,11 @@ function shardAttemptUnderHeldLock(array $options, string $ip, string $lockPath)
     }
 
     $started = hrtime(true);
+    // Voluntary context switches are the direct observable of the retry loop's
+    // wakeup count: each usleep() in the spin is one. Measuring the REAL loop
+    // is the only way this control can notice the backoff being flattened back
+    // to a fixed interval -- a test-side replica of the loop asserts on itself.
+    $switchesBefore = shardVoluntarySwitches();
     $completed = false;
     $denied = false;
     try {
@@ -98,11 +118,20 @@ function shardAttemptUnderHeldLock(array $options, string $ip, string $lockPath)
         $denied = $exception->getMessage() === 'bruteforce state persistence unavailable';
     } finally {
         $seconds = (hrtime(true) - $started) / 1_000_000_000;
+        $switchesAfter = shardVoluntarySwitches();
+        $switches = ($switchesBefore === null || $switchesAfter === null)
+            ? null
+            : $switchesAfter - $switchesBefore;
         flock($holder, LOCK_UN);
         fclose($holder);
     }
 
-    return ['completed' => $completed, 'denied' => $denied, 'seconds' => $seconds];
+    return [
+        'completed' => $completed,
+        'denied' => $denied,
+        'seconds' => $seconds,
+        'switches' => $switches,
+    ];
 }
 
 echo "== brute-force sharded state lock ==\n";
@@ -220,25 +249,68 @@ function shardIntConstant(ReflectionClass $reflection, string $name): int
 $initial = shardIntConstant($reflection, 'LOCK_RETRY_MICROSECONDS');
 $maximum = shardIntConstant($reflection, 'LOCK_MAX_RETRY_MICROSECONDS');
 $deadlineMicroseconds = intdiv(shardIntConstant($reflection, 'LOCK_TIMEOUT_NANOSECONDS'), 1000);
-$wakeups = 0;
-$elapsed = 0;
-$backoff = $initial;
-while ($elapsed < $deadlineMicroseconds) {
-    $wakeups++;
-    $elapsed += $backoff;
-    if ($backoff < $maximum) {
-        $backoff *= 2;
-    }
-}
 shardCheck(
     'the retry interval backs off well above its starting value',
     $maximum >= $initial * 32,
     $initial . ' -> ' . $maximum,
 );
+// The wakeup count comes from the contended wait executed above, not from a
+// replica of the loop: $sameShard burned the whole deadline against a held
+// lock, so its voluntary context switches ARE the retry loop's wakeups.
+//
+// Asserting only an upper bound would be too weak -- a FLAT delay of
+// deadline/ceiling microseconds also lands under any ceiling while having
+// removed the growth entirely. So the expected count is derived from the real
+// constants by walking the doubling schedule, and the assertion is a BAND
+// around it. Any flat spin, at any rate, produces deadline/rate wakeups, which
+// falls outside that band unless the rate coincidentally equals the doubling
+// schedule's mean -- and the growth check below rules that out too, because a
+// flat schedule reaches its total in equal steps while a doubling one spends
+// most of its wakeups near the cap.
+$scheduleWakeups = 0;
+$scheduleElapsed = 0;
+$scheduleBackoff = $initial;
+while ($scheduleElapsed < $deadlineMicroseconds) {
+    $scheduleWakeups++;
+    $scheduleElapsed += $scheduleBackoff;
+    if ($scheduleBackoff < $maximum) {
+        $scheduleBackoff *= 2;
+    }
+}
+// A flat spin at the STARTING interval is the regression this control exists
+// to catch: dropping the doubling leaves the loop hammering at
+// LOCK_RETRY_MICROSECONDS, which is the wakeup storm the coarse backoff was
+// introduced to remove. It must fall outside the band.
+//
+// A flat spin at the CAP is NOT excluded here, and deliberately so: it wakes
+// about as often as the doubling schedule does, because the doubling schedule
+// already spends nearly the whole deadline at the cap. Wakeup count cannot
+// separate them and no honest assertion on this observable can pretend to. It
+// is also not the regression worth guarding -- a flat 64ms spin is coarser
+// than what ships, not finer, so it costs less CPU rather than more. What it
+// would cost is latency on a briefly-held lock, and that is pinned separately
+// by the uncontended-path checks above.
+$flatSpinWakeups = intdiv($deadlineMicroseconds, $initial);
+// The band is tight on purpose. The doubling schedule's count is sharply
+// determined by the constants, and the measured value only drifts by scheduler
+// noise, so a +/-25% window still absorbs a loaded runner while excluding
+// the flat-at-start storm by two orders of magnitude. A wider band
+// would readmit it and the assertion would stop discriminating.
+$wakeupFloor = (int) floor($scheduleWakeups * 0.75);
+$wakeupCeiling = (int) ceil($scheduleWakeups * 1.25);
 shardCheck(
-    'a full deadline wait costs order-of-tens wakeups, not order-of-thousands',
-    $wakeups <= 50,
-    (string) $wakeups,
+    'the fixture can measure wakeups and the band excludes a flat spin at the start interval',
+    $sameShard['switches'] !== null && $flatSpinWakeups > $wakeupCeiling,
+    'measurable=' . var_export($sameShard['switches'] !== null, true)
+        . ', band=' . $wakeupFloor . '..' . $wakeupCeiling
+        . ', flat@start=' . $flatSpinWakeups,
+);
+shardCheck(
+    'a full deadline wait wakes the number of times a DOUBLING schedule predicts',
+    $sameShard['switches'] !== null
+        && $sameShard['switches'] >= $wakeupFloor
+        && $sameShard['switches'] <= $wakeupCeiling,
+    var_export($sameShard['switches'], true) . ' in ' . $wakeupFloor . '..' . $wakeupCeiling,
 );
 
 // ---- 4. sidecars are never records ---------------------------------------
@@ -337,7 +409,7 @@ shardCheck(
 
 // ---- 5. fixed assertion count -------------------------------------------
 
-shardCheck('fixed assertion count (20 preceding checks)', ShardLockAssertions::$checks === 20, (string) ShardLockAssertions::$checks);
+shardCheck('fixed assertion count (21 preceding checks)', ShardLockAssertions::$checks === 21, (string) ShardLockAssertions::$checks);
 
 shardRemoveTree($root);
 
