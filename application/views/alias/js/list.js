@@ -10,7 +10,7 @@ function vmAliasServerData( source, data, callback, settings )
 
 $(document).ready( function()
 {
-    $( "button[id|='delete-alias']" ).bind( 'click', deleteAlias );
+    $( "button[id|='delete-alias']" ).on( 'click', deleteAlias );
     
     {if !isset($options.defaults.server_side.pagination.enable) || $options.defaults.server_side.pagination.enable }
     /* Server-side processing: the full alias list is paged/sorted/searched via
@@ -28,8 +28,8 @@ $(document).ready( function()
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
         'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No aliases.', 'sSearch': 'Search (prefix * to match anywhere):' },
         'fnDrawCallback': function() {
-            $( "button[id|='delete-alias']" ).unbind().bind( 'click', deleteAlias );
-            $( "a[id|='modal-dialog']" ).unbind().bind( 'click', tt_openModalDialog );
+            $( "button[id|='delete-alias']" ).off().on( 'click', deleteAlias );
+            $( "a[id|='modal-dialog']" ).off().on( 'click', tt_openModalDialog );
             $( '.have-tooltip' ).tooltip("destroy").tooltip( { html: true, delay: { show: 500, hide: 2 }, trigger: 'hover' } );
             $( '.oss-dropdown' ).each( ossDropdown );
             if( vm_prefs['iLength'] != $( "select[name|='list_table_length']" ).val() )
@@ -91,7 +91,7 @@ function deleteAlias( event ){
     // The control is a submit button inside a CSRF-bearing POST form; the
     // dialog's confirm button submits that form so the token stays in the body.
     var targetForm = element.closest( 'form' );
-    $( '#purge_dialog_delete' ).unbind( 'click' ).bind( 'click', function( ev ){
+    $( '#purge_dialog_delete' ).off( 'click' ).on( 'click', function( ev ){
         ev.preventDefault();
         targetForm.get( 0 ).submit();
     });
@@ -116,18 +116,18 @@ function getEntries( event ){
         return;
      
     clearTimeout( timeOut );    
-    if( $.trim( $( event.target ).val() ).length >= str_len ){ 
+    if( String( $( event.target ).val() ).trim().length >= str_len ){ 
         timeOut = setTimeout( function(){ 
             $('body').css('cursor', 'wait');
             setTimeout( function(){
                 oDataTable.fnClearTable();
                 $.ajax({
                   async: false,
-                  url: "{genUrl controller='alias' action='list-search' ima=$ima}/search/" + $.trim( $( event.target ).val() ),
+                  url: "{genUrl controller='alias' action='list-search' ima=$ima}/search/" + String( $( event.target ).val() ).trim(),
                   success: function(data){
                     if( data !== "ko" && data.substr( 0, 1 ) == "[" )
                     {
-                        data = jQuery.parseJSON( data );
+                        data = JSON.parse( data );
                         $.each( data, function( index, row ){
                                oDataTable.fnAddData([
                                     row.address,

@@ -10,7 +10,7 @@ function vmMailboxServerData( source, data, callback, settings )
 $(document).ready( function() {
 
     {if !isset($options.defaults.list_size.disabled) || !$options.defaults.list_size.disabled}
-        $( "a[id|='dir-size']" ).bind( "click", showSizes );
+        $( "a[id|='dir-size']" ).on( "click", showSizes );
     {/if}
     
     {if !isset($options.defaults.server_side.pagination.enable) || $options.defaults.server_side.pagination.enable }
@@ -32,9 +32,9 @@ $(document).ready( function() {
         'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No mailboxes.', 'sSearch': 'Search (prefix * to match anywhere):' },
         'fnDrawCallback': function() {
             {if !isset($options.defaults.list_size.disabled) || !$options.defaults.list_size.disabled}
-                $( "a[id|='dir-size']" ).unbind().bind( "click", showSizes );
+                $( "a[id|='dir-size']" ).off().on( "click", showSizes );
             {/if}
-            $( "a[id|='modal-dialog']" ).unbind().bind( 'click', tt_openModalDialog );
+            $( "a[id|='modal-dialog']" ).off().on( 'click', tt_openModalDialog );
             $( '.have-tooltip' ).tooltip("destroy").tooltip( { html: true, delay: { show: 500, hide: 2 }, trigger: 'hover' } );
             $( '.oss-dropdown' ).each( ossDropdown );
             if( vm_prefs['iLength'] != $( "select[name|='list_table_length']" ).val() )
@@ -130,7 +130,7 @@ function toggleActive(elid, id) {
          
         clearTimeout( timeOut );    
         
-        if( $.trim( $( event.target ).val() ).length >= str_len )
+        if( String( $( event.target ).val() ).trim().length >= str_len )
         { 
             timeOut = setTimeout( function() { 
                 $('body').css('cursor', 'wait');
@@ -138,11 +138,11 @@ function toggleActive(elid, id) {
                     oDataTable.fnClearTable();
                     $.ajax({
                       async: false,
-                      url: "{genUrl controller='mailbox' action='list-search'}/search/" + $.trim( $( event.target ).val() ),
+                      url: "{genUrl controller='mailbox' action='list-search'}/search/" + String( $( event.target ).val() ).trim(),
                       success: function(data){
                         if( data !== "ko" && data.substr( 0, 1 ) == "[" )
                         {
-                            data = jQuery.parseJSON( data );
+                            data = JSON.parse( data );
                             $.each( data, function( index, row ){
                                    oDataTable.fnAddData([
                                         row.username,
@@ -346,8 +346,8 @@ jQuery( document ).on( 'click', '#modal_dialog_save', function() {
 
     tt_throbber( 32, 14, 1.8 ).appendTo( jQuery( '#esfooter' ).get(0) ).start();
 
-    jQuery('#modal_dialog_save').attr('disabled', 'disabled' ).addClass( 'disabled' );
-    jQuery('#modal_dialog_cancel').attr('disabled', 'disabled' ).addClass( 'disabled' );
+    jQuery('#modal_dialog_save').prop('disabled', true ).addClass( 'disabled' );
+    jQuery('#modal_dialog_cancel').prop('disabled', true ).addClass( 'disabled' );
 
     jQuery.ajax({
         url: form.attr( 'action' ),

@@ -22,7 +22,7 @@ $(document).ready( function()
         ]
     });
 
-     $( "a[id|='remove-domain']" ).bind( 'click', removeDomain );
+     $( "a[id|='remove-domain']" ).on( 'click', removeDomain );
 
 }); // document onready
 

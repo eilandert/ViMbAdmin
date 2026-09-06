@@ -59,7 +59,7 @@ if( cprefs != null )
 $( 'document' ).ready( function(){
 
 	// Activate the modal dialog pop up
-    $( "a[id|='modal-dialog']" ).bind( 'click', tt_openModalDialog );
+    $( "a[id|='modal-dialog']" ).on( 'click', tt_openModalDialog );
 
     $("[rel=popover]").popover( { html: true } );
 
@@ -124,7 +124,7 @@ function tt_throbber( size, lines, strokewidth, fallback )
  */
 function ossToggle( e, Url, data, delElement )
 {
-    e.unbind();
+    e.off();
 
     if( e.hasClass( 'disabled' ) )
         return;
@@ -132,10 +132,10 @@ function ossToggle( e, Url, data, delElement )
 
     var on = true;
     if( e.hasClass( 'btn-danger' ) ) {
-        e.removeClass( "btn-danger" ).attr( 'disabled', 'disabled' );
+        e.removeClass( "btn-danger" ).prop( 'disabled', true );
     } else {
         on = false;
-        e.removeClass( "btn-success" ).attr( 'disabled', 'disabled' );
+        e.removeClass( "btn-success" ).prop( 'disabled', true );
     }
 
     var Throb = tt_throbber( 18, 10, 1, 'images/throbber_16px.gif' ).appendTo( $( '#throb-' + e.attr( 'id' ) ).get(0) ).start();
@@ -162,9 +162,9 @@ function ossToggle( e, Url, data, delElement )
             if( !ok ) on = !on;
 
             if( on ) {
-                e.html( "Yes" ).addClass( "btn-success" ).removeAttr( 'disabled' );
+                e.html( "Yes" ).addClass( "btn-success" ).prop( 'disabled', false );
             } else {
-                e.html( "No" ).addClass( "btn-danger" ).removeAttr( 'disabled' );
+                e.html( "No" ).addClass( "btn-danger" ).prop( 'disabled', false );
             }
 
             $( '#throb-' + e.attr( 'id' ) ).html( "" );
@@ -241,7 +241,7 @@ function tt_openModalDialog(event) {
         success:    function(data) {
                         $('#modal_dialog').html( data );
                         $( '.modal-body' ).scrollTop( 0 );
-                        $( '#modal_dialog_cancel' ).bind( 'click', function(){
+                        $( '#modal_dialog_cancel' ).on( 'click', function(){
                             dialog.modal('hide');
                         });
                      },
@@ -266,8 +266,8 @@ function ossAjaxErrorHandler( XMLHttpRequest, textStatus, errorThrown )
     if( $('#modal_dialog:visible').length )
     {
         if( $('#modal_dialog_save').length ){
-            $('#modal_dialog_save').removeAttr( 'disabled' ).removeClass( 'disabled' );
-            $('#modal_dialog_cancel').removeAttr( 'disabled' ).removeClass( 'disabled' );
+            $('#modal_dialog_save').prop( 'disabled', false ).removeClass( 'disabled' );
+            $('#modal_dialog_cancel').prop( 'disabled', false ).removeClass( 'disabled' );
         }
         else
         {
@@ -407,7 +407,7 @@ function ossDropdown( index ){
 
     var elcode = "<span class=\"btn-group\">";
     elcode += "<a href=\"#\" class=\"btn btn-mini dropdown-toggle";
-    if( $( this ).attr( "disabled" ) == "disabled" )
+    if( $( this ).prop( "disabled" ) )
         elcode += " disabled";
     elcode += "\" style=\"width: " + width + "px; min-height:26px; \" id=\"drop-dwn-" + id + "\" data-toggle=\"dropdown\" >";
     elcode += "<span style=\"float: left; font-size: 13px; line-height:24px;\" id=\"label-drop-" + id + "\">" + label + "</span>";
@@ -434,13 +434,13 @@ function ossDropdown( index ){
     $( "#drop-dwn-" + id ).on( 'focus', function( event ){
         focus = true;
         $( this ).parent().addClass( 'open' );
-        $( this ).unbind( 'keydown' ).bind( 'keydown', function( event ){
+        $( this ).off( 'keydown' ).on( 'keydown', function( event ){
             if( event.which == 38 || event.which == 40 )
                 list.eq( 1 ).find('a').trigger( 'focus' );
         });
     });
 
-    $( "a[id|='drop-" + id + "']" ).bind( 'click', function( event ){
+    $( "a[id|='drop-" + id + "']" ).on( 'click', function( event ){
         event.preventDefault();
 
         var opt = $( event.target ).attr( 'id' ).substr( $( event.target ).attr( 'id' ).lastIndexOf( '-' ) + 1 );
@@ -449,10 +449,10 @@ function ossDropdown( index ){
 
     });
 
-    $( "a[id|='drop-" + id + "']" ).bind( 'focus', function( event ){
+    $( "a[id|='drop-" + id + "']" ).on( 'focus', function( event ){
 
         var idx = list.index( $( this ).parent() );
-        $( this ).unbind( 'keydown' ).bind( 'keydown', function( event ){
+        $( this ).off( 'keydown' ).on( 'keydown', function( event ){
             if( event.which == 38 && idx > 0 )
             {
                 event.preventDefault();
@@ -522,7 +522,7 @@ function vmDataTableServerData( source, data, callback, minimum, tableSelector, 
 {
         var search = '', echo = 1;
         $.each( data, function( _, parameter ) {
-                if( parameter.name === 'sSearch' ) search = $.trim( String( parameter.value || '' ) );
+                if( parameter.name === 'sSearch' ) search = String( parameter.value || '' ).trim();
                 if( parameter.name === 'sEcho' ) echo = parseInt( parameter.value, 10 ) || 1;
         } );
 
@@ -597,8 +597,8 @@ $.extend( $.fn.dataTableExt.oPagination, {
                                 '</ul>'
                         );
                         var els = $('a', nPaging);
-                        $(els[0]).bind( 'click.DT', { action: "previous" }, fnClickHandler );
-                        $(els[1]).bind( 'click.DT', { action: "next" }, fnClickHandler );
+                        $(els[0]).on( 'click.DT', { action: "previous" }, fnClickHandler );
+                        $(els[1]).on( 'click.DT', { action: "next" }, fnClickHandler );
                 },
 
                 "fnUpdate": function ( oSettings, fnDraw ) {
@@ -631,7 +631,7 @@ $.extend( $.fn.dataTableExt.oPagination, {
                                         sClass = (j==oPaging.iPage+1) ? 'class="active"' : '';
                                         $('<li '+sClass+'><a href="#">'+j+'</a></li>')
                                                 .insertBefore( $('li:last', an[i])[0] )
-                                                .bind('click', function (e) {
+                                                .on('click', function (e) {
                                                         e.preventDefault();
                                                         oSettings._iDisplayStart = (parseInt($('a', this).text(),10)-1) * oPaging.iLength;
                                                         fnDraw( oSettings );
