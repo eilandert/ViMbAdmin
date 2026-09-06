@@ -4,6 +4,7 @@ namespace Repositories;
 
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\QueryBuilder;
+use ViMbAdmin\Kernel\DataTable\DataTableQuery;
 
 /**
  * Mailbox
@@ -264,7 +265,7 @@ class Mailbox extends EntityRepository
      * @param \Entities\Domain|null $domain
      * @return array{rows: list<array<string,mixed>>, total: int, filtered: int}
      */
-    public function pagedForMailboxList( $admin, $domain, string $search, string $sortField, string $sortDir, int $start, int $length )
+    public function pagedForMailboxList( $admin, $domain, string $search, bool $contains, string $sortField, string $sortDir, int $start, int $length )
     {
         $base = function() use ( $admin, $domain ): \Doctrine\ORM\QueryBuilder {
             $qb = $this->getEntityManager()->createQueryBuilder()
@@ -281,10 +282,10 @@ class Mailbox extends EntityRepository
             return $qb;
         };
 
-        $applySearch = function( \Doctrine\ORM\QueryBuilder $qb ) use ( $search ): \Doctrine\ORM\QueryBuilder {
+        $applySearch = function( \Doctrine\ORM\QueryBuilder $qb ) use ( $search, $contains ): \Doctrine\ORM\QueryBuilder {
             if( $search !== '' )
                 $qb->andWhere( '( m.username LIKE :s OR m.name LIKE :s OR d.domain LIKE :s )' )
-                   ->setParameter( 's', '%' . addcslashes( $search, '%_\\' ) . '%' );
+                   ->setParameter( 's', DataTableQuery::likePattern( $search, $contains ) );
             return $qb;
         };
 

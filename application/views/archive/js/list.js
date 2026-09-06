@@ -24,7 +24,7 @@ $(document).ready( function()
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
         'aaSorting': [[ 4, 'desc' ]],
-        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No archives.' },
+        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No archives.', 'sSearch': 'Search (prefix `*` to match anywhere):' },
         'fnDrawCallback': function() {
             $( '.have-tooltip' ).tooltip("destroy").tooltip( { html: true, delay: { show: 500, hide: 2 }, trigger: 'hover' } );
             if( vm_prefs['iLength'] != $( "select[name|='list_table_length']" ).val() )

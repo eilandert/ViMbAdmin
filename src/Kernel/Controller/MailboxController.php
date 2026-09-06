@@ -362,7 +362,7 @@ final class MailboxController extends AbstractController
         $sortField = [0 => 'username', 1 => 'name', 4 => 'domain', 5 => 'active'][$q->sortColumn] ?? 'username';
 
         $r = $this->mailboxRepository()
-            ->pagedForMailboxList($admin, $domain, $q->search, $sortField, $q->sortDir, $q->start, $q->length);
+            ->pagedForMailboxList($admin, $domain, $q->searchTerm, $q->contains, $sortField, $q->sortDir, $q->start, $q->length);
 
         return new Response(
             DataTableResult::json($q, $r['total'], $r['filtered'], $r['rows']),

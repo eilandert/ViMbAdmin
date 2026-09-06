@@ -31,9 +31,24 @@ final class DataTableQuery
         public readonly int $start,
         public readonly int $length,
         public readonly string $search,
+        public readonly bool $contains,
+        public readonly string $searchTerm,
         public readonly int $sortColumn,
         public readonly string $sortDir,
     ) {
+    }
+
+    /**
+     * Build a `LIKE` pattern for a stripped search term, escaping `%`/`_`/`\`.
+     *
+     * `$contains` true anchors nowhere (`%term%`, the leading `*` toggle);
+     * false anchors the match to the start of the field (`term%`), which is
+     * index-friendly, unlike a leading wildcard.
+     */
+    public static function likePattern(string $searchTerm, bool $contains): string
+    {
+        $escaped = addcslashes($searchTerm, '%_\\');
+        return $contains ? '%' . $escaped . '%' : $escaped . '%';
     }
 
     /**
@@ -64,7 +79,18 @@ final class DataTableQuery
             throw new \TypeError('sSearch must be a string');
         }
         $search = trim($searchValue ?? '');
-        if ($search !== '' && mb_strlen($search, 'UTF-8') < $minimumSearchLength) {
+
+        // A leading `*` toggles "contains anywhere" (matches the existing
+        // convention in Alias::filteredAliasListQuery); the sigil itself is
+        // not part of the term and must not count toward the minimum length.
+        $contains   = str_starts_with($search, '*');
+        $searchTerm = $contains ? ltrim(substr($search, 1)) : $search;
+        // A search that is only `*` (searchTerm '') is treated as no search.
+        if ($searchTerm === '') {
+            $contains = false;
+        }
+
+        if ($searchTerm !== '' && mb_strlen($searchTerm, 'UTF-8') < $minimumSearchLength) {
             throw new \LengthException("Search must be empty or at least {$minimumSearchLength} characters");
         }
         $sortCol = max(0, self::integer($p['iSortCol_0'] ?? null, 0, 'iSortCol_0'));
@@ -74,7 +100,7 @@ final class DataTableQuery
         }
         $sortDir = strtoupper($sortDirection ?? 'asc') === 'DESC' ? 'DESC' : 'ASC';
 
-        return new self($echo, $start, $length, $search, $sortCol, $sortDir);
+        return new self($echo, $start, $length, $search, $contains, $searchTerm, $sortCol, $sortDir);
     }
 
     private static function integer(mixed $value, int $default, string $name): int

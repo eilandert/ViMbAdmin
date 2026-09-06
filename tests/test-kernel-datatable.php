@@ -92,6 +92,45 @@ dataTableCheck('whitespace search remains empty with a minimum', DataTableQuery:
 dataTableCheck('sort column parsed',     $q->sortColumn === 2);
 dataTableCheck('sort dir normalised',    $q->sortDir === 'DESC');
 
+// --- leading `*` contains toggle --------------------------------------------
+$plain = DataTableQuery::fromArray(['sSearch' => 'abc']);
+dataTableCheck('plain search: contains false',  $plain->contains === false);
+dataTableCheck('plain search: term unchanged',  $plain->searchTerm === 'abc');
+
+$star = DataTableQuery::fromArray(['sSearch' => '*abc']);
+dataTableCheck('starred search: contains true',  $star->contains === true);
+dataTableCheck('starred search: sigil stripped', $star->searchTerm === 'abc');
+
+$starOnly = DataTableQuery::fromArray(['sSearch' => '*']);
+dataTableCheck('lone star: contains false (empty search)', $starOnly->contains === false);
+dataTableCheck('lone star: term empty',                    $starOnly->searchTerm === '');
+
+// Minimum-length gate applies to the stripped term, not to the raw search
+// (which still carries the `*` sigil): `*ab` has a 2-char term and must be
+// rejected against a 3-char minimum even though the raw string is 3 chars.
+$starMinimumRejected = false;
+try {
+    DataTableQuery::fromArray(['sSearch' => '*ab'], 3);
+} catch (\LengthException $e) {
+    $starMinimumRejected = $e->getMessage() === 'Search must be empty or at least 3 characters';
+}
+dataTableCheck('starred search: minimum applies to stripped term', $starMinimumRejected);
+dataTableCheck('starred search at minimum retained',
+    DataTableQuery::fromArray(['sSearch' => '*abc'], 3)->searchTerm === 'abc');
+
+// A lone `*` is an empty search and must sail through any minimum, exactly
+// like an empty sSearch would.
+dataTableCheck('lone star bypasses minimum like an empty search',
+    DataTableQuery::fromArray(['sSearch' => '*'], 3)->searchTerm === '');
+
+// --- DataTableQuery::likePattern ---------------------------------------------
+dataTableCheck('likePattern anchored (default)',  DataTableQuery::likePattern('term', false) === 'term%');
+dataTableCheck('likePattern contains (starred)',   DataTableQuery::likePattern('term', true) === '%term%');
+dataTableCheck('likePattern escapes %/_/\\ (anchored)',
+    DataTableQuery::likePattern('a%b_c\\d', false) === 'a\\%b\\_c\\\\d%');
+dataTableCheck('likePattern escapes %/_/\\ (contains)',
+    DataTableQuery::likePattern('a%b_c\\d', true) === '%a\\%b\\_c\\\\d%');
+
 $d = DataTableQuery::fromArray([]);
 dataTableCheck('defaults: echo 1',       $d->echo === 1);
 dataTableCheck('defaults: start 0',      $d->start === 0);

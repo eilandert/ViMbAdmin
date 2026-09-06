@@ -334,7 +334,7 @@ final class DomainController extends AbstractController
         $sortField = [0 => 'domain', 1 => 'mailboxes', 2 => 'aliases', 4 => 'quota', 5 => 'active', 6 => 'transport', 8 => 'created'][$q->sortColumn] ?? 'domain';
 
         $r = $this->domainRepository()
-            ->pagedForDomainList($admin, $q->search, $sortField, $q->sortDir, $q->start, $q->length);
+            ->pagedForDomainList($admin, $q->searchTerm, $q->contains, $sortField, $q->sortDir, $q->start, $q->length);
 
         foreach ($r['rows'] as &$row) {
             if (($row['created'] ?? null) instanceof \DateTimeInterface) {

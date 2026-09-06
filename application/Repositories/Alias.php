@@ -3,6 +3,7 @@
 namespace Repositories;
 
 use Doctrine\ORM\EntityRepository;
+use ViMbAdmin\Kernel\DataTable\DataTableQuery;
 
 /**
  * Alias
@@ -191,7 +192,7 @@ class Alias extends EntityRepository
      * @param \Entities\Domain|null $domain
      * @return array{rows: array<int,array{id:int|string,address:string,goto:string,active:bool,domain:string}>, total: int, filtered: int}
      */
-    public function pagedForAliasList( $admin, $domain, bool $ima, string $search, string $sortField, string $sortDir, int $start, int $length )
+    public function pagedForAliasList( $admin, $domain, bool $ima, string $search, bool $contains, string $sortField, string $sortDir, int $start, int $length )
     {
         $base = function() use ( $admin, $domain, $ima ): \Doctrine\ORM\QueryBuilder {
             $qb = $this->getEntityManager()->createQueryBuilder()
@@ -210,10 +211,10 @@ class Alias extends EntityRepository
             return $qb;
         };
 
-        $applySearch = function( \Doctrine\ORM\QueryBuilder $qb ) use ( $search ): \Doctrine\ORM\QueryBuilder {
+        $applySearch = function( \Doctrine\ORM\QueryBuilder $qb ) use ( $search, $contains ): \Doctrine\ORM\QueryBuilder {
             if( $search !== '' )
                 $qb->andWhere( '( a.address LIKE :s OR a.goto LIKE :s OR d.domain LIKE :s )' )
-                   ->setParameter( 's', '%' . addcslashes( $search, '%_\\' ) . '%' );
+                   ->setParameter( 's', DataTableQuery::likePattern( $search, $contains ) );
             return $qb;
         };
 

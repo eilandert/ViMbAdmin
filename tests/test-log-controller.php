@@ -132,7 +132,7 @@ final class LogControllerTestLogRepository extends \Repositories\Log
 {
     /** @var list<array{0:\Entities\Admin|null,1:\Entities\Domain|null}> */
     public array $loadCalls = [];
-    /** @var list<array{0:\Entities\Admin|null,1:\Entities\Domain|null,2:string,3:string,4:string,5:int,6:int}> */
+    /** @var list<array{0:\Entities\Admin|null,1:\Entities\Domain|null,2:string,3:bool,4:string,5:string,6:int,7:int}> */
     public array $pageCalls = [];
 
     /**
@@ -168,12 +168,13 @@ final class LogControllerTestLogRepository extends \Repositories\Log
         $admin,
         $domain,
         string $search,
+        bool $contains,
         string $sortField,
         string $sortDir,
         int $start,
         int $length,
     ): array {
-        $this->pageCalls[] = [$admin, $domain, $search, $sortField, $sortDir, $start, $length];
+        $this->pageCalls[] = [$admin, $domain, $search, $contains, $sortField, $sortDir, $start, $length];
         return $this->page ?? ['rows' => [], 'total' => 0, 'filtered' => 0];
     }
 }
@@ -440,7 +441,7 @@ $pagedRows = is_array($pagedBody) && isset($pagedBody['aaData']) && is_array($pa
     : [];
 $firstPagedRow = $pagedRows[0] ?? null;
 $check('list-data preserves scoped pagination and sorting arguments',
-    $pagedLog->pageCalls === [[null, $domain, 'edit', 'domain', 'DESC', 5, 25]]);
+    $pagedLog->pageCalls === [[null, $domain, 'edit', false, 'domain', 'DESC', 5, 25]]);
 $check('list-data returns counts and formats timestamps',
     is_array($pagedBody)
         && $pagedBody['sEcho'] === 3

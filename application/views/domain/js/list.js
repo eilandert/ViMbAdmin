@@ -24,7 +24,7 @@ $(document).ready(function()
         'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
-        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No domains.' },
+        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No domains.', 'sSearch': 'Search (prefix `*` to match anywhere):' },
         'fnDrawCallback': function() {
             $( "a[id|='modal-dialog']" ).unbind().bind( 'click', tt_openModalDialog );
             $( '.have-tooltip' ).tooltip("destroy").tooltip( { html: true, delay: { show: 500, hide: 2 }, trigger: 'hover' } );
