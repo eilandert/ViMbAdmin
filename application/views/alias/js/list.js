@@ -26,7 +26,7 @@ $(document).ready( function()
         'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
-        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No aliases.', 'sSearch': 'Search (prefix `*` to match anywhere):' },
+        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No aliases.', 'sSearch': 'Search (prefix * to match anywhere):' },
         'fnDrawCallback': function() {
             $( "button[id|='delete-alias']" ).unbind().bind( 'click', deleteAlias );
             $( "a[id|='modal-dialog']" ).unbind().bind( 'click', tt_openModalDialog );

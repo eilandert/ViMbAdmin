@@ -465,7 +465,6 @@ $starredController = logController(
 $starredController->listDataAction();
 $check('list-data forwards the stripped term and the contains flag for a starred search',
     $starredLog->pageCalls === [[null, $domain, 'acme', true, 'domain', 'DESC', 5, 25]]);
-$_GET['sSearch'] = ' edit ';
 
 $_GET['sSearch'] = 'abc';
 foreach ([
