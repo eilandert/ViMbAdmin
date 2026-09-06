@@ -222,7 +222,10 @@ class ViMbAdmin_Doveadm
      *
      * @param string $payload JSON request body
      * @return array{0:int,1:string} [ httpStatus, responseBody ]
-     * @throws ViMbAdmin_Exception on transport failure
+     * @throws ViMbAdmin_Exception on transport failure, including a cURL
+     *         result code reported through the multi info queue (a refused
+     *         connection, DNS failure or timeout), which never surfaces on
+     *         the easy handle's curl_errno()
      */
     protected function _post( $payload )
     {
@@ -308,10 +311,38 @@ class ViMbAdmin_Doveadm
                     }
                 );
 
+                // The transfer ran on the multi interface, so curl_errno()/
+                // curl_error() on the easy handle do NOT carry its result:
+                // they stay CURLE_OK/'' even for a refused connection, a DNS
+                // failure or a timeout. The authoritative CURLE_* code lives
+                // only in the multi info queue, which must be drained before
+                // the handle is removed. Without this, a total transport
+                // failure returned [ 0, '' ] to the caller as a successful —
+                // merely empty — doveadm reply.
+                $errno = null;
+                while( ( $info = curl_multi_info_read( $multi ) ) !== false )
+                {
+                    // Only CURLMSG_DONE carries a result today, and messages
+                    // for any other handle belong to that handle, not to us.
+                    if( ( $info['msg'] ?? null ) !== CURLMSG_DONE )
+                        continue;
+                    if( ( $info['handle'] ?? null ) !== $ch )
+                        continue;
+                    $result = $info['result'] ?? null;
+                    if( is_int( $result ) )
+                        $errno = $result;
+                }
+                // No message matched (should not happen for a completed
+                // transfer): fall back to the easy handle rather than
+                // silently assuming success.
+                if( $errno === null )
+                    $errno = curl_errno( $ch );
+                $err    = $errno === CURLE_OK ? '' : curl_strerror( $errno );
+                if( !is_string( $err ) || $err === '' )
+                    $err = curl_error( $ch );
+
                 $body   = curl_multi_getcontent( $ch );
                 $status = (int) curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-                $err    = curl_error( $ch );
-                $errno  = curl_errno( $ch );
             }
             finally
             {

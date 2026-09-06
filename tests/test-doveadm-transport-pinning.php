@@ -13,6 +13,7 @@ declare(strict_types=1);
  * is actually in force on that transfer.
  */
 
+require_once __DIR__ . '/../library/ViMbAdmin/Exception.php';
 require_once __DIR__ . '/../library/ViMbAdmin/Doveadm.php';
 
 $failures = 0;
@@ -49,13 +50,14 @@ if (!is_string($fixture)) {
 file_put_contents($fixture, '[["doveadmResponse",[],"tag"]]');
 
 /**
- * Drive one _post() through a file:// URL and return the response body.
+ * Drive one _post() through a URL and return the response body, or the
+ * exception message prefixed with 'EXCEPTION: '.
  *
- * With the protocol allowlist in force libcurl refuses the transfer and the
- * body comes back empty; without it libcurl reads the fixture and the body
- * carries its contents. (_post() does not drain the curl_multi info queue, so
- * the refusal surfaces as an empty body rather than an exception — the
- * discriminator is the body, and the harness control below proves it.)
+ * With the protocol allowlist in force libcurl refuses the transfer; _post()
+ * drains the curl_multi info queue, so that refusal surfaces as a
+ * ViMbAdmin_Exception. Without the allowlist libcurl reads the fixture and
+ * the body carries its contents — the harness control below proves the
+ * assertions discriminate.
  */
 $attempt = static function (TransportProbeDoveadm $client): string {
     try {
@@ -71,7 +73,7 @@ $client = new TransportProbeDoveadm('file://' . $fixture, 'test-key', 5);
 // First request through a freshly created handle.
 $check(
     'first request refuses a non-http(s) scheme',
-    $attempt($client) === ''
+    str_contains($attempt($client), 'EXCEPTION: doveadm HTTP request failed (curl): ')
 );
 
 // Second request through the SAME reused handle, after curl_reset() has
@@ -79,13 +81,13 @@ $check(
 // options applied once at handle creation would be gone by now.
 $check(
     'second request through the reused handle still refuses a non-http(s) scheme',
-    $attempt($client) === ''
+    str_contains($attempt($client), 'EXCEPTION: doveadm HTTP request failed (curl): ')
 );
 
 // Third request, to prove the pinning is not merely surviving one reset.
 $check(
     'third request through the reused handle still refuses a non-http(s) scheme',
-    $attempt($client) === ''
+    str_contains($attempt($client), 'EXCEPTION: doveadm HTTP request failed (curl): ')
 );
 
 // Negative control on the harness itself: an unpinned handle DOES read the
@@ -155,11 +157,78 @@ $check(
     $deprecations === []
 );
 
+echo "\n== doveadm transport failures are not empty successes ==\n";
+
+// A real negative control for the curl_multi result plumbing: point the
+// client at a TCP port nothing listens on. The transfer runs on the multi
+// interface, where curl_errno()/curl_error() on the easy handle stay
+// CURLE_OK/'' — the failure exists only in the multi info queue. If _post()
+// does not drain that queue it returns [ 0, '' ], and the caller reads a
+// total transport failure as a successful but empty doveadm reply.
+// Bind an ephemeral port, read which one the kernel handed out, then close
+// the listener. The port is then almost certainly free and refusing, without
+// requiring ext-sockets.
+$probe = @stream_socket_server('tcp://127.0.0.1:0', $errNo, $errStr);
+if (!is_resource($probe)) {
+    throw new RuntimeException("Cannot bind a probe socket: {$errStr}");
+}
+$local = stream_socket_get_name($probe, false);
+fclose($probe);
+$deadPort = is_string($local) ? (int) substr($local, (int) strrpos($local, ':') + 1) : 0;
+if ($deadPort <= 0) {
+    throw new RuntimeException('Could not obtain a closed local port.');
+}
+
+$dead = new TransportProbeDoveadm("http://127.0.0.1:{$deadPort}/doveadm/v1", 'test-key', 5);
+$deadOutcome = $attempt($dead);
+$check(
+    'a refused connection throws instead of returning an empty success',
+    str_contains($deadOutcome, 'EXCEPTION: doveadm HTTP request failed (curl): ')
+);
+$check(
+    'the thrown message names the underlying cURL failure',
+    str_starts_with($deadOutcome, 'EXCEPTION: doveadm HTTP request failed (curl): ')
+    && strlen($deadOutcome) > strlen('EXCEPTION: doveadm HTTP request failed (curl): ')
+);
+
+// The failure really is invisible on the easy handle, which is why the
+// assertions above need the info queue. Reproduce the multi-interface shape
+// directly and show curl_errno() reports success on it.
+$mh = curl_multi_init();
+$eh = curl_init();
+curl_setopt($eh, CURLOPT_URL, "http://127.0.0.1:{$deadPort}/doveadm/v1");
+curl_setopt($eh, CURLOPT_RETURNTRANSFER, true);
+curl_multi_add_handle($mh, $eh);
+$stillRunning = 0;
+do {
+    curl_multi_exec($mh, $stillRunning);
+    if ($stillRunning > 0) {
+        curl_multi_select($mh, 0.1);
+    }
+} while ($stillRunning > 0);
+$easyErrno = curl_errno($eh);
+$queueErrno = null;
+while (($msg = curl_multi_info_read($mh)) !== false) {
+    if (($msg['handle'] ?? null) === $eh) {
+        $queueErrno = $msg['result'] ?? null;
+    }
+}
+curl_multi_remove_handle($mh, $eh);
+unset($eh, $mh);
+$check(
+    'the easy handle reports CURLE_OK for a failed multi transfer (the defect is real)',
+    $easyErrno === CURLE_OK
+);
+$check(
+    'the multi info queue carries the real CURLE_* result',
+    is_int($queueErrno) && $queueErrno !== CURLE_OK
+);
+
 // $fixture is this test's own tempnam() path, never user input.
 @unlink($fixture); // nosemgrep: php.lang.security.unlink-use.unlink-use
 
 // Fixed assertion count: guards against a silently skipped block.
-$expectedAssertions = 10;
+$expectedAssertions = 14;
 $actualAssertions = $assertions;
 echo ($actualAssertions === $expectedAssertions ? '  ok   ' : '  FAIL ')
     . "fixed assertion count ({$actualAssertions} of {$expectedAssertions})\n";
