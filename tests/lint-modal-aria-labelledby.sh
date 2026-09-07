@@ -75,7 +75,12 @@ check_file() {
     fi
     # The referenced id must actually exist in the same template, or assistive
     # technology resolves the reference to nothing and announces no name.
-    if ! grep -qE "id=[\"']${label}[\"']" "$f"; then
+    # Compare the referenced id as LITERAL TEXT. Interpolating it into a regex
+    # let its metacharacters widen the match: aria-labelledby="title.label"
+    # resolved against id="titleXlabel", so a dangling reference passed the very
+    # check this gate exists to make.
+    if ! sed -n 's/.*[[:space:]]id=["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' "$f" |
+      grep -Fqx -- "$label"; then
       echo "  Modal ${id:+#$id }in $f:$num points aria-labelledby at \"$label\", which no element in that file defines"
       fail=1
     fi
@@ -208,6 +213,22 @@ EOF
     status=1
   else
     echo "  OK: dangling aria-labelledby caught"
+  fi
+
+  echo "== self-test: regex metacharacters in the referenced id must not widen the match =="
+  # The referenced id is compared as literal text. Interpolated into a regex,
+  # "title.label" matched id="titleXlabel" and a dangling reference passed the
+  # dangling check -- defeating the gate's main purpose.
+  cat >"$tmpdir/metachar.phtml" <<'EOF'
+<div class="modal fade" id="meta" aria-labelledby="title.label">
+    <h3 class="modal-title" id="titleXlabel">Dangling, but regex-matched</h3>
+</div>
+EOF
+  if scan_files "$tmpdir/metachar.phtml" >/dev/null 2>&1; then
+    echo "  FAIL: a dangling reference passed because its metacharacter matched another id" >&2
+    status=1
+  else
+    echo "  OK: referenced id compared literally, metacharacter did not widen the match"
   fi
 
   echo "== self-test: a correctly labelled modal must not false-positive =="
