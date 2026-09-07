@@ -16,16 +16,16 @@ $(document).ready( function()
     /* Server-side processing: the full alias list is paged/sorted/searched via
        /alias/list-data, fetching only the visible page. Text cells escaped. */
     oDataTable = $( '#list_table' ).dataTable({
-        'bServerProcessing': true,
-        'bServerSide': true,
-        'sServerMethod': 'GET',
-        'sAjaxSource': "{genUrl controller='alias' action='list-data' ima=$ima}",
+        'processing': true,
+        'serverSide': true,
+        'serverMethod': 'GET',
+        'ajax': "{genUrl controller='alias' action='list-data' ima=$ima}",
         'fnServerData': vmAliasServerData,
-        'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
+        'pageLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
-        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No aliases.', 'sSearch': 'Search (prefix * to match anywhere):' },
-        'fnDrawCallback': function() {
+        'language': { 'processing': 'Loading…', 'emptyTable': 'No aliases.', 'search': 'Search (prefix * to match anywhere):' },
+        'drawCallback': function() {
             $( "button[id|='delete-alias']" ).off().on( 'click', deleteAlias );
             $( "a[id|='modal-dialog']" ).off().on( 'click', tt_openModalDialog );
             $( '.have-tooltip' ).tooltip("destroy").tooltip( { html: true, delay: { show: 500, hide: 2 }, trigger: 'hover' } );
@@ -33,30 +33,30 @@ $(document).ready( function()
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();
             vmPrefsCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
         },
-        'aoColumns': [
-            { 'mData': 'address', 'mRender': $.fn.dataTable.render.text() },
-            { 'mData': 'domain',  'mRender': $.fn.dataTable.render.text() },
-            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return formatActive( row.id, row.active ); } },
-            { 'mData': 'goto', 'bSortable': false, 'mRender': function( d, t, row ){ return formatGoto( row.id, row.goto ); } },
-            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return formatControlls( row.id ); } }
+        'columns': [
+            { 'data': 'address', 'render': $.fn.dataTable.render.text() },
+            { 'data': 'domain',  'render': $.fn.dataTable.render.text() },
+            { 'data': null, 'orderable': false, 'render': function( d, t, row ){ return formatActive( row.id, row.active ); } },
+            { 'data': 'goto', 'orderable': false, 'render': function( d, t, row ){ return formatGoto( row.id, row.goto ); } },
+            { 'data': null, 'orderable': false, 'render': function( d, t, row ){ return formatControlls( row.id ); } }
         ]
     });
     {else}
     oDataTable = $( '#list_table' ).dataTable({
-        'fnDrawCallback': function() {
+        'drawCallback': function() {
             if( vm_prefs['iLength'] !=  $( "select[name|='list_table_length']" ).val() )
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();
             vmPrefsCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
         },
-        'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
+        'pageLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
-        'aoColumns': [
+        'columns': [
             null,
             null,
             null,
             null,
-            { 'bSortable': false, "bSearchable": false }
+            { 'orderable': false, "searchable": false }
         ]
     });
     {/if}

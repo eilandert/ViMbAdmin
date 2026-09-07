@@ -6,16 +6,16 @@ var oDataTable;
 $(document).ready( function()
 {
     oDataTable = $( '#list_table' ).dataTable({
-        'fnDrawCallback': function() {
+        'drawCallback': function() {
             if( vm_prefs['iLength'] !=  $( "select[name|='list_table_length']" ).val() )
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();
 
             vmPrefsCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
         },
-        'iDisplayLength': vm_prefs['iLength']? vm_prefs['iLength']: {$options.defaults.table.entries},
-        'aoColumns': [
+        'pageLength': vm_prefs['iLength']? vm_prefs['iLength']: {$options.defaults.table.entries},
+        'columns': [
             null,
-            { 'bSortable': false, "bSearchable": false }
+            { 'orderable': false, "searchable": false }
         ]
     });
     

@@ -5,18 +5,18 @@ var oDataTable;
 $(document).ready( function()
 {
     oDataTable = $( '#list_table' ).dataTable({
-        'fnDrawCallback': function() {
+        'drawCallback': function() {
             if( vm_prefs['iLength'] !=  $( "select[name|='list_table_length']" ).val() )
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();
 
             vmPrefsCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
         },
-        'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
+        'pageLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
-        'aoColumns': [
+        'columns': [
             null,
-            { 'bSortable': false, "bSearchable": false }
+            { 'orderable': false, "searchable": false }
         ]
     });
 
