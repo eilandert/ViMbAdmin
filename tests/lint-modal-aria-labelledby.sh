@@ -32,6 +32,13 @@ if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ]; then
   exit 1
 fi
 
+# Shared opening-tag extractor: reads from `<` to the first UNQUOTED `>`,
+# spanning multiple lines and returning one record per element (so two
+# elements on the same line are two records, not one). See
+# tests/support/html-opening-tags.sh for the PR #171 history this replaces.
+# shellcheck source=tests/support/html-opening-tags.sh
+source "$(dirname "$0")/support/html-opening-tags.sh"
+
 # Modal ids whose content is injected at runtime; see the header comment.
 runtime_shell_ids='modal_dialog_shell'
 
@@ -46,28 +53,14 @@ runtime_shell_ids='modal_dialog_shell'
 # unlabelled dialogs written in either of those equally valid orders passed the
 # gate. Attribute order is not a property this gate may depend on.
 check_file() {
-  local f="$1" fail=0 line num tag id label
-  while IFS= read -r line; do
-    [ -n "$line" ] || continue
-    num="${line%%:*}"
-    tag="${line#*:}"
-    # This gate is line-oriented. A modal whose opening tag is split across
-    # lines cannot be judged from one line, so refuse it rather than pass it --
-    # silently skipping is how an unnamed dialog slips past a green gate.
-    # Two tells, both meaning "this line is not a whole opening tag":
-    # the tag never opened on this line, or it never closed on it.
-    if ! grep -qP '<[a-zA-Z][a-zA-Z0-9]*[^>]*\sclass\s*=' <<<"$tag" || ! grep -q '>' <<<"$tag"; then
-      echo "  Modal opening tag at $f:$num is split across lines; this gate reads one line at a time and cannot judge it. Keep the opening tag on a single line."
-      fail=1
-      continue
-    fi
+  local f="$1" fail=0 num tag id label
+  while IFS=$'\t' read -r num tag; do
+    [ -n "$tag" ] || continue
 
-    # Narrow to the modal's OWN opening tag before reading attributes. grep
-    # hands back the whole line, so inline markup such as
-    # `<div class="modal"><h3 id="t" aria-labelledby="t">` would otherwise let a
-    # CHILD element's attributes be credited to the modal, and an unlabelled
-    # dialog would pass.
-    tag="${tag%%>*}>"
+    # Narrow to modal elements by class, word-bounded so `modal-dialog` /
+    # `modal-content` wrappers (legitimately unlabelled) are not matched.
+    grep -qP '\bclass\s*=\s*["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w])' <<<"$tag" || continue
+
     id=$(sed -n 's/.*[[:space:]]id[[:space:]]*=[[:space:]]*["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
     label=$(sed -n 's/.*[[:space:]]aria-labelledby[[:space:]]*=[[:space:]]*["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
 
@@ -86,12 +79,18 @@ check_file() {
     # let its metacharacters widen the match: aria-labelledby="title.label"
     # resolved against id="titleXlabel", so a dangling reference passed the very
     # check this gate exists to make.
-    if ! sed -n 's/.*[[:space:]]id[[:space:]]*=[[:space:]]*["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' "$f" |
+    #
+    # `grep -oP` (not a greedy `sed 's/.*id=.../'`) so EVERY id= in the file is
+    # collected, not just the last one on a line -- a greedy `.*` prefix drops
+    # every id but the rightmost when two elements share a line, exactly the
+    # multi-element-per-line failure mode this gate exists to close.
+    if ! grep -oP '[[:space:]]id\s*=\s*["'"'"'][^"'"'"']*["'"'"']' "$f" |
+      sed -E 's/.*=\s*["'"'"']([^"'"'"']*)["'"'"']/\1/' |
       grep -Fqx -- "$label"; then
       echo "  Modal ${id:+#$id }in $f:$num points aria-labelledby at \"$label\", which no element in that file defines"
       fail=1
     fi
-  done < <(grep -nP '(<[a-zA-Z][a-zA-Z0-9]*[^>]*\sclass\s*=\s*["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w]))|(^[^<]*\bclass\s*=\s*["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w]))' "$f" || true)
+  done < <(extract_opening_tags "$f")
   return "$fail"
 }
 
@@ -189,21 +188,62 @@ EOF
     status=1
   fi
 
-  echo "== self-test: a multi-line opening tag must fail loudly, not be skipped =="
-  # The gate is line-oriented. A split opening tag cannot be judged correctly,
-  # so it must be refused rather than passed -- silently skipping it is exactly
-  # how an unnamed dialog would slip through a green gate.
+  echo "== self-test: an unlabelled multi-line opening tag must be read and caught, not skipped =="
+  # The shared extractor spans a tag across lines, so this must be judged
+  # exactly like any single-line unlabelled modal -- not silently skipped.
   cat >"$tmpdir/multiline.phtml" <<'EOF'
 <div
     class="modal fade" id="ml">
     <h3 class="modal-title">Split opening tag</h3>
 </div>
 EOF
-  if scan_files "$tmpdir/multiline.phtml" >/dev/null 2>&1; then
-    echo "  FAIL: a split modal opening tag passed silently" >&2
+  local multiline_msg
+  multiline_msg=$(check_file "$tmpdir/multiline.phtml" || true)
+  if grep -q 'has no aria-labelledby' <<<"$multiline_msg"; then
+    echo "  OK: split modal opening tag read whole and caught for the right reason"
+  else
+    echo "  FAIL: split modal opening tag was not correctly judged: $multiline_msg" >&2
+    status=1
+  fi
+
+  echo "== self-test: a correctly labelled multi-line opening tag must not false-positive =="
+  # Proves the tag is genuinely parsed (attributes on the second physical
+  # line are read), not just always-red on any multi-line input.
+  cat >"$tmpdir/multiline-good.phtml" <<'EOF'
+<div
+    class="modal fade" id="ml_ok" aria-labelledby="ml_ok_label">
+    <h3 class="modal-title" id="ml_ok_label">Split opening tag, labelled</h3>
+</div>
+EOF
+  if scan_files "$tmpdir/multiline-good.phtml" >/dev/null 2>&1; then
+    echo "  OK: correctly labelled multi-line modal accepted"
+  else
+    echo "  FAIL: false positive on a correctly labelled multi-line modal" >&2
+    status=1
+  fi
+
+  echo "== self-test: two modals on ONE line -- the SECOND must be scanned, not lost =="
+  # This is the concrete open bug the shared extractor exists to fix:
+  # grep -nP + tag="\${tag%%>*}>" kept only the first opening tag on a line, so
+  # a labelled modal followed by an unlabelled one on the SAME line meant the
+  # second modal was never scanned at all -- the gate exited 1 only by
+  # accident, misreporting the FIRST modal's aria-labelledby as dangling.
+  cat >"$tmpdir/two-on-one-line.phtml" <<'EOF'
+<div class="modal fade" id="first" aria-labelledby="first_label"><h3 id="first_label">First</h3></div><div class="modal fade" id="second"><h3 id="second_title">Second, unlabelled</h3></div>
+EOF
+  local twomodal_msg
+  twomodal_msg=$(check_file "$tmpdir/two-on-one-line.phtml" || true)
+  if grep -q 'Modal #second has no aria-labelledby' <<<"$twomodal_msg"; then
+    echo "  OK: second modal on the same line is scanned and named as the failure"
+  else
+    echo "  FAIL: second same-line modal was not correctly named as unlabelled: $twomodal_msg" >&2
+    status=1
+  fi
+  if grep -q '#first' <<<"$twomodal_msg"; then
+    echo "  FAIL: the correctly labelled first modal was misreported: $twomodal_msg" >&2
     status=1
   else
-    echo "  OK: split modal opening tag refused rather than skipped"
+    echo "  OK: the correctly labelled first modal was not misreported"
   fi
 
   echo "== self-test: a DANGLING aria-labelledby must be caught, not accepted =="
