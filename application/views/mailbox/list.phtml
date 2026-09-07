@@ -12,7 +12,7 @@
             <div class="btn-toolbar">
             	<span class="btn-group">
         	        <a class="btn have-tooltip-below" id="add_mailbox" title="Add Mailbox" href="{genUrl controller='mailbox' action='add'}{if isset( $domain ) &&$domain}/did/{$domain->getId()}{/if}">
-            	        <i class="icon-plus"></i>
+            	        <i class="bi-plus-lg"></i>
         	        </a>
             	</span>
         	</div>
@@ -21,7 +21,7 @@
         <h1>
             Mailboxes {if isset( $domain ) && $domain}<small> for {$domain->requiredDomainName()} {if $domain->getMaxMailboxes() != 0}({$domain->getMailboxCount()}/{$domain->getMaxMailboxes()}){/if}</small>
                 <a class="btn have-tooltip-below" id="show_all_mailbox" title="Show All" href="{genUrl controller='mailbox' action='list' unset=1}">
-                    <i class="icon-remove-circle"></i>
+                    <i class="bi-x-circle"></i>
                 </a>
             {/if}
         </h1>
@@ -72,7 +72,7 @@
                 
                 <div class="btn-group">
                     <a class="btn btn-sm have-tooltip" id="edit_mailbox_{$mbox.id}" title="Edit" href="{genUrl controller='mailbox' action='edit' mid=$mbox.id}">
-                        <i class="icon-pencil"></i>
+                        <i class="bi-pencil"></i>
                     </a>
                     {if isset( $mailbox_actions ) }
                         {assign var=oid value=$mbox.id}
@@ -91,33 +91,33 @@
                         {/foreach}
                     {/if}
                     <a class="btn btn-sm have-tooltip" id="password_{$mbox.id}" title="Password" href="{genUrl controller='mailbox' action='password' mid=$mbox.id}">
-                        <i class="icon-lock"></i>
+                        <i class="bi-lock"></i>
                     </a>
                     <a class="btn btn-sm have-tooltip" id="mailbox_aliases_{$mbox.id}" title="List Aliases" href="{genUrl controller='mailbox' action='aliases' mid=$mbox.id}">
-                        <i class="icon-random"></i>
+                        <i class="bi-shuffle"></i>
                     </a>
                     <a class="btn btn-sm have-tooltip" id="modal-dialog-mailbox_settings_{$mbox.id}" title="Send Settings" href="{genUrl controller='mailbox' action='email-settings' mid=$mbox.id}">
-                        <i class="icon-envelope"></i>
+                        <i class="bi-envelope"></i>
                     </a>
                     <form method="post" action="{genUrl controller='mailbox' action='queue-repair'}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;">
                     <input type="hidden" name="mid" value="{$mbox.id}" />
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <button class="btn btn-sm have-tooltip" id="repair_{$mbox.id}" title="Repair / optimize (queued, via doveadm)" type="submit">
-                        <i class="icon-wrench"></i>
+                        <i class="bi-wrench"></i>
                     </button>
                     </form>
                     <form method="post" action="{genUrl controller='mailbox' action='queue-archive'}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" data-confirm="Archive {$mbox.username|escape}? Backs up + empties the mailbox, keeps the account.">
                     <input type="hidden" name="mid" value="{$mbox.id}" />
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <button class="btn btn-sm have-tooltip" id="archive_{$mbox.id}" title="Archive (queued: backup + empty mailbox, keep account)" type="submit">
-                        <i class="icon-inbox"></i>
+                        <i class="bi-archive"></i>
                     </button>
                     </form>
                     <form method="post" action="{genUrl controller='mailbox' action='queue-delete'}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" data-confirm="DELETE {$mbox.username|escape}? Backs up, then removes the mail AND the account. This cannot be undone from here.">
                     <input type="hidden" name="mid" value="{$mbox.id}" />
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <button class="btn btn-sm have-tooltip btn-danger" id="delete_{$mbox.id}" title="Delete (queued: backup, then remove mailbox + account)" type="submit">
-                        <i class="icon-trash"></i>
+                        <i class="bi-trash"></i>
                     </button>
                     </form>
                     {if isset( $action_list_menu)}

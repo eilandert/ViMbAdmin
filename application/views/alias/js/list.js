@@ -180,7 +180,7 @@ function formatControlls( id )
                     
     var str = '<div class="btn-group">\
             <a class="btn btn-sm have-tooltip" id="edit_alias_' + id + '" title="Edit" href="{genUrl controller="alias" action="edit"}/alid/' + id + '">\
-                <i class="icon-pencil"></i>\
+                <i class="bi-pencil"></i>\
             </a>';
             {if isset( $alias_actions ) }
                 {foreach $alias_actions as $action}
@@ -209,7 +209,7 @@ function formatControlls( id )
                 <input type="hidden" name="alid" value="' + id + '" />\
                 <input type="hidden" name="csrf" value="{$csrfToken}" />\
                 <button class="btn btn-sm have-tooltip" id="delete-alias-' + id + '" title="Delete" type="submit">\
-                    <i class="icon-trash"></i>\
+                    <i class="bi-trash"></i>\
                 </button>\
             </form>';
             

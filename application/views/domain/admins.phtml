@@ -7,7 +7,7 @@
             <div class="btn-toolbar">
             	<span class="btn-group">
         	        <a class="btn have-tooltip-below" id="add_admin" title="Assign Administrator" href="{genUrl controller='domain' action='assign-admin' did=$domain->getId()}">
-            	        <i class="icon-plus"></i>
+            	        <i class="bi-plus-lg"></i>
         	        </a>
             	</span>
         	</div>
@@ -37,7 +37,7 @@
                         <input type="hidden" name="did" value="{$domain->getId()}" />
                         <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                         <button class="btn btn-sm have-tooltip" ref="{$admin->getUsername()}" id="remove-admin-{$admin->getId()}" title="Remove" type="submit">
-                            <i class="icon-minus"></i>
+                            <i class="bi-dash-lg"></i>
                         </button>
                     </form>
                 </td>

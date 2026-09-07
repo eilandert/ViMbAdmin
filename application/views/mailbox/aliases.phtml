@@ -9,15 +9,15 @@
             	<span class="btn-group">
             	    {if $ima}   
                         <a class="btn have-tooltip-below" id="ima" title="Hide Mailbox Aliases" href="{genUrl controller='mailbox' action='aliases' ima=0 mid=$mailbox->getId()}" >
-                            <i class="icon-eye-close"></i>
+                            <i class="bi-eye-slash"></i>
                         </a>
                     {else}
                         <a class="btn have-tooltip-below" id="ima" title="Show Mailbox Aliases" href="{genUrl controller='mailbox' action='aliases' ima=1 mid=$mailbox->getId()}" >
-                            <i class="icon-eye-close"></i>
+                            <i class="bi-eye"></i>
                         </a>
                     {/if}
         	        <a class="btn have-tooltip-below" id="add_alias" href="{genUrl controller='alias' action='add' mid=$mailbox->getId()}" title="Add Alias" >
-            	        <i class="icon-plus"></i>
+            	        <i class="bi-plus-lg"></i>
         	        </a>
             	</span>
         	</div>
@@ -52,7 +52,7 @@
                             <input type="hidden" name="alid" value="{$alias->getId()}" />
                             <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                             <button class="btn btn-sm have-tooltip" ref="{$alias->getAddress()}" id="delete-alias-{$alias->getId()}" title="Remove" type="submit">
-                                <i class="icon-trash"></i>
+                                <i class="bi-trash"></i>
                             </button>
                         </form>
                     </div>

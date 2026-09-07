@@ -13,16 +13,16 @@
                     <span class="btn-group">
                     {if $ima}   
                         <a class="btn have-tooltip-below" id="ima" title="Hide Mailbox Aliases" href="{genUrl controller='alias' action='list' ima=0}{if isset( $domain ) && $domain}/did/{$domain->getId()}{/if}" >
-            	            <i class="icon-eye-open"></i>
+            	            <i class="bi-eye"></i>
                         </a>
                     {else}
                         <a class="btn have-tooltip-below" id="ima" title="Show Mailbox Aliases" href="{genUrl controller='alias' action='list' ima=1}{if isset( $domain ) && $domain}/did/{$domain->getId()}{/if}" >
-                            <i class="icon-eye-close"></i>
+                            <i class="bi-eye-slash"></i>
                         </a>
                     {/if}
         	        <a class="btn have-tooltip-below" id="add_alias" title="Add Alias" href="{genUrl controller='alias' action='add'}{if isset( $domain ) && $domain}/did/{$domain->getId()}{/if}">
 
-            	        <i class="icon-plus"></i>
+            	        <i class="bi-plus-lg"></i>
         	        </a>
             	</span>
         	</div>
@@ -31,7 +31,7 @@
 
         <h1>
             Aliases {if isset( $domain ) && $domain }<small> for {$domain->requiredDomainName()} {if $domain->getMaxAliases() != 0}({$domain->getAliasCount()}/{$domain->getMaxAliases()}){/if}</small>
-                <a class="btn have-tooltip-below" id="show_all_aliases" title="Show All" href="{genUrl controller='alias' action='list' unset=1}{if $ima}/ima/1{/if}"><i class="icon-remove-circle"></i></a>
+                <a class="btn have-tooltip-below" id="show_all_aliases" title="Show All" href="{genUrl controller='alias' action='list' unset=1}{if $ima}/ima/1{/if}"><i class="bi-x-circle"></i></a>
             {/if}
         </h1>
     </div>
@@ -67,7 +67,7 @@
             <td>
                 <div class="btn-group">
                     <a class="btn btn-sm have-tooltip" id="edit_alias_{$alias.id}" title="Edit" href="{genUrl controller='alias' action='edit' alid=$alias.id}">
-                        <i class="icon-pencil"></i>
+                        <i class="bi-pencil"></i>
                     </a>
                     {if isset( $alias_actions ) }
                         {assign var=oid value=$alias.id}
@@ -89,7 +89,7 @@
                         <input type="hidden" name="alid" value="{$alias.id}" />
                         <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                         <button class="btn btn-sm have-tooltip" id="delete-alias-{$alias.id}" title="Delete" type="submit">
-                            <i class="icon-trash"></i>
+                            <i class="bi-trash"></i>
                         </button>
                     </form>
                     {if isset( $action_list_menu)}

@@ -9,7 +9,7 @@
             <div class="btn-toolbar">
             	<span class="btn-group">
         	        <a class="btn" id="asign_domain have-tooltip" href="{genUrl controller='admin' action='assign-domain' aid=$targetAdmin->getId()}" title="Assign Domain" >
-            	        <i class="icon-plus"></i>
+            	        <i class="bi-plus-lg"></i>
         	        </a>
             	</span>
         	</div>
@@ -35,7 +35,7 @@
             <td>{$domain->requiredDomainName()}{if !$domain->getActive()} (inactive){/if}</td>
             <td>
                 <a class="btn btn-sm have-tooltip-below" id="remove-domain-{$domain->getId()}" href="{genUrl controller='admin' action='remove-domain' aid=$targetAdmin->getId() did=$domain->getId()}" ref="{$domain->requiredDomainName()}" title="Remove">
-                    <i class="icon-minus"></i>
+                    <i class="bi-dash-lg"></i>
                 </a>
             </td>
         </tr>

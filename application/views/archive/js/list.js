@@ -110,7 +110,7 @@ function formatArchiveControls( row )
              + '<input type="hidden" name="arid" value="' + id + '" />'
              + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
              + '<button class="btn btn-sm have-tooltip" id="restore-archive-' + id + '" title="Restore mail back into the mailbox" type="submit">'
-             + '<i class="icon-retweet"></i></button></form>';
+             + '<i class="bi-arrow-repeat"></i></button></form>';
 
     if( $.inArray( row.status, archiveAllowDelete ) != -1 )
         str += '<form method="post" action="{genUrl controller="archive" action="delete"}" class="archive-action-form" style="display: inline;"'
@@ -118,7 +118,7 @@ function formatArchiveControls( row )
              + '<input type="hidden" name="arid" value="' + id + '" />'
              + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
              + '<button class="btn btn-sm btn-danger have-tooltip" id="delete-archive-' + id + '" title="Delete backup permanently" type="submit">'
-             + '<i class="icon-trash"></i></button></form>';
+             + '<i class="bi-trash"></i></button></form>';
 
     if( row.autoprune )
         str += '<form method="post" action="{genUrl controller="archive" action="toggle-autoprune"}" class="archive-action-form" style="display: inline;"'
@@ -126,14 +126,14 @@ function formatArchiveControls( row )
              + '<input type="hidden" name="arid" value="' + id + '" />'
              + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
              + '<button class="btn btn-sm have-tooltip" id="autoprune-archive-' + id + '" title="Disable autoprune" type="submit">'
-             + '<i class="icon-off"></i></button></form>';
+             + '<i class="bi-power"></i></button></form>';
     else
         str += '<form method="post" action="{genUrl controller="archive" action="toggle-autoprune"}" class="archive-action-form" style="display: inline;"'
              + ' data-confirm="Enable autoprune for ' + jsName + '? This resets its archived date to now, so the prune window restarts.">'
              + '<input type="hidden" name="arid" value="' + id + '" />'
              + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
              + '<button class="btn btn-sm btn-warning have-tooltip" id="autoprune-archive-' + id + '" title="Enable autoprune (resets archived date to now)" type="submit">'
-             + '<i class="icon-time"></i></button></form>';
+             + '<i class="bi-clock-history"></i></button></form>';
 
     str += '</div>';
     return str;

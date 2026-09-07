@@ -180,7 +180,7 @@ function formatActive( id, active )
 function formatMailboxes( id, mailboxes, maxmailboxes )
 {
     var str = '<a class="btn btn-sm have-tooltip" id="add_mailbox_' + id + '" title="Add Mailbox" href="{genUrl controller="mailbox" action="add"}/did/' + id + '">\
-        <i class="icon-plus"></i>\
+        <i class="bi-plus-lg"></i>\
     </a>&nbsp;&nbsp;\
     <a class="ul" href="{genUrl controller="mailbox" action="list"}/did/' + id + '">' + mailboxes;
     if( maxmailboxes != 0 )
@@ -192,7 +192,7 @@ function formatMailboxes( id, mailboxes, maxmailboxes )
 function formatAliases( id, aliases, maxaliases )
 {
     var str = '<a class="btn btn-sm have-tooltip" id="add_alias_' + id + '" title="Add Alias" href="{genUrl controller="alias" action="add"}/did/' + id + '">\
-        <i class="icon-plus"></i>\
+        <i class="bi-plus-lg"></i>\
     </a>&nbsp;&nbsp;\
     <a class="ul" href="{genUrl controller="aliases" action="list"}/did/' + id + '">' + aliases;
     if( maxaliases != 0 )
@@ -209,7 +209,7 @@ function formatControlls( id, name )
                     
     var str = '<div class="btn-group">\
             <a class="btn btn-sm have-tooltip" id="edit_domain_' + id + '" title="Edit" href="{genUrl controller="domain" action="edit"}/did/' + id + '">\
-                <i class="icon-pencil"></i>\
+                <i class="bi-pencil"></i>\
             </a>';
     {if isset( $domain_actions ) }
         {foreach $domain_actions as $action}
@@ -236,17 +236,17 @@ function formatControlls( id, name )
      
     {if $user->isSuper()}
         str += '<a class="btn btn-sm have-tooltip" id="domain_admins_' + id + '" title="Administrators" href="{genUrl controller="domain" action="admins"}/did/' + id + '">\
-            <i class="icon-user"></i>\
+            <i class="bi-person"></i>\
         </a>';
     {/if}
             
     str += '<a class="btn btn-sm have-tooltip" id="domain_logs_' + id + '" title="Logs" href="{genUrl controller="log" action="list"}/did/' + id + '">\
-                <i class="icon-align-justify"></i>\
+                <i class="bi-list-ul"></i>\
             </a>';
             
      {if $user->isSuper()}
         str += '<span  class="btn btn-sm have-tooltip"  id="purge-domain-' + id + '" title="Purge" data-purge-domain="' + id + '" data-domain-name="' + htmlAttr( name ) + '">\
-            <i class="icon-trash"></i>\
+            <i class="bi-trash"></i>\
         </span>';
     {/if}
             
