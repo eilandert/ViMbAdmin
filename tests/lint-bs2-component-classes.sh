@@ -353,6 +353,23 @@ if [ "${#files[@]}" -eq 0 ]; then
   exit 1
 fi
 
+# `nullglob` silently drops a glob that matches nothing, but a LITERAL path
+# stays in the array even when the file is gone -- so the empty-inventory
+# check above cannot catch a renamed or deleted `public/js/990-vimbadmin.js`.
+# Without this loop the extractor just printed a perl "No such file" line to
+# stderr, produced no class values for that file, and the scan reported a
+# clean pass: the gate would greenlight precisely the situation where it had
+# stopped looking at an emit site. Fail loudly instead.
+missing=()
+for f in "${files[@]}"; do
+  [ -r "$f" ] || missing+=( "$f" )
+done
+if [ "${#missing[@]}" -ne 0 ]; then
+  echo "  -> Cannot read ${#missing[@]} expected input file(s); refusing to report a partial scan as clean:" >&2
+  printf '       %s\n' "${missing[@]}" >&2
+  exit 1
+fi
+
 if scan_files "${files[@]}"; then
   echo "  OK: no Bootstrap 2 component class in own templates (${#files[@]} templates scanned)"
   exit 0
