@@ -149,22 +149,22 @@
 
 <script type="text/javascript" nonce="{$cspNonce}">{tmplinclude file='mailbox/js/list.js'}</script>
 
-<div id="email_dialog" class="modal fade" tabindex="-1" aria-hidden="true">
+<div id="email_dialog" class="modal fade" tabindex="-1" aria-labelledby="email_dialog_label" aria-hidden="true">
 
     <div class="modal-dialog modal-dialog-centered">
 
         <div class="modal-content">
 
             <div class="modal-header">
-                <h3 class="modal-title">Are you sure?</h3>
+                <h3 class="modal-title" id="email_dialog_label">Are you sure?</h3>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 Are you sure you want to send email settings for <em id="email_name"> </em>?
             </div>
             <div id="efooter" class="modal-footer">
-                <span class="btn btn-primary" id="email_dialog_send">Send</span>
-                <button id="email_dialog_cancel" class="btn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="email_dialog_send">Send</button>
+                <button type="button" id="email_dialog_cancel" class="btn">Cancel</button>
             </div>
 
         </div>
