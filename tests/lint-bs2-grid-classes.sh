@@ -18,10 +18,11 @@
 #   - public/css/**, public/js/** — vendored Bootstrap and other third-party
 #     assets legitimately contain these tokens, and the generated
 #     `min.bundle-v*` artifacts are never hand-edited.
-#   - DataTables `sDom` strings in application/views/*/js/*.js. Those encode
-#     `span6` as a DataTables domPositioning TOKEN, not a CSS class; renaming
-#     them would break the table layout API rather than fix anything. Their
-#     Bootstrap 5 rewrite is separate work.
+#   - DataTables `sDom`/`dom` strings in application/views/*/js/*.js. Those
+#     encode `span6` as a DataTables domPositioning TOKEN, not a CSS class;
+#     renaming them here would break the table layout API rather than fix
+#     anything. VIM-A15.23 removed the BS2 `sDom` overrides and covers that
+#     token class with tests/lint-datatables-bs5-dom.sh instead.
 #
 # Only `class="..."` / `class='...'` attribute values are scanned, so ordinary
 # prose or an identifier that merely contains "span" is not a false positive.

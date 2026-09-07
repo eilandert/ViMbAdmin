@@ -58,6 +58,12 @@ jobs:
       - name: Glyphicons icon-* classes must not reappear (VIM-A15.18)
         run: bash tests/lint-no-glyphicon-classes.sh
 
+      - name: DataTables dom/sDom strings must not carry BS2 grid tokens (VIM-A15.23)
+        run: bash tests/lint-datatables-bs5-dom.sh
+
+      - name: DataTables extension names must be registered (VIM-A15.23)
+        run: bash tests/lint-datatables-registered-plugins.sh
+
       - name: Containerized Chrome runner hardening
         run: bash tests/test-headless-chrome-container.sh
 
