@@ -77,11 +77,7 @@ function toggleActive( elid, id ){
 function deleteAlias( event ){
     event.preventDefault();
 
-    delDialog = $( '#purge_dialog' ).modal({
-        backdrop: true,
-        keyboard: true,
-        show: true
-    });
+    delDialog = ossModal( '#purge_dialog' );
 
     if( $( event.target ).is( "i" ) )
         element = $( event.target ).parent();

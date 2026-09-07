@@ -17,7 +17,16 @@ benefit from this application.
 
 {if !isset($inColorBox) || !$inColorBox}
 
-    <div id="modal_dialog" class="modal hide fade"> </div>
+    {* Bootstrap 5 modal shell for the AJAX-loaded dialog. The fragment is
+       injected into #modal_dialog (the .modal-content node) by
+       public/js/990-vimbadmin.js and application/views/mailbox/js/list.js, so
+       that id stays on the content container and the outer .modal element the
+       Bootstrap 5 Modal component drives is #modal_dialog_shell. *}
+    <div id="modal_dialog_shell" class="modal fade" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div id="modal_dialog" class="modal-content"> </div>
+        </div>
+    </div>
     <footer>
 
         {if $smarty.const.APPLICATION_ENV == 'vagrant'}

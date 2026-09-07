@@ -83,3 +83,89 @@ table.dataTable th:active {
 /****************************************************************************/
 
 
+
+/****************************************************************************/
+/*******************   BOOTSTRAP 2 -> 5 COMPATIBILITY   *********************/
+/****************************************************************************/
+
+/*
+ * Bootstrap 2 revealed a faded component by adding `.in`; Bootstrap 5 uses
+ * `.show` and hides anything faded without it (`.fade:not(.show){opacity:0}`).
+ *
+ * library/OSS/Smarty/functions/function.OSS_Message.php emits its alerts as
+ * `class="alert alert-<level> fade in"`. That Smarty helper is a stable API
+ * with its own contract test (tests/test-oss-message.php) and is deliberately
+ * left unchanged by the Bootstrap 5 migration, so `.in` is mapped onto the
+ * Bootstrap 5 visible state here instead of being rewritten at every emit
+ * site. Restricted to `.alert` because modals must keep using Bootstrap 5's
+ * own `.show` handling, which its JS drives.
+ */
+.alert.fade.in {
+  opacity: 1;
+}
+
+/*
+ * Bootstrap 2's `.alert-block` widened an alert for multi-line content; the
+ * class no longer exists in Bootstrap 5. OSS_Message still emits it for
+ * OSS_Message_Block messages, so its block-level spacing is reproduced here.
+ */
+.alert-block {
+  display: block;
+  padding: 1rem;
+}
+
+.alert-block > p,
+.alert-block > ul {
+  margin-bottom: 0;
+}
+
+.alert-block p + p {
+  margin-top: 0.5rem;
+}
+
+/*
+ * Bootstrap 2 alerts carried a floated `.close` dismiss link. Bootstrap 5
+ * replaces it with `.btn-close`, but OSS_Message still emits
+ * `<a class="close" ...>x</a>`, so the minimum positioning and affordance are
+ * restored for that element only.
+ */
+.alert > .close {
+  float: right;
+  margin-left: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.5;
+}
+
+.alert > .close:hover,
+.alert > .close:focus {
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.9;
+}
+
+/*
+ * Bootstrap 2's danger-level alert was `.alert-error`; Bootstrap 5 renamed it
+ * to `.alert-danger`. `.alert-error` is still emitted from paths this change
+ * deliberately does not touch --
+ * library/OSS/Smarty/functions/function.OSS_Message.php (a frozen API with its
+ * own contract test), public/js/990-vimbadmin.js's ossAddMessage(), and
+ * src/Kernel/Form/FormRenderer.php -- and an alert carrying only the unknown
+ * `.alert-error` renders with no variant styling at all, so an error message
+ * would come out looking like ordinary body text.
+ *
+ * This aliases the legacy class onto Bootstrap 5's own `.alert-danger`
+ * declarations (copied verbatim from public/css/800-bootstrap.css) rather than
+ * renaming the emit sites: the rename across every remaining Bootstrap 2
+ * component class is separate work, and this keeps error alerts correct in the
+ * meantime.
+ */
+.alert-error {
+  --bs-alert-color: var(--bs-danger-text-emphasis);
+  --bs-alert-bg: var(--bs-danger-bg-subtle);
+  --bs-alert-border-color: var(--bs-danger-border-subtle);
+  --bs-alert-link-color: var(--bs-danger-text-emphasis);
+}

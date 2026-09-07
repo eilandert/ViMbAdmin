@@ -57,11 +57,7 @@ function purgeAdmin( event ){
         targetForm.get( 0 ).submit();
     });
 
-    delDialog = $( '#purge_dialog' ).modal({
-        backdrop: true,
-        keyboard: true,
-        show: true
-    });
+    delDialog = ossModal( '#purge_dialog' );
     
     $( '#purge_dialog_cancel' ).on( 'click', function(){
         delDialog.modal('hide');

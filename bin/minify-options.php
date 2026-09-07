@@ -46,6 +46,14 @@
 // Verify the digest before Java runs the file: the bundle it emits is shipped
 // to every browser, so an unverified compiler is a supply-chain hole.
 //
+// Minifying the CSS bundle additionally needs the clean-css CLI, installed
+// project-locally (the vendored yuicompressor.jar corrupts Bootstrap 5 CSS --
+// see the CSS Configuration section below for what exactly it breaks):
+//
+//   npm install --prefix bin clean-css-cli@5.6.3
+//
+// Both are gitignored per-machine build prerequisites, not vendored binaries.
+//
 // Run it as:
 //
 //   php vendor/opensolutions/minify/minify.php --conf "$PWD/bin/minify-options.php" --version 18
@@ -72,10 +80,18 @@ defined( 'SCRIPTDIR' ) || define( 'SCRIPTDIR', __DIR__ );
 /////////////////////////////////////////////////////////////////////////////////
 //
 // JS Configuration
-// --language_in ECMASCRIPT5: the default ECMASCRIPT3 mode reserves identifiers
-// (e.g. `final`) that jQuery 3.7.1 uses as ordinary variable names, so the
-// compiler otherwise fails to parse it even in WHITESPACE_ONLY mode.
-$js_compiler = "java -jar " . SCRIPTDIR . "/compiler.jar --compilation_level WHITESPACE_ONLY --warning_level QUIET --language_in ECMASCRIPT5";
+// --language_in ECMASCRIPT_2018: Bootstrap 5's bundle is written in modern
+// JavaScript. Arrow functions and template literals need ECMASCRIPT_2015 and
+// its object-literal spread needs ECMASCRIPT_2018, so anything lower makes the
+// compiler fail to parse `public/js/800-bootstrap.js` even in WHITESPACE_ONLY
+// mode. ES2018 is a superset of the ES5-shaped own code and of jQuery 3.7.1,
+// so raising it costs those files nothing. (The previous ECMASCRIPT5 setting
+// existed because the default ECMASCRIPT3 mode reserves identifiers such as
+// `final` that jQuery 3.7.1 uses as ordinary variable names.)
+// NB: SCRIPTDIR is minify.php's OWN directory (vendor/opensolutions/minify),
+// not this config file's. The per-machine build prerequisites live next to
+// this file in bin/, so they are anchored on __DIR__.
+$js_compiler = "java -jar " . escapeshellarg( __DIR__ . '/compiler.jar' ) . " --compilation_level WHITESPACE_ONLY --warning_level QUIET --language_in ECMASCRIPT_2018";
 
 
 // JavaScript files to compress
@@ -147,7 +163,50 @@ $del_old_js_bundles = true;
 /////////////////////////////////////////////////////////////////////////////////
 //
 // CSS Configuration
-$css_compiler = "java -jar " . SCRIPTDIR . "/yuicompressor.jar -v --charset utf-8";
+// The vendored yuicompressor.jar (2013) CANNOT minify Bootstrap 5's CSS. It
+// corrupts it in two ways, both silently:
+//
+//   - it strips whitespace inside `data:image/svg+xml` URIs, turning
+//     `viewBox='0 0 16 16'` into the invalid `viewBox='001616'`, which blanks
+//     every inline Bootstrap 5 icon (dropdown caret, checkbox and radio marks,
+//     form-switch knob, .btn-close, navbar toggler, accordion chevron,
+//     carousel arrows);
+//   - it rewrites `@keyframes name{0%{...}` to the invalid
+//     `@keyframes name{0{...}`, so browsers discard the whole rule and the
+//     progress-bar-stripes and spinner-grow animations stop.
+//
+// clean-css is used instead. Like Closure Compiler above it is a per-machine
+// build prerequisite rather than a vendored binary, installed project-locally
+// so a global npm install is never required:
+//
+//   npm install --prefix bin clean-css-cli@5.6.3
+//
+// Its CLI takes the same `-o <output> <input>` form that
+// vendor/opensolutions/minify/minify.php already invokes, so no change is
+// needed there.
+//
+// If it is missing we fail loudly rather than falling back to yuicompressor:
+// a silent fallback would reintroduce exactly the corruption above with no
+// build-time signal, and the broken bundle ships to every browser.
+$cleancss_bin = __DIR__ . '/node_modules/.bin/cleancss';
+
+// realpath() is the single check: it resolves the path and returns false if it
+// does not exist, so it doubles as the existence test without a second stat
+// that could disagree with it.
+$cleancss_real = realpath( $cleancss_bin );
+
+if( $cleancss_real === false || !is_file( $cleancss_real ) || !is_executable( $cleancss_real ) )
+{
+    fwrite( STDERR,
+        "FATAL: clean-css CLI not found at {$cleancss_bin}.\n" .
+        "       Bootstrap 5 CSS cannot be minified by the vendored yuicompressor.jar.\n" .
+        "       Install it with: npm install --prefix bin clean-css-cli@5.6.3\n" );
+    exit( 1 );
+}
+
+// -O2 is clean-css's structural optimisation level; --format keep-breaks keeps
+// one rule per line so the shipped bundle stays diffable and reviewable.
+$css_compiler = escapeshellarg( $cleancss_real ) . ' -O2 --format keep-breaks';
 
 // JavaScript files to compress
 //

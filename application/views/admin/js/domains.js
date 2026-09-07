@@ -37,11 +37,7 @@ function removeDomain( event ){
     
     $( "#purge_domain_name" ).text( element.attr( "ref" ) );
 
-    delDialog = $( '#purge_dialog' ).modal({
-        backdrop: true,
-        keyboard: true,
-        show: true
-    });
+    delDialog = ossModal( '#purge_dialog' );
 
     var did = element.attr( 'id' ).replace( 'remove-domain-', '' );
     $( '#remove_domain_form input[name="did"]' ).val( did );

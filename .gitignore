@@ -19,6 +19,12 @@ vendor/[a-zA-Z0-9]*
 # Closure Compiler is a local build prerequisite for bin/minify-options.php,
 # fetched per-machine rather than vendored (13MB binary).
 bin/compiler.jar
+# clean-css is the CSS minifier for bin/minify-options.php (the vendored
+# yuicompressor.jar corrupts Bootstrap 5 CSS). Installed per-machine with
+# `npm install --prefix bin clean-css-cli@5.6.3`, never vendored.
+bin/node_modules/
+bin/package.json
+bin/package-lock.json
 vimbadmin.sublime-project
 vimbadmin.sublime-workspace
 vimbadmin3.sublime-project

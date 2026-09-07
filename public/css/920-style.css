@@ -56,16 +56,22 @@ a.aplain, a:link.aplain, a:visited.aplain, a:hover.aplain, a:active.aplain {
  *
  *********************************************************************************************/
 
+/* Width modifiers for the AJAX dialog, applied to the Bootstrap 5
+   `.modal-dialog` inside `#modal_dialog_shell` by public/js/990-vimbadmin.js.
+   Bootstrap 2 positioned `.modal` absolutely, so these rules used to carry
+   `left: 50%` plus a negative margin to centre themselves; Bootstrap 5 centres
+   `.modal-dialog` with flexbox and `margin: auto`, so only the width is set
+   here and `max-width` is raised alongside it to beat BS5's own
+   `.modal-dialog { max-width: 500px }` at the `sm` breakpoint and up. */
+
 .modal-wide {
     width: 800px;
-    left: 50%;
-    margin-left: -400px;
+    max-width: 800px;
 }
 
 .modal-email {
     width: 600px;
-    left: 50%;
-    margin-left: -400px;
+    max-width: 600px;
 }
 
 .tooltip-inner {
