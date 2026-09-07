@@ -26,7 +26,6 @@ $(document).ready(function()
         'fnDrawCallback': function() {
             $( "a[id|='modal-dialog']" ).off().on( 'click', tt_openModalDialog );
             $( '.have-tooltip' ).tooltip("destroy").tooltip( { html: true, delay: { show: 500, hide: 2 }, trigger: 'hover' } );
-            $( '.oss-dropdown' ).each( ossDropdown );
             if( vm_prefs['iLength'] != $( "select[name|='list_table_length']" ).val() )
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();
             vmPrefsCookie( 'vm_prefs', vm_prefs, vm_cookie_options );

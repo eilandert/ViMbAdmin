@@ -30,29 +30,24 @@
 #     `{if isset($alias_actions)}`. Grepping every controller and config under
 #     application/ for `alias_actions` finds no assignment anywhere in this
 #     repo -- the block never renders without a plugin setting that variable.
-#   - ossDropdown() (990-vimbadmin.js) converts a `.oss-dropdown` <select> into
-#     a custom Bootstrap dropdown. This is NOT dead code the way Chosen/
-#     Colorbox are below: `$('.oss-dropdown').each(ossDropdown)` runs
-#     unconditionally in 990-vimbadmin.js's own document-ready on EVERY page
-#     load, plus again in alias/js/list.js, mailbox/js/list.js and
-#     domain/js/list.js. It is a live call on a live path -- it just always
-#     converts zero elements, because `class="oss-dropdown"` does not appear
-#     on any element anywhere in this repo (grep across application/ and
-#     public/js/*.js, excluding the `.each(ossDropdown)` call sites
-#     themselves, is empty). Whether an earlier Bootstrap migration dropped the
-#     class from whatever `<select>` used to carry it, or the feature is
-#     simply vestigial, is unresolved -- see VIM-A15.39. A fixture cannot
-#     assert behaviour for a selector with a guaranteed-empty match set without
-#     first fabricating the very markup this repo has never shipped.
+#   - ossDropdown() and its four `.each(ossDropdown)` call sites were removed
+#     entirely (VIM-A15.39). git history showed `class="oss-dropdown"` was
+#     only ever emitted by the ZF1 form classes
+#     library/ViMbAdmin/Form/{Alias,Mailbox}/AddEdit.php, both deleted whole
+#     in a11fddd ("final push zf1 removal"); their native-*.phtml
+#     replacements render no `<select>` at all, so nothing has produced the
+#     class since the ZF1 removal. The function still received Bootstrap 5
+#     upkeep after that (VIM-A15.20 renamed its data-toggle to
+#     data-bs-toggle), which only shows nobody had checked reachability, not
+#     that the feature was live. There was never a Bootstrap-migration
+#     regression to fix, so there is nothing left here to assert against.
 #
-#   The dropdown-menu ($action_list_menu/$alias_actions) and ossDropdown cases
-#   look similar -- both end in "the dropdown never appears" -- but they are
-#   different failure shapes: one is gated behind a plugin variable core code
-#   never sets, the other is an unconditional call against a class that is
-#   simply never emitted. Both, plus #plugin_tabs, are keyed the same way for
-#   this fixture's purposes: isset()/class-selector gates a control this repo's
-#   own code can never produce, so asserting it would mean fabricating input no
-#   real deployment of this repo alone ever supplies.
+#   The dropdown-menu ($action_list_menu/$alias_actions) case above is a
+#   different failure shape: gated behind a plugin variable core code never
+#   sets. It is keyed the same way for this fixture's purposes: isset()/
+#   class-selector gates a control this repo's own code can never produce, so
+#   asserting it would mean fabricating input no real deployment of this repo
+#   alone ever supplies.
 #
 # ALSO NOT ASSERTED HERE -- select (Chosen, public/js/300-chosen.jquery.js) and
 # lightbox (Colorbox, public/js/130-jquery.colorbox.js). Both libraries load on
