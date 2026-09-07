@@ -135,7 +135,7 @@ extract_class_values() {
     # round 2. It admits one level of braces, which is all a class-wrapping
     # Smarty condition uses; a nested span just ends the outer one early,
     # degrading to current behaviour rather than below it.
-    while (/(?:^|[\s])class\s*=\s*(\\?)(["\x27])((?:\{[^{}]*\}|(?!\1\2)(?:\\.|[^\\{]))*)\1\2(?=[\s>\/]|$)/gs) {
+    while (/(?:^|[\s])class\s*=\s*(\\?)(["\x27])((?:\{(?:"[^"]*"|\x27[^\x27]*\x27|[^{}"\x27])*\}|(?!\1\2)(?:\\.|[^\\{]))*)\1\2(?=[\s>\/]|$)/gs) {
       my $v = $3;
       $v =~ s/\\(.)/$1/g;
       $v =~ s/\s+/ /g;
@@ -233,6 +233,10 @@ self_test() {
     DOUBLE-quoted attribute. The `(?!\1\2)` guard does not help here, because
     the inner quote IS the opening delimiter; only consuming the Smarty span
     whole keeps label-important visible (VIM-A15.31).</div>
+<div class="{if $mode == '{'}label-success{/if}">A Smarty string literal whose
+    CONTENT is a brace. The span must be delimited by structural braces only,
+    or the value is dropped entirely and label-success goes unseen
+    (VIM-A15.31 review round 2).</div>
 EOF
 
   cat >"$clean" <<'EOF'
@@ -268,9 +272,11 @@ EOF
   # inside the trailing Smarty {if}/{else} expression (well, navbar-inner)
   # = 10 + 8 + 2 = 20, plus 1 for the different-quote Smarty row
   # (alert-error, VIM-A15.19 round 3) = 21, plus 1 for the same-quote Smarty
-  # row (label-important, VIM-A15.31) = 22. A drop back to 21 is exactly what
-  # a regression in the Smarty-span handling looks like.
-  expected_hits=22
+  # row (label-important, VIM-A15.31) = 22, plus 1 for the braced-literal row
+  # (label-success, review round 2) = 23. A drop is exactly what a regression
+  # in the Smarty-span handling looks like; the braced row in particular is
+  # dropped WHOLE by a naive span, taking its class with it.
+  expected_hits=23
   actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap 2 component class' || true)
   if [ "$actual_hits" -eq "$expected_hits" ]; then
     echo "  OK: all $expected_hits seeded regressions detected, in both quoting styles"

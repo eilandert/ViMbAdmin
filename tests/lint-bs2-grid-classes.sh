@@ -90,7 +90,7 @@ extract_class_values() {
     # argument, never in a condition wrapping a class list, and the outer
     # span would simply end early -- degrading to current behaviour, never
     # worse than it.
-    while (/(?:^|[\s])class\s*=\s*(["\x27])((?:\{[^{}]*\}|(?!\1)[^{])*)\1(?=[\s>\/])/gs) {
+    while (/(?:^|[\s])class\s*=\s*(["\x27])((?:\{(?:"[^"]*"|\x27[^\x27]*\x27|[^{}"\x27])*\}|(?!\1)[^{])*)\1(?=[\s>\/])/gs) {
       my $v = $2;
       $v =~ s/\s+/ /g;
       print "$v\n";
@@ -172,6 +172,10 @@ self_test() {
     <div class="{if $mode == "wide" && $enabled}span6{/if}">a DOUBLE-quoted
         Smarty string inside a DOUBLE-quoted attribute: the inner quote must
         not end the value before span6 (VIM-A15.31)</div>
+    <div class="{if $mode == '{'}span6{/if}">a Smarty string literal whose
+        CONTENT is a brace. The span must be delimited by structural braces
+        only, or the value is dropped entirely and span6 goes unseen
+        (VIM-A15.31 review round 2)</div>
 </div>
 EOF
 
@@ -199,13 +203,16 @@ EOF
   # without proving it is COMPLETE. Pinning the number turns a partial
   # degradation into a visible mismatch.
   #
-  # 10 = one hit per Bootstrap 2 token seeded in the dirty fixture, counting
+  # 11 = one hit per Bootstrap 2 token seeded in the dirty fixture, counting
   # each token separately where a value carries two (`span4 offset2`). The
   # tenth is the same-quote Smarty row (VIM-A15.31): before that fix the value
   # ended at the inner `"` and its span6 was never tokenised, so the count
-  # dropping back to 9 is exactly what a regression there looks like.
+  # dropping back to 9 is exactly what a regression there looks like. The
+  # eleventh is the braced-literal row: a span delimited by a naive
+  # `\{[^{}]*\}` rejects it and the whole value is dropped, taking span6 with
+  # it -- a MISSED regression, the worst failure mode this gate has.
   echo "== self-test: negative control, reintroduced Bootstrap 2 grid classes must be caught =="
-  expected_hits=10
+  expected_hits=11
   actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap 2 grid class' || true)
   if [ "$actual_hits" -eq "$expected_hits" ]; then
     echo "  OK: all $expected_hits seeded regressions detected, in both quoting styles"
