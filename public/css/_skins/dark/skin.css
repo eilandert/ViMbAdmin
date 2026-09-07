@@ -194,18 +194,11 @@ table.dataTable thead td,
     border-color: var(--vimb-border);
 }
 
-/* ---- glyphicon sprites (dark PNG -> invert so visible on dark) ----- */
-/* Bootstrap 2 ships a dark sprite; invert renders it light. icon-white
-   stays light (double-invert handled below). */
-[class^="icon-"],
-[class*=" icon-"] { filter: invert(1) brightness(1.6); }
-.btn [class^="icon-"],
-.btn [class*=" icon-"] { filter: invert(1) brightness(1.6); }
-/* elements that already use the white sprite shouldn't be re-inverted */
-.icon-white,
-.btn-primary [class^="icon-"],
-.btn-danger  [class^="icon-"],
-.navbar.navbar-dark [class^="icon-"] { filter: none; }
+/* ---- Bootstrap Icons (webfont glyphs) ------------------------------ */
+/* The glyphicon PNG sprite needed a filter to stay visible on dark
+   backgrounds. Bootstrap Icons is a font glyph and inherits `color` like
+   any other text, so it already follows --vimb-text / button text color
+   with no filter needed. */
 
 /* ---- form action bars (Bootstrap 2 .form-actions = #f5f5f5) -------- */
 .form-actions {

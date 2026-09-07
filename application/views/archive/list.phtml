@@ -10,7 +10,7 @@
         <h1>
             Archives {if isset( $domain ) && $domain}<small> for {$domain->requiredDomainName()} {if $domain->getMaxMailboxes() != 0}({$domain->getMailboxCount()}/{$domain->getMaxMailboxes()}){/if}</small>
                 <a class="btn have-tooltip-below" id="show_all_archives" title="Show All" href="{genUrl controller='archive' action='list' unset=1}">
-                    <i class="icon-remove-circle"></i>
+                    <i class="bi-x-circle"></i>
                 </a>
             {/if}
         </h1>
@@ -49,7 +49,7 @@
                             <input type="hidden" name="arid" value="{$archive.id}" />
                             <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                             <button class="btn btn-sm have-tooltip" id="restore-archive-{$archive.id}" title="Restore mail back into the mailbox" type="submit">
-                                <i class="icon-retweet"></i>
+                                <i class="bi-arrow-repeat"></i>
                             </button>
                         </form>
                     {/if}
@@ -59,7 +59,7 @@
                             <input type="hidden" name="arid" value="{$archive.id}" />
                             <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                             <button class="btn btn-sm btn-danger have-tooltip" id="delete-archive-{$archive.id}" title="Delete backup permanently" type="submit">
-                                <i class="icon-trash"></i>
+                                <i class="bi-trash"></i>
                             </button>
                         </form>
                     {/if}
@@ -69,7 +69,7 @@
                             <input type="hidden" name="arid" value="{$archive.id}" />
                             <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                             <button class="btn btn-sm have-tooltip" id="autoprune-archive-{$archive.id}" title="Disable autoprune" type="submit">
-                                <i class="icon-off"></i>
+                                <i class="bi-power"></i>
                             </button>
                         </form>
                     {else}
@@ -78,7 +78,7 @@
                             <input type="hidden" name="arid" value="{$archive.id}" />
                             <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                             <button class="btn btn-sm btn-warning have-tooltip" id="autoprune-archive-{$archive.id}" title="Enable autoprune (resets archived date to now)" type="submit">
-                                <i class="icon-time"></i>
+                                <i class="bi-clock-history"></i>
                             </button>
                         </form>
                     {/if}

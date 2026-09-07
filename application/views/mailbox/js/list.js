@@ -182,7 +182,7 @@ function toggleActive(elid, id) {
         var href = "";
         var str = '<div class="btn-group">\
                 <a class="btn btn-sm have-tooltip" id="edit_mailbox_' + id + '" title="Edit" href="{genUrl controller="mailbox" action="edit"}/mid/' + id + '">\
-                    <i class="icon-pencil"></i>\
+                    <i class="bi-pencil"></i>\
                 </a>';
                 {if isset( $mailbox_actions ) }
                     {foreach $mailbox_actions as $action}
@@ -208,33 +208,33 @@ function toggleActive(elid, id) {
                 {/if}
                 
         str += '<a class="btn btn-sm have-tooltip" id="password_' + id + '" title="Password" href="{genUrl controller="mailbox" action="password"}/mid/' + id + '">\
-                    <i class="icon-lock"></i>\
+                    <i class="bi-lock"></i>\
                 </a>\
                 <a class="btn btn-sm have-tooltip" id="mailbox_aliases_' + id + '" title="List Aliases" href="{genUrl controller="mailbox" action="aliases"}/mid/' + id + '">\
-                    <i class="icon-random"></i>\
+                    <i class="bi-shuffle"></i>\
                 </a>\
                 <a class="btn btn-sm have-tooltip" id="modal-dialog-mailbox_settings_' + id + '" title="Send Settings" href="{genUrl controller="mailbox" action="email-settings"}/mid/' + id + '">\
-                    <i class="icon-envelope"></i>\
+                    <i class="bi-envelope"></i>\
                 </a>\
                 <form method="post" action="{genUrl controller="mailbox" action="queue-repair"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;">\
                     <input type="hidden" name="mid" value="' + id + '" />\
                     <input type="hidden" name="csrf" value="{$csrfToken}" />\
                     <button class="btn btn-sm have-tooltip" id="repair_' + id + '" title="Repair / optimize (queued)" type="submit">\
-                        <i class="icon-wrench"></i>\
+                        <i class="bi-wrench"></i>\
                     </button>\
                 </form>\
                 <form method="post" action="{genUrl controller="mailbox" action="queue-archive"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" data-confirm="Archive this mailbox? Backs up + empties the mailbox, keeps the account.">\
                     <input type="hidden" name="mid" value="' + id + '" />\
                     <input type="hidden" name="csrf" value="{$csrfToken}" />\
                     <button class="btn btn-sm have-tooltip" id="archive_' + id + '" title="Archive (queued: backup + empty mailbox, keep account)" type="submit">\
-                        <i class="icon-inbox"></i>\
+                        <i class="bi-archive"></i>\
                     </button>\
                 </form>\
                 <form method="post" action="{genUrl controller="mailbox" action="queue-delete"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" data-confirm="DELETE this mailbox? Backs up, then removes the mail AND the account. This cannot be undone from here.">\
                     <input type="hidden" name="mid" value="' + id + '" />\
                     <input type="hidden" name="csrf" value="{$csrfToken}" />\
                     <button class="btn btn-sm have-tooltip btn-danger" id="delete_' + id + '" title="Delete (queued: backup, then remove mailbox + account)" type="submit">\
-                        <i class="icon-trash"></i>\
+                        <i class="bi-trash"></i>\
                     </button>\
                 </form>';
                 

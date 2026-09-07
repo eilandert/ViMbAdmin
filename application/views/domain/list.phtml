@@ -9,7 +9,7 @@
             <div class="btn-toolbar">
             	<span class="btn-group">
         	    <a class="btn have-tooltip-below" id="add_domain" title="Add Domain" href="{genUrl controller='domain' action='add'}" >
-            	        <i class="icon-plus"></i>
+            	        <i class="bi-plus-lg"></i>
         	    </a>
             	</span>
             </div>
@@ -43,11 +43,11 @@
             <tr id="domain_{$domain.id}">
                 <td>{$domain.name}</td>
                 <td>
-                    <a class="btn btn-sm have-tooltip" id="add_mailbox_{$domain.id}" title="Add Mailbox" href="{genUrl controller='mailbox' action='add' did=$domain.id}"><i class="icon-plus"></i></a>&nbsp;&nbsp;
+                    <a class="btn btn-sm have-tooltip" id="add_mailbox_{$domain.id}" title="Add Mailbox" href="{genUrl controller='mailbox' action='add' did=$domain.id}"><i class="bi-plus-lg"></i></a>&nbsp;&nbsp;
                     <a class="ul" href="{genUrl controller='mailbox' action='list' did=$domain.id}">{$domain.mailboxes}{if $domain.maxmailboxes}/{$domain.maxmailboxes}{/if}</a>
                 </td>
                 <td>
-                    <a class="btn btn-sm have-tooltip" id="add_alias_{$domain.id}" title="Add Alias" href="{genUrl controller='alias' action='add' did=$domain.id}"><i class="icon-plus"></i></a>&nbsp;&nbsp;
+                    <a class="btn btn-sm have-tooltip" id="add_alias_{$domain.id}" title="Add Alias" href="{genUrl controller='alias' action='add' did=$domain.id}"><i class="bi-plus-lg"></i></a>&nbsp;&nbsp;
                     <a class="ul" href="{genUrl controller='alias' action='list' did=$domain.id}">{$domain.aliases}{if $domain.maxaliases}/{$domain.maxaliases}{/if}</a>
                 </td>
                 {if !isset($options.defaults.list_size.disabled) || !$options.defaults.list_size.disabled}
@@ -77,7 +77,7 @@
                     <div class="btn-group">
                         {if $user->isSuper()}
                             <a class="btn btn-sm have-tooltip" id="edit_domain_{$domain.id}" title="Edit" href="{genUrl controller='domain' action='edit' did=$domain.id}">
-                                <i class="icon-pencil"></i>
+                                <i class="bi-pencil"></i>
                             </a>
                         {/if}
                         {if isset( $domain_actions ) }
@@ -98,15 +98,15 @@
                         {/if}
                         {if $user->isSuper()}
                             <a class="btn btn-sm have-tooltip" id="domain_admins_{$domain.id}" title="Administrators" href="{genUrl controller='domain' action='admins' did=$domain.id}">
-                                <i class="icon-user"></i>
+                                <i class="bi-person"></i>
                             </a>
                         {/if}
                         <a class="btn btn-sm have-tooltip" id="domain_logs_{$domain.id}" title="Logs" href="{genUrl controller='log' action='list' did=$domain.id}">
-                            <i class="icon-align-justify"></i>
+                            <i class="bi-list-ul"></i>
                         </a>
                         {if $user->isSuper()}
                             <span  class="btn btn-sm have-tooltip"  id="purge-domain-{$domain.id}" title="Purge" data-purge-domain="{$domain.id}" data-domain-name="{$domain.name|escape}">
-                                <i class="icon-trash"></i>
+                                <i class="bi-trash"></i>
                             </span>
                         {/if}
                         {if isset( $action_list_menu)}

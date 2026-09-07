@@ -8,7 +8,7 @@
             <div class="btn-toolbar">
             	<span class="btn-group">
         	        <a class="btn have-tooltip-below" id="add_admin"  title="Add Administrator" href="{genUrl controller='admin' action='add'}">
-            	        <i class="icon-plus"></i>
+            	        <i class="bi-plus-lg"></i>
         	        </a>
             	</span>
         	</div>
@@ -55,26 +55,26 @@
                 <td>
                     <div class="btn-group">
                         <a class="btn btn-sm have-tooltip" id="password-{$admin->getId()}" title="Password" href="{genUrl controller='admin' action='password' aid=$admin->getId()}">
-                            <i class="icon-lock"></i>
+                            <i class="bi-lock"></i>
                         </a>
                         {if $user->isSuper() && $admin->getId() != $user->getId()}
                         <a class="btn btn-sm have-tooltip" id="admin_2fa_{$admin->getId()}" title="Manage two-factor" href="{genUrl controller='admin' action='manage-two-factor' aid=$admin->getId()}">
-                            <i class="icon-qrcode"></i>
+                            <i class="bi-qr-code"></i>
                         </a>
                         {/if}
                         <a class="btn btn-sm have-tooltip" id="admin_logs_{$admin->getId()}" title="Logs" href="{genUrl controller='log' action='list' aid=$admin->getId()}">
-                            <i class="icon-align-justify"></i>
+                            <i class="bi-list-ul"></i>
                         </a>
 
                         {if $identity.user->getId() != $admin->getId() }
                             <a class="btn btn-sm have-tooltip {if $admin->isSuper()}hide{/if}" id="admin_domains_{$admin->getId()}" title="List Domains" href="{genUrl controller='admin' action='domains' aid=$admin->getId()}">
-                                <i class="icon-screenshot"></i>
+                                <i class="bi-display"></i>
                             </a>
                             <form method="post" action="{genUrl controller='admin' action='purge'}" class="purge-admin-form" style="display: inline;">
                                 <input type="hidden" name="aid" value="{$admin->getId()}" />
                                 <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                                 <button class="btn btn-sm have-tooltip" id="purge-admin-{$admin->getId()}" title="Purge" ref="{$admin->getUsername()}" type="submit">
-                                    <i class="icon-trash"></i>
+                                    <i class="bi-trash"></i>
                                 </button>
                             </form>
                         {/if}
