@@ -52,6 +52,9 @@ jobs:
       - name: Bootstrap data attributes must use bs- prefix (VIM-A15.20)
         run: bash tests/lint-bs5-data-attrs.sh
 
+      - name: Static modals must be labelled for assistive tech (VIM-A15.32)
+        run: bash tests/lint-modal-aria-labelledby.sh
+
       - name: Containerized Chrome runner hardening
         run: bash tests/test-headless-chrome-container.sh
 
