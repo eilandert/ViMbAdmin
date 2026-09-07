@@ -85,22 +85,29 @@ input:focus, textarea:focus, select:focus {
 }
 .control-label, label, .help-block, .muted { color: var(--vimb-muted); }
 /* input-group addons: domain suffix (@example.com) + the [+] add button.
-   Bootstrap 2 .add-on defaults to a light #eee gradient -> invisible on dark. */
+   Covers both the Bootstrap 2 .input-prepend/.input-append/.add-on markup
+   (not currently emitted by any own template, kept in case an
+   operator-local override still uses it) and Bootstrap 5's .input-group /
+   .input-group-text, which likewise default to a light background ->
+   invisible on dark. */
 .input-prepend .add-on,
-.input-append .add-on {
+.input-append .add-on,
+.input-group-text {
     background: var(--vimb-surface);
     color: var(--vimb-text);
     border-color: var(--vimb-border);
     text-shadow: none;
 }
 .input-prepend .btn,
-.input-append .btn {
+.input-append .btn,
+.input-group .btn {
     background: var(--vimb-surface-2);
     color: var(--vimb-text);
     border-color: var(--vimb-border);
 }
 .input-prepend .btn:hover,
-.input-append .btn:hover { background: var(--vimb-border); }
+.input-append .btn:hover,
+.input-group .btn:hover { background: var(--vimb-border); }
 .control-group.error input,
 .control-group.error textarea { border-color: var(--vimb-danger); }
 code, pre {

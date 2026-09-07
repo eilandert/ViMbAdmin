@@ -1,10 +1,8 @@
 .hero-unit {
-  background-color: #f5f5f5;
+  background-color: var(--bs-tertiary-bg);
   margin-bottom: 30px;
   padding: 60px;
-  -webkit-border-radius: 6px;
-  -moz-border-radius: 6px;   
-  border-radius: 6px;
+  border-radius: var(--bs-border-radius-lg);
 }
 .hero-unit h1 {
   margin-bottom: 0;
