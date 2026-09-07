@@ -64,17 +64,55 @@ pattern=$(build_pattern)
 # hit), `-r` is not used -- callers pass an explicit file list so an
 # unreadable-file bug can be told apart from "found nothing" (see the missing
 # check below), which a silent recursive skip cannot do.
+#
+# grep has THREE exit codes, not two: 0 = matched, 1 = no match, 2 = an
+# actual error (an unreadable file, or the argv blowing past ARG_MAX on a
+# whole-tree file list -- E2BIG happens before grep reads a single byte).
+# Piping the whole file list through one `grep "${files[@]}"` call risks
+# exactly that on a large checkout. `xargs -0` from a NUL-delimited file
+# avoids the ARG_MAX cliff by chunking automatically -- but that chunking is
+# exactly why its AGGREGATE exit code cannot be trusted here: xargs maps
+# ANY per-chunk exit in 1-125 to 123, so with more than one chunk "123"
+# stops meaning "no match everywhere" and starts meaning "at least one
+# chunk exited nonzero", which is ALSO true when chunk A matched (grep
+# exit 0) and chunk B didn't (grep exit 1) -- a real hit collapses to the
+# same 123 as a clean scan. A version of this gate that keyed off xargs'
+# own exit code shipped that exact bug: it printed the hit line to stdout
+# (grep's own -n output still appears) but reported clean, because the
+# aggregate code could not distinguish "matched" from "no match after a
+# no-match chunk". Route matches to a file instead and test for content --
+# a mechanism `xargs`'s own exit status genuinely cannot express here.
 scan_files() {
-  local files=("$@") fail=0
+  local files=("$@") fail=0 file_list hits_file rc=0
 
   if [ "${#files[@]}" -eq 0 ]; then
     echo "  -> file list is empty." >&2
     return 1
   fi
 
-  if grep -InE "$pattern" "${files[@]}"; then
+  file_list=$(mktemp)
+  hits_file=$(mktemp)
+  printf '%s\0' "${files[@]}" >"$file_list"
+
+  # `2>"$hits_file.err"` would also need per-chunk merging; instead let
+  # grep's real I/O errors surface on stderr (visible in the CI log as-is)
+  # while `-s` also suppresses its "No such file" noise for the one case
+  # this gate already treats as fatal one layer up (find's own read check).
+  xargs -0 -a "$file_list" grep -InE "$pattern" >"$hits_file" 2>"$hits_file.err" || rc=$?
+
+  if [ -s "$hits_file" ]; then
+    cat "$hits_file"
+    fail=1
+  elif [ -s "$hits_file.err" ]; then
+    cat "$hits_file.err" >&2
+    echo "  -> grep reported an error while scanning; refusing to report a partial scan as clean." >&2
+    fail=1
+  elif [ "$rc" -gt 1 ] && [ "$rc" -ne 123 ]; then
+    echo "  -> xargs exited $rc unexpectedly; refusing to report a partial scan as clean." >&2
     fail=1
   fi
+
+  rm -f "$file_list" "$hits_file" "$hits_file.err"
 
   return "$fail"
 }

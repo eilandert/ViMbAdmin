@@ -13,7 +13,7 @@
                         </a>
                     {else}
                         <a class="btn have-tooltip-below" id="ima" title="Show Mailbox Aliases" href="{genUrl controller='mailbox' action='aliases' ima=1 mid=$mailbox->getId()}" >
-                            <i class="bi-eye-slash"></i>
+                            <i class="bi-eye"></i>
                         </a>
                     {/if}
         	        <a class="btn have-tooltip-below" id="add_alias" href="{genUrl controller='alias' action='add' mid=$mailbox->getId()}" title="Add Alias" >
