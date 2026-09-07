@@ -73,8 +73,8 @@ keep in sync across upgrades.
 - **Minified bundle.** If `config.use_minified_css` is on, the base CSS is
   served as one bundle; your skin stylesheet is still appended after it, so
   overrides keep working.
-- **Underlying framework is Bootstrap 2.** Theme against those classes
-  (`.navbar-inverse`, `.well`, `.btn-primary`, `.table`, …). The `dark`
+- **Underlying framework is Bootstrap 5.** Theme against those classes
+  (`.navbar-dark`, `.card`, `.btn-primary`, `.table`, …). The `dark`
   example shows the selectors that matter.
 - **Caching.** After changing a `.phtml` override, clear the Smarty compile
   cache (`var/templates_c/`). CSS changes are picked up on reload (bump a
