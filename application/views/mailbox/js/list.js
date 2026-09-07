@@ -24,8 +24,6 @@ $(document).ready( function() {
         'sServerMethod': 'GET',
         'sAjaxSource': "{genUrl controller='mailbox' action='list-data'}",
         'fnServerData': vmMailboxServerData,
-        "sPaginationType": "bootstrap",
-        "sDom": "<'row'<'span6'l><'span6'f>r>t<'row'<'span6'i><'span6'p>>",
         'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
@@ -64,8 +62,6 @@ $(document).ready( function() {
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
 
-        "sDom": "<'row'<'span6'l><'span6'f>r>t<'row'<'span6'i><'span6'p>>",
-        "sPaginationType": "bootstrap",
 
         'aoColumns': [
             null,

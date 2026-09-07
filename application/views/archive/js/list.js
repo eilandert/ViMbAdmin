@@ -18,8 +18,6 @@ $(document).ready( function()
         'sServerMethod': 'GET',
         'sAjaxSource': "{genUrl controller='archive' action='list-data'}",
         'fnServerData': vmArchiveServerData,
-        "sDom": "<'row'<'span6'l><'span6'f>r>t<'row'<'span6'i><'span6'p>>",
-        "sPaginationType": "bootstrap",
         'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
@@ -53,8 +51,6 @@ $(document).ready( function()
         'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
-        "sDom": "<'row'<'span6'l><'span6'f>r>t<'row'<'span6'i><'span6'p>>",
-        "sPaginationType": "bootstrap",
         // Username, Status, Domain, Archived, User exists, Autoprune, Actions
         'aoColumns': [
             null,

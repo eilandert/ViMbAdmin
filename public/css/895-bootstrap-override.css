@@ -31,54 +31,15 @@
 /***********************      DATA TABLES     *******************************/
 /****************************************************************************/
 
-/* http://datatables.net/blog/Twitter_Bootstrap_2 */
-
-div.dataTables_length label {
-    float: left;
-    text-align: left;
-}
-
-div.dataTables_length select {
-    width: 75px;
-}
-
-div.dataTables_filter label {
-    float: right;
-}
-
-div.dataTables_info {
-    padding-top: 8px;
-}
-
-div.dataTables_paginate {
-    float: right;
-    margin: 0;
-}
-
-table.table {
-    clear: both;
-    margin-bottom: 6px !important;
-}
-
-table.table thead .sorting,
-table.table thead .sorting_asc,
-table.table thead .sorting_desc,
-table.table thead .sorting_asc_disabled,
-table.table thead .sorting_desc_disabled {
-    cursor: pointer;
-    *cursor: hand;
-}
-
-table.table thead .sorting { background: url('images/sort_both.png') no-repeat center right; }
-table.table thead .sorting_asc { background: url('images/sort_asc.png') no-repeat center right; }
-table.table thead .sorting_desc { background: url('images/sort_desc.png') no-repeat center right; }
-
-table.table thead .sorting_asc_disabled { background: url('images/sort_asc_disabled.png') no-repeat center right; }
-table.table thead .sorting_desc_disabled { background: url('images/sort_desc_disabled.png') no-repeat center right; }
-
-table.dataTable th:active {
-    outline: none;
-}
+/* Styling for div.dataTables_length/_filter/_info/_paginate, table.table
+ * clear/margin, the thead .sorting* cursor rules, the PNG-based sort-arrow
+ * backgrounds, and table.dataTable th:active outline used to live here,
+ * copied from datatables.net's old "Twitter Bootstrap 2" integration blog
+ * post. They are now superseded by the vendored DataTables Bootstrap 5
+ * integration stylesheet (public/css/816-datatables-bootstrap5.css, loaded
+ * after 815-bootstrap-icons.css and before this file) and have been removed
+ * here to avoid fighting it. See VIM-A15.23.
+ */
 
 /****************************************************************************/
 
