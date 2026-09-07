@@ -1,0 +1,221 @@
+#!/usr/bin/env bash
+
+# VIM-A15.25: extend the headless lane past static class matching. Every
+# tests/lint-*.sh gate proves a BS2-only class token is absent from source; none
+# of them proves a migrated Bootstrap 5 control actually OPERATES when clicked
+# in a real browser. VIM-A15.23 shipped exactly that gap: a DataTables pager
+# config that named an unregistered plugin, so every list page threw a
+# TypeError at table construction while every static gate stayed green. A
+# fixture that only diffs class names would have stayed green too.
+#
+# This drives the two Bootstrap 5 controls that are unconditionally reachable
+# on alias/list.phtml in a real browser and asserts they OPERATE, not merely
+# that their markup carries the right class:
+#
+#   1. modal    -- clicking a row's delete button calls deleteAlias(), which
+#                  calls ossModal('#purge_dialog') (public/js/850-bootbox.js),
+#                  which must actually show the Bootstrap 5 modal.
+#   2. alert-dismiss -- ossAddMessage() (public/js/990-vimbadmin.js) emits an
+#                  alert with data-bs-dismiss="alert"; Bootstrap 5's own Alert
+#                  component (enableDismissTrigger, public/js/800-bootstrap.js)
+#                  must actually remove it on click.
+#
+# DELIBERATELY EXEMPT -- dropdown and tab.
+#
+#   - #plugin_tabs (990-vimbadmin.js addPluginTab()) is populated only by a
+#     plugin; nothing in this repo ever calls addPluginTab(). Established
+#     exemption, carried from VIM-A15.32's aria-labelledby gate.
+#   - The row-action dropdown-menu markup in alias/list.phtml, mailbox/list.phtml
+#     and domain/list.phtml is gated behind `{if isset($action_list_menu)}` /
+#     `{if isset($alias_actions)}`. Grepping every controller and config under
+#     application/ for `alias_actions` finds no assignment anywhere in this
+#     repo -- the block never renders without a plugin setting that variable.
+#   - ossDropdown() (990-vimbadmin.js) converts a `.oss-dropdown` <select> into
+#     a custom Bootstrap dropdown. This is NOT dead code the way Chosen/
+#     Colorbox are below: `$('.oss-dropdown').each(ossDropdown)` runs
+#     unconditionally in 990-vimbadmin.js's own document-ready on EVERY page
+#     load, plus again in alias/js/list.js, mailbox/js/list.js and
+#     domain/js/list.js. It is a live call on a live path -- it just always
+#     converts zero elements, because `class="oss-dropdown"` does not appear
+#     on any element anywhere in this repo (grep across application/ and
+#     public/js/*.js, excluding the `.each(ossDropdown)` call sites
+#     themselves, is empty). Whether an earlier Bootstrap migration dropped the
+#     class from whatever `<select>` used to carry it, or the feature is
+#     simply vestigial, is unresolved -- see VIM-A15.39. A fixture cannot
+#     assert behaviour for a selector with a guaranteed-empty match set without
+#     first fabricating the very markup this repo has never shipped.
+#
+#   The dropdown-menu ($action_list_menu/$alias_actions) and ossDropdown cases
+#   look similar -- both end in "the dropdown never appears" -- but they are
+#   different failure shapes: one is gated behind a plugin variable core code
+#   never sets, the other is an unconditional call against a class that is
+#   simply never emitted. Both, plus #plugin_tabs, are keyed the same way for
+#   this fixture's purposes: isset()/class-selector gates a control this repo's
+#   own code can never produce, so asserting it would mean fabricating input no
+#   real deployment of this repo alone ever supplies.
+#
+# ALSO NOT ASSERTED HERE -- select (Chosen, public/js/300-chosen.jquery.js) and
+# lightbox (Colorbox, public/js/130-jquery.colorbox.js). Both libraries load on
+# every page (application/views/header-js.phtml); neither is ever invoked:
+#
+#   grep -rn '\.chosen(\|chzn' application public/js/*.js   (excl. 300-chosen)  -> zero
+#   grep -rn '\.colorbox('     application public/js/*.js   (excl. 130-jquery)  -> zero
+#
+# They are not "a control that doesn't exist" -- they are pure page-weight
+# shipped on every request with no caller. That finding is recorded in
+# memory/labs/vimbadmin/TODO.md (VIM-A15.38) rather than asserted here, since
+# there is no invocation to assert against.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+browser="${CHROMIUM_BIN:-}"
+if [[ -z "$browser" ]]; then
+  browser="$(command -v chromium || command -v chromium-browser || command -v google-chrome || true)"
+fi
+if [[ -z "$browser" ]]; then
+  echo "FAIL: Chromium is required for the control-behaviour rendering regression" >&2
+  exit 2
+fi
+
+tmp="$(mktemp -d /tmp/vimbadmin-control-behaviour.XXXXXX)"
+trap 'rm -rf "$tmp"' EXIT
+
+cp public/js/min.bundle-v18.js "$tmp/min.bundle-v18.js"
+bundle_uri="file://$tmp/min.bundle-v18.js"
+if [[ -n ${PHP_RENDERER:-} ]]; then
+  PHP_CONTAINER_WRITE_DIR=$tmp \
+    "$PHP_RENDERER" tests/render-control-behaviour-fixture.php \
+    "$tmp/regression.html" "$bundle_uri"
+else
+  php tests/render-control-behaviour-fixture.php "$tmp/regression.html" "$bundle_uri"
+fi
+
+# --- Half 1: no BS2-only class survives in the RENDERED output. ---
+# tests/lint-bs2-component-classes.sh and tests/lint-bs2-grid-classes.sh already
+# scan source templates and view-JS exhaustively; this is a second, independent
+# check on what the browser actually receives after Smarty has resolved every
+# {if}/{foreach} branch and {tmplinclude}, complementing rather than
+# duplicating the source scan (a class token could in principle survive
+# template composition even if no single source file carries it token-for-
+# token; this fixture is where that would be caught).
+# The class list is extracted one token per line first, so the token boundary
+# is the whole line. Anchoring on (^|[[:space:]]) against a raw class="..."
+# attribute would silently never match the FIRST token in an attribute, whose
+# left neighbour is the quote character -- a control that looked green because
+# the regex could not fire.
+bs2_tokens_re='^(well|label|label-important|label-success|label-info|label-warning|btn-mini|btn-small|pull-right|pull-left|alert-error|nav-collapse|navbar-inner)$'
+rendered_class_tokens() {
+  grep -oE 'class="[^"]*"' "$tmp/regression.html" |
+    sed -e 's/^class="//' -e 's/"$//' |
+    tr '[:space:]' '\n' |
+    grep -v '^$'
+}
+if rendered_class_tokens | grep -qE "$bs2_tokens_re"; then
+  echo "FAIL: rendered alias/list.phtml carries a Bootstrap 2 class token" >&2
+  rendered_class_tokens | grep -E "$bs2_tokens_re" | sort -u >&2
+  exit 1
+fi
+
+# --- Half 2: each migrated control OPERATES. ---
+# Append a driver that clicks the real, production-rendered delete button
+# (which calls the real deleteAlias() from {tmplinclude}'d alias/js/list.js)
+# and separately raises a real ossAddMessage() alert, then asserts each
+# control's OWN observable marker rather than a shared before/after diff --
+# a modal and an alert dismissal don't share one oracle.
+{
+  printf '<script nonce="">\n'
+  cat <<'HTML'
+$(function () {
+    var failures = [];
+
+    function assertModalOperates(done) {
+        var modalEl = document.getElementById('purge_dialog');
+        if (!modalEl) {
+            failures.push('modal: #purge_dialog not rendered');
+            return done();
+        }
+        if (modalEl.classList.contains('show')) {
+            failures.push('modal: already shown before any click -- fixture is not isolating the trigger');
+        }
+
+        var deleteButton = document.getElementById('delete-alias-41');
+        if (!deleteButton) {
+            failures.push('modal: production delete button (#delete-alias-41) not rendered');
+            return done();
+        }
+
+        deleteButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        // Bootstrap 5's Modal.show() runs a CSS transition before adding
+        // .show; give it real time in a real browser rather than asserting
+        // synchronously against an event that hasn't finished yet.
+        setTimeout(function () {
+            var shown = modalEl.classList.contains('show') && modalEl.style.display === 'block';
+            if (!shown) {
+                failures.push('modal: #purge_dialog did not open on delete-button click (class=' +
+                    modalEl.className + ' display=' + modalEl.style.display + ')');
+            }
+            done();
+        }, 400);
+    }
+
+    function assertAlertDismissOperates(done) {
+        var before = document.querySelectorAll('.alert').length;
+        ossAddMessage('control-behaviour regression alert', 'info', false);
+        var afterAdd = document.querySelectorAll('.alert').length;
+        if (afterAdd !== before + 1) {
+            failures.push('alert-dismiss: ossAddMessage() did not insert a new .alert (before=' +
+                before + ' after=' + afterAdd + ')');
+            return done();
+        }
+
+        var alertEl = document.querySelectorAll('.alert')[document.querySelectorAll('.alert').length - 1];
+        var dismissButton = alertEl.querySelector('[data-bs-dismiss="alert"]');
+        if (!dismissButton) {
+            failures.push('alert-dismiss: inserted alert has no data-bs-dismiss="alert" control');
+            return done();
+        }
+
+        dismissButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        // Bootstrap 5's Alert.close() removes the element after its own fade
+        // transition (CLASS_NAME_SHOW removed synchronously, element removed
+        // via a queued callback), so give it real time rather than asserting
+        // against an in-flight transition.
+        setTimeout(function () {
+            var stillPresent = document.body.contains(alertEl);
+            if (stillPresent) {
+                failures.push('alert-dismiss: alert was not removed after clicking its dismiss control');
+            }
+            done();
+        }, 400);
+    }
+
+    assertModalOperates(function () {
+        assertAlertDismissOperates(function () {
+            document.body.dataset.testResult = failures.length === 0 ? 'pass' : 'fail';
+            document.body.dataset.testFailures = failures.join('; ');
+        });
+    });
+});
+HTML
+  printf '</script>\n'
+} >>"$tmp/regression.html"
+
+"$browser" \
+  --headless \
+  --disable-gpu \
+  --allow-file-access-from-files \
+  --user-data-dir="$tmp/profile" \
+  --virtual-time-budget=4000 \
+  --dump-dom "file://$tmp/regression.html" >"$tmp/rendered.html" 2>"$tmp/chromium.log"
+
+if ! grep -q 'data-test-result="pass"' "$tmp/rendered.html"; then
+  failures="$(grep -o 'data-test-failures="[^"]*"' "$tmp/rendered.html" || true)"
+  echo "FAIL: a migrated Bootstrap 5 control did not operate: ${failures:-no browser verdict}" >&2
+  exit 1
+fi
+
+echo "OK: rendered alias/list.phtml carries no Bootstrap 2 class, and the modal and alert-dismiss controls both operate"
