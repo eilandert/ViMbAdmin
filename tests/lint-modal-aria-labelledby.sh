@@ -36,34 +36,40 @@ fi
 runtime_shell_ids='modal_dialog_shell'
 
 # check_file FILE
-# For each `<div id="..." class="modal ...">` opening tag in FILE, require an
-# aria-labelledby on that same tag AND an element carrying the referenced id.
+# For each `.modal` opening tag in FILE, require an aria-labelledby on that same
+# tag AND an element carrying the referenced id.
+#
+# Modal elements are matched on the CLASS ALONE, independent of attribute order
+# and of whether an id is present. An earlier revision anchored on
+# `<div id="..." ... class="modal ...">`; that silently skipped
+# `<div class="modal fade">` and `<div class="modal fade" id="confirm">`, so
+# unlabelled dialogs written in either of those equally valid orders passed the
+# gate. Attribute order is not a property this gate may depend on.
 check_file() {
-  local f="$1" fail=0 line id label
+  local f="$1" fail=0 line num tag id label
   while IFS= read -r line; do
     [ -n "$line" ] || continue
-    id=$(sed -n 's/.*<div id="\([^"]*\)"[^>]*class="modal[ "].*/\1/p' <<<"${line#*:}")
-    if [ -z "$id" ]; then
-      echo "  Modal element without an id in $f: ${line%%:*}" >&2
-      fail=1
+    num="${line%%:*}"
+    tag="${line#*:}"
+    id=$(sed -n 's/.*[[:space:]]id="\([^"]*\)".*/\1/p' <<<"$tag")
+    label=$(sed -n 's/.*[[:space:]]aria-labelledby="\([^"]*\)".*/\1/p' <<<"$tag")
+
+    if [ -n "$id" ] && grep -qx "$runtime_shell_ids" <<<"$id"; then
       continue
     fi
-    if grep -qx "$runtime_shell_ids" <<<"$id"; then
-      continue
-    fi
-    label=$(sed -n 's/.*aria-labelledby="\([^"]*\)".*/\1/p' <<<"${line#*:}")
+
     if [ -z "$label" ]; then
-      echo "  Modal #$id has no aria-labelledby in $f:${line%%:*}"
+      echo "  Modal ${id:+#$id }has no aria-labelledby in $f:$num"
       fail=1
       continue
     fi
     # The referenced id must actually exist in the same template, or assistive
     # technology resolves the reference to nothing and announces no name.
     if ! grep -q "id=\"$label\"" "$f"; then
-      echo "  Modal #$id in $f:${line%%:*} points aria-labelledby at \"$label\", which no element in that file defines"
+      echo "  Modal ${id:+#$id }in $f:$num points aria-labelledby at \"$label\", which no element in that file defines"
       fail=1
     fi
-  done < <(grep -n '<div id="[^"]*"[^>]*class="modal[ "]' "$f" || true)
+  done < <(grep -nP '<div[^>]*\sclass="[^"]*(?<![-\w])modal(?![-\w])[^"]*"' "$f" || true)
   return "$fail"
 }
 
@@ -95,6 +101,46 @@ EOF
     status=1
   else
     echo "  OK: unlabelled modal caught"
+  fi
+
+  echo "== self-test: attribute order and a missing id must not let a modal escape =="
+  # Regression guard for the original defect: the scan anchored on
+  # `<div id="..." ... class="modal ...">`, so both of these -- equally valid
+  # markup -- were skipped entirely rather than reported.
+  cat >"$tmpdir/order.phtml" <<'EOF'
+<div class="modal fade" tabindex="-1">
+    <h3 class="modal-title">No id at all, class first</h3>
+</div>
+<div class="modal fade" id="confirm" tabindex="-1">
+    <h3 class="modal-title">Class before id</h3>
+</div>
+EOF
+  local order_hits
+  order_hits=$(check_file "$tmpdir/order.phtml" | grep -c 'has no aria-labelledby' || true)
+  if [ "$order_hits" -eq 2 ]; then
+    echo "  OK: both attribute-order variants caught"
+  else
+    echo "  FAIL: expected 2 unlabelled modals caught regardless of attribute order, got $order_hits" >&2
+    status=1
+  fi
+
+  echo "== self-test: modal-dialog / modal-content wrappers must not be treated as modals =="
+  # The class match must be word-bounded: these inner wrappers legitimately
+  # carry no aria-labelledby, and flagging them would make the gate unusable.
+  cat >"$tmpdir/wrappers.phtml" <<'EOF'
+<div class="modal fade" id="d" aria-labelledby="d_label">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <h3 class="modal-title" id="d_label">Title</h3>
+        </div>
+    </div>
+</div>
+EOF
+  if scan_files "$tmpdir/wrappers.phtml" >/dev/null 2>&1; then
+    echo "  OK: modal-dialog/modal-content wrappers not treated as modals"
+  else
+    echo "  FAIL: an inner modal-* wrapper was flagged as an unlabelled modal" >&2
+    status=1
   fi
 
   echo "== self-test: a DANGLING aria-labelledby must be caught, not accepted =="
