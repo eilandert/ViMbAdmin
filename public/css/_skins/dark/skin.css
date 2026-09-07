@@ -36,7 +36,7 @@ hr           { border-top-color: var(--vimb-border); }
 .page-header h1, h1, h2, h3, h4, legend { color: var(--vimb-text); }
 
 /* ---- top navbar --------------------------------------------------- */
-.navbar-inverse .navbar-inner {
+.navbar-inverse {
     background: var(--vimb-surface);
     border-color: var(--vimb-border);
     background-image: none;
@@ -53,7 +53,7 @@ hr           { border-top-color: var(--vimb-border); }
 .navbar-inverse .brand { color: var(--vimb-accent); }
 
 /* ---- panels / wells ---------------------------------------------- */
-.well, .hero-unit {
+.card, .hero-unit {
     background: var(--vimb-surface);
     border-color: var(--vimb-border);
     box-shadow: none;

@@ -206,7 +206,7 @@ function ossToggle( e, Url, data, delElement )
             if( data == "ok" ) {
                 ok = true;
             } else {
-                ossAddMessage( data, 'error' );
+                ossAddMessage( data, 'danger' );
             }
         },
         error: ossAjaxErrorHandler,
@@ -330,7 +330,7 @@ function ossAjaxErrorHandler( XMLHttpRequest, textStatus, errorThrown )
     if( $('canvas').length ){
         $('canvas').remove();
     }
-    ossAddMessage( 'An unexpected error occurred.', 'error', true );
+    ossAddMessage( 'An unexpected error occurred.', 'danger', true );
 }
 
 

@@ -370,7 +370,7 @@ jQuery( document ).on( 'click', '#modal_dialog_save', function() {
             }
             else {
                 dialog.modal('hide');
-                ossAddMessage( 'An unexpected error has occurred.', 'error' );
+                ossAddMessage( 'An unexpected error has occurred.', 'danger' );
             }
         },
         error: ossAjaxErrorHandler

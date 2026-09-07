@@ -34,7 +34,7 @@
         <tr id="domain_{$domain->getId()}">
             <td>{$domain->requiredDomainName()}{if !$domain->getActive()} (inactive){/if}</td>
             <td>
-                <a class="btn btn-small have-tooltip-below" id="remove-domain-{$domain->getId()}" href="{genUrl controller='admin' action='remove-domain' aid=$targetAdmin->getId() did=$domain->getId()}" ref="{$domain->requiredDomainName()}" title="Remove">
+                <a class="btn btn-sm have-tooltip-below" id="remove-domain-{$domain->getId()}" href="{genUrl controller='admin' action='remove-domain' aid=$targetAdmin->getId() did=$domain->getId()}" ref="{$domain->requiredDomainName()}" title="Remove">
                     <i class="icon-minus"></i>
                 </a>
             </td>

@@ -36,7 +36,7 @@
                         <input type="hidden" name="aid" value="{$admin->getId()}" />
                         <input type="hidden" name="did" value="{$domain->getId()}" />
                         <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
-                        <button class="btn btn-small have-tooltip" ref="{$admin->getUsername()}" id="remove-admin-{$admin->getId()}" title="Remove" type="submit">
+                        <button class="btn btn-sm have-tooltip" ref="{$admin->getUsername()}" id="remove-admin-{$admin->getId()}" title="Remove" type="submit">
                             <i class="icon-minus"></i>
                         </button>
                     </form>

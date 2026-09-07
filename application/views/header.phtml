@@ -40,11 +40,10 @@
 
 {if !isset($inColorBox) || !$inColorBox}
     <div class="navbar navbar-inverse navbar-fixed-top">
-        <div class="navbar-inner">
             <div class="container">
                 <a class="brand" href="{genUrl}">ViMbAdmin{if not $hasIdentity} :: <em>Virtual Mailbox Administration</em>{/if}</a>
 
-                    <div class="nav-collapse">
+                    <div class="navbar-collapse">
                         {if $hasIdentity}
                             <ul class="nav">
                                 <li {if $controller eq 'domain'}class="active"{/if}>
@@ -88,7 +87,7 @@
                                     <a href="http://www.vimbadmin.net/" target="_blank">About</a>
                                 </li>
                             </ul>
-                            <ul class="nav pull-right">
+                            <ul class="nav float-end">
                                 <li>
                                     <a href="{genUrl controller='auth' action='logout'}">Logout</a>
                                 </li>
@@ -99,17 +98,16 @@
                                     <a href="http://www.vimbadmin.net/">About</a>
                                 </li>
                             </ul>
-                            <ul class="nav pull-right">
+                            <ul class="nav float-end">
                                 <li>
                                     <a href="{genUrl controller='auth' action='login'}">Login</a>
                                 </li>
                             </ul>
                         {/if}
 
-                    </div><!--/.nav-collapse -->
+                    </div><!--/.navbar-collapse -->
 
             </div>
-        </div>
     </div>
 {/if}
 

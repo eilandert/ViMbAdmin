@@ -57,7 +57,7 @@
             <td>{$alias.domain}</td>
             <td>
                 <div id="throb-toggle-active-{$alias.id}" style="float: right;"></div>
-                <span id="toggle-active-{$alias.id}" data-toggle-active="{$alias.id}" class="btn btn-mini {if $alias.active}btn-success{else}btn-danger{/if}">{$alias.active|yesno}</span>
+                <span id="toggle-active-{$alias.id}" data-toggle-active="{$alias.id}" class="btn btn-sm {if $alias.active}btn-success{else}btn-danger{/if}">{$alias.active|yesno}</span>
             </td>
             <td>
                 <div id="alias-goto-{$alias.id}" {if $alias.goto|strlen > 50 } title="{$alias.goto|regex_replace:"/[,]/":", "}"{/if}>
@@ -66,7 +66,7 @@
             </td>
             <td>
                 <div class="btn-group">
-                    <a class="btn btn-mini have-tooltip" id="edit_alias_{$alias.id}" title="Edit" href="{genUrl controller='alias' action='edit' alid=$alias.id}">
+                    <a class="btn btn-sm have-tooltip" id="edit_alias_{$alias.id}" title="Edit" href="{genUrl controller='alias' action='edit' alid=$alias.id}">
                         <i class="icon-pencil"></i>
                     </a>
                     {if isset( $alias_actions ) }
@@ -88,7 +88,7 @@
                     <form method="post" action="{genUrl controller='alias' action='delete'}" class="delete-alias-form" style="display: inline;">
                         <input type="hidden" name="alid" value="{$alias.id}" />
                         <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
-                        <button class="btn btn-mini have-tooltip" id="delete-alias-{$alias.id}" title="Delete" type="submit">
+                        <button class="btn btn-sm have-tooltip" id="delete-alias-{$alias.id}" title="Delete" type="submit">
                             <i class="icon-trash"></i>
                         </button>
                     </form>
@@ -102,7 +102,7 @@
                         {/if}
                         <span class="caret"></span>
                         </{$action.tagName}>
-                        <ul class="dropdown-menu pull-right">
+                        <ul class="dropdown-menu float-end">
                         {foreach $action.menu as $item}
                             <li><a {if isset( $item.id)}id="{$item.id|replace:'%id%':$oid}" {/if}href="{$item.url|replace:'%id%':$oid}">{$item.text}</a></li>
                         {/foreach}
