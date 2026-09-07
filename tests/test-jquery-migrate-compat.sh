@@ -136,13 +136,26 @@ $(function() {
     // `bootbox.confirm` has no call site anywhere in the tree. Assert the
     // surface that exists and is depended upon, via the frozen OSS_Message
     // contract, rather than one this migration intentionally dropped.
-    check('Bootbox alert renders its message and dismisses', function() {
-        bootbox.alert('<em id="bootbox-probe">Continue?</em>', function() { bootboxResult = true; });
-        var rendered = !!document.getElementById('bootbox-probe');
-        $('.modal.show [data-bs-dismiss="modal"], .modal [data-bs-dismiss="modal"]')
-            .first().trigger('click');
-        return rendered;
+    // Opened here, asserted in the deferred block below: dismissal runs through
+    // Bootstrap 5's hide transition and the shim removes the dialog on
+    // `hidden.bs.modal`, so neither the close nor the callback has happened yet
+    // when this statement returns. Asserting synchronously would pass even with
+    // a broken dismiss handler.
+    bootbox.alert('<em id="bootbox-probe">Continue?</em>', function() { bootboxResult = true; });
+    check('Bootbox alert renders its message as HTML', function() {
+        return !!document.getElementById('bootbox-probe');
     });
+    // Dismissal is deferred to the next tick: Bootstrap 5 shows the dialog
+    // through a transition, and clicking the OK button before the modal has
+    // finished opening is a no-op. The click itself must be a NATIVE event,
+    // because `data-bs-dismiss` is bound by Bootstrap's own delegated native
+    // listener, which a jQuery-triggered event never reaches.
+    setTimeout(function() {
+        var button = document.querySelector('#bootbox-probe')
+            && document.querySelector('#bootbox-probe').closest('.modal')
+                .querySelector('[data-bs-dismiss="modal"]');
+        if (button) button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }, 60);
     check('real admin view remove dialog operates', function() {
         $('#remove-domain-7').trigger('click');
         var selected = $('#remove_domain_form input[name="did"]').val();
@@ -207,6 +220,23 @@ $(function() {
     }, 30);
 
     setTimeout(function() {
+        // Deferred so the dismiss transition has completed: the dialog must be
+        // gone from the DOM and the caller's callback must have run. Without
+        // these two, a broken dismiss handler leaves the modal open forever and
+        // the suite never notices.
+        // Scoped to the alert's OWN dialog: #purge_dialog is a persistent
+        // in-page modal opened by an earlier check and legitimately still in the
+        // DOM, so a global `.modal.show` count would assert someone else's state.
+        // What matters here is that the per-call dialog the shim created is gone
+        // -- it is removed on `hidden.bs.modal`, so its absence proves the hide
+        // transition completed rather than merely started.
+        check('Bootbox alert dismisses and removes its dialog', function() {
+            return document.getElementById('bootbox-probe') === null;
+        });
+        check('Bootbox alert invokes the caller callback on dismiss', function() {
+            return bootboxResult === true;
+        });
+
         if (warnings.length) failures.push('Migrate warning: ' + warnings.join(' | '));
         document.getElementById('output').textContent = JSON.stringify({ mode: mode, warnings: warnings, failures: failures });
         document.body.dataset.verdict = failures.length ? 'FAIL' : 'PASS';
