@@ -88,11 +88,7 @@ function purgeDomain( id, domain )
 {
     $( "#purge_domain_name" ).text( domain );
 
-    delDialog = $( '#purge_dialog' ).modal({
-        backdrop: true,
-        keyboard: true,
-        show: true
-    });
+    delDialog = ossModal( '#purge_dialog' );
 
     $( '#purge_domain_form input[name="did"]' ).val( id );
 

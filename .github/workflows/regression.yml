@@ -43,6 +43,9 @@ jobs:
       - name: jQuery APIs removed in 4.0 must not reappear (VIM-A15 phase 2)
         run: bash tests/lint-no-removed-jquery-apis.sh
 
+      - name: Bootstrap 2 grid classes must not reappear (VIM-A15 phase 4)
+        run: bash tests/lint-bs2-grid-classes.sh
+
       - name: Containerized Chrome runner hardening
         run: bash tests/test-headless-chrome-container.sh
 

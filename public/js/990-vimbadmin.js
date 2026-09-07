@@ -260,18 +260,18 @@ function tt_openModalDialog(event) {
 
     if( id.substring( 0, 4 ) == "wide" )
     {
-        $( '#modal_dialog' ).addClass( 'modal-wide' );
-        $( '#modal_dialog' ).removeClass( 'modal-email' );
+        $( '#modal_dialog_shell .modal-dialog' ).addClass( 'modal-wide' );
+        $( '#modal_dialog_shell .modal-dialog' ).removeClass( 'modal-email' );
     }
     else if( id.substring( 0, 5 ) == "email" )
     {
-        $( '#modal_dialog' ).addClass( 'modal-email' );
-        $( '#modal_dialog' ).removeClass( 'modal-wide' );
+        $( '#modal_dialog_shell .modal-dialog' ).addClass( 'modal-email' );
+        $( '#modal_dialog_shell .modal-dialog' ).removeClass( 'modal-wide' );
     }
     else
     {
-        $( '#modal_dialog' ).removeClass( 'modal-wide' );
-        $( '#modal_dialog' ).removeClass( 'modal-email' );
+        $( '#modal_dialog_shell .modal-dialog' ).removeClass( 'modal-wide' );
+        $( '#modal_dialog_shell .modal-dialog' ).removeClass( 'modal-email' );
     }
 
     $('#modal_dialog').html( '<div id="throb" style="padding-left:230px; padding-top:175px; height:275px;"></div>' );
@@ -279,11 +279,7 @@ function tt_openModalDialog(event) {
 
     var Throb = tt_throbber( 100, 20, 1.8 ).appendTo( $( '#throb' ).get(0) ).start();
 
-    dialog = $( '#modal_dialog' ).modal( {
-                backdrop: true,
-                keyboard: true,
-                show: true
-    });
+    dialog = ossModal( '#modal_dialog_shell' );
 
     $.ajax({
         url: element.attr( 'href' ) ,
@@ -316,7 +312,7 @@ function tt_openModalDialog(event) {
  */
 function ossAjaxErrorHandler( XMLHttpRequest, textStatus, errorThrown )
 {
-    if( $('#modal_dialog:visible').length )
+    if( $('#modal_dialog_shell:visible').length )
     {
         if( $('#modal_dialog_save').length ){
             $('#modal_dialog_save').prop( 'disabled', false ).removeClass( 'disabled' );
@@ -355,8 +351,8 @@ function ossAddMessage( msg, type, handled )
 {
     rand = Math.floor( Math.random() * 1000000 );
 
-    msgbox = '<div id="oss-message-' + rand + '" class="alert alert-' + type + ' fade in">\
-                                <a class="close" href="#" data-dismiss="alert">×</a>\
+    msgbox = '<div id="oss-message-' + rand + '" class="alert alert-' + type + ' alert-dismissible fade show">\
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>\
                                     '+ msg + '</div>';
 
     if( $('.modal-body:visible').length && handled )

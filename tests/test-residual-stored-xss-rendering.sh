@@ -39,10 +39,22 @@ $.fn.dataTable.ext.sErrMode = $.fn.dataTable.ext.errMode = function (_settings, 
     dataTableErrors.push({ technicalNote, message });
 };
 
+// Bootstrap 5 binds its tooltip through its own EventHandler, which maps
+// `mouseenter` onto the NATIVE `mouseover` (delegation is why: mouseenter does
+// not bubble). jQuery's `.trigger('mouseenter')` dispatches a synthetic jQuery
+// event that never reaches a native listener, so under Bootstrap 5 it opens no
+// tooltip at all -- and the positive control then fails while the negative
+// assertions below pass vacuously, which is the worst possible reading. Dispatch
+// a real MouseEvent so this file tests the application rather than jQuery's
+// event shim.
+function openTooltip(el) {
+    if (el) el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+}
+
 $(function () {
-    $('#trusted-html-tooltip').trigger('mouseenter');
-    $('#mailbox-purge-fixture [id|="alias-goto"]').trigger('mouseenter');
-    $('#log-message-91').trigger('mouseenter');
+    openTooltip(document.getElementById('trusted-html-tooltip'));
+    document.querySelectorAll('#mailbox-purge-fixture [id|="alias-goto"]').forEach(openTooltip);
+    openTooltip(document.getElementById('log-message-91'));
 
     const settings = oDataTable.fnSettings();
     const originalAjax = $.ajax;

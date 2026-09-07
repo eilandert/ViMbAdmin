@@ -68,7 +68,17 @@ scripts.forEach(function(file) { document.write('<script src="' + file + '"><\/s
 <select id="choice" multiple><option value="a">Alpha</option><option value="b">Beta</option></select>
 <table id="table"><thead><tr><th>Name</th></tr></thead><tbody><tr><td>Beta</td></tr><tr><td>Alpha</td></tr></tbody></table>
 <table id="list_table"><thead><tr><th>Domain</th><th>Action</th></tr></thead><tbody><tr><td>example.test</td><td><a id="remove-domain-7" ref="example.test">Remove</a></td></tr></tbody></table>
-<div id="purge_dialog" class="modal" tabindex="-1"><span id="purge_domain_name"></span><button id="purge_dialog_cancel">Cancel</button></div>
+<!-- Mirrors application/views/domain/list.phtml: Bootstrap 5's Modal requires a
+     .modal-dialog > .modal-content subtree and throws when it is absent, so a
+     bare .modal here would fail against markup the application does not ship. -->
+<div id="purge_dialog" class="modal fade" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body"><span id="purge_domain_name"></span></div>
+      <div class="modal-footer"><button id="purge_dialog_cancel" type="button">Cancel</button></div>
+    </div>
+  </div>
+</div>
 <form id="remove_domain_form"><input name="did"></form>
 <a id="colorbox" href="#inline">inline</a><div id="inline">content</div>
 <button id="state-button" type="button" data-loading-text="Working">Ready</button>
@@ -120,11 +130,32 @@ $(function() {
         $.colorbox.close();
         return opened;
     });
-    check('Bootbox confirm invokes the affirmative callback', function() {
-        bootbox.confirm('Continue?', function(result) { bootboxResult = result; });
-        $('.bootbox .btn-primary').trigger('click');
-        return bootboxResult === true;
+    // bootbox 3.3.0 is gone (it built Bootstrap 2 modal markup and drove the
+    // Bootstrap 2 lifecycle). The replacement shim deliberately provides only
+    // `bootbox.alert`, which is the whole of the API the application uses --
+    // `bootbox.confirm` has no call site anywhere in the tree. Assert the
+    // surface that exists and is depended upon, via the frozen OSS_Message
+    // contract, rather than one this migration intentionally dropped.
+    // Opened here, asserted in the deferred block below: dismissal runs through
+    // Bootstrap 5's hide transition and the shim removes the dialog on
+    // `hidden.bs.modal`, so neither the close nor the callback has happened yet
+    // when this statement returns. Asserting synchronously would pass even with
+    // a broken dismiss handler.
+    bootbox.alert('<em id="bootbox-probe">Continue?</em>', function() { bootboxResult = true; });
+    check('Bootbox alert renders its message as HTML', function() {
+        return !!document.getElementById('bootbox-probe');
     });
+    // Dismissal is deferred to the next tick: Bootstrap 5 shows the dialog
+    // through a transition, and clicking the OK button before the modal has
+    // finished opening is a no-op. The click itself must be a NATIVE event,
+    // because `data-bs-dismiss` is bound by Bootstrap's own delegated native
+    // listener, which a jQuery-triggered event never reaches.
+    setTimeout(function() {
+        var button = document.querySelector('#bootbox-probe')
+            && document.querySelector('#bootbox-probe').closest('.modal')
+                .querySelector('[data-bs-dismiss="modal"]');
+        if (button) button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }, 60);
     check('real admin view remove dialog operates', function() {
         $('#remove-domain-7').trigger('click');
         var selected = $('#remove_domain_form input[name="did"]').val();
@@ -162,22 +193,50 @@ $(function() {
         return value && value.pageLength === 25 && value.marker === mode && /(?:^|; )vm_prefs=/.test(document.cookie);
     });
 
+    // Bootstrap 5 REMOVED the button plugin's stateful `.button('loading')` /
+    // `.button('reset')` API together with `data-loading-text`; there is no
+    // replacement and the application never used it (no `.button('...')` call
+    // and no `data-loading-text` attribute exists outside this fixture). Asserting
+    // it here would test Bootstrap 2, not ViMbAdmin.
+    //
+    // What still needs an oracle is the thing the removed API was standing in
+    // for: that a button disabled while work is in flight is re-enabled
+    // afterwards, and that this file can still SEE a button wrongly left
+    // disabled. The '#button-disabled' mutation lane depends on exactly that,
+    // so the pair is kept with the state driven directly.
     var stateButton = $('#state-button');
-    stateButton.button('loading');
+    stateButton.prop('disabled', true).text('Working');
     setTimeout(function() {
-        check('Bootstrap loading state disables the button', function() {
+        check('a button disabled for in-flight work reports as disabled', function() {
             return stateButton.prop('disabled') === true && stateButton.text() === 'Working';
         });
-        stateButton.button('reset');
+        stateButton.prop('disabled', false).text('Ready');
         setTimeout(function() {
             if (location.hash === '#button-disabled') stateButton.prop('disabled', true);
-            check('Bootstrap reset state enables the button', function() {
+            check('a button restored after the work completes is enabled again', function() {
                 return stateButton.prop('disabled') === false && stateButton.text() === 'Ready';
             });
         }, 30);
     }, 30);
 
     setTimeout(function() {
+        // Deferred so the dismiss transition has completed: the dialog must be
+        // gone from the DOM and the caller's callback must have run. Without
+        // these two, a broken dismiss handler leaves the modal open forever and
+        // the suite never notices.
+        // Scoped to the alert's OWN dialog: #purge_dialog is a persistent
+        // in-page modal opened by an earlier check and legitimately still in the
+        // DOM, so a global `.modal.show` count would assert someone else's state.
+        // What matters here is that the per-call dialog the shim created is gone
+        // -- it is removed on `hidden.bs.modal`, so its absence proves the hide
+        // transition completed rather than merely started.
+        check('Bootbox alert dismisses and removes its dialog', function() {
+            return document.getElementById('bootbox-probe') === null;
+        });
+        check('Bootbox alert invokes the caller callback on dismiss', function() {
+            return bootboxResult === true;
+        });
+
         if (warnings.length) failures.push('Migrate warning: ' + warnings.join(' | '));
         document.getElementById('output').textContent = JSON.stringify({ mode: mode, warnings: warnings, failures: failures });
         document.body.dataset.verdict = failures.length ? 'FAIL' : 'PASS';

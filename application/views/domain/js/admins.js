@@ -36,11 +36,7 @@ function removeAdmin( event ) {
 
     $( "#purge_admin_name" ).text( element.attr( "ref" ) );
 
-    delDialog = $( '#purge_dialog' ).modal({
-        backdrop: true,
-        keyboard: true,
-        show: true
-    });
+    delDialog = ossModal( '#purge_dialog' );
 
     // The control is a submit button inside a CSRF-bearing POST form; the
     // dialog's confirm button submits that form so the token stays in the body.

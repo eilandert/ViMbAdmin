@@ -87,21 +87,34 @@
 </table>
 
 
-<div id="purge_dialog" class="modal hide fade">
-    <div class="modal-header">
-        <a href="#" class="close" data-dismiss="modal">&times;</a>
-        <h3>Are you sure?</h3>
-    </div>
-    <div class="modal-body">
-        Are you sure you want to purge <em id="purge_admin_name"></em> ?
-        <br /><br />
-        All logs and domain associations will be removed. If you simply want to
-        close the user's account, deactivate it instead.
-        <br /><br />
-    </div>
-    <div id="pdfooter" class="modal-footer">
-        <a class="btn btn-danger" id="purge_dialog_delete" href="#">Purge</a>
-        <button id="purge_dialog_cancel" class="btn">Cancel</button>
+<div id="purge_dialog" class="modal fade" tabindex="-1" aria-hidden="true">
+
+
+    <div class="modal-dialog modal-dialog-centered">
+
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h3 class="modal-title">Are you sure?</h3>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to purge <em id="purge_admin_name"></em> ?
+                <br /><br />
+                All logs and domain associations will be removed. If you simply want to
+                close the user's account, deactivate it instead.
+                <br /><br />
+            </div>
+            <div id="pdfooter" class="modal-footer">
+                <a class="btn btn-danger" id="purge_dialog_delete" href="#">Purge</a>
+                <button id="purge_dialog_cancel" class="btn">Cancel</button>
+            </div>
+
+
+        </div>
+
+
     </div>
 </div>
 
