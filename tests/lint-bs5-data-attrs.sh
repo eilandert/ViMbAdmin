@@ -54,7 +54,11 @@ fi
 
 # Attribute names Bootstrap 5 renamed under the data-bs- prefix. Anchored so
 # `data-toggle-active`/`data-toggle-super` (app-own) do not match `toggle`.
-bs_data_attrs_re='data-(toggle|target|dismiss|ride|parent|spy|slide|slide-to|container|placement|trigger|offset|delay|html|interval|pause|wrap|backdrop|keyboard|focus|show)='
+bs_data_attrs_re='data-(toggle|target|dismiss|ride|parent|spy|slide|slide-to|container|placement|trigger|offset|delay|html|interval|pause|wrap|backdrop|keyboard|focus|show)'
+# Attribute name may be followed by optional whitespace before `=`; HTML permits
+# `data-toggle = "tab"` and Bootstrap's own delegated handlers still match it.
+bs_data_attrs_base="$bs_data_attrs_re"
+bs_data_attrs_re="${bs_data_attrs_base}\\s*="
 
 # scan_files FILE...
 # Greps each file for a bare (non data-bs-) Bootstrap JS-hook attribute.
@@ -73,7 +77,7 @@ scan_files() {
       [ -n "$hit" ] || continue
       echo "  Bootstrap data attribute missing bs- prefix in $f: $hit"
       fail=1
-    done < <(grep -noP "(?<!-bs)\b${bs_data_attrs_re}" "$f" | grep -vP "${bs_data_attrs_re%=}-(active|super)=" || true)
+    done < <(grep -noP "(?<!-bs)\b${bs_data_attrs_re}" "$f" | grep -vP "${bs_data_attrs_base}-(active|super)\\s*=" || true)
   done
   return "$fail"
 }
@@ -96,6 +100,7 @@ self_test() {
 <a href="#" data-toggle="dropdown">Drop</a>
 <button data-dismiss="modal">Close</button>
 <div data-target="#myModal" data-toggle="modal">Open</div>
+<a href="#" data-toggle = "tab">whitespace before = is valid HTML</a>
 EOF
 
   cat >"$clean" <<'EOF'
@@ -105,11 +110,13 @@ EOF
 <div data-bs-target="#myModal" data-bs-toggle="modal">Open</div>
 <a href="#" data-toggle-active="1">app-own, not a Bootstrap hook</a>
 <a href="#" data-toggle-super="1">app-own, not a Bootstrap hook</a>
+<a href="#" data-toggle-active = "1">app-own, whitespace before =</a>
 EOF
 
   echo "== self-test: negative control, reintroduced bare data-toggle/dismiss attrs must be caught =="
-  # 5 seeded hits: tab, dropdown, modal(dismiss), target, toggle(modal).
-  expected_hits=5
+  # 6 seeded hits: tab, dropdown, modal(dismiss), target, toggle(modal), and
+  # the whitespace-before-`=` spelling HTML permits.
+  expected_hits=6
   actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap data attribute missing bs- prefix' || true)
   if [ "$actual_hits" -eq "$expected_hits" ]; then
     echo "  OK: all $expected_hits seeded regressions detected"
