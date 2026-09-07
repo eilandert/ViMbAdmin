@@ -45,10 +45,21 @@ fi
 # Both quoting styles: `class="span6"` and `class='span6'` are equally valid
 # HTML and Smarty emits either, so a double-quote-only pattern would walk past
 # half the possible regressions.
+#
+# `class[[:space:]]*=[[:space:]]*` rather than a bare `class=`: HTML permits
+# whitespace on either side of the `=`, so `class = "span6"` is a valid
+# regression that a tight pattern walks straight past.
+#
+# The scan is also whole-file rather than line-based (`grep -z`, and `[^"\x27]`
+# therefore spans newlines), because a class attribute may wrap:
+#   <div class="row
+#               span6">
+# is one attribute value on two lines, and a per-line scan sees neither half as
+# a match.
 patterns=(
-  "class=[\"'][^\"']*\\brow-fluid\\b"
-  "class=[\"'][^\"']*\\bspan[0-9]+\\b"
-  "class=[\"'][^\"']*\\boffset[0-9]+\\b"
+  "class[[:space:]]*=[[:space:]]*[\"'][^\"']*\\brow-fluid\\b"
+  "class[[:space:]]*=[[:space:]]*[\"'][^\"']*\\bspan[0-9]+\\b"
+  "class[[:space:]]*=[[:space:]]*[\"'][^\"']*\\boffset[0-9]+\\b"
 )
 labels=(
   'row-fluid (use "row")'
@@ -70,7 +81,10 @@ scan_files() {
   for i in "${!patterns[@]}"; do
     pattern="${patterns[$i]}"
     label="${labels[$i]}"
-    hits=$(grep -nE "$pattern" "${files[@]}" 2>/dev/null || true)
+    # -z treats each file as one NUL-terminated record, so `[^"\x27]*` in the
+    # pattern crosses newlines and a wrapped class attribute is matched. That
+    # costs the line number, so report the filename and the offending value.
+    hits=$(grep -zoHE "$pattern" "${files[@]}" 2>/dev/null | tr '\0' '\n' || true)
     if [ -n "$hits" ]; then
       echo "  Bootstrap 2 grid class '$label' found:"
       while IFS= read -r line; do
@@ -103,6 +117,9 @@ self_test() {
     <div class="span6">left</div>
     <div class='span6'>right, single-quoted</div>
     <div class="span4 offset2">offset</div>
+    <div class = "span6">whitespace around the equals sign</div>
+    <div class="row
+                span3">wrapped attribute value, spanning two lines</div>
 </div>
 EOF
 
