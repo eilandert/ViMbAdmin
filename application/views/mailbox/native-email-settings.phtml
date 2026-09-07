@@ -6,7 +6,7 @@
     <p>Email settings for '<em>{$mailbox->requiredUsername()}</em>'.</p>
 
 {if isset( $esError ) && $esError}
-    <div class="alert alert-error">{$esError|escape}</div>
+    <div class="alert alert-danger">{$esError|escape}</div>
 {/if}
 
     <form action="{genUrl controller='mailbox' action='email-settings' mid=$mailbox->getId()}/send/1"

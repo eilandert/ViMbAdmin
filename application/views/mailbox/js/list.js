@@ -172,7 +172,7 @@ function toggleActive(elid, id) {
         var active_class = active ? 'success': 'danger';
         var active_msg = active ? 'Yes': 'No';
         return '<div id="throb-toggle-active-' + id + '" style="float: right;"></div>\
-        <span id="toggle-active-' +id + '" data-toggle-active="' + id + '" class="btn btn-mini btn-' + active_class + '">' + active_msg + '</span>';
+        <span id="toggle-active-' +id + '" data-toggle-active="' + id + '" class="btn btn-sm btn-' + active_class + '">' + active_msg + '</span>';
     }
 
     function formatControlls( id )
@@ -181,7 +181,7 @@ function toggleActive(elid, id) {
         var item_id = "";
         var href = "";
         var str = '<div class="btn-group">\
-                <a class="btn btn-mini have-tooltip" id="edit_mailbox_' + id + '" title="Edit" href="{genUrl controller="mailbox" action="edit"}/mid/' + id + '">\
+                <a class="btn btn-sm have-tooltip" id="edit_mailbox_' + id + '" title="Edit" href="{genUrl controller="mailbox" action="edit"}/mid/' + id + '">\
                     <i class="icon-pencil"></i>\
                 </a>';
                 {if isset( $mailbox_actions ) }
@@ -207,33 +207,33 @@ function toggleActive(elid, id) {
                     {/foreach}
                 {/if}
                 
-        str += '<a class="btn btn-mini have-tooltip" id="password_' + id + '" title="Password" href="{genUrl controller="mailbox" action="password"}/mid/' + id + '">\
+        str += '<a class="btn btn-sm have-tooltip" id="password_' + id + '" title="Password" href="{genUrl controller="mailbox" action="password"}/mid/' + id + '">\
                     <i class="icon-lock"></i>\
                 </a>\
-                <a class="btn btn-mini have-tooltip" id="mailbox_aliases_' + id + '" title="List Aliases" href="{genUrl controller="mailbox" action="aliases"}/mid/' + id + '">\
+                <a class="btn btn-sm have-tooltip" id="mailbox_aliases_' + id + '" title="List Aliases" href="{genUrl controller="mailbox" action="aliases"}/mid/' + id + '">\
                     <i class="icon-random"></i>\
                 </a>\
-                <a class="btn btn-mini have-tooltip" id="modal-dialog-mailbox_settings_' + id + '" title="Send Settings" href="{genUrl controller="mailbox" action="email-settings"}/mid/' + id + '">\
+                <a class="btn btn-sm have-tooltip" id="modal-dialog-mailbox_settings_' + id + '" title="Send Settings" href="{genUrl controller="mailbox" action="email-settings"}/mid/' + id + '">\
                     <i class="icon-envelope"></i>\
                 </a>\
                 <form method="post" action="{genUrl controller="mailbox" action="queue-repair"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;">\
                     <input type="hidden" name="mid" value="' + id + '" />\
                     <input type="hidden" name="csrf" value="{$csrfToken}" />\
-                    <button class="btn btn-mini have-tooltip" id="repair_' + id + '" title="Repair / optimize (queued)" type="submit">\
+                    <button class="btn btn-sm have-tooltip" id="repair_' + id + '" title="Repair / optimize (queued)" type="submit">\
                         <i class="icon-wrench"></i>\
                     </button>\
                 </form>\
                 <form method="post" action="{genUrl controller="mailbox" action="queue-archive"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" data-confirm="Archive this mailbox? Backs up + empties the mailbox, keeps the account.">\
                     <input type="hidden" name="mid" value="' + id + '" />\
                     <input type="hidden" name="csrf" value="{$csrfToken}" />\
-                    <button class="btn btn-mini have-tooltip" id="archive_' + id + '" title="Archive (queued: backup + empty mailbox, keep account)" type="submit">\
+                    <button class="btn btn-sm have-tooltip" id="archive_' + id + '" title="Archive (queued: backup + empty mailbox, keep account)" type="submit">\
                         <i class="icon-inbox"></i>\
                     </button>\
                 </form>\
                 <form method="post" action="{genUrl controller="mailbox" action="queue-delete"}" class="queue-task-form btn-group" style="display: inline-block; margin: 0;" data-confirm="DELETE this mailbox? Backs up, then removes the mail AND the account. This cannot be undone from here.">\
                     <input type="hidden" name="mid" value="' + id + '" />\
                     <input type="hidden" name="csrf" value="{$csrfToken}" />\
-                    <button class="btn btn-mini have-tooltip btn-danger" id="delete_' + id + '" title="Delete (queued: backup, then remove mailbox + account)" type="submit">\
+                    <button class="btn btn-sm have-tooltip btn-danger" id="delete_' + id + '" title="Delete (queued: backup, then remove mailbox + account)" type="submit">\
                         <i class="icon-trash"></i>\
                     </button>\
                 </form>';
@@ -255,7 +255,7 @@ function toggleActive(elid, id) {
                     {/if}
                     str += '<span class="caret"></span>\
                     </{$action.tagName}>\
-                    <ul class="dropdown-menu pull-right">';
+                    <ul class="dropdown-menu dropdown-menu-end">';
                     {foreach $action.menu as $item}
                         str += '<li><a ';
                         {if isset( $item.id)}
@@ -370,7 +370,7 @@ jQuery( document ).on( 'click', '#modal_dialog_save', function() {
             }
             else {
                 dialog.modal('hide');
-                ossAddMessage( 'An unexpected error has occurred.', 'error' );
+                ossAddMessage( 'An unexpected error has occurred.', 'danger' );
             }
         },
         error: ossAjaxErrorHandler

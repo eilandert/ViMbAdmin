@@ -36,17 +36,17 @@
                 <td>
                     <div id="throb-toggle-active-{$admin->getId()}" style="float: right;"></div>
                     {if $identity.user->getId() != $admin->getId()}
-                        <span id="toggle-active-{$admin->getId()}" data-toggle-active="{$admin->getId()}" class="btn btn-mini {if $admin->getActive()}btn-success{else}btn-danger{/if}">{$admin->getActive()|yesno}</span>
+                        <span id="toggle-active-{$admin->getId()}" data-toggle-active="{$admin->getId()}" class="btn btn-sm {if $admin->getActive()}btn-success{else}btn-danger{/if}">{$admin->getActive()|yesno}</span>
                     {else}
-                        <span id="toggle-active-{$admin->getId()}" class="btn btn-mini disabled {if $admin->getActive()}btn-success{else}btn-danger{/if}">{$admin->getActive()|yesno}</span>
+                        <span id="toggle-active-{$admin->getId()}" class="btn btn-sm disabled {if $admin->getActive()}btn-success{else}btn-danger{/if}">{$admin->getActive()|yesno}</span>
                     {/if}
                 </td>
                 <td>
                     <div id="throb-toggle-super-{$admin->getId()}" style="float: right;"></div>
                     {if $identity.user->getId() != $admin->getId()}
-                        <span id="toggle-super-{$admin->getId()}" data-toggle-super="{$admin->getId()}" class="btn btn-mini super-toggle {if $admin->getSuper()}btn-success{else}btn-danger{/if}">{$admin->getSuper()|yesno}</span>
+                        <span id="toggle-super-{$admin->getId()}" data-toggle-super="{$admin->getId()}" class="btn btn-sm super-toggle {if $admin->getSuper()}btn-success{else}btn-danger{/if}">{$admin->getSuper()|yesno}</span>
                     {else}
-                        <span id="toggle-super-{$admin->getId()}" class="btn btn-mini disabled super-toggle {if $admin->getSuper()}btn-success{else}btn-danger{/if}">{$admin->getSuper()|yesno}</span>
+                        <span id="toggle-super-{$admin->getId()}" class="btn btn-sm disabled super-toggle {if $admin->getSuper()}btn-success{else}btn-danger{/if}">{$admin->getSuper()|yesno}</span>
                     {/if}
                 </td>
                 <td>
@@ -54,26 +54,26 @@
                 </td>
                 <td>
                     <div class="btn-group">
-                        <a class="btn btn-mini have-tooltip" id="password-{$admin->getId()}" title="Password" href="{genUrl controller='admin' action='password' aid=$admin->getId()}">
+                        <a class="btn btn-sm have-tooltip" id="password-{$admin->getId()}" title="Password" href="{genUrl controller='admin' action='password' aid=$admin->getId()}">
                             <i class="icon-lock"></i>
                         </a>
                         {if $user->isSuper() && $admin->getId() != $user->getId()}
-                        <a class="btn btn-mini have-tooltip" id="admin_2fa_{$admin->getId()}" title="Manage two-factor" href="{genUrl controller='admin' action='manage-two-factor' aid=$admin->getId()}">
+                        <a class="btn btn-sm have-tooltip" id="admin_2fa_{$admin->getId()}" title="Manage two-factor" href="{genUrl controller='admin' action='manage-two-factor' aid=$admin->getId()}">
                             <i class="icon-qrcode"></i>
                         </a>
                         {/if}
-                        <a class="btn btn-mini have-tooltip" id="admin_logs_{$admin->getId()}" title="Logs" href="{genUrl controller='log' action='list' aid=$admin->getId()}">
+                        <a class="btn btn-sm have-tooltip" id="admin_logs_{$admin->getId()}" title="Logs" href="{genUrl controller='log' action='list' aid=$admin->getId()}">
                             <i class="icon-align-justify"></i>
                         </a>
 
                         {if $identity.user->getId() != $admin->getId() }
-                            <a class="btn btn-mini have-tooltip {if $admin->isSuper()}hide{/if}" id="admin_domains_{$admin->getId()}" title="List Domains" href="{genUrl controller='admin' action='domains' aid=$admin->getId()}">
+                            <a class="btn btn-sm have-tooltip {if $admin->isSuper()}hide{/if}" id="admin_domains_{$admin->getId()}" title="List Domains" href="{genUrl controller='admin' action='domains' aid=$admin->getId()}">
                                 <i class="icon-screenshot"></i>
                             </a>
                             <form method="post" action="{genUrl controller='admin' action='purge'}" class="purge-admin-form" style="display: inline;">
                                 <input type="hidden" name="aid" value="{$admin->getId()}" />
                                 <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
-                                <button class="btn btn-mini have-tooltip" id="purge-admin-{$admin->getId()}" title="Purge" ref="{$admin->getUsername()}" type="submit">
+                                <button class="btn btn-sm have-tooltip" id="purge-admin-{$admin->getId()}" title="Purge" ref="{$admin->getUsername()}" type="submit">
                                     <i class="icon-trash"></i>
                                 </button>
                             </form>

@@ -36,24 +36,29 @@ hr           { border-top-color: var(--vimb-border); }
 .page-header h1, h1, h2, h3, h4, legend { color: var(--vimb-text); }
 
 /* ---- top navbar --------------------------------------------------- */
-.navbar-inverse .navbar-inner {
-    background: var(--vimb-surface);
+/* Bootstrap 5 renamed the whole navbar surface: `.navbar-inverse` became
+   `.navbar-dark`, `.brand` became `.navbar-brand`, and the nav anchors are
+   now `.nav-link` with `.active` on the anchor itself rather than on the
+   parent `<li>`. `!important` is needed on the colours because BS5 sets
+   them through `--bs-navbar-*` custom properties on `.navbar-dark`, which
+   otherwise win over a plain descendant selector here. */
+.navbar.navbar-dark {
+    background: var(--vimb-surface) !important;
     border-color: var(--vimb-border);
     background-image: none;
     box-shadow: none;
 }
-.navbar-inverse .brand,
-.navbar-inverse .nav > li > a { color: var(--vimb-text); }
-.navbar-inverse .nav > li > a:hover,
-.navbar-inverse .nav > .active > a,
-.navbar-inverse .nav > .active > a:hover {
+.navbar.navbar-dark .navbar-brand,
+.navbar.navbar-dark .nav-link { color: var(--vimb-text); }
+.navbar.navbar-dark .nav-link:hover,
+.navbar.navbar-dark .nav-link.active {
     background: var(--vimb-surface-2);
     color: var(--vimb-accent);
 }
-.navbar-inverse .brand { color: var(--vimb-accent); }
+.navbar.navbar-dark .navbar-brand { color: var(--vimb-accent); }
 
 /* ---- panels / wells ---------------------------------------------- */
-.well, .hero-unit {
+.card, .hero-unit {
     background: var(--vimb-surface);
     border-color: var(--vimb-border);
     box-shadow: none;
@@ -200,7 +205,7 @@ table.dataTable thead td,
 .icon-white,
 .btn-primary [class^="icon-"],
 .btn-danger  [class^="icon-"],
-.navbar-inverse [class^="icon-"] { filter: none; }
+.navbar.navbar-dark [class^="icon-"] { filter: none; }
 
 /* ---- form action bars (Bootstrap 2 .form-actions = #f5f5f5) -------- */
 .form-actions {

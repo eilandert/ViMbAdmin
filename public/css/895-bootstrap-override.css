@@ -149,19 +149,20 @@ table.dataTable th:active {
 
 /*
  * Bootstrap 2's danger-level alert was `.alert-error`; Bootstrap 5 renamed it
- * to `.alert-danger`. `.alert-error` is still emitted from paths this change
- * deliberately does not touch --
- * library/OSS/Smarty/functions/function.OSS_Message.php (a frozen API with its
- * own contract test), public/js/990-vimbadmin.js's ossAddMessage(), and
- * src/Kernel/Form/FormRenderer.php -- and an alert carrying only the unknown
- * `.alert-error` renders with no variant styling at all, so an error message
- * would come out looking like ordinary body text.
+ * to `.alert-danger`. Static emit sites (Smarty templates,
+ * src/Kernel/Form/FormRenderer.php, public/js/990-vimbadmin.js's
+ * ossAddMessage() callers) were renamed to `.alert-danger` directly.
+ * `.alert-error` is still reachable through
+ * library/OSS/Smarty/functions/function.OSS_Message.php: it is a frozen API
+ * with its own contract test, and it renders `OSS_Message::ERROR` (value
+ * `'error'`, still used by application/plugins/MailboxAutomaticAliases.php) as
+ * `class="alert alert-error ..."` via its `{$class}` variable. An alert
+ * carrying only the unknown `.alert-error` renders with no variant styling at
+ * all, so an error message would come out looking like ordinary body text.
  *
  * This aliases the legacy class onto Bootstrap 5's own `.alert-danger`
- * declarations (copied verbatim from public/css/800-bootstrap.css) rather than
- * renaming the emit sites: the rename across every remaining Bootstrap 2
- * component class is separate work, and this keeps error alerts correct in the
- * meantime.
+ * declarations (copied verbatim from public/css/800-bootstrap.css) for that
+ * one remaining path.
  */
 .alert-error {
   --bs-alert-color: var(--bs-danger-text-emphasis);

@@ -57,7 +57,7 @@ final class FormRenderer
             return '';
         }
 
-        return '    <div class="alert alert-error">' . $this->esc($error) . '</div>' . "\n";
+        return '    <div class="alert alert-danger">' . $this->esc($error) . '</div>' . "\n";
     }
 
     private function field(Field $field): string

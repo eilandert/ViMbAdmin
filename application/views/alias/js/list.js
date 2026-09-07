@@ -152,7 +152,7 @@ function formatActive( id, active )
     var active_class = active ? 'success': 'danger';
     var active_msg = active ? 'Yes': 'No';
     return '<div id="throb-toggle-active-' + id + '" style="float: right;"></div>\
-    <span id="toggle-active-' +id + '" data-toggle-active="' + id + '" class="btn btn-mini btn-' + active_class + '">' + active_msg + '</span>';
+    <span id="toggle-active-' +id + '" data-toggle-active="' + id + '" class="btn btn-sm btn-' + active_class + '">' + active_msg + '</span>';
 }
 
 function formatGoto( id, goto )
@@ -179,7 +179,7 @@ function formatControlls( id )
                     
                     
     var str = '<div class="btn-group">\
-            <a class="btn btn-mini have-tooltip" id="edit_alias_' + id + '" title="Edit" href="{genUrl controller="alias" action="edit"}/alid/' + id + '">\
+            <a class="btn btn-sm have-tooltip" id="edit_alias_' + id + '" title="Edit" href="{genUrl controller="alias" action="edit"}/alid/' + id + '">\
                 <i class="icon-pencil"></i>\
             </a>';
             {if isset( $alias_actions ) }
@@ -208,7 +208,7 @@ function formatControlls( id )
     str += '<form method="post" action="{genUrl controller="alias" action="delete"}" class="delete-alias-form" style="display: inline;">\
                 <input type="hidden" name="alid" value="' + id + '" />\
                 <input type="hidden" name="csrf" value="{$csrfToken}" />\
-                <button class="btn btn-mini have-tooltip" id="delete-alias-' + id + '" title="Delete" type="submit">\
+                <button class="btn btn-sm have-tooltip" id="delete-alias-' + id + '" title="Delete" type="submit">\
                     <i class="icon-trash"></i>\
                 </button>\
             </form>';
@@ -230,7 +230,7 @@ function formatControlls( id )
                 {/if}
                 str += '<span class="caret"></span>\
                 </{$action.tagName}>\
-                <ul class="dropdown-menu pull-right">';
+                <ul class="dropdown-menu dropdown-menu-end">';
                 {foreach $action.menu as $item}
                     str += '<li><a ';
                     {if isset( $item.id)}

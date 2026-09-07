@@ -15,7 +15,7 @@
 {* ============================ Version, build & updates ============================ *}
 <div class="row">
     <div class="col-md-6">
-        <div class="well">
+        <div class="card card-body">
             <h3>Version &amp; build</h3>
             <p>
                 Release: <strong>{$appVersion|escape}</strong>
@@ -23,7 +23,7 @@
                       action="{genUrl controller='maintenance' action='check-update'}">
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <input type="hidden" name="which" value="release" />
-                    <button class="btn btn-small" type="submit">Check for newer release</button>
+                    <button class="btn btn-sm" type="submit">Check for newer release</button>
                 </form>
             </p>
             <p>
@@ -39,7 +39,7 @@
                       action="{genUrl controller='maintenance' action='check-update'}">
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <input type="hidden" name="which" value="commit" />
-                    <button class="btn btn-small" type="submit">Check for newer commit</button>
+                    <button class="btn btn-sm" type="submit">Check for newer commit</button>
                 </form>
             </p>
             <p><small class="muted">Update checks query GitHub
@@ -50,7 +50,7 @@
 
     {* ============================ Background runs ============================ *}
     <div class="col-md-6">
-        <div class="well">
+        <div class="card card-body">
             <h3>Background runs</h3>
             <p>
                 Last queue runner started:
@@ -80,7 +80,7 @@
 
     {* ============================ Disable inactive accounts ============================ *}
     <div class="col-md-6">
-        <div class="well">
+        <div class="card card-body">
             <h3>Disable inactive-domain accounts</h3>
             <p>
                 Set <strong>active = 0</strong> on every mailbox and alias whose
@@ -110,7 +110,7 @@
 
     {* ================================ Schema update ================================ *}
     <div class="col-md-6">
-        <div class="well">
+        <div class="card card-body">
             <h3>Update database schema</h3>
             <p>
                 Sync the database to the current Doctrine mappings. This shows
@@ -125,9 +125,9 @@
                 <strong>{if $dbVersionApplied !== null}{$dbVersionApplied}{else}—{/if}</strong>
                 applied / <strong>{if $dbVersionCode !== null}{$dbVersionCode}{else}—{/if}</strong> expected by code.
                 {if $dbPending > 0}
-                    <span class="label label-warning">{$dbPending} pending statement(s)</span>
+                    <span class="badge text-bg-warning">{$dbPending} pending statement(s)</span>
                 {else}
-                    <span class="label label-success">up to date</span>
+                    <span class="badge text-bg-success">up to date</span>
                 {/if}
                 <br/>
                 <small class="muted">Schema is applied automatically on container start; this button is a manual fallback.</small>
@@ -161,7 +161,7 @@
 <div class="row">
     {* ============================ Flush Dovecot auth cache ============================ *}
     <div class="col-md-6">
-        <div class="well">
+        <div class="card card-body">
             <h3>Flush Dovecot auth cache</h3>
             <p>
                 Clear Dovecot's authentication cache so the next login re-reads
@@ -177,7 +177,7 @@
 
     {* ============================ Recalc quota for all mailboxes ============================ *}
     <div class="col-md-6">
-        <div class="well">
+        <div class="card card-body">
             <h3>Recalculate quota usage (all mailboxes)</h3>
             <p>
                 Queue a Dovecot <strong>quota recalc</strong> for every active
@@ -207,9 +207,9 @@
 <div class="row">
     {* ======================= Repair & optimize ALL mailboxes ======================= *}
     <div class="col-md-12">
-        <div class="well">
+        <div class="card card-body">
             <h3>Repair &amp; optimize all mailboxes</h3>
-            <div class="alert alert-error">
+            <div class="alert alert-danger">
                 <strong>Heavy operation.</strong> This queues a repair/optimize
                 job (force-resync + index + purge + quota recalc) for
                 <strong>every active mailbox</strong>
@@ -242,7 +242,7 @@
 <div class="row">
     {* ======================= Autoprune archive backups ======================= *}
     <div class="col-md-12">
-        <div class="well">
+        <div class="card card-body">
             <h3>Autoprune archive backups</h3>
             <div class="alert alert-info">
                 Deleted-mailbox backups are flagged <strong>autoprune</strong> and
@@ -287,7 +287,7 @@
 {* ============================ Unmanaged (orphan) maildirs ============================ *}
 <div class="row">
     <div class="col-md-12">
-        <div class="well">
+        <div class="card card-body">
             <h3>Unmanaged maildirs</h3>
             <p>
                 Scan the mail store for <strong>orphan maildirs</strong> — mail
@@ -316,7 +316,7 @@
                                           data-confirm="Import {$o|escape}? Mail is backed up then the source maildir is removed (empty leftovers are just removed).">
                                         <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                                         <input type="hidden" name="username" value="{$o|escape}" />
-                                        <button class="btn btn-mini btn-primary" type="submit">Import</button>
+                                        <button class="btn btn-sm btn-primary" type="submit">Import</button>
                                     </form>
                                 </td>
                             </tr>

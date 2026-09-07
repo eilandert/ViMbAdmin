@@ -206,7 +206,7 @@ function ossToggle( e, Url, data, delElement )
             if( data == "ok" ) {
                 ok = true;
             } else {
-                ossAddMessage( data, 'error' );
+                ossAddMessage( data, 'danger' );
             }
         },
         error: ossAjaxErrorHandler,
@@ -330,7 +330,7 @@ function ossAjaxErrorHandler( XMLHttpRequest, textStatus, errorThrown )
     if( $('canvas').length ){
         $('canvas').remove();
     }
-    ossAddMessage( 'An unexpected error occurred.', 'error', true );
+    ossAddMessage( 'An unexpected error occurred.', 'danger', true );
 }
 
 
@@ -455,7 +455,7 @@ function ossDropdown( index ){
     var label = $( this ).find(":selected").text();
 
     var elcode = "<span class=\"btn-group\">";
-    elcode += "<a href=\"#\" class=\"btn btn-mini dropdown-toggle";
+    elcode += "<a href=\"#\" class=\"btn btn-sm dropdown-toggle";
     if( $( this ).prop( "disabled" ) )
         elcode += " disabled";
     elcode += "\" style=\"width: " + width + "px; min-height:26px; \" id=\"drop-dwn-" + id + "\" data-toggle=\"dropdown\" >";

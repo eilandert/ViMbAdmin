@@ -13,7 +13,7 @@
 
 <div class="row">
     <div class="col-md-12">
-        <div class="well">
+        <div class="card card-body">
             <p>
                 Mailbox operations (repair/optimize, archive, delete) are queued
                 here and processed by a background runner — up to a few at a time
@@ -22,7 +22,7 @@
             </p>
             <p>
                 {foreach from=$counts key=st item=cnt}
-                    <span class="label">{$st|escape}: {$cnt}</span>&nbsp;
+                    <span class="badge text-bg-secondary">{$st|escape}: {$cnt}</span>&nbsp;
                 {foreachelse}
                     <em>Queue is empty.</em>
                 {/foreach}
@@ -61,11 +61,11 @@
             <td>{$task->getUsername()|escape}</td>
             <td>{if $task->getRequestedBy()}{$task->getRequestedBy()->getUsername()|escape}{else}&mdash;{/if}</td>
             <td>
-                {if $task->getStatus() eq 'FAILED'}<span class="label label-important">{$task->getStatusLabel()|escape}</span>
-                {elseif $task->getStatus() eq 'DONE'}<span class="label label-success">{$task->getStatusLabel()|escape}</span>
-                {elseif $task->getStatus() eq 'RUNNING'}<span class="label label-info">{$task->getStatusLabel()|escape}</span>
-                {elseif $task->getStatus() eq 'CANCELLED'}<span class="label">{$task->getStatusLabel()|escape}</span>
-                {else}<span class="label label-warning">{$task->getStatusLabel()|escape}</span>{/if}
+                {if $task->getStatus() eq 'FAILED'}<span class="badge text-bg-danger">{$task->getStatusLabel()|escape}</span>
+                {elseif $task->getStatus() eq 'DONE'}<span class="badge text-bg-success">{$task->getStatusLabel()|escape}</span>
+                {elseif $task->getStatus() eq 'RUNNING'}<span class="badge text-bg-info">{$task->getStatusLabel()|escape}</span>
+                {elseif $task->getStatus() eq 'CANCELLED'}<span class="badge text-bg-secondary">{$task->getStatusLabel()|escape}</span>
+                {else}<span class="badge text-bg-warning">{$task->getStatusLabel()|escape}</span>{/if}
             </td>
             <td>{if $task->getCreatedAt()}{$task->getCreatedAt()->format('Y-m-d H:i')}{/if}</td>
             <td>{if $task->getFinishedAt()}{$task->getFinishedAt()->format('Y-m-d H:i')}{/if}</td>
@@ -75,13 +75,13 @@
                           data-confirm="Run task #{$task->getId()} now?">
                         <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                         <input type="hidden" name="id" value="{$task->getId()}" />
-                        <button class="btn btn-mini btn-primary" type="submit">Run now</button>
+                        <button class="btn btn-sm btn-primary" type="submit">Run now</button>
                     </form>
                     <form method="post" action="{genUrl controller='queue' action='cancel'}" style="display:inline"
                           data-confirm="Cancel task #{$task->getId()}?">
                         <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                         <input type="hidden" name="id" value="{$task->getId()}" />
-                        <button class="btn btn-mini btn-warning" type="submit">Cancel</button>
+                        <button class="btn btn-sm btn-warning" type="submit">Cancel</button>
                     </form>
                 {/if}
                 {if $task->getStatus() eq 'FAILED' and not $task->isAbandoned()}
@@ -89,17 +89,17 @@
                           data-confirm="Retry task #{$task->getId()}?">
                         <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                         <input type="hidden" name="id" value="{$task->getId()}" />
-                        <button class="btn btn-mini btn-success" type="submit">Retry</button>
+                        <button class="btn btn-sm btn-success" type="submit">Retry</button>
                     </form>
                 {/if}
                 <form method="post" action="{genUrl controller='queue' action='delete'}" style="display:inline"
                       data-confirm="Delete task #{$task->getId()}? Active running tasks are protected.">
                     <input type="hidden" name="csrf" value="{$csrfToken|escape}" />
                     <input type="hidden" name="id" value="{$task->getId()}" />
-                    <button class="btn btn-mini btn-danger" type="submit">Delete</button>
+                    <button class="btn btn-sm btn-danger" type="submit">Delete</button>
                 </form>
                 {if $task->getLog()}
-                    <a class="btn btn-mini" data-bs-toggle="collapse" href="#log{$task->getId()}">Log</a>
+                    <a class="btn btn-sm" data-bs-toggle="collapse" href="#log{$task->getId()}">Log</a>
                     <div id="log{$task->getId()}" class="collapse">
                         <pre style="margin-top:6px;max-height:14em;overflow:auto;">{$task->getLog()|escape}</pre>
                     </div>
