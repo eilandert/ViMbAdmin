@@ -49,6 +49,9 @@ jobs:
       - name: Bootstrap 2 component classes must not reappear (VIM-A15.19)
         run: bash tests/lint-bs2-component-classes.sh
 
+      - name: Bootstrap data attributes must use bs- prefix (VIM-A15.20)
+        run: bash tests/lint-bs5-data-attrs.sh
+
       - name: Containerized Chrome runner hardening
         run: bash tests/test-headless-chrome-container.sh
 
