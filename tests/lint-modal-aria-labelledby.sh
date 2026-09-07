@@ -59,7 +59,11 @@ check_file() {
 
     # Narrow to modal elements by class, word-bounded so `modal-dialog` /
     # `modal-content` wrappers (legitimately unlabelled) are not matched.
-    grep -qP '\bclass\s*=\s*["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w])' <<<"$tag" || continue
+    # `(?<![-\w])` not `\b` before `class`: a hyphen is itself a word boundary,
+    # so `\bclass` also matches the `class` inside `data-class=`, `ng-class=`
+    # and friends, classifying `<div data-class="modal">` as a modal and
+    # failing it for a missing aria-labelledby. PR #177 review.
+    grep -qP '(?<![-\w])class\s*=\s*["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w])' <<<"$tag" || continue
 
     id=$(sed -n 's/.*[[:space:]]id[[:space:]]*=[[:space:]]*["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
     label=$(sed -n 's/.*[[:space:]]aria-labelledby[[:space:]]*=[[:space:]]*["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
@@ -220,6 +224,23 @@ EOF
   else
     echo "  FAIL: false positive on a correctly labelled multi-line modal" >&2
     status=1
+  fi
+
+  echo "== self-test: a hyphenated attribute ENDING in 'class' is not a class attribute =="
+  # `\bclass` treats the hyphen in `data-class` as a word boundary and matches
+  # the tail, so `<div data-class="modal">` was classified as a modal and failed
+  # for a missing aria-labelledby. Anchored with `(?<![-\w])` instead. PR #177.
+  cat >"$tmpdir/hyphen-attr.phtml" <<'EOF'
+<div data-class="modal" id="dc">Not a modal</div>
+<div ng-class="modal" id="ngc">Also not a modal</div>
+EOF
+  local hyphen_msg
+  hyphen_msg=$(check_file "$tmpdir/hyphen-attr.phtml" || true)
+  if [[ -n "$hyphen_msg" ]]; then
+    echo "  FAIL: a hyphenated *-class attribute was treated as class=: $hyphen_msg" >&2
+    status=1
+  else
+    echo "  OK: data-class / ng-class are not mistaken for class="
   fi
 
   echo "== self-test: two modals on ONE line -- the SECOND must be scanned, not lost =="
