@@ -9,7 +9,7 @@ $(document).ready( function()
             if( vm_prefs['iLength'] !=  $( "select[name|='list_table_length']" ).val() )
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();
 
-            $.jsonCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
+            vmPrefsCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
         },
         'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
@@ -46,7 +46,7 @@ function removeDomain( event ){
     var did = element.attr( 'id' ).replace( 'remove-domain-', '' );
     $( '#remove_domain_form input[name="did"]' ).val( did );
 
-    $( '#purge_dialog_cancel' ).click( function(){
+    $( '#purge_dialog_cancel' ).on( 'click', function(){
         delDialog.modal('hide');
     });
 };

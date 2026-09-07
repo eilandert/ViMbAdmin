@@ -34,6 +34,27 @@
    * as minify.php
    */
 
+// Regenerating a bundle needs Closure Compiler at bin/compiler.jar. It is a
+// per-machine build prerequisite rather than a vendored 13MB binary:
+//
+//   curl -fsSL -o bin/compiler.jar \
+//     https://repo1.maven.org/maven2/com/google/javascript/closure-compiler/v20230802/closure-compiler-v20230802.jar
+//   printf '%s  %s\n' \
+//     230a9e05a8a7d9daa083b1f6e86edba6eb1ec6402a6a258432fe4245cdc4a95f \
+//     bin/compiler.jar | sha256sum -c -
+//
+// Verify the digest before Java runs the file: the bundle it emits is shipped
+// to every browser, so an unverified compiler is a supply-chain hole.
+//
+// Run it as:
+//
+//   php vendor/opensolutions/minify/minify.php --conf "$PWD/bin/minify-options.php" --version 18
+//
+// Two traps: --version takes the bare number ('18'), because the 'v' prefix is
+// added for you; and this file resets $whatToCompress below AFTER the command
+// line is parsed, so --js-only does not stop CSS being regenerated. Restore the
+// CSS bundle and header-css.phtml afterwards if you only meant to rebuild JS.
+
 // By default, compress both JS and CSS - can be over ridden by the command line
 $whatToCompress = 'all';
 

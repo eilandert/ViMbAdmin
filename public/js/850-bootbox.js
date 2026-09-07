@@ -1,5 +1,6 @@
 /**
  * bootbox.js v3.3.0
+ * ViMbAdmin compatibility patch: use the jQuery 3 event shorthand replacements.
  *
  * http://bootboxjs.com/license.txt
  */
@@ -254,13 +255,13 @@ var bootbox = window.bootbox || (function(document, $) {
         // @see https://github.com/makeusabrew/bootbox/issues/69
 
         div.on("shown", function() {
-            form.find("input[type=text]").focus();
+            form.find("input[type=text]").trigger("focus");
 
             // ensure that submitting the form (e.g. with the enter key)
             // replicates the behaviour of a normal prompt()
             form.on("submit", function(e) {
                 e.preventDefault();
-                div.find(".btn-primary").click();
+                div.find(".btn-primary").trigger("click");
             });
         });
 
@@ -426,7 +427,7 @@ var bootbox = window.bootbox || (function(document, $) {
 
         // well, *if* we have a primary - give the first dom element focus
         div.on('shown', function() {
-            div.find("a.btn-primary:first").focus();
+            div.find("a.btn-primary").first().trigger("focus");
         });
 
         div.on('hidden', function(e) {

@@ -46,6 +46,9 @@ jobs:
       - name: Containerized Chrome runner hardening
         run: bash tests/test-headless-chrome-container.sh
 
+      - name: Fixture HTTP readiness stays bounded (VIM-A15.16 round-3 defect)
+        run: bash tests/test-fixture-http-readiness-bound.sh
+
       - name: Install template dependencies with PHP 8.4
         # The browser fixture renders Smarty only; it neither connects to MySQL
         # nor translates messages. Keep this image-only extension exception
@@ -68,6 +71,11 @@ jobs:
         run: >-
           CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
           bash tests/test-confirm-guard-behaviour.sh
+
+      - name: jQuery 3 plugin compatibility has no Migrate warnings
+        run: >-
+          CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
+          bash tests/test-jquery-migrate-compat.sh
 
   # ------------------------------------------------------------------ #
   # Framework-free service unit tests (Phase 1 of docs/ZF1-REMOVAL.md).#

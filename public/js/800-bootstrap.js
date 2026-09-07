@@ -1,5 +1,6 @@
 /* ===================================================
  * bootstrap-transition.js v2.3.2
+ * ViMbAdmin compatibility patch: use jQuery 3 event APIs and native function checks.
  * http://getbootstrap.com/2.3.2/javascript.html#transitions
  * ===================================================
  * Copyright 2013 Twitter, Inc.
@@ -203,7 +204,7 @@
     setTimeout(function () {
       state == 'loadingText' ?
         $el.addClass(d).attr(d, d) :
-        $el.removeClass(d).removeAttr(d)
+        $el.removeClass(d).prop(d, false)
     }, 0)
   }
 
@@ -692,7 +693,7 @@
         $parent.toggleClass('open')
       }
 
-      $this.focus()
+      $this.trigger("focus")
 
       return false
     }
@@ -719,8 +720,8 @@
       isActive = $parent.hasClass('open')
 
       if (!isActive || (isActive && e.keyCode == 27)) {
-        if (e.which == 27) $parent.find(toggle).focus()
-        return $this.click()
+        if (e.which == 27) $parent.find(toggle).trigger("focus")
+        return $this.trigger("click")
       }
 
       $items = $('[role=menu] li:not(.divider):visible a', $parent)
@@ -735,7 +736,7 @@
 
       $items
         .eq(index)
-        .focus()
+        .trigger("focus")
     }
 
   }
@@ -831,7 +832,7 @@
   var Modal = function (element, options) {
     this.options = options
     this.$element = $(element)
-      .delegate('[data-dismiss="modal"]', 'click.dismiss.modal', $.proxy(this.hide, this))
+      .on('click.dismiss.modal', '[data-dismiss="modal"]', $.proxy(this.hide, this))
     this.options.remote && this.$element.find('.modal-body').load(this.options.remote)
   }
 
@@ -875,8 +876,8 @@
           that.enforceFocus()
 
           transition ?
-            that.$element.one($.support.transition.end, function () { that.$element.focus().trigger('shown') }) :
-            that.$element.focus().trigger('shown')
+            that.$element.one($.support.transition.end, function () { that.$element.trigger("focus").trigger('shown') }) :
+            that.$element.trigger("focus").trigger('shown')
 
         })
       }
@@ -911,7 +912,7 @@
         var that = this
         $(document).on('focusin.modal', function (e) {
           if (that.$element[0] !== e.target && !that.$element.has(e.target).length) {
-            that.$element.focus()
+            that.$element.trigger("focus")
           }
         })
       }
@@ -964,7 +965,7 @@
           this.$backdrop = $('<div class="modal-backdrop ' + animate + '" />')
             .appendTo(document.body)
 
-          this.$backdrop.click(
+          this.$backdrop.on('click',
             this.options.backdrop == 'static' ?
               $.proxy(this.$element[0].focus, this.$element[0])
             : $.proxy(this.hide, this)
@@ -1042,7 +1043,7 @@
     $target
       .modal(option)
       .one('hide', function () {
-        $this.focus()
+        $this.trigger("focus")
       })
   })
 
@@ -1915,7 +1916,7 @@
         return this.shown ? this.hide() : this
       }
 
-      items = $.isFunction(this.source) ? this.source(this.query, $.proxy(this.process, this)) : this.source
+      items = typeof this.source === "function" ? this.source(this.query, $.proxy(this.process, this)) : this.source
 
       return items ? this.process(items) : this
     }
@@ -2099,7 +2100,7 @@
       e.stopPropagation()
       e.preventDefault()
       this.select()
-      this.$element.focus()
+      this.$element.trigger("focus")
     }
 
   , mouseenter: function (e) {
