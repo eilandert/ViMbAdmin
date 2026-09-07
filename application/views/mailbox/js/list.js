@@ -22,7 +22,7 @@ $(document).ready( function() {
         'processing': true,
         'serverSide': true,
         'serverMethod': 'GET',
-        'ajax': "{genUrl controller='mailbox' action='list-data'}",
+        'sAjaxSource': "{genUrl controller='mailbox' action='list-data'}",
         'fnServerData': vmMailboxServerData,
         'pageLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )

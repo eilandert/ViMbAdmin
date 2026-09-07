@@ -19,7 +19,7 @@ $(document).ready( function()
         'processing': true,
         'serverSide': true,
         'serverMethod': 'GET',
-        'ajax': "{genUrl controller='alias' action='list-data' ima=$ima}",
+        'sAjaxSource': "{genUrl controller='alias' action='list-data' ima=$ima}",
         'fnServerData': vmAliasServerData,
         'pageLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )

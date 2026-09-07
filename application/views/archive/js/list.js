@@ -16,7 +16,7 @@ $(document).ready( function()
         'processing': true,
         'serverSide': true,
         'serverMethod': 'GET',
-        'ajax': "{genUrl controller='archive' action='list-data'}",
+        'sAjaxSource': "{genUrl controller='archive' action='list-data'}",
         'fnServerData': vmArchiveServerData,
         'pageLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
