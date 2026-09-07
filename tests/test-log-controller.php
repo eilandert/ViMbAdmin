@@ -440,8 +440,12 @@ $pagedRows = is_array($pagedBody) && isset($pagedBody['aaData']) && is_array($pa
     ? $pagedBody['aaData']
     : [];
 $firstPagedRow = $pagedRows[0] ?? null;
+// This request is domain-scoped, so log/list.phtml does NOT render the Domain
+// column and iSortCol_0 = 3 is the "Occurred At" column -- which is also the
+// index log/js/list.js sets as the initial order in exactly this case. The map
+// must therefore answer 'timestamp' here, not 'domain'.
 $check('list-data preserves scoped pagination and sorting arguments',
-    $pagedLog->pageCalls === [[null, $domain, 'edit', false, 'domain', 'DESC', 5, 25]]);
+    $pagedLog->pageCalls === [[null, $domain, 'edit', false, 'timestamp', 'DESC', 5, 25]]);
 $check('list-data returns counts and formats timestamps',
     is_array($pagedBody)
         && $pagedBody['sEcho'] === 3
@@ -464,7 +468,7 @@ $starredController = logController(
 );
 $starredController->listDataAction();
 $check('list-data forwards the stripped term and the contains flag for a starred search',
-    $starredLog->pageCalls === [[null, $domain, 'acme', true, 'domain', 'DESC', 5, 25]]);
+    $starredLog->pageCalls === [[null, $domain, 'acme', true, 'timestamp', 'DESC', 5, 25]]);
 
 $_GET['sSearch'] = 'abc';
 foreach ([

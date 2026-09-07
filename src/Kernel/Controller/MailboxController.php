@@ -221,6 +221,34 @@ final class MailboxController extends AbstractController
     }
 
     /** @param array<string,mixed> $options */
+    /**
+     * Column index -> sortable DB field for the mailbox list.
+     *
+     * `mailbox/list.phtml` and its view JS render the Domain column only when
+     * `defaults.list_domain.disabled` is false, so a static index map shifts
+     * once that column is turned off. Build the map from the same condition the
+     * view uses. Computed columns -- used quota, last login, active, controls --
+     * are rendered but not sortable and map to the default.
+     *
+     * @param int  $index        The DataTables `iSortCol_0` index.
+     * @param bool $domainColumn Whether the Domain column is rendered.
+     */
+    private static function listSortField(int $index, bool $domainColumn): string
+    {
+        $columns = array_values(array_filter([
+            'username',                        // Email
+            'name',                            // Name
+            '',                                // Used / Quota (not sortable)
+            '',                                // Last login (not sortable)
+            $domainColumn ? 'domain' : null,   // Domain
+            '',                                // Active (not sortable)
+            '',                                // controls (not sortable)
+        ], static fn(?string $c): bool => $c !== null));
+
+        return ($columns[$index] ?? '') ?: 'username';
+    }
+
+    /** @param array<string,mixed> $options */
     private static function optionBool(array $options, bool $default, string ...$path): bool
     {
         [$found, $value] = self::option($options, ...$path);
@@ -357,9 +385,8 @@ final class MailboxController extends AbstractController
             return new Response('ko');
         }
 
-        // Column index -> sortable DB field (must match the JS column order;
-        // computed columns — used quota, last login, controls — fall back).
-        $sortField = [0 => 'username', 1 => 'name', 4 => 'domain', 5 => 'active'][$q->sortColumn] ?? 'username';
+        $domainColumn = !self::optionBool($this->container->options(), false, 'defaults', 'list_domain', 'disabled');
+        $sortField    = self::listSortField($q->sortColumn, $domainColumn);
 
         $r = $this->mailboxRepository()
             ->pagedForMailboxList($admin, $domain, $q->searchTerm, $q->contains, $sortField, $q->sortDir, $q->start, $q->length);
