@@ -1,8 +1,14 @@
 # shellcheck shell=bash
 # tests/support/html-opening-tags.sh
 #
-# Shared opening-tag extractor for the migration markup lint gates. Source
-# this file, then call `extract_opening_tags FILE`.
+# Shared HTML opening-tag reader for the migration markup lint gates. Source
+# this file, then call `extract_opening_tags FILE` to enumerate the opening
+# tags in a file and `tag_attr TAG NAME` to read one attribute out of a tag.
+#
+# Between them these two cover the whole "that substring is not the thing you
+# think it is" defect family that these gates keep re-discovering: the first
+# decides where a tag ENDS, the second decides what counts as an attribute
+# NAME. Callers should not re-derive either with a regex of their own.
 #
 # WHY THIS EXISTS (PR #171 needed seven review rounds, six fixes, all the same
 # shape): tests/lint-modal-aria-labelledby.sh used to be line-oriented --
@@ -31,19 +37,17 @@
 # before; only the boundaries of what counts as "the tag" changed.
 #
 # extract_opening_tags FILE
-#   Prints every opening tag in FILE. This helper does no class/attribute
-#   filtering by design -- each caller already owns its own "is this the
-#   element I care about" test (a class-token regex, an attribute-name regex,
-#   etc); duplicating that policy into a shared parsing helper is how a
-#   caller-specific rule (e.g. the modal gate's word-bounded `.modal` match)
-#   would leak into gates that never wanted it. Callers filter the returned
-#   tag TEXT with their own existing regex, unchanged.
+#   Prints every opening tag in FILE. This helper applies no POLICY by design
+#   -- each caller owns its own "is this the element I care about" test (which
+#   class counts, which attribute is required); baking that into a shared
+#   parser is how one gate's rule leaks into gates that never wanted it. What
+#   is shared is PARSING, not policy: callers select elements by reading
+#   attributes with `tag_attr` below, rather than by regex over the tag text.
 #
-# Attribute VALUES are never interpolated into a regex by this helper -- it
-# only locates tag boundaries. Reading a specific attribute back out of the
-# returned tag substring, and comparing a referenced id as literal text
-# rather than as a regex, remains each caller's responsibility (as it was
-# before).
+# Attribute VALUES are never interpolated into a regex by either function --
+# they only locate structure. Comparing a returned value (a referenced id, say,
+# which may contain regex metacharacters) as literal text remains the caller's
+# responsibility.
 extract_opening_tags() {
   local file="$1"
   perl -0777 -ne '
@@ -62,4 +66,46 @@ extract_opening_tags() {
       print "$line\t$whole\n";
     }
   ' "$file"
+}
+
+# tag_attr TAG NAME
+#   Prints the value of attribute NAME in the opening tag TAG, or nothing if
+#   the attribute is absent. Exits 0 either way; test the output, not $?.
+#
+# WHY THIS EXISTS (PR #177 review, rounds 1 and 2): every caller was reading
+# attributes with an ad hoc regex over the whole tag text, and both spellings
+# that broke are invisible to that design:
+#
+#   - `\bclass` matches the TAIL of a hyphenated attribute name, because a
+#     hyphen is a word boundary -- `data-class="modal"` and `ng-class="modal"`
+#     both read as a `class` attribute;
+#   - a regex over the raw tag cannot tell an attribute name from the same
+#     text appearing INSIDE another attribute's quoted value, so
+#     `<div data-example='class="modal"'>` also read as a `class` attribute.
+#
+# Both are "this text is not actually an attribute name" bugs, the same shape
+# as the opening-tag bug above. So the fix is the same: parse the structure
+# once, here, instead of hardening each caller's regex against the next
+# spelling someone thinks of. This walks the tag attribute by attribute,
+# skipping over quoted values rather than matching through them, and compares
+# each attribute NAME as literal text.
+#
+# The value is returned as literal text and is never interpolated into a
+# regex by this helper -- callers comparing it must do the same (an id may
+# legitimately contain regex metacharacters).
+tag_attr() {
+  local tag="$1" name="$2"
+  ATTR_NAME="$name" perl -0777 -ne '
+    my $want = $ENV{ATTR_NAME};
+    # Drop "<tagname", then walk attributes. Each iteration consumes either a
+    # name=value pair (value quoted or bare) or a standalone/valueless token,
+    # so a quoted value is stepped OVER, never scanned into.
+    s/^\s*<[a-zA-Z][a-zA-Z0-9]*//;
+    while (/\G\s*([^\s=>\/]+)(?:\s*=\s*(?:"([^"]*)"|'"'"'([^'"'"']*)'"'"'|([^\s>]*)))?/gc) {
+      my ($n, $v) = ($1, defined $2 ? $2 : defined $3 ? $3 : $4);
+      next unless lc($n) eq lc($want);
+      print defined $v ? $v : "";
+      last;
+    }
+  ' <<<"$tag"
 }

@@ -57,16 +57,25 @@ check_file() {
   while IFS=$'\t' read -r num tag; do
     [ -n "$tag" ] || continue
 
-    # Narrow to modal elements by class, word-bounded so `modal-dialog` /
-    # `modal-content` wrappers (legitimately unlabelled) are not matched.
-    # `(?<![-\w])` not `\b` before `class`: a hyphen is itself a word boundary,
-    # so `\bclass` also matches the `class` inside `data-class=`, `ng-class=`
-    # and friends, classifying `<div data-class="modal">` as a modal and
-    # failing it for a missing aria-labelledby. PR #177 review.
-    grep -qP '(?<![-\w])class\s*=\s*["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w])' <<<"$tag" || continue
+    # Read the attribute by NAME through the shared reader, which walks the
+    # tag attribute by attribute and steps over quoted values. A regex over
+    # the raw tag text cannot do this: `\bclass` also matches the tail of
+    # `data-class=` / `ng-class=` (a hyphen is a word boundary), and no regex
+    # over the whole tag can tell an attribute name from the same text sitting
+    # inside ANOTHER attribute's quoted value, as in
+    # `<div data-example='class="modal"'>`. Both were PR #177 review findings.
+    local classes
+    classes=$(tag_attr "$tag" class)
+    [ -n "$classes" ] || continue
 
-    id=$(sed -n 's/.*[[:space:]]id[[:space:]]*=[[:space:]]*["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
-    label=$(sed -n 's/.*[[:space:]]aria-labelledby[[:space:]]*=[[:space:]]*["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
+    # Word-bounded within the class list so the legitimately unlabelled
+    # `modal-dialog` / `modal-content` wrappers are not matched. Tokenised one
+    # per line and anchored, because a leading-position class can never match
+    # a pattern that requires a preceding space (carried trap 12).
+    tr -s '[:space:]' '\n' <<<"$classes" | grep -qx 'modal' || continue
+
+    id=$(tag_attr "$tag" id)
+    label=$(tag_attr "$tag" aria-labelledby)
 
     if [ -n "$id" ] && grep -qx "$runtime_shell_ids" <<<"$id"; then
       continue
@@ -226,13 +235,14 @@ EOF
     status=1
   fi
 
-  echo "== self-test: a hyphenated attribute ENDING in 'class' is not a class attribute =="
+  echo "== self-test: only a real class ATTRIBUTE counts -- not a name tail, not a quoted value =="
   # `\bclass` treats the hyphen in `data-class` as a word boundary and matches
   # the tail, so `<div data-class="modal">` was classified as a modal and failed
   # for a missing aria-labelledby. Anchored with `(?<![-\w])` instead. PR #177.
   cat >"$tmpdir/hyphen-attr.phtml" <<'EOF'
 <div data-class="modal" id="dc">Not a modal</div>
 <div ng-class="modal" id="ngc">Also not a modal</div>
+<div data-example='class="modal"' id="nested">class= inside another value</div>
 EOF
   local hyphen_msg
   hyphen_msg=$(check_file "$tmpdir/hyphen-attr.phtml" || true)
