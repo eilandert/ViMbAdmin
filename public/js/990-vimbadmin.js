@@ -430,7 +430,7 @@ function addPluginTab( title, id )
         if( id.substr( 0, 4 ) != "tab_" )
             id = "tab_" + id;
 
-	    var tab = "<li><a data-toggle=\"tab\""; 
+	    var tab = "<li><a data-bs-toggle=\"tab\"";
 	    
 	    if( $( "#" + id ).has( ".error" ).length )
 	        tab += " class=\"text-error\"";
@@ -458,7 +458,7 @@ function ossDropdown( index ){
     elcode += "<a href=\"#\" class=\"btn btn-sm dropdown-toggle";
     if( $( this ).prop( "disabled" ) )
         elcode += " disabled";
-    elcode += "\" style=\"width: " + width + "px; min-height:26px; \" id=\"drop-dwn-" + id + "\" data-toggle=\"dropdown\" >";
+    elcode += "\" style=\"width: " + width + "px; min-height:26px; \" id=\"drop-dwn-" + id + "\" data-bs-toggle=\"dropdown\" >";
     elcode += "<span style=\"float: left; font-size: 13px; line-height:24px;\" id=\"label-drop-" + id + "\">" + label + "</span>";
     elcode += "<span style=\"float: right; margin-top: 10px;\" class=\"caret\"></span>";
     elcode += "</a><ul id=\"opts-" + id + "\" class=\"dropdown-menu\" >";
