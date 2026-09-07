@@ -55,6 +55,9 @@ jobs:
       - name: Static modals must be labelled for assistive tech (VIM-A15.32)
         run: bash tests/lint-modal-aria-labelledby.sh
 
+      - name: Glyphicons icon-* classes must not reappear (VIM-A15.18)
+        run: bash tests/lint-no-glyphicon-classes.sh
+
       - name: Containerized Chrome runner hardening
         run: bash tests/test-headless-chrome-container.sh
 
