@@ -51,8 +51,18 @@ check_file() {
     [ -n "$line" ] || continue
     num="${line%%:*}"
     tag="${line#*:}"
-    id=$(sed -n 's/.*[[:space:]]id="\([^"]*\)".*/\1/p' <<<"$tag")
-    label=$(sed -n 's/.*[[:space:]]aria-labelledby="\([^"]*\)".*/\1/p' <<<"$tag")
+    # This gate is line-oriented, so a modal whose opening tag is split across
+    # lines would be examined only up to the newline and could be skipped or
+    # misjudged. Rather than pass such a tag silently, refuse: an unterminated
+    # opening tag is a hard failure telling the author to keep it on one line
+    # (or to teach this gate to parse tags properly).
+    if ! grep -q '>' <<<"$tag"; then
+      echo "  Modal opening tag in $f:$num is split across lines; this gate reads one line at a time and cannot judge it. Keep the opening tag on a single line."
+      fail=1
+      continue
+    fi
+    id=$(sed -n 's/.*[[:space:]]id=["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
+    label=$(sed -n 's/.*[[:space:]]aria-labelledby=["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
 
     if [ -n "$id" ] && grep -qx "$runtime_shell_ids" <<<"$id"; then
       continue
@@ -65,11 +75,11 @@ check_file() {
     fi
     # The referenced id must actually exist in the same template, or assistive
     # technology resolves the reference to nothing and announces no name.
-    if ! grep -q "id=\"$label\"" "$f"; then
+    if ! grep -qE "id=[\"']${label}[\"']" "$f"; then
       echo "  Modal ${id:+#$id }in $f:$num points aria-labelledby at \"$label\", which no element in that file defines"
       fail=1
     fi
-  done < <(grep -nP '<div[^>]*\sclass="[^"]*(?<![-\w])modal(?![-\w])[^"]*"' "$f" || true)
+  done < <(grep -nP '(<div[^>]*\sclass=["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w]))|(<div[^>]*$)' "$f" || true)
   return "$fail"
 }
 
@@ -141,6 +151,47 @@ EOF
   else
     echo "  FAIL: an inner modal-* wrapper was flagged as an unlabelled modal" >&2
     status=1
+  fi
+
+  echo "== self-test: single-quoted class and id attributes are handled =="
+  cat >"$tmpdir/quotes.phtml" <<'EOF'
+<div class='modal fade' id='q_bad' tabindex="-1">
+    <h3 class="modal-title">Unlabelled, single-quoted</h3>
+</div>
+EOF
+  if scan_files "$tmpdir/quotes.phtml" >/dev/null 2>&1; then
+    echo "  FAIL: a single-quoted unlabelled modal escaped the gate" >&2
+    status=1
+  else
+    echo "  OK: single-quoted unlabelled modal caught"
+  fi
+  cat >"$tmpdir/quotes-good.phtml" <<'EOF'
+<div class='modal fade' id='q_ok' aria-labelledby='q_ok_label'>
+    <h3 class='modal-title' id='q_ok_label'>Labelled, single-quoted</h3>
+</div>
+EOF
+  if scan_files "$tmpdir/quotes-good.phtml" >/dev/null 2>&1; then
+    echo "  OK: single-quoted labelled modal accepted, id reference resolved"
+  else
+    echo "  FAIL: false positive on a correctly labelled single-quoted modal" >&2
+    status=1
+  fi
+
+  echo "== self-test: a multi-line opening tag must fail loudly, not be skipped =="
+  # The gate is line-oriented. A split opening tag cannot be judged correctly,
+  # so it must be refused rather than passed -- silently skipping it is exactly
+  # how an unnamed dialog would slip through a green gate.
+  cat >"$tmpdir/multiline.phtml" <<'EOF'
+<div
+    class="modal fade" id="ml">
+    <h3 class="modal-title">Split opening tag</h3>
+</div>
+EOF
+  if scan_files "$tmpdir/multiline.phtml" >/dev/null 2>&1; then
+    echo "  FAIL: a split modal opening tag passed silently" >&2
+    status=1
+  else
+    echo "  OK: split modal opening tag refused rather than skipped"
   fi
 
   echo "== self-test: a DANGLING aria-labelledby must be caught, not accepted =="
