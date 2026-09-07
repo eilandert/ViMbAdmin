@@ -105,16 +105,23 @@ extract_class_values() {
     # literal, which escapes the delimiter as `\"` (e.g.
     # `"<span class=\"btn btn-sm\">"`), so the delimiter itself may be
     # preceded by a literal backslash (`\\?["\x27]`), and the value may
-    # contain escaped characters (`\\.`). `[^\\"\x27]` (rather than a
-    # negative lookahead re-testing the delimiter character-by-character)
-    # keeps the alternation'"'"'s two branches non-overlapping, which avoids
-    # the catastrophic backtracking a lookahead-based version hit on
-    # application/views/mailbox/js/list.js (VIM-A15.19 round 2) -- own
-    # `class` values never legitimately contain a literal quote character, so
-    # excluding both quote characters from the "ordinary char" branch costs
-    # nothing here.
-    while (/(?:^|[\s])class\s*=\s*(\\?["\x27])((?:\\.|[^\\"\x27])*)\1(?=[\s>\/]|$)/gs) {
-      my $v = $2;
+    # contain escaped characters (`\\.`).
+    #
+    # The "ordinary char" branch excludes ONLY the delimiter that actually
+    # opened this attribute (captured as $1 and back-referenced via the
+    # (?!\1) guard), not both quote characters. Excluding both would drop a
+    # Smarty condition that legitimately embeds the OTHER quote, e.g.
+    # `class="{if $x == 'bad'}alert-error{/if}"` -- the value there contains
+    # single quotes inside a double-quoted attribute, and the old
+    # `[^\\"\x27]` branch truncated it before `alert-error`, so the gate
+    # reported green on a real regression (VIM-A15.19 round 3, caught by
+    # review). The guard is a single-character negative lookahead, NOT a
+    # re-test of the whole delimiter run, so the two branches stay
+    # non-overlapping and this does not reintroduce the catastrophic
+    # backtracking a naive lookahead hit on
+    # application/views/mailbox/js/list.js in round 2.
+    while (/(?:^|[\s])class\s*=\s*(\\?)(["\x27])((?:(?!\1\2)(?:\\.|[^\\]))*)\1\2(?=[\s>\/]|$)/gs) {
+      my $v = $3;
       $v =~ s/\\(.)/$1/g;
       $v =~ s/\s+/ /g;
       print "$v\n";
@@ -183,7 +190,8 @@ self_test() {
   clean="$tmpdir/clean.phtml"
 
   # The single-quoted row is load-bearing: it is what proves the patterns are
-  # not double-quote-only. One seeded hit per guarded class, thirteen total.
+  # not double-quote-only. The final row guards the mixed-delimiter case:
+  # a Smarty string literal in the OTHER quote inside the attribute value.
   cat >"$dirty" <<'EOF'
 <div class="well">panel</div>
 <div class='well'>right, single-quoted</div>
@@ -201,6 +209,10 @@ self_test() {
 <div class="navbar-inner">inner</div>
 <div class="{if $wide}well{else}navbar-inner{/if}">Smarty expression inside the
     attribute value: its inner quotes must not end the scan early</div>
+<div class="{if $state == 'bad'}alert-error{/if}">A Smarty condition whose own
+    string literal uses the OTHER quote character. The extractor must exclude
+    only the delimiter that opened this attribute, or it truncates the value at
+    the apostrophe and never sees alert-error (VIM-A15.19 round 3).</div>
 EOF
 
   cat >"$clean" <<'EOF'
@@ -235,7 +247,7 @@ EOF
   # nav-collapse, navbar-inner) + 4 label-variant rows x 2 hits (8) + 2 hits
   # inside the trailing Smarty {if}/{else} expression (well, navbar-inner)
   # = 10 + 8 + 2 = 20.
-  expected_hits=20
+  expected_hits=21
   actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap 2 component class' || true)
   if [ "$actual_hits" -eq "$expected_hits" ]; then
     echo "  OK: all $expected_hits seeded regressions detected, in both quoting styles"

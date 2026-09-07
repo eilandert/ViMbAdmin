@@ -39,68 +39,76 @@
 <body>
 
 {if !isset($inColorBox) || !$inColorBox}
-    <div class="navbar navbar-inverse navbar-fixed-top">
+    {* Bootstrap 5 navbar. `navbar-expand-lg` is what makes the collapse
+       responsive: without it BS5 keeps `.navbar-collapse` hidden at every
+       width, so the whole menu disappears. `navbar-dark bg-dark` replaces
+       BS2's `navbar-inverse`, and `fixed-top` replaces `navbar-fixed-top`. *}
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
             <div class="container">
-                <a class="brand" href="{genUrl}">ViMbAdmin{if not $hasIdentity} :: <em>Virtual Mailbox Administration</em>{/if}</a>
+                <a class="navbar-brand" href="{genUrl}">ViMbAdmin{if not $hasIdentity} :: <em>Virtual Mailbox Administration</em>{/if}</a>
 
-                    <div class="navbar-collapse">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#vimbadmin-navbar" aria-controls="vimbadmin-navbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                    <div class="collapse navbar-collapse" id="vimbadmin-navbar">
                         {if $hasIdentity}
-                            <ul class="nav">
-                                <li {if $controller eq 'domain'}class="active"{/if}>
-                                    <a href="{genUrl controller='domain'}">Domains</a>
+                            <ul class="navbar-nav">
+                                <li class="nav-item">
+                                    <a class="nav-link{if $controller eq 'domain'} active{/if}" href="{genUrl controller='domain'}">Domains</a>
                                 </li>
-                                <li {if $controller == 'mailbox' || $controller == 'calendar'}class="active"{/if}>
-                                    <a href="{genUrl controller='mailbox'}">Mailboxes</a>
+                                <li class="nav-item">
+                                    <a class="nav-link{if $controller == 'mailbox' || $controller == 'calendar'} active{/if}" href="{genUrl controller='mailbox'}">Mailboxes</a>
                                 </li>
-                                <li {if $controller eq 'alias'}class="active"{/if}>
-                                    <a href="{genUrl controller='alias'}">Aliases</a>
+                                <li class="nav-item">
+                                    <a class="nav-link{if $controller eq 'alias'} active{/if}" href="{genUrl controller='alias'}">Aliases</a>
                                 </li>
-                                <li {if $controller eq 'archive'}class="active"{/if}>
-                                    <a href="{genUrl controller='archive'}">Archives</a>
+                                <li class="nav-item">
+                                    <a class="nav-link{if $controller eq 'archive'} active{/if}" href="{genUrl controller='archive'}">Archives</a>
                                 </li>
-                                <li {if $controller eq 'log'}class="active"{/if}>
-                                    <a href="{genUrl controller='log'}">Logs</a>
+                                <li class="nav-item">
+                                    <a class="nav-link{if $controller eq 'log'} active{/if}" href="{genUrl controller='log'}">Logs</a>
                                 </li>
                                 {if $hasIdentity and $user->isSuper()}
-                                    <li {if $controller eq 'admin'}class="active"{/if}>
-                                        <a href="{genUrl controller='admin'}" >Administrators</a>
+                                    <li class="nav-item">
+                                        <a class="nav-link{if $controller eq 'admin'} active{/if}" href="{genUrl controller='admin'}" >Administrators</a>
                                     </li>
-                                    <li {if $controller eq 'maintenance'}class="active"{/if}>
-                                        <a href="{genUrl controller='maintenance'}">Maintenance</a>
+                                    <li class="nav-item">
+                                        <a class="nav-link{if $controller eq 'maintenance'} active{/if}" href="{genUrl controller='maintenance'}">Maintenance</a>
                                     </li>
-                                    <li {if $controller eq 'queue'}class="active"{/if}>
-                                        <a href="{genUrl controller='queue'}">Queue</a>
+                                    <li class="nav-item">
+                                        <a class="nav-link{if $controller eq 'queue'} active{/if}" href="{genUrl controller='queue'}">Queue</a>
                                     </li>
                                 {/if}
 
-                                    {* <li {if $controller == 'shared-calendar' && $module == "davical" }class="active"{/if}>
-                                        <a href="{genUrl module='davical' controller='shared-calendar'}">Shared Calendar</a>
+                                    {* <li class="nav-item">
+                                        <a class="nav-link{if $controller == 'shared-calendar' && $module == "davical" } active{/if}" href="{genUrl module='davical' controller='shared-calendar'}">Shared Calendar</a>
                                     </li> *}
 
-                                <li>
-                                    <a id="your_password" href="{genUrl controller='admin' action='password' aid=$user->getId()}">Password</a>
+                                <li class="nav-item">
+                                    <a class="nav-link" id="your_password" href="{genUrl controller='admin' action='password' aid=$user->getId()}">Password</a>
                                 </li>
-                                <li {if $controller eq 'admin' && $action eq 'two-factor'}class="active"{/if}>
-                                    <a id="your_2fa" href="{genUrl controller='admin' action='two-factor'}">2FA</a>
+                                <li class="nav-item">
+                                    <a class="nav-link{if $controller eq 'admin' && $action eq 'two-factor'} active{/if}" id="your_2fa" href="{genUrl controller='admin' action='two-factor'}">2FA</a>
                                 </li>
-                                 <li {if $action eq 'about'}class="active"{/if}>
-                                    <a href="http://www.vimbadmin.net/" target="_blank">About</a>
+                                 <li class="nav-item">
+                                    <a class="nav-link{if $action eq 'about'} active{/if}" href="http://www.vimbadmin.net/" target="_blank">About</a>
                                 </li>
                             </ul>
-                            <ul class="nav float-end">
-                                <li>
-                                    <a href="{genUrl controller='auth' action='logout'}">Logout</a>
+                            <ul class="navbar-nav ms-auto">
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{genUrl controller='auth' action='logout'}">Logout</a>
                                 </li>
                             </ul>
                         {else}
-                            <ul class="nav">
-                                <li {if $action eq 'about'}class="active"{/if}>
-                                    <a href="http://www.vimbadmin.net/">About</a>
+                            <ul class="navbar-nav">
+                                <li class="nav-item">
+                                    <a class="nav-link{if $action eq 'about'} active{/if}" href="http://www.vimbadmin.net/">About</a>
                                 </li>
                             </ul>
-                            <ul class="nav float-end">
-                                <li>
-                                    <a href="{genUrl controller='auth' action='login'}">Login</a>
+                            <ul class="navbar-nav ms-auto">
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{genUrl controller='auth' action='login'}">Login</a>
                                 </li>
                             </ul>
                         {/if}
@@ -108,7 +116,7 @@
                     </div><!--/.navbar-collapse -->
 
             </div>
-    </div>
+    </nav>
 {/if}
 
 
