@@ -42,40 +42,6 @@ if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ]; then
   exit 1
 fi
 
-# Both quoting styles: `class="span6"` and `class='span6'` are equally valid
-# HTML and Smarty emits either, so a double-quote-only pattern would walk past
-# half the possible regressions.
-#
-# Anatomy of each pattern, since every piece of it is load-bearing:
-#
-#   (^|[[:space:]])class    an attribute-name boundary. Without it `data-class=`
-#                           and `ng-class=` match, and neither applies a CSS
-#                           class to the element.
-#   [[:space:]]*=[[:space:]]*   HTML permits whitespace on either side of the
-#                           `=`, so `class = "span6"` is a real regression that
-#                           a tight `class=` walks straight past.
-#   [\"']                 the opening quote, either style.
-#   [^\"']*               the attribute value. NOT anchored to the closing
-#                           quote: a Smarty expression inside the value, as in
-#                           `class="{if $wide}span6{/if}"`, contains its own
-#                           quotes, and requiring a balanced closing quote would
-#                           make the scan stop at the first inner one and miss
-#                           the class entirely. Over-reaching costs a false
-#                           positive; under-reaching costs a silent regression,
-#                           and only one of those two is visible in CI.
-#   (^|[^-[:alnum:]])       a left token boundary that hyphens do NOT satisfy.
-#                           `\b` treats `-` as a boundary, so a plain `\bspan6`
-#                           matches inside the unrelated class `span6-label`.
-#   span[0-9]+              the Bootstrap 2 class itself.
-#   ([^-[:alnum:]]|$)       the matching right boundary, for the same reason:
-#                           `span6-label` and `span60` are not `span6`.
-#
-# The scan is also whole-file rather than line-based (`grep -z`, so `[^\"']*`
-# spans newlines), because a class attribute may wrap:
-#   <div class="row
-#               span6">
-# is one attribute value on two lines, and a per-line scan sees neither half as
-# a match.
 # The scan is deliberately two-stage rather than one clever regex, because the
 # one-regex versions kept trading a false positive for a missed regression:
 #
@@ -166,7 +132,7 @@ scan_files() {
 # control). Runs on every invocation so a mis-escaped pattern that degraded to
 # always-pass cannot slip past CI unnoticed.
 self_test() {
-  local tmpdir dirty clean status=0
+  local tmpdir dirty clean status=0 expected_hits actual_hits
 
   tmpdir=$(mktemp -d)
   trap 'rm -rf "$tmpdir"' RETURN
@@ -207,11 +173,21 @@ EOF
     offset1-offset12; these numbers were never Bootstrap 2 classes</div>
 EOF
 
+  # The count is asserted, not merely "nonzero". `if ! scan_files` succeeds on
+  # any failure at all, so if a future edit broke every form except `row-fluid`
+  # this control would still print OK: it would prove the scan is not DEAD
+  # without proving it is COMPLETE. Pinning the number turns a partial
+  # degradation into a visible mismatch.
+  #
+  # 9 = one hit per Bootstrap 2 token seeded in the dirty fixture, counting
+  # each token separately where a value carries two (`span4 offset2`).
   echo "== self-test: negative control, reintroduced Bootstrap 2 grid classes must be caught =="
-  if ! scan_files "$dirty"; then
-    echo "  OK: row-fluid / spanN / offsetN were detected, in both quoting styles"
+  expected_hits=9
+  actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap 2 grid class' || true)
+  if [ "$actual_hits" -eq "$expected_hits" ]; then
+    echo "  OK: all $expected_hits seeded regressions detected, in both quoting styles"
   else
-    echo "  FAIL: scan did not detect Bootstrap 2 grid classes in $dirty" >&2
+    echo "  FAIL: expected $expected_hits hits in $dirty, got $actual_hits" >&2
     status=1
   fi
 
