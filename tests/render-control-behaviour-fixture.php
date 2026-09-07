@@ -25,7 +25,9 @@ if (!function_exists('_')) {
 }
 
 $output = $argv[1];
-$bundleUri = $argv[2];
+// Directory holding the copies of public/js/* this fixture is to load. The
+// driving script stages them there; see the SOURCE, NOT THE BUNDLE note below.
+$scriptDir = rtrim($argv[2], '/');
 $tmp = dirname($output);
 $stubs = $tmp . '/template-stubs';
 $compile = $tmp . '/templates-c';
@@ -42,9 +44,73 @@ foreach ([$stubs, $compile] as $dir) {
 // <script> tags in alias/list.phtml and alias/js/list.js depend on, and a
 // data-test-result marker the driving script updates once it has verdicts for
 // every asserted control.
-$header = '<!doctype html><meta charset="utf-8"><script src="'
-    . htmlspecialchars($bundleUri, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
-    . '"></script><body data-test-result="pending">';
+//
+// SOURCE, NOT THE BUNDLE.
+//
+// This fixture originally loaded public/js/min.bundle-v18.js, and that made
+// both of its behavioural assertions VACUOUS: neutering ossModal()'s .show()
+// in public/js/850-bootbox.js, or swapping data-bs-dismiss back to
+// data-dismiss in public/js/990-vimbadmin.js, left the gate green, because
+// neither file was ever loaded. The bundle is a hand-regenerated artifact
+// (VIM-A15.36) last rebuilt in PR #168, while 990-vimbadmin.js has changed
+// since and 152-jquery.datatables.bootstrap5.js is absent from it entirely --
+// so the gate asserted against a months-old copy of the very code it claimed
+// to test. A negative control that mutates the bundle proves only that the
+// harness reacts to the bundle; it says nothing about whether the bundle
+// reflects source.
+//
+// The script list is PARSED FROM application/views/header-js.phtml's
+// non-minified branch rather than duplicated here, so a script added to or
+// removed from the application cannot silently drift out of this gate's
+// coverage. An unparsable list, a suspiciously short one, or a listed file
+// that was not staged is a HARD FAILURE -- never a silently script-less page,
+// which would fail every behavioural assertion for the wrong reason and read
+// exactly like a real regression.
+$headerJs = __DIR__ . '/../application/views/header-js.phtml';
+$headerJsSrc = @file_get_contents($headerJs);
+if ($headerJsSrc === false) {
+    throw new RuntimeException("could not read {$headerJs}");
+}
+// Only the {else} (non-minified) branch: that is the authoritative,
+// developer-facing load order, and it is what a source-level gate must mirror.
+$elsePos = strpos($headerJsSrc, '{else}');
+$endPos = $elsePos === false ? false : strpos($headerJsSrc, '{/if}', $elsePos);
+if ($elsePos === false || $endPos === false) {
+    throw new RuntimeException(
+        "could not locate the non-minified {else}...{/if} branch in {$headerJs}"
+    );
+}
+$branch = substr($headerJsSrc, $elsePos, $endPos - $elsePos);
+if (preg_match_all('#\{genUrl\}/js/([A-Za-z0-9._-]+\.js)#', $branch, $m) === false) {
+    throw new RuntimeException("script-list match failed against {$headerJs}");
+}
+$scripts = $m[1];
+if (count($scripts) < 2) {
+    throw new RuntimeException(
+        'parsed ' . count($scripts) . ' scripts from the non-minified branch of '
+        . $headerJs . '; refusing to render a script-less page that would fail '
+        . 'every behavioural assertion for the wrong reason'
+    );
+}
+foreach ($scripts as $script) {
+    if (!is_file($scriptDir . '/' . $script)) {
+        throw new RuntimeException(
+            "header-js.phtml lists {$script} but it was not staged in {$scriptDir}"
+        );
+    }
+}
+
+$header = '<!doctype html><meta charset="utf-8">';
+foreach ($scripts as $script) {
+    $header .= '<script src="'
+        . htmlspecialchars(
+            'file://' . $scriptDir . '/' . $script,
+            ENT_QUOTES | ENT_SUBSTITUTE,
+            'UTF-8'
+        )
+        . '"></script>';
+}
+$header .= '<body data-test-result="pending">';
 if (file_put_contents($stubs . '/header.phtml', $header) === false
     || file_put_contents($stubs . '/footer.phtml', '') === false) {
     throw new RuntimeException('could not write template stubs');
