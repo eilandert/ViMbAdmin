@@ -161,20 +161,41 @@ EOF
   fi
 
   echo "== self-test: 850-bootbox.js back-compat handler is excluded by scope, not pattern =="
+  # The exclusion is a property of the scanned file list, not of the pattern:
+  # 850-bootbox.js's bare `data-dismiss="alert"` delegated handler is deliberate
+  # back-compat for the frozen OSS_Message Smarty helper API. Assert BOTH halves,
+  # so a future edit that widens `files=(...)` to include it fails here.
   local bootbox="$tmpdir/850-bootbox.js"
   cat >"$bootbox" <<'EOF'
 $(document).on('click', '[data-dismiss="alert"]', function () {
   $(this).closest('.alert').remove();
 });
 EOF
-  # Deliberately NOT calling scan_files on this fixture as an exclusion --
-  # the real gate excludes 850-bootbox.js by not including it in the scanned
-  # file list at all (see `files=(...)` below), so there is nothing to assert
-  # here beyond documenting the intent; the exclusion is proven by the file
-  # list, not by this self-test.
+  # Half 1: the pattern itself DOES match that handler -- so scope is the only
+  # thing protecting it, and the protection must be asserted, not assumed.
+  if scan_files "$bootbox" >/dev/null 2>&1; then
+    echo "  FAIL: pattern no longer matches the bootbox handler; this self-test is now vacuous" >&2
+    status=1
+  else
+    echo "  OK: pattern matches the bootbox handler, so scope is what excludes it"
+  fi
+
+  # Half 2: the real scanned file list must not contain 850-bootbox.js.
+  if printf '%s\n' "${files[@]}" | grep -qx 'public/js/850-bootbox.js'; then
+    echo "  FAIL: public/js/850-bootbox.js is in the scanned file list; its frozen-API handler would be flagged" >&2
+    status=1
+  else
+    echo "  OK: public/js/850-bootbox.js is excluded from the scanned file list"
+  fi
 
   return "$status"
 }
+
+shopt -s nullglob globstar
+# public/js/850-bootbox.js is deliberately excluded: its bare
+# `data-dismiss="alert"` delegated handler is back-compat for the frozen
+# OSS_Message Smarty helper API and must not be renamed or flagged.
+files=(application/views/**/*.phtml application/views/**/js/*.js public/js/990-vimbadmin.js)
 
 echo "== own templates/view-JS must use data-bs- prefixed Bootstrap JS-hook attributes =="
 
@@ -182,12 +203,6 @@ if ! self_test; then
   echo "  -> lint self-test failed: the scan itself is broken, refusing to trust its verdict" >&2
   exit 1
 fi
-
-shopt -s nullglob globstar
-# public/js/850-bootbox.js is deliberately excluded: its bare
-# `data-dismiss="alert"` delegated handler is back-compat for the frozen
-# OSS_Message Smarty helper API and must not be renamed or flagged.
-files=(application/views/**/*.phtml application/views/**/js/*.js public/js/990-vimbadmin.js)
 
 if [ "${#files[@]}" -eq 0 ]; then
   echo "  -> Own template inventory is empty." >&2
