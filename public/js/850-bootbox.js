@@ -117,7 +117,21 @@ var bootbox = window.bootbox || {};
         var Modal = modalCtor();
 
         if( Modal )
+        {
             Modal.getOrCreateInstance( $dialog.get( 0 ), { backdrop: true, keyboard: true } ).show();
+        }
+        else
+        {
+            // Bootstrap's JS has not loaded. There is no lifecycle left to show
+            // or hide the dialog, so degrade the same way callers expect a
+            // dismissed alert to behave: drop the detached markup immediately
+            // and still run the callback, instead of leaving hidden markup in
+            // the DOM with the callback never firing.
+            $dialog.remove();
+
+            if( typeof callback === 'function' )
+                callback();
+        }
 
         return $dialog;
     }
