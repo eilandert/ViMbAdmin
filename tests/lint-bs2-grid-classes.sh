@@ -90,7 +90,7 @@ extract_class_values() {
     # argument, never in a condition wrapping a class list, and the outer
     # span would simply end early -- degrading to current behaviour, never
     # worse than it.
-    while (/(?:^|[\s])class\s*=\s*(["\x27])((?:\{[^{}]*\}|.)*?)\1(?=[\s>\/])/gs) {
+    while (/(?:^|[\s])class\s*=\s*(["\x27])((?:\{[^{}]*\}|(?!\1)[^{])*)\1(?=[\s>\/])/gs) {
       my $v = $2;
       $v =~ s/\s+/ /g;
       print "$v\n";
@@ -211,6 +211,36 @@ EOF
     echo "  OK: all $expected_hits seeded regressions detected, in both quoting styles"
   else
     echo "  FAIL: expected $expected_hits hits in $dirty, got $actual_hits" >&2
+    status=1
+  fi
+
+  # The Smarty-span branch and the ordinary-character branch must stay
+  # DISJOINT. An earlier revision of this fix wrote the ordinary branch as a
+  # bare `.`, which can also match every character `\{[^{}]*\}` matches --
+  # so an UNTERMINATED class attribute containing many Smarty spans made the
+  # engine reconsider each span as individual characters and the match time
+  # exploded. Measured on this exact input at 20 spans: the overlapping form
+  # did not finish in 20 SECONDS; the disjoint form returns in ~6ms.
+  #
+  # A hang is invisible to every other assertion here -- they all wait for the
+  # scan -- and in CI it reads as a stuck job, not a lint failure. So bound it
+  # explicitly. The input is deliberately unterminated (no closing quote):
+  # that is the shape that has no successful parse and therefore forces the
+  # engine through the whole search space.
+  echo "== self-test: pathological Smarty input must not blow up the extractor =="
+  local pathological
+  pathological="$tmpdir/pathological.phtml"
+  {
+    printf '<div class="'
+    # shellcheck disable=SC2016  # `$a` is literal Smarty source, not a shell var
+    for _ in $(seq 1 20); do printf '{if $a}x{/if}'; done
+    printf '\n'
+  } >"$pathological"
+  if timeout 10 bash -c "$(declare -f extract_class_values); extract_class_values '$pathological'" >/dev/null 2>&1; then
+    echo "  OK: unterminated attribute with 20 Smarty spans extracted without blowing up"
+  else
+    echo "  FAIL: extractor did not finish in 10s on 20 Smarty spans -- the" >&2
+    echo "        alternation branches have become overlapping again." >&2
     status=1
   fi
 
