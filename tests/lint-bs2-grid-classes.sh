@@ -76,56 +76,88 @@ fi
 #               span6">
 # is one attribute value on two lines, and a per-line scan sees neither half as
 # a match.
-# `q` is the character class matching either quote style, built with $'...'
-# so the single quote needs no escaping inside the pattern strings below.
-q=$'[\'"]'
-nq=$'[^\'"]'
-# The left boundary is folded into `attr`: the class token may sit immediately
-# after the opening quote (`class='span6'`), in which case there is no separate
-# boundary character to consume -- the quote itself is the boundary. So the
-# value run is `${nq}*` followed by either nothing or a non-token character.
-attr="(^|[[:space:]])class[[:space:]]*=[[:space:]]*${q}${nq}*"
-lb='(^|[^-[:alnum:]])?'
-rb='([^-[:alnum:]]|$)'
+# The scan is deliberately two-stage rather than one clever regex, because the
+# one-regex versions kept trading a false positive for a missed regression:
+#
+#   1. `extract_class_values` pulls out every `class` attribute VALUE, whole,
+#      including values that wrap across lines and values containing a Smarty
+#      expression with its own inner quotes. It reads each file as one record
+#      so a wrapped attribute is a single value.
+#   2. The value is then split on whitespace and each token compared against
+#      the Bootstrap 2 spellings exactly.
+#
+# Stage 2 being an exact token comparison is what makes `custom-span6`,
+# `span6-label`, `myoffset2`, `span60` and `col-md-60` non-matches without any
+# boundary regex to get wrong -- they are simply different tokens. And stage 1
+# owning the quote handling is what lets a Smarty expression carry inner quotes
+# (`class="{if $m == 'wide'}span6{/if}"`) without ending the value early.
+#
+# `data-class=` and `ng-class=` are excluded by the attribute-name boundary in
+# stage 1: neither applies a CSS class to the element.
 
-patterns=(
-  "${attr}${lb}row-fluid${rb}"
-  "${attr}${lb}span[0-9]+${rb}"
-  "${attr}${lb}offset[0-9]+${rb}"
-)
-labels=(
-  'row-fluid (use "row")'
-  'spanN (use "col-md-N")'
-  'offsetN (use "offset-md-N")'
-)
+# Bootstrap 2 defines exactly .span1-.span12 and .offset1-.offset12; there was
+# never a .span60. Bounding the number keeps an unrelated own class such as
+# `span60` from being reported as a Bootstrap 2 leftover.
+bs2_num='(1[0-2]|[1-9])'
+bs2_tokens_re="^(row-fluid|span${bs2_num}|offset${bs2_num})$"
 
-# scan_files: run every Bootstrap 2 grid pattern over the given file list.
-# Prints each hit and returns 1 if any pattern matched, 0 if clean.
+# extract_class_values FILE
+# Prints one line per class attribute value found, as `<value>`. A value that
+# wrapped across lines is printed with its newlines collapsed to spaces, which
+# is exactly the tokenisation stage 2 wants anyway.
+extract_class_values() {
+  perl -0777 -ne '
+    while (/(?:^|[\s])class\s*=\s*(["\x27])(.*?)\1(?=[\s>\/])/gs) {
+      my $v = $2;
+      $v =~ s/\s+/ /g;
+      print "$v\n";
+    }
+  ' "$1"
+}
+
+# scan_files: extract every class attribute value from the given files and
+# compare each of its tokens against the Bootstrap 2 grid spellings.
+# Prints each hit and returns 1 if any token matched, 0 if clean.
 scan_files() {
   local files=("$@")
-  local i pattern label hits fail=0
+  local f value token smarty_split fail=0
+  local -a tokens
+
+  # The main scan runs under `nullglob` (it is what makes an empty template
+  # glob detectable). Word-splitting the attribute value would therefore also
+  # PATHNAME-expand each token, and under nullglob a token matching no file is
+  # deleted outright -- which silently drops almost every class from the scan.
+  # Split explicitly with globbing off instead.
+  set -f
 
   if [ "${#files[@]}" -eq 0 ]; then
     echo "  -> file list is empty." >&2
     return 1
   fi
 
-  for i in "${!patterns[@]}"; do
-    pattern="${patterns[$i]}"
-    label="${labels[$i]}"
-    # -z treats each file as one NUL-terminated record, so `[^"']*` in the
-    # pattern crosses newlines and a wrapped class attribute is matched. That
-    # costs the line number, so report the filename and the offending value.
-    hits=$(grep -zoHE "$pattern" "${files[@]}" 2>/dev/null | tr '\0' '\n' || true)
-    if [ -n "$hits" ]; then
-      echo "  Bootstrap 2 grid class '$label' found:"
-      while IFS= read -r line; do
-        echo "    $line"
-      done <<<"$hits"
-      fail=1
-    fi
+  for f in "${files[@]}"; do
+    while IFS= read -r value; do
+      # Smarty emits classes from inside `{if}`/`{/if}` with no surrounding
+      # whitespace (`class="{if $wide}span6{/if}"`), so `span6` is not a
+      # whitespace-delimited token there. Replace the Smarty delimiters with
+      # spaces before tokenising; the expression's own contents then tokenise
+      # harmlessly alongside the class it emits.
+      # Two plain substitutions rather than one `[{}]` character class: inside
+      # `${...//...}` the `}` of the class is read as the end of the expansion,
+      # which silently mangles the value instead of substituting.
+      smarty_split="${value//\{/ }"
+      smarty_split="${smarty_split//\}/ }"
+      read -r -a tokens <<<"$smarty_split"
+      for token in "${tokens[@]}"; do
+        if [[ "$token" =~ $bs2_tokens_re ]]; then
+          echo "  Bootstrap 2 grid class '$token' in $f: class=\"$value\""
+          fail=1
+        fi
+      done
+    done < <(extract_class_values "$f")
   done
 
+  set +f
   return "$fail"
 }
 
@@ -169,6 +201,10 @@ EOF
 <div class="span6-label offset2-wrapper">own class names that merely start with
     a Bootstrap 2 spelling are not Bootstrap 2 classes</div>
 <div class="col-md-60">col-md-60 is not col-md-6</div>
+<div class="custom-span6 myoffset2">own class names that merely END with a
+    Bootstrap 2 spelling are not Bootstrap 2 classes</div>
+<div class="span60 offset99">Bootstrap 2 defined only span1-span12 and
+    offset1-offset12; these numbers were never Bootstrap 2 classes</div>
 EOF
 
   echo "== self-test: negative control, reintroduced Bootstrap 2 grid classes must be caught =="
