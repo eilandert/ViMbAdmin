@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 #
 # jQuery 4.0 removed a batch of long-deprecated APIs. This project ships
-# jQuery 1.12.4 today (VIM-A15 phase 2), but own code is being kept clear of
-# these APIs ahead of the eventual jQuery 3.7.1 (phase 3) and 4-safe baseline,
-# so the removal never has to be a big-bang rewrite.
+# jQuery 3.7.1 today (VIM-A15 phase 3), and own code is kept clear of these
+# APIs ahead of the eventual jQuery 4-safe baseline so the removal never has
+# to be a big-bang rewrite.
 #
 # Scope: own (non-vendor) JS only.
 #   - application/views/*/js/*.js   (view-specific behaviour)
 #   - public/js/9[0-9][0-9]-*.js    (900-999 prefix = own code; 100-899 is
 #                                    vendored third-party and is never linted)
 #
-# public/js/min.bundle-v16.js is a generated build artifact (regenerated from
+# public/js/min.bundle-v*.js files are generated build artifacts (regenerated from
 # the files above via vendor/bin/minify.php) and is deliberately excluded: it
 # is never hand-edited and never linted directly.
 #

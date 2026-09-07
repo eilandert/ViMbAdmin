@@ -1,5 +1,6 @@
 /*!
 	Colorbox 1.6.4
+	ViMbAdmin compatibility patch: use jQuery 3 event APIs and native function checks.
 	license: MIT
 	http://www.jacklmoore.com/colorbox
 */
@@ -228,7 +229,7 @@
 
 		this.get = function(key) {
 			var value = this.value(key);
-			return $.isFunction(value) ? value.call(this.el, this) : value;
+			return typeof value === "function" ? value.call(this.el, this) : value;
 		};
 	}
 
@@ -259,7 +260,7 @@
 	function trapFocus(e) {
 		if ('contains' in $box[0] && !$box[0].contains(e.target) && e.target !== $overlay[0]) {
 			e.stopPropagation();
-			$box.focus();
+			$box.trigger("focus");
 		}
 	}
 
@@ -318,12 +319,12 @@
 		function start() {
 			$slideshow
 				.html(settings.get('slideshowStop'))
-				.unbind(click)
+				.off(click)
 				.one(click, stop);
 
 			$events
-				.bind(event_complete, set)
-				.bind(event_load, clear);
+				.on(event_complete, set)
+				.on(event_load, clear);
 
 			$box.removeClass(className + "off").addClass(className + "on");
 		}
@@ -332,12 +333,12 @@
 			clear();
 
 			$events
-				.unbind(event_complete, set)
-				.unbind(event_load, clear);
+				.off(event_complete, set)
+				.off(event_load, clear);
 
 			$slideshow
 				.html(settings.get('slideshowStart'))
-				.unbind(click)
+				.off(click)
 				.one(click, function () {
 					publicMethod.next();
 					start();
@@ -351,15 +352,15 @@
 			$slideshow.hide();
 			clear();
 			$events
-				.unbind(event_complete, set)
-				.unbind(event_load, clear);
+				.off(event_complete, set)
+				.off(event_load, clear);
 			$box.removeClass(className + "off " + className + "on");
 		}
 
 		return function(){
 			if (active) {
 				if (!settings.get('slideshow')) {
-					$events.unbind(event_cleanup, reset);
+					$events.off(event_cleanup, reset);
 					reset();
 				}
 			} else {
@@ -424,7 +425,7 @@
 
 				$groupControls.add($title).hide();
 
-				$box.focus();
+				$box.trigger("focus");
 
 				if (settings.get('trapFocus')) {
 					// Confine focus to the modal
@@ -442,7 +443,7 @@
 				// Return focus on closing
 				if (settings.get('returnFocus')) {
 					$events.one(event_closed, function () {
-						$(settings.el).focus();
+						$(settings.el).trigger("focus");
 					});
 				}
 			}
@@ -533,23 +534,23 @@
 				init = true;
 
 				// Anonymous functions here keep the public method from being cached, thereby allowing them to be redefined on the fly.
-				$next.click(function () {
+				$next.on('click', function () {
 					publicMethod.next();
 				});
-				$prev.click(function () {
+				$prev.on('click', function () {
 					publicMethod.prev();
 				});
-				$close.click(function () {
+				$close.on('click', function () {
 					publicMethod.close();
 				});
-				$overlay.click(function () {
+				$overlay.on('click', function () {
 					if (settings.get('overlayClose')) {
 						publicMethod.close();
 					}
 				});
 
 				// Key Bindings
-				$(document).bind('keydown.' + prefix, function (e) {
+				$(document).on('keydown.' + prefix, function (e) {
 					var key = e.keyCode;
 					if (open && settings.get('escKey') && key === 27) {
 						e.preventDefault();
@@ -558,23 +559,18 @@
 					if (open && settings.get('arrowKey') && $related[1] && !e.altKey) {
 						if (key === 37) {
 							e.preventDefault();
-							$prev.click();
+							$prev.trigger("click");
 						} else if (key === 39) {
 							e.preventDefault();
-							$next.click();
+							$next.trigger("click");
 						}
 					}
 				});
 
-				if ($.isFunction($.fn.on)) {
-					// For jQuery 1.7+
-					$(document).on('click.'+prefix, '.'+boxElement, clickHandler);
-				} else {
-					// For jQuery 1.3.x -> 1.6.x
-					// This code is never reached in jQuery 1.9, so do not contact me about 'live' being removed.
-					// This is not here for jQuery 1.9, it's here for legacy users.
-					$('.'+boxElement).live('click.'+prefix, clickHandler);
-				}
+				// Local patch: the upstream fallback called .live(), removed in
+				// jQuery 1.9. On the 3.7.1 pin the guard is always true, so the
+				// dead branch only survives to trip a grep for removed APIs.
+				$(document).on('click.'+prefix, '.'+boxElement, clickHandler);
 			}
 			return true;
 		}
@@ -602,7 +598,7 @@
 
 		options = options || {};
 
-		if ($.isFunction($obj)) { // assume a call to $.colorbox
+		if (typeof $obj === "function") { // assume a call to $.colorbox
 			$obj = $('<a/>');
 			options.open = true;
 		}
@@ -643,7 +639,7 @@
 		scrollTop,
 		scrollLeft;
 
-		$window.unbind('resize.' + prefix);
+		$window.off('resize.' + prefix);
 
 		// remove the modal so that it doesn't influence the document width/height
 		$box.css({top: -9e4, left: -9e4});
@@ -723,11 +719,11 @@
 
 				if (settings.get('reposition')) {
 					setTimeout(function () {  // small delay before binding onresize due to an IE8 bug.
-						$window.bind('resize.' + prefix, publicMethod.position);
+						$window.on('resize.' + prefix, publicMethod.position);
 					}, 1);
 				}
 
-				if ($.isFunction(loadedCallback)) {
+				if (typeof loadedCallback === "function") {
 					loadedCallback();
 				}
 			},
@@ -974,7 +970,7 @@
 
 			$(photo)
 			.addClass(prefix + 'Photo')
-			.bind('error.'+prefix,function () {
+			.on('error.'+prefix,function () {
 				prep($tag(div, 'Error').html(settings.get('imgError')));
 			})
 			.one('load', function () {
@@ -1014,7 +1010,7 @@
 					if ($related[1] && (settings.get('loop') || $related[index + 1])) {
 						photo.style.cursor = 'pointer';
 
-						$(photo).bind('click.'+prefix, function () {
+						$(photo).on('click.'+prefix, function () {
 							publicMethod.next();
 						});
 					}
@@ -1059,7 +1055,7 @@
 			open = false;
 			trigger(event_cleanup);
 			settings.get('onCleanup');
-			$window.unbind('.' + prefix);
+			$window.off('.' + prefix);
 			$overlay.fadeTo(settings.get('fadeOut') || 0, 0);
 
 			$box.stop().fadeTo(settings.get('fadeOut') || 0, 0, function () {
@@ -1091,7 +1087,7 @@
 			.removeData(colorbox)
 			.removeClass(boxElement);
 
-		$(document).unbind('click.'+prefix).unbind('keydown.'+prefix);
+		$(document).off('click.'+prefix).off('keydown.'+prefix);
 	};
 
 	// A method for fetching the current element Colorbox is referencing.

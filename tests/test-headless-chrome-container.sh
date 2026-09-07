@@ -4,6 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 readonly runner=.github/scripts/run-headless-chrome.sh
+readonly http_runner=.github/scripts/run-chrome-http-fixture.sh
 readonly php_runner=.github/scripts/run-static-php-container.sh
 readonly dollar='$'
 
@@ -21,7 +22,8 @@ require "  --user \"${dollar}(id -u):${dollar}(id -g)\""
 require "  --env \"HOME=${dollar}fixture_dir\""
 require "  --mount \"type=bind,src=${dollar}fixture_dir,dst=${dollar}fixture_dir\""
 require "  \"${dollar}image\" google-chrome --no-sandbox \"${dollar}@\""
-require 'vimbadmin-(alias-destination|residual-stored-xss|confirm-guard)'
+require 'vimbadmin-(alias-destination|residual-stored-xss|confirm-guard|jquery-migrate)'
+require 'dst=/usr/local/bin/run-chrome-http-fixture,readonly'
 
 require_php() {
   local pattern=$1
@@ -52,14 +54,71 @@ readonly expected_args=$fixture_root/expected-args
 readonly output=$fixture_root/output
 foreign_root=$(mktemp -d /tmp/vimbadmin-chrome-foreign.XXXXXX)
 readonly foreign_root
+foreign_server=''
 
 cleanup() {
+  if [[ -n $foreign_server ]]; then
+    kill "$foreign_server" 2>/dev/null || true
+  fi
   rm -rf -- "$fixture_root"
   rm -rf -- "$foreign_root"
 }
 trap cleanup EXIT
 
 mkdir -p "$stub_dir" "$foreign_root/profile"
+
+http_stub_dir=$fixture_root/http-bin
+http_output=$fixture_root/http-output
+chrome_marker=$fixture_root/chrome-started
+mkdir -p "$http_stub_dir"
+cat >"$http_stub_dir/php" <<'SH'
+#!/bin/sh
+exit 1
+SH
+cat >"$http_stub_dir/google-chrome" <<SH
+#!/bin/sh
+touch "$chrome_marker"
+SH
+chmod +x "$http_stub_dir/php" "$http_stub_dir/google-chrome"
+
+if VIMBADMIN_FIXTURE_PORT=48765 PATH="$http_stub_dir:/usr/bin:/bin" \
+  timeout 5 "$http_runner" "$fixture_root" \
+  >"$http_output" 2>&1; then
+  echo 'FAIL: HTTP fixture runner accepted a server that never became ready' >&2
+  exit 1
+fi
+grep -qF 'fixture HTTP server did not become ready' "$http_output"
+if [[ -e $chrome_marker ]]; then
+  echo 'FAIL: HTTP fixture runner started Chrome before server readiness' >&2
+  exit 1
+fi
+
+printf 'foreign listener' >"$foreign_root/index.html"
+php -S 127.0.0.1:48766 -t "$foreign_root" >/dev/null 2>&1 &
+foreign_server=$!
+for _ in $(seq 1 40); do
+  # The expression belongs to PHP, not this shell.
+  # shellcheck disable=SC2016
+  if php -r '$body = @file_get_contents("http://127.0.0.1:48766/index.html"); exit($body === "foreign listener" ? 0 : 1);'; then
+    break
+  fi
+  sleep 0.05
+done
+if ! kill -0 "$foreign_server" 2>/dev/null; then
+  echo 'FAIL: occupied-port control did not start its foreign listener' >&2
+  exit 1
+fi
+if VIMBADMIN_FIXTURE_PORT=48766 timeout 5 "$http_runner" "$fixture_root" \
+  >"$http_output" 2>&1; then
+  echo 'FAIL: HTTP fixture runner accepted an occupied port' >&2
+  exit 1
+fi
+grep -qF 'fixture HTTP server did not become ready' "$http_output"
+if ! kill -0 "$foreign_server" 2>/dev/null; then
+  echo 'FAIL: HTTP fixture runner killed an unowned listener' >&2
+  exit 1
+fi
+
 cat >"$stub_dir/docker" <<'SH'
 #!/bin/sh
 printf '%s\n' "$@" > "$VIMBADMIN_DOCKER_ARGS"

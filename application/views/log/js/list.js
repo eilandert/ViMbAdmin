@@ -29,7 +29,7 @@ $(document).ready(function()
         'fnDrawCallback': function() {
             if( vm_prefs['iLength'] != $( "select[name|='list_table_length']" ).val() )
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();
-            $.jsonCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
+            vmPrefsCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
         },
         'aoColumns': [
             { 'mData': 'action',    'mRender': $.fn.dataTable.render.text() },
@@ -47,7 +47,7 @@ $(document).ready(function()
             if( vm_prefs['iLength'] !=  $( "select[name|='list_table_length']" ).val() )
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();
 
-            $.jsonCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
+            vmPrefsCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
         },
         'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )

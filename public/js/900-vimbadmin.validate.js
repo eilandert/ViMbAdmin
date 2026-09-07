@@ -67,19 +67,33 @@
 
 
     /**
-    * overwrite the default defaultMessage() method to 1st try to return with a custom message, then with the default one
-    * prototype method
-    */
-    jQuery.validator.prototype.defaultMessage = function( element, method )
+     * ViMbAdmin defines a global message for every standard method and wants
+     * those to win over an element's `title`, which upstream 1.21 orders the
+     * other way round. Rather than restate the whole of `defaultMessage` to
+     * move one argument, suppress `title` for exactly the methods we define a
+     * global message for and let upstream resolve everything else.
+     */
+    var upstreamDefaultMessage = jQuery.validator.prototype.defaultMessage;
+
+    jQuery.validator.prototype.defaultMessage = function( element, rule )
     {
-        return this.findDefined(
-            this.customMessage( element.name, method ),
-            $.validator.messages[method],
-            this.customMetaMessage( element, method ),
-            // title is never undefined, so handle empty string as undefined
-            !this.settings.ignoreTitle && element.title || undefined,
-            "<b>Warning: No message defined for " + element.name + "</b>"
-        );
+        var method = typeof rule === "string" ? rule : rule.method;
+
+        if( !$.validator.messages[method] )
+            return upstreamDefaultMessage.call( this, element, rule );
+
+        var ignoreTitle = this.settings.ignoreTitle;
+
+        this.settings.ignoreTitle = true;
+
+        try
+        {
+            return upstreamDefaultMessage.call( this, element, rule );
+        }
+        finally
+        {
+            this.settings.ignoreTitle = ignoreTitle;
+        }
     };
 
 

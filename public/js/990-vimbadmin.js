@@ -39,13 +39,66 @@
 
 var vm_cookie_options = {
     'expires': 90,
-    'path': "/"
+    'path': "/",
+    // The retired plugin set neither; a preferences cookie is same-site only,
+    // and over TLS it has no reason to travel in the clear.
+    'sameSite': 'Lax',
+    'secure': window.location.protocol === 'https:'
 };
 
 var vm_prefs = {
 };
 
-var cprefs = $.jsonCookie( 'vm_prefs' );
+/**
+ * Read or write the JSON preferences cookie without legacy jQuery plugins.
+ *
+ * The cookie value and attributes deliberately match the retired helper so
+ * existing installations retain their saved preferences across the upgrade.
+ */
+function vmPrefsCookie( key, value, options )
+{
+    if( arguments.length > 1 ) {
+        options = $.extend( {}, options );
+
+        if( value === null || value === undefined )
+            options.expires = -1;
+
+        if( typeof options.expires === 'number' ) {
+            var days = options.expires;
+            options.expires = new Date();
+            options.expires.setDate( options.expires.getDate() + days );
+        }
+
+        return document.cookie = [
+            key, '=', JSON.stringify( value ),
+            options.expires ? '; expires=' + options.expires.toUTCString() : '',
+            options.path    ? '; path=' + options.path : '',
+            options.domain  ? '; domain=' + options.domain : '',
+            options.sameSite ? '; SameSite=' + options.sameSite : '',
+            options.secure  ? '; secure' : ''
+        ].join( '' );
+    }
+
+    // Scan every segment: an empty one (a trailing '; ' some clients emit) must
+    // not terminate the search before a later entry is reached.
+    var pairs = document.cookie.split( '; ' );
+    for( var i = 0; i < pairs.length; i++ ) {
+        var pair = pairs[i].split( '=' );
+
+        if( pair[0] === key ) {
+            try {
+                var parsed = JSON.parse( pair.slice( 1 ).join( '=' ) );
+                return parsed !== null && typeof parsed === 'object' ? parsed : null;
+            } catch( error ) {
+                return null;
+            }
+        }
+    }
+
+    return null;
+}
+
+var cprefs = vmPrefsCookie( 'vm_prefs' );
 
 if( cprefs != null )
 	vm_prefs = cprefs;
@@ -169,7 +222,7 @@ function ossToggle( e, Url, data, delElement )
 
             $( '#throb-' + e.attr( 'id' ) ).html( "" );
 
-            e.click( function( event ){
+            e.on( 'click', function( event ){
                 ossToggle( e, Url, data );
             });
 

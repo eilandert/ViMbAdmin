@@ -16,6 +16,9 @@ var/tmp
 application/Proxies/__CG__*.php
 *~
 vendor/[a-zA-Z0-9]*
+# Closure Compiler is a local build prerequisite for bin/minify-options.php,
+# fetched per-machine rather than vendored (13MB binary).
+bin/compiler.jar
 vimbadmin.sublime-project
 vimbadmin.sublime-workspace
 vimbadmin3.sublime-project
