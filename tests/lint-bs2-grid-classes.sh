@@ -46,20 +46,52 @@ fi
 # HTML and Smarty emits either, so a double-quote-only pattern would walk past
 # half the possible regressions.
 #
-# `class[[:space:]]*=[[:space:]]*` rather than a bare `class=`: HTML permits
-# whitespace on either side of the `=`, so `class = "span6"` is a valid
-# regression that a tight pattern walks straight past.
+# Anatomy of each pattern, since every piece of it is load-bearing:
 #
-# The scan is also whole-file rather than line-based (`grep -z`, and `[^"\x27]`
-# therefore spans newlines), because a class attribute may wrap:
+#   (^|[[:space:]])class    an attribute-name boundary. Without it `data-class=`
+#                           and `ng-class=` match, and neither applies a CSS
+#                           class to the element.
+#   [[:space:]]*=[[:space:]]*   HTML permits whitespace on either side of the
+#                           `=`, so `class = "span6"` is a real regression that
+#                           a tight `class=` walks straight past.
+#   [\"']                 the opening quote, either style.
+#   [^\"']*               the attribute value. NOT anchored to the closing
+#                           quote: a Smarty expression inside the value, as in
+#                           `class="{if $wide}span6{/if}"`, contains its own
+#                           quotes, and requiring a balanced closing quote would
+#                           make the scan stop at the first inner one and miss
+#                           the class entirely. Over-reaching costs a false
+#                           positive; under-reaching costs a silent regression,
+#                           and only one of those two is visible in CI.
+#   (^|[^-[:alnum:]])       a left token boundary that hyphens do NOT satisfy.
+#                           `\b` treats `-` as a boundary, so a plain `\bspan6`
+#                           matches inside the unrelated class `span6-label`.
+#   span[0-9]+              the Bootstrap 2 class itself.
+#   ([^-[:alnum:]]|$)       the matching right boundary, for the same reason:
+#                           `span6-label` and `span60` are not `span6`.
+#
+# The scan is also whole-file rather than line-based (`grep -z`, so `[^\"']*`
+# spans newlines), because a class attribute may wrap:
 #   <div class="row
 #               span6">
 # is one attribute value on two lines, and a per-line scan sees neither half as
 # a match.
+# `q` is the character class matching either quote style, built with $'...'
+# so the single quote needs no escaping inside the pattern strings below.
+q=$'[\'"]'
+nq=$'[^\'"]'
+# The left boundary is folded into `attr`: the class token may sit immediately
+# after the opening quote (`class='span6'`), in which case there is no separate
+# boundary character to consume -- the quote itself is the boundary. So the
+# value run is `${nq}*` followed by either nothing or a non-token character.
+attr="(^|[[:space:]])class[[:space:]]*=[[:space:]]*${q}${nq}*"
+lb='(^|[^-[:alnum:]])?'
+rb='([^-[:alnum:]]|$)'
+
 patterns=(
-  "class[[:space:]]*=[[:space:]]*[\"'][^\"']*\\brow-fluid\\b"
-  "class[[:space:]]*=[[:space:]]*[\"'][^\"']*\\bspan[0-9]+\\b"
-  "class[[:space:]]*=[[:space:]]*[\"'][^\"']*\\boffset[0-9]+\\b"
+  "${attr}${lb}row-fluid${rb}"
+  "${attr}${lb}span[0-9]+${rb}"
+  "${attr}${lb}offset[0-9]+${rb}"
 )
 labels=(
   'row-fluid (use "row")'
@@ -81,7 +113,7 @@ scan_files() {
   for i in "${!patterns[@]}"; do
     pattern="${patterns[$i]}"
     label="${labels[$i]}"
-    # -z treats each file as one NUL-terminated record, so `[^"\x27]*` in the
+    # -z treats each file as one NUL-terminated record, so `[^"']*` in the
     # pattern crosses newlines and a wrapped class attribute is matched. That
     # costs the line number, so report the filename and the offending value.
     hits=$(grep -zoHE "$pattern" "${files[@]}" 2>/dev/null | tr '\0' '\n' || true)
@@ -120,6 +152,8 @@ self_test() {
     <div class = "span6">whitespace around the equals sign</div>
     <div class="row
                 span3">wrapped attribute value, spanning two lines</div>
+    <div class="{if $wide}span6{else}span12{/if}">Smarty expression inside the
+        attribute value: its inner quotes must not end the scan early</div>
 </div>
 EOF
 
@@ -130,6 +164,11 @@ EOF
     <div class="col-md-4 offset-md-2">offset</div>
 </div>
 <p>The span of this deployment and its offset10 schedule are prose, not classes.</p>
+<div data-class="span6">a data-* attribute is not the class attribute</div>
+<div ng-class="span6">nor is ng-class</div>
+<div class="span6-label offset2-wrapper">own class names that merely start with
+    a Bootstrap 2 spelling are not Bootstrap 2 classes</div>
+<div class="col-md-60">col-md-60 is not col-md-6</div>
 EOF
 
   echo "== self-test: negative control, reintroduced Bootstrap 2 grid classes must be caught =="
