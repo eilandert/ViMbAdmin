@@ -119,6 +119,39 @@ final class DomainController extends AbstractController
     }
 
     /** @param array<string,mixed> $options */
+    /**
+     * Column index -> sortable field for the domain list.
+     *
+     * The rendered column set is NOT fixed: `domain/list.phtml` and its view JS
+     * emit the "Used / Max" column only when `defaults.list_size.disabled` is
+     * false, so a static index map is off by one for every column after it
+     * under the shipped default (`list_size.disabled = true`) -- clicking
+     * "Transport" would sort by `active`, and "Created" would fall through to
+     * the default. Build the map from the same condition the view uses.
+     * Columns that are rendered but not sortable map to the default.
+     *
+     * @param int  $index      The DataTables `iSortCol_0` index.
+     * @param bool $sizeColumn Whether the "Used / Max" column is rendered.
+     */
+    private static function listSortField(int $index, bool $sizeColumn): string
+    {
+        $columns = array_values(array_filter([
+            'domain',                    // Domain
+            'mailboxes',                 // Mailboxes
+            'aliases',                   // Aliases
+            $sizeColumn ? '' : null,     // Used / Max (rendered, not sortable)
+            'quota',                     // Default quota
+            'active',                    // Active
+            'transport',                 // Transport
+            '',                          // Backup MX (not sortable)
+            'created',                   // Created
+            '',                          // controls (not sortable)
+        ], static fn(?string $c): bool => $c !== null));
+
+        return ($columns[$index] ?? '') ?: 'domain';
+    }
+
+    /** @param array<string,mixed> $options */
     private static function optionBoolean(array $options, bool $default, string ...$path): bool
     {
         [$found, $value] = self::option($options, ...$path);
@@ -329,9 +362,8 @@ final class DomainController extends AbstractController
         } catch (\LengthException $e) {
             return new Response($e->getMessage(), 400, 'text/plain; charset=utf-8');
         }
-        // Column index -> sortable field (matches JS column order; computed
-        // "used" + controls fall back to domain).
-        $sortField = [0 => 'domain', 1 => 'mailboxes', 2 => 'aliases', 4 => 'quota', 5 => 'active', 6 => 'transport', 8 => 'created'][$q->sortColumn] ?? 'domain';
+        $sizeColumn = !self::optionBoolean($this->container->options(), false, 'defaults', 'list_size', 'disabled');
+        $sortField  = self::listSortField($q->sortColumn, $sizeColumn);
 
         $r = $this->domainRepository()
             ->pagedForDomainList($admin, $q->searchTerm, $q->contains, $sortField, $q->sortDir, $q->start, $q->length);

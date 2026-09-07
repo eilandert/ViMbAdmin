@@ -104,9 +104,7 @@ final class LogController extends AbstractController
         } catch (\LengthException $e) {
             return new Response($e->getMessage(), 400, 'text/plain; charset=utf-8');
         }
-        // Column index -> sortable field (matches the JS column order; "Log"/data
-        // column is not usefully sortable -> falls back to timestamp).
-        $sortField = [0 => 'action', 2 => 'admin', 3 => 'domain', 4 => 'timestamp'][$q->sortColumn] ?? 'timestamp';
+        $sortField = self::listSortField($q->sortColumn, $domain !== null);
 
         $r = $this->logRepository()
             ->pagedForLogList($targetAdmin, $domain, $q->searchTerm, $q->contains, $sortField, $q->sortDir, $q->start, $q->length);
@@ -217,6 +215,33 @@ final class LogController extends AbstractController
             throw new LogicException('Admin repository has an invalid type');
         }
         return $repository;
+    }
+
+    /**
+     * Column index -> sortable field for the log list.
+     *
+     * `log/list.phtml` and its view JS render the Domain column ONLY when no
+     * domain filter is remembered, and set the initial order to index 3 in that
+     * case -- so a static map that always puts `domain` at index 3 sorts every
+     * domain-scoped log page (including its very first load) by domain instead
+     * of by the "Occurred At" column the user actually clicked. Build the map
+     * from the same condition the view uses. The "Log"/data column is rendered
+     * but not usefully sortable and maps to the default.
+     *
+     * @param int  $index         The DataTables `iSortCol_0` index.
+     * @param bool $domainScoped  Whether a domain filter is active (Domain column hidden).
+     */
+    private static function listSortField(int $index, bool $domainScoped): string
+    {
+        $columns = array_values(array_filter([
+            'action',                          // Action
+            '',                                // Log / data (not sortable)
+            'admin',                           // Admin
+            $domainScoped ? null : 'domain',   // Domain (hidden while domain-scoped)
+            'timestamp',                       // Occurred At
+        ], static fn(?string $c): bool => $c !== null));
+
+        return ($columns[$index] ?? '') ?: 'timestamp';
     }
 
     private function domainRepository(): DomainRepository
