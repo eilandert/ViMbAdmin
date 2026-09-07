@@ -51,16 +51,23 @@ check_file() {
     [ -n "$line" ] || continue
     num="${line%%:*}"
     tag="${line#*:}"
-    # This gate is line-oriented, so a modal whose opening tag is split across
-    # lines would be examined only up to the newline and could be skipped or
-    # misjudged. Rather than pass such a tag silently, refuse: an unterminated
-    # opening tag is a hard failure telling the author to keep it on one line
-    # (or to teach this gate to parse tags properly).
-    if ! grep -q '>' <<<"$tag"; then
-      echo "  Modal opening tag in $f:$num is split across lines; this gate reads one line at a time and cannot judge it. Keep the opening tag on a single line."
+    # This gate is line-oriented. A modal whose opening tag is split across
+    # lines cannot be judged from one line, so refuse it rather than pass it --
+    # silently skipping is how an unnamed dialog slips past a green gate.
+    # Two tells, both meaning "this line is not a whole opening tag":
+    # the tag never opened on this line, or it never closed on it.
+    if ! grep -qP '<[a-zA-Z][a-zA-Z0-9]*[^>]*\sclass=' <<<"$tag" || ! grep -q '>' <<<"$tag"; then
+      echo "  Modal opening tag at $f:$num is split across lines; this gate reads one line at a time and cannot judge it. Keep the opening tag on a single line."
       fail=1
       continue
     fi
+
+    # Narrow to the modal's OWN opening tag before reading attributes. grep
+    # hands back the whole line, so inline markup such as
+    # `<div class="modal"><h3 id="t" aria-labelledby="t">` would otherwise let a
+    # CHILD element's attributes be credited to the modal, and an unlabelled
+    # dialog would pass.
+    tag="${tag%%>*}>"
     id=$(sed -n 's/.*[[:space:]]id=["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
     label=$(sed -n 's/.*[[:space:]]aria-labelledby=["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
 
@@ -84,7 +91,7 @@ check_file() {
       echo "  Modal ${id:+#$id }in $f:$num points aria-labelledby at \"$label\", which no element in that file defines"
       fail=1
     fi
-  done < <(grep -nP '(<div[^>]*\sclass=["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w]))|(<div[^>]*$)' "$f" || true)
+  done < <(grep -nP '(<[a-zA-Z][a-zA-Z0-9]*[^>]*\sclass=["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w]))|(^[^<]*\bclass=["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w]))' "$f" || true)
   return "$fail"
 }
 
@@ -229,6 +236,34 @@ EOF
     status=1
   else
     echo "  OK: referenced id compared literally, metacharacter did not widen the match"
+  fi
+
+  echo "== self-test: inline markup must not credit a child's attributes to the modal =="
+  # grep returns the whole line, so without narrowing to the modal's own opening
+  # tag the <h3>'s aria-labelledby was read as the modal's and the unlabelled
+  # dialog passed.
+  cat >"$tmpdir/inline.phtml" <<'EOF'
+<div class="modal fade" id="inl"><h3 id="t" aria-labelledby="t">Title</h3></div>
+EOF
+  if scan_files "$tmpdir/inline.phtml" >/dev/null 2>&1; then
+    echo "  FAIL: a child element's aria-labelledby was credited to the modal" >&2
+    status=1
+  else
+    echo "  OK: inline child attributes not credited to the modal"
+  fi
+
+  echo "== self-test: a modal on a non-div element must still be scanned =="
+  # Bootstrap identifies a modal by its .modal class, not by tag name.
+  cat >"$tmpdir/section.phtml" <<'EOF'
+<section class="modal fade" id="sec" tabindex="-1">
+    <h3 class="modal-title">Unlabelled section modal</h3>
+</section>
+EOF
+  if scan_files "$tmpdir/section.phtml" >/dev/null 2>&1; then
+    echo "  FAIL: an unlabelled non-div modal escaped the gate" >&2
+    status=1
+  else
+    echo "  OK: non-div modal scanned"
   fi
 
   echo "== self-test: a correctly labelled modal must not false-positive =="
