@@ -90,7 +90,7 @@ extract_class_values() {
     # argument, never in a condition wrapping a class list, and the outer
     # span would simply end early -- degrading to current behaviour, never
     # worse than it.
-    while (/(?:^|[\s])class\s*=\s*(["\x27])((?:\{(?:"[^"]*"|\x27[^\x27]*\x27|[^{}"\x27])*\}|(?!\1)[^{])*)\1(?=[\s>\/])/gs) {
+    while (/(?:^|[\s])class\s*=\s*(["\x27])((?:\{(?:"(?:\\.|[^"\\])*"|\x27(?:\\.|[^\x27\\])*\x27|[^{}"\x27])*\}|(?!\1)[^{])*)\1(?=[\s>\/])/gs) {
       my $v = $2;
       $v =~ s/\s+/ /g;
       print "$v\n";
@@ -176,6 +176,10 @@ self_test() {
         CONTENT is a brace. The span must be delimited by structural braces
         only, or the value is dropped entirely and span6 goes unseen
         (VIM-A15.31 review round 2)</div>
+    <div class="{if $name == 'O\'Brien'}span6{/if}">a Smarty string literal
+        containing an ESCAPED quote. The string branch must consume the escape
+        as a unit, or the value is dropped and span6 goes unseen
+        (VIM-A15.31 review round 3)</div>
 </div>
 EOF
 
@@ -203,7 +207,7 @@ EOF
   # without proving it is COMPLETE. Pinning the number turns a partial
   # degradation into a visible mismatch.
   #
-  # 11 = one hit per Bootstrap 2 token seeded in the dirty fixture, counting
+  # 12 = one hit per Bootstrap 2 token seeded in the dirty fixture, counting
   # each token separately where a value carries two (`span4 offset2`). The
   # tenth is the same-quote Smarty row (VIM-A15.31): before that fix the value
   # ended at the inner `"` and its span6 was never tokenised, so the count
@@ -212,7 +216,7 @@ EOF
   # `\{[^{}]*\}` rejects it and the whole value is dropped, taking span6 with
   # it -- a MISSED regression, the worst failure mode this gate has.
   echo "== self-test: negative control, reintroduced Bootstrap 2 grid classes must be caught =="
-  expected_hits=11
+  expected_hits=12
   actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap 2 grid class' || true)
   if [ "$actual_hits" -eq "$expected_hits" ]; then
     echo "  OK: all $expected_hits seeded regressions detected, in both quoting styles"

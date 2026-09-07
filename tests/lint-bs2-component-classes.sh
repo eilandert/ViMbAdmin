@@ -135,7 +135,7 @@ extract_class_values() {
     # round 2. It admits one level of braces, which is all a class-wrapping
     # Smarty condition uses; a nested span just ends the outer one early,
     # degrading to current behaviour rather than below it.
-    while (/(?:^|[\s])class\s*=\s*(\\?)(["\x27])((?:\{(?:"[^"]*"|\x27[^\x27]*\x27|[^{}"\x27])*\}|(?!\1\2)(?:\\.|[^\\{]))*)\1\2(?=[\s>\/]|$)/gs) {
+    while (/(?:^|[\s])class\s*=\s*(\\?)(["\x27])((?:\{(?:"(?:\\.|[^"\\])*"|\x27(?:\\.|[^\x27\\])*\x27|[^{}"\x27])*\}|(?!\1\2)(?:\\.|[^\\{]))*)\1\2(?=[\s>\/]|$)/gs) {
       my $v = $3;
       $v =~ s/\\(.)/$1/g;
       $v =~ s/\s+/ /g;
@@ -237,6 +237,10 @@ self_test() {
     CONTENT is a brace. The span must be delimited by structural braces only,
     or the value is dropped entirely and label-success goes unseen
     (VIM-A15.31 review round 2).</div>
+<div class="{if $name == 'O\'Brien'}label-info{/if}">A Smarty string literal
+    containing an ESCAPED quote. The string branch must consume the escape as a
+    unit, or the value is dropped and label-info goes unseen (VIM-A15.31
+    review round 3).</div>
 EOF
 
   cat >"$clean" <<'EOF'
@@ -276,7 +280,7 @@ EOF
   # (label-success, review round 2) = 23. A drop is exactly what a regression
   # in the Smarty-span handling looks like; the braced row in particular is
   # dropped WHOLE by a naive span, taking its class with it.
-  expected_hits=23
+  expected_hits=24
   actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap 2 component class' || true)
   if [ "$actual_hits" -eq "$expected_hits" ]; then
     echo "  OK: all $expected_hits seeded regressions detected, in both quoting styles"
