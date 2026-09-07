@@ -19,16 +19,16 @@ $(document).ready( function() {
        HTML carries no rows. Cells are rendered client-side by the same format
        helpers used below. */
     oDataTable = $( '#list_table' ).dataTable({
-        'bServerProcessing': true,
-        'bServerSide': true,
-        'sServerMethod': 'GET',
+        'processing': true,
+        'serverSide': true,
+        'serverMethod': 'GET',
         'sAjaxSource': "{genUrl controller='mailbox' action='list-data'}",
         'fnServerData': vmMailboxServerData,
-        'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
+        'pageLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
-        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No mailboxes.', 'sSearch': 'Search (prefix * to match anywhere):' },
-        'fnDrawCallback': function() {
+        'language': { 'processing': 'Loading…', 'emptyTable': 'No mailboxes.', 'search': 'Search (prefix * to match anywhere):' },
+        'drawCallback': function() {
             {if !isset($options.defaults.list_size.disabled) || !$options.defaults.list_size.disabled}
                 $( "a[id|='dir-size']" ).off().on( "click", showSizes );
             {/if}
@@ -38,40 +38,40 @@ $(document).ready( function() {
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();
             vmPrefsCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
         },
-        'aoColumns': [
-            { 'mData': 'username', 'mRender': $.fn.dataTable.render.text() },
-            { 'mData': 'name',     'mRender': $.fn.dataTable.render.text() },
-            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return formatUsedQuota( row.id, row.quota_bytes, row.quota ); } },
-            { 'mData': 'last_login', 'bSortable': false, 'mRender': function( d ){ return formatLastLogin( d ); } },
+        'columns': [
+            { 'data': 'username', 'render': $.fn.dataTable.render.text() },
+            { 'data': 'name',     'render': $.fn.dataTable.render.text() },
+            { 'data': null, 'orderable': false, 'render': function( d, t, row ){ return formatUsedQuota( row.id, row.quota_bytes, row.quota ); } },
+            { 'data': 'last_login', 'orderable': false, 'render': function( d ){ return formatLastLogin( d ); } },
             {if !isset($options.defaults.list_domain.disabled) || !$options.defaults.list_domain.disabled}
-            { 'mData': 'domain', 'mRender': $.fn.dataTable.render.text() },
+            { 'data': 'domain', 'render': $.fn.dataTable.render.text() },
             {/if}
-            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return formatActive( row.id, row.active ); } },
-            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return formatControlls( row.id ); } }
+            { 'data': null, 'orderable': false, 'render': function( d, t, row ){ return formatActive( row.id, row.active ); } },
+            { 'data': null, 'orderable': false, 'render': function( d, t, row ){ return formatControlls( row.id ); } }
         ]
     });
     {else}
     oDataTable = $( '#list_table' ).dataTable({
-        'fnDrawCallback': function() {
+        'drawCallback': function() {
             if( vm_prefs['iLength'] !=  $( "select[name|='list_table_length']" ).val() )
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();
             vmPrefsCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
         },
-        'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
+        'pageLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
 
 
-        'aoColumns': [
+        'columns': [
             null,
             null,
-            { 'sType': 'num-html' },
-            { "bSearchable": false },
+            { 'type': 'num-html' },
+            { "searchable": false },
             {if !isset($options.defaults.list_domain.disabled) || !$options.defaults.list_domain.disabled}
             null,
             {/if}
-            { "bSearchable": false },
-            { 'bSortable': false, "bSearchable": false }
+            { "searchable": false },
+            { 'orderable': false, "searchable": false }
         ]
     });
     {/if}

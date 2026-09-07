@@ -64,6 +64,9 @@ jobs:
       - name: DataTables extension names must be registered (VIM-A15.23)
         run: bash tests/lint-datatables-registered-plugins.sh
 
+      - name: fnServerData initialisers must keep sAjaxSource (VIM-A15.26)
+        run: bash tests/lint-datatables-serverdata-source.sh
+
       - name: Containerized Chrome runner hardening
         run: bash tests/test-headless-chrome-container.sh
 

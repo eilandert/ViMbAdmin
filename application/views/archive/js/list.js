@@ -13,53 +13,53 @@ $(document).ready( function()
        /archive/list-data, fetching only the visible page. Text cells escaped;
        action links carry the CSRF token + an inline confirm(). */
     oDataTable = $( '#list_table' ).dataTable({
-        'bServerProcessing': true,
-        'bServerSide': true,
-        'sServerMethod': 'GET',
+        'processing': true,
+        'serverSide': true,
+        'serverMethod': 'GET',
         'sAjaxSource': "{genUrl controller='archive' action='list-data'}",
         'fnServerData': vmArchiveServerData,
-        'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
+        'pageLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
-        'aaSorting': [[ 4, 'desc' ]],
-        'oLanguage': { 'sProcessing': 'Loading…', 'sEmptyTable': 'No archives.', 'sSearch': 'Search (prefix * to match anywhere):' },
-        'fnDrawCallback': function() {
+        'order': [[ 4, 'desc' ]],
+        'language': { 'processing': 'Loading…', 'emptyTable': 'No archives.', 'search': 'Search (prefix * to match anywhere):' },
+        'drawCallback': function() {
             $( '.have-tooltip' ).tooltip("destroy").tooltip( { html: true, delay: { show: 500, hide: 2 }, trigger: 'hover' } );
             if( vm_prefs['iLength'] != $( "select[name|='list_table_length']" ).val() )
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();
             vmPrefsCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
         },
-        'aoColumns': [
-            { 'mData': 'username', 'mRender': $.fn.dataTable.render.text() },
-            { 'mData': null, 'mRender': function( d, t, row ){ return vmArchiveEsc( archiveStatuses[ row.status ] || row.status ); } },
-            { 'mData': 'domain', 'mRender': $.fn.dataTable.render.text() },
-            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return row.maildir_size ? vmArchiveBytes( row.maildir_size ) : '&mdash;'; } },
-            { 'mData': 'archived_at', 'mRender': function( d ){ return d ? vmArchiveEsc( d ) : '&mdash;'; } },
-            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return ( row.user_exists == 1 ) ? '<span class="badge text-bg-success">Yes</span>' : '<span class="badge text-bg-secondary">No</span>'; } },
-            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return row.autoprune ? '<span class="badge text-bg-warning">On</span>' : '<span class="badge text-bg-secondary">Off</span>'; } },
-            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return formatArchiveControls( row ); } }
+        'columns': [
+            { 'data': 'username', 'render': $.fn.dataTable.render.text() },
+            { 'data': null, 'render': function( d, t, row ){ return vmArchiveEsc( archiveStatuses[ row.status ] || row.status ); } },
+            { 'data': 'domain', 'render': $.fn.dataTable.render.text() },
+            { 'data': null, 'orderable': false, 'render': function( d, t, row ){ return row.maildir_size ? vmArchiveBytes( row.maildir_size ) : '&mdash;'; } },
+            { 'data': 'archived_at', 'render': function( d ){ return d ? vmArchiveEsc( d ) : '&mdash;'; } },
+            { 'data': null, 'orderable': false, 'render': function( d, t, row ){ return ( row.user_exists == 1 ) ? '<span class="badge text-bg-success">Yes</span>' : '<span class="badge text-bg-secondary">No</span>'; } },
+            { 'data': null, 'orderable': false, 'render': function( d, t, row ){ return row.autoprune ? '<span class="badge text-bg-warning">On</span>' : '<span class="badge text-bg-secondary">Off</span>'; } },
+            { 'data': null, 'orderable': false, 'render': function( d, t, row ){ return formatArchiveControls( row ); } }
         ]
     });
     {else}
     oDataTable = $( '#list_table' ).dataTable({
-        'fnDrawCallback': function() {
+        'drawCallback': function() {
             if( vm_prefs['iLength'] !=  $( "select[name|='list_table_length']" ).val() )
                 vm_prefs['iLength'] = $( "select[name|='list_table_length']" ).val();
 
             vmPrefsCookie( 'vm_prefs', vm_prefs, vm_cookie_options );
         },
-        'iDisplayLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
+        'pageLength': ( typeof vm_prefs != 'undefined' && 'iLength' in vm_prefs )
                 ? parseInt( vm_prefs['iLength'] )
                 : {if isset( $options.defaults.table.entries )}{$options.defaults.table.entries}{else}10{/if},
         // Username, Status, Domain, Archived, User exists, Autoprune, Actions
-        'aoColumns': [
+        'columns': [
             null,
             null,
             null,
             null,
             null,
             null,
-            { 'bSortable': false, "bSearchable": false }
+            { 'orderable': false, "searchable": false }
         ]
     });
     {/if}
