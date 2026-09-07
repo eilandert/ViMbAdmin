@@ -40,7 +40,7 @@ for f in application/views/*/js/*.js; do
   # Lines that look like a JS array/object source being fed a Smarty var:
   #   source: {$emails}      |  data: {$rows}   |  = {$foo}.split(   etc.
   # i.e. a {$var} that sits where a JSON literal is expected.
-  hits=$(grep -nE '(source|data|aaData|aoColumns|columns)[[:space:]]*:[[:space:]]*\{\$[A-Za-z_][^}]*\}' "$f" 2>/dev/null |
+  hits=$(grep -nE '(^|\s|,|\{|\[)['\''"]?(source|data|aaData|aoColumns|columns)['\''"]?[[:space:]]*:[[:space:]]*\{\$[A-Za-z_][^}]*\}' "$f" 2>/dev/null |
     grep -vE 'nofilter|escape:'"'"'javascript'"'"'' || true)
   if [ -n "$hits" ]; then
     echo "  $f:"
