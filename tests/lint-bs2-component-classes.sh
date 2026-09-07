@@ -111,7 +111,8 @@ extract_class_values() {
     # opened this attribute (captured as $1 and back-referenced via the
     # (?!\1) guard), not both quote characters. Excluding both would drop a
     # Smarty condition that legitimately embeds the OTHER quote, e.g.
-    # `class="{if $x == 'bad'}alert-error{/if}"` -- the value there contains
+    # a Smarty condition comparing against a SINGLE-quoted literal inside a
+    # DOUBLE-quoted class attribute -- the value there contains
     # single quotes inside a double-quoted attribute, and the old
     # `[^\\"\x27]` branch truncated it before `alert-error`, so the gate
     # reported green on a real regression (VIM-A15.19 round 3, caught by
@@ -120,7 +121,21 @@ extract_class_values() {
     # non-overlapping and this does not reintroduce the catastrophic
     # backtracking a naive lookahead hit on
     # application/views/mailbox/js/list.js in round 2.
-    while (/(?:^|[\s])class\s*=\s*(\\?)(["\x27])((?:(?!\1\2)(?:\\.|[^\\]))*)\1\2(?=[\s>\/]|$)/gs) {
+    # `\{[^{}]*\}` is tried FIRST so a Smarty span is consumed whole before
+    # the ordinary-character branch can stop at a delimiter inside it.
+    # Without it, `class="{if $mode == "wide"}label-important{/if}"` ends the
+    # value at the inner `"` and the component class after it is never
+    # tokenised -- green on a real regression (VIM-A15.31). The
+    # DIFFERENT-quote spelling was already handled by the `(?!\1\2)` guard
+    # above; this is the SAME-quote sibling of that same bug.
+    #
+    # `[^{}]` rather than `.` keeps this branch non-overlapping with the
+    # others and cannot backtrack catastrophically, which matters here: a
+    # naive lookahead blew up on application/views/mailbox/js/list.js in
+    # round 2. It admits one level of braces, which is all a class-wrapping
+    # Smarty condition uses; a nested span just ends the outer one early,
+    # degrading to current behaviour rather than below it.
+    while (/(?:^|[\s])class\s*=\s*(\\?)(["\x27])((?:\{[^{}]*\}|(?!\1\2)(?:\\.|[^\\]))*)\1\2(?=[\s>\/]|$)/gs) {
       my $v = $3;
       $v =~ s/\\(.)/$1/g;
       $v =~ s/\s+/ /g;
@@ -213,6 +228,11 @@ self_test() {
     string literal uses the OTHER quote character. The extractor must exclude
     only the delimiter that opened this attribute, or it truncates the value at
     the apostrophe and never sees alert-error (VIM-A15.19 round 3).</div>
+<div class="{if $mode == "bad" && $enabled}label-important{/if}">The SAME-quote
+    sibling of the row above: a DOUBLE-quoted Smarty literal inside a
+    DOUBLE-quoted attribute. The `(?!\1\2)` guard does not help here, because
+    the inner quote IS the opening delimiter; only consuming the Smarty span
+    whole keeps label-important visible (VIM-A15.31).</div>
 EOF
 
   cat >"$clean" <<'EOF'
@@ -246,8 +266,11 @@ EOF
   # label, btn-mini, btn-small, pull-right, pull-left, alert-error,
   # nav-collapse, navbar-inner) + 4 label-variant rows x 2 hits (8) + 2 hits
   # inside the trailing Smarty {if}/{else} expression (well, navbar-inner)
-  # = 10 + 8 + 2 = 20.
-  expected_hits=21
+  # = 10 + 8 + 2 = 20, plus 1 for the different-quote Smarty row
+  # (alert-error, VIM-A15.19 round 3) = 21, plus 1 for the same-quote Smarty
+  # row (label-important, VIM-A15.31) = 22. A drop back to 21 is exactly what
+  # a regression in the Smarty-span handling looks like.
+  expected_hits=22
   actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap 2 component class' || true)
   if [ "$actual_hits" -eq "$expected_hits" ]; then
     echo "  OK: all $expected_hits seeded regressions detected, in both quoting styles"
@@ -362,7 +385,7 @@ fi
 # stopped looking at an emit site. Fail loudly instead.
 missing=()
 for f in "${files[@]}"; do
-  [ -r "$f" ] || missing+=( "$f" )
+  [ -r "$f" ] || missing+=("$f")
 done
 if [ "${#missing[@]}" -ne 0 ]; then
   echo "  -> Cannot read ${#missing[@]} expected input file(s); refusing to report a partial scan as clean:" >&2

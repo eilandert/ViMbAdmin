@@ -74,7 +74,23 @@ bs2_tokens_re="^(row-fluid|span${bs2_num}|offset${bs2_num})$"
 # is exactly the tokenisation stage 2 wants anyway.
 extract_class_values() {
   perl -0777 -ne '
-    while (/(?:^|[\s])class\s*=\s*(["\x27])(.*?)\1(?=[\s>\/])/gs) {
+    # `\{[^{}]*\}` FIRST, so a Smarty span is consumed whole before the
+    # non-greedy `.` branch can stop at a quote inside it. Without it,
+    # `class="{if $mode == "wide"}span6{/if}"` ends the value at the inner
+    # `"` and `span6` is never tokenised -- the gate reports green on a real
+    # BS2 grid class (VIM-A15.31). The DIFFERENT-quote spelling
+    # (a Smarty condition comparing against a SINGLE-quoted literal)
+    # already worked, because the
+    # closing-quote test is `\1`, the delimiter that actually opened the
+    # attribute; only the SAME-quote spelling was affected.
+    #
+    # `[^{}]` inside the span, not `.`, keeps the branch non-overlapping and
+    # linear -- no backtracking blowup. It means one level of braces, which
+    # is all Smarty needs here: a nested `{...}` appears in a Smarty MODIFIER
+    # argument, never in a condition wrapping a class list, and the outer
+    # span would simply end early -- degrading to current behaviour, never
+    # worse than it.
+    while (/(?:^|[\s])class\s*=\s*(["\x27])((?:\{[^{}]*\}|.)*?)\1(?=[\s>\/])/gs) {
       my $v = $2;
       $v =~ s/\s+/ /g;
       print "$v\n";
@@ -153,6 +169,9 @@ self_test() {
                 span3">wrapped attribute value, spanning two lines</div>
     <div class="{if $wide}span6{else}span12{/if}">Smarty expression inside the
         attribute value: its inner quotes must not end the scan early</div>
+    <div class="{if $mode == "wide" && $enabled}span6{/if}">a DOUBLE-quoted
+        Smarty string inside a DOUBLE-quoted attribute: the inner quote must
+        not end the value before span6 (VIM-A15.31)</div>
 </div>
 EOF
 
@@ -180,10 +199,13 @@ EOF
   # without proving it is COMPLETE. Pinning the number turns a partial
   # degradation into a visible mismatch.
   #
-  # 9 = one hit per Bootstrap 2 token seeded in the dirty fixture, counting
-  # each token separately where a value carries two (`span4 offset2`).
+  # 10 = one hit per Bootstrap 2 token seeded in the dirty fixture, counting
+  # each token separately where a value carries two (`span4 offset2`). The
+  # tenth is the same-quote Smarty row (VIM-A15.31): before that fix the value
+  # ended at the inner `"` and its span6 was never tokenised, so the count
+  # dropping back to 9 is exactly what a regression there looks like.
   echo "== self-test: negative control, reintroduced Bootstrap 2 grid classes must be caught =="
-  expected_hits=9
+  expected_hits=10
   actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap 2 grid class' || true)
   if [ "$actual_hits" -eq "$expected_hits" ]; then
     echo "  OK: all $expected_hits seeded regressions detected, in both quoting styles"
