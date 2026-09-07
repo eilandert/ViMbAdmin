@@ -56,7 +56,7 @@ check_file() {
     # silently skipping is how an unnamed dialog slips past a green gate.
     # Two tells, both meaning "this line is not a whole opening tag":
     # the tag never opened on this line, or it never closed on it.
-    if ! grep -qP '<[a-zA-Z][a-zA-Z0-9]*[^>]*\sclass=' <<<"$tag" || ! grep -q '>' <<<"$tag"; then
+    if ! grep -qP '<[a-zA-Z][a-zA-Z0-9]*[^>]*\sclass\s*=' <<<"$tag" || ! grep -q '>' <<<"$tag"; then
       echo "  Modal opening tag at $f:$num is split across lines; this gate reads one line at a time and cannot judge it. Keep the opening tag on a single line."
       fail=1
       continue
@@ -68,8 +68,8 @@ check_file() {
     # CHILD element's attributes be credited to the modal, and an unlabelled
     # dialog would pass.
     tag="${tag%%>*}>"
-    id=$(sed -n 's/.*[[:space:]]id=["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
-    label=$(sed -n 's/.*[[:space:]]aria-labelledby=["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
+    id=$(sed -n 's/.*[[:space:]]id[[:space:]]*=[[:space:]]*["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
+    label=$(sed -n 's/.*[[:space:]]aria-labelledby[[:space:]]*=[[:space:]]*["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' <<<"$tag")
 
     if [ -n "$id" ] && grep -qx "$runtime_shell_ids" <<<"$id"; then
       continue
@@ -86,12 +86,12 @@ check_file() {
     # let its metacharacters widen the match: aria-labelledby="title.label"
     # resolved against id="titleXlabel", so a dangling reference passed the very
     # check this gate exists to make.
-    if ! sed -n 's/.*[[:space:]]id=["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' "$f" |
+    if ! sed -n 's/.*[[:space:]]id[[:space:]]*=[[:space:]]*["'"'"']\([^"'"'"']*\)["'"'"'].*/\1/p' "$f" |
       grep -Fqx -- "$label"; then
       echo "  Modal ${id:+#$id }in $f:$num points aria-labelledby at \"$label\", which no element in that file defines"
       fail=1
     fi
-  done < <(grep -nP '(<[a-zA-Z][a-zA-Z0-9]*[^>]*\sclass=["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w]))|(^[^<]*\bclass=["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w]))' "$f" || true)
+  done < <(grep -nP '(<[a-zA-Z][a-zA-Z0-9]*[^>]*\sclass\s*=\s*["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w]))|(^[^<]*\bclass\s*=\s*["'"'"'][^"'"'"']*(?<![-\w])modal(?![-\w]))' "$f" || true)
   return "$fail"
 }
 
@@ -264,6 +264,33 @@ EOF
     status=1
   else
     echo "  OK: non-div modal scanned"
+  fi
+
+  echo "== self-test: whitespace around = must not bypass discovery =="
+  # HTML permits `class = "modal fade"`. Requiring a bare `class=` meant such a
+  # modal never reached check_file at all -- the gate passed without ever having
+  # examined it, which is a bypass rather than a formatting nit.
+  cat >"$tmpdir/wsattr.phtml" <<'EOF'
+<div class = "modal fade" id = "ws" tabindex="-1">
+    <h3 class="modal-title">Unlabelled, spaced attributes</h3>
+</div>
+EOF
+  if scan_files "$tmpdir/wsattr.phtml" >/dev/null 2>&1; then
+    echo "  FAIL: a modal written with whitespace around = bypassed discovery" >&2
+    status=1
+  else
+    echo "  OK: whitespace around = does not bypass discovery"
+  fi
+  cat >"$tmpdir/wsattr-good.phtml" <<'EOF'
+<div class = "modal fade" id = "wsok" aria-labelledby = "wsok_label">
+    <h3 class="modal-title" id = "wsok_label">Labelled, spaced attributes</h3>
+</div>
+EOF
+  if scan_files "$tmpdir/wsattr-good.phtml" >/dev/null 2>&1; then
+    echo "  OK: spaced aria-labelledby and id extracted and resolved"
+  else
+    echo "  FAIL: false positive on a correctly labelled modal with spaced attributes" >&2
+    status=1
   fi
 
   echo "== self-test: a correctly labelled modal must not false-positive =="
