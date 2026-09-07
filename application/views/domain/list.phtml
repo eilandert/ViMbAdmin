@@ -119,7 +119,7 @@
                         {/if}
                         <span class="caret"></span>
                         </{$action.tagName}>
-                        <ul class="dropdown-menu float-end">
+                        <ul class="dropdown-menu dropdown-menu-end">
                         {foreach $action.menu as $item}
                             <li><a {if isset( $item.id)}id="{$item.id|replace:'%id%':$oid}" {/if}href="{$item.url|replace:'%id%':$oid}">{$item.text}</a></li>
                         {/foreach}

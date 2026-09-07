@@ -16,21 +16,41 @@
 #   .label-info            -> .badge text-bg-info
 #   .label-warning         -> .badge text-bg-warning
 #   .btn-mini / .btn-small -> .btn-sm
-#   .pull-right            -> .float-end
-#   .pull-left             -> .float-start
+#   .pull-right            -> .float-end on a plain float target (e.g. a
+#                              `<ul class="nav">`); a `<ul class="dropdown-menu">`
+#                              is positioned by Bootstrap 5's own dropdown JS
+#                              (Popper), not float, so its Bootstrap 5
+#                              alignment class is `.dropdown-menu-end`, not
+#                              `.float-end` -- check which element you have
+#                              before substituting.
+#   .pull-left             -> .float-start (same caveat as pull-right)
 #   .alert-error           -> .alert-danger
 #   .nav-collapse          -> .navbar-collapse
 #   .navbar-inner          -> no successor; restructure (drop the wrapper)
 #
-# Scope: own Smarty templates only, `application/views/**/*.phtml`.
+# Scope: own Smarty templates AND own view-JS that builds markup client-side
+# via string concatenation, since a Bootstrap 2 component class embedded in a
+# JS string literal is exactly as live a regression as one in a .phtml file
+# and is otherwise invisible to a templates-only scan (VIM-A15.19 round 2:
+# `application/views/*/js/*.js` DataTables row-action/mRender builders and
+# `public/js/990-vimbadmin.js`'s dropdown-toggle markup both shipped
+# reintroduced classes that a `*.phtml`-only version of this gate could not
+# see and reported clean over). Concretely:
+# `application/views/**/*.phtml`, `application/views/**/js/*.js`,
+# `public/js/990-vimbadmin.js`.
 #
 # Deliberately NOT scanned:
-#   - public/css/**, public/js/** -- vendored Bootstrap and other third-party
-#     assets legitimately contain these tokens, and the generated
-#     `min.bundle-v*` artifacts are never hand-edited.
-#   - DataTables `sDom` strings in application/views/*/js/*.js. Those encode
-#     `row`/positioning as DataTables domPositioning TOKENS, not CSS classes;
-#     that rewrite is VIM-A15.23's separate work.
+#   - public/css/**, and public/js/** other than 990-vimbadmin.js -- vendored
+#     Bootstrap and other third-party assets legitimately contain these
+#     tokens, and the generated `min.bundle-v*` artifacts are never
+#     hand-edited.
+#   - DataTables `sDom` strings, which live in these SAME view-JS files now
+#     scanned above (e.g. `"sDom": "<'row'<'span6'l>...`). They encode
+#     `row`/`span6`/positioning as DataTables domPositioning TOKENS, not CSS
+#     classes, and only ever appear inside a `"sDom": "..."` value, never a
+#     `class="..."` attribute value -- extract_class_values() only looks at
+#     `class=`/`class =`, so an sDom string is never even a candidate. That
+#     rewrite is VIM-A15.23's separate work regardless.
 #   - Glyphicon `icon-*` classes (VIM-A15.18's separate scope).
 #   - `.alert-error` reachable only through
 #     library/OSS/Smarty/functions/function.OSS_Message.php's `{$class}`
@@ -81,8 +101,21 @@ bs2_tokens_re='^(well|label|label-important|label-success|label-info|label-warni
 # is exactly the tokenisation stage 2 wants anyway.
 extract_class_values() {
   perl -0777 -ne '
-    while (/(?:^|[\s])class\s*=\s*(["\x27])(.*?)\1(?=[\s>\/])/gs) {
+    # View-JS builds `class="..."` markup inside a JS double-quoted string
+    # literal, which escapes the delimiter as `\"` (e.g.
+    # `"<span class=\"btn btn-sm\">"`), so the delimiter itself may be
+    # preceded by a literal backslash (`\\?["\x27]`), and the value may
+    # contain escaped characters (`\\.`). `[^\\"\x27]` (rather than a
+    # negative lookahead re-testing the delimiter character-by-character)
+    # keeps the alternation'"'"'s two branches non-overlapping, which avoids
+    # the catastrophic backtracking a lookahead-based version hit on
+    # application/views/mailbox/js/list.js (VIM-A15.19 round 2) -- own
+    # `class` values never legitimately contain a literal quote character, so
+    # excluding both quote characters from the "ordinary char" branch costs
+    # nothing here.
+    while (/(?:^|[\s])class\s*=\s*(\\?["\x27])((?:\\.|[^\\"\x27])*)\1(?=[\s>\/]|$)/gs) {
       my $v = $2;
+      $v =~ s/\\(.)/$1/g;
       $v =~ s/\s+/ /g;
       print "$v\n";
     }
@@ -238,6 +271,51 @@ EOF
     status=1
   fi
 
+  echo "== self-test: view-JS string-concatenation negative control =="
+  # Own view-JS (application/views/*/js/*.js, public/js/990-vimbadmin.js)
+  # builds row-action and dropdown markup as JS string literals rather than
+  # static template markup. A Bootstrap 2 component class inside one of those
+  # string literals is exactly as live a regression as one in a .phtml file,
+  # so it must be caught the same way -- in both single- and double-quoted JS
+  # string styles, and inside a `+`-concatenated multi-line build-up. This is
+  # the exact shape that a `*.phtml`-only version of this scan missed
+  # (VIM-A15.19 round 2).
+  local jsdirty="$tmpdir/dirty-list.js"
+  cat >"$jsdirty" <<'EOF'
+str += '<button class="btn btn-mini have-tooltip" id="repair_' + id + '">\
+        <i class="icon-wrench"></i></button>';
+str += "<span class=\"btn btn-small\">" + label + "</span>";
+elcode += '<ul class="dropdown-menu pull-right">';
+row.badge = ( row.active == 1 ) ? '<span class="label label-success">Yes</span>' : '<span class="label">No</span>';
+EOF
+  echo "== self-test: view-JS negative control, seeded classes must be caught =="
+  # 6 seeded hits: btn-mini, btn-small, pull-right, label-success, label
+  # (bare, from label label-success), label (bare, from the lone "No" span) =
+  # 6.
+  local js_expected_hits=6 js_actual_hits
+  js_actual_hits=$(scan_files "$jsdirty" | grep -c 'Bootstrap 2 component class' || true)
+  if [ "$js_actual_hits" -eq "$js_expected_hits" ]; then
+    echo "  OK: all $js_expected_hits seeded view-JS regressions detected, in both quoting styles"
+  else
+    echo "  FAIL: expected $js_expected_hits hits in $jsdirty, got $js_actual_hits" >&2
+    status=1
+  fi
+
+  local jsclean="$tmpdir/clean-list.js"
+  cat >"$jsclean" <<'EOF'
+str += '<button class="btn btn-sm have-tooltip" id="repair_' + id + '">\
+        <i class="icon-wrench"></i></button>';
+str += "<span class=\"btn btn-sm\">" + label + "</span>";
+elcode += '<ul class="dropdown-menu dropdown-menu-end">';
+row.badge = ( row.active == 1 ) ? '<span class="badge text-bg-success">Yes</span>' : '<span class="badge text-bg-secondary">No</span>';
+EOF
+  if scan_files "$jsclean" >/dev/null 2>&1; then
+    echo "  OK: Bootstrap 5 view-JS reported no Bootstrap 2 component classes"
+  else
+    echo "  FAIL: scan reported a false positive on Bootstrap 5 view-JS" >&2
+    status=1
+  fi
+
   return "$status"
 }
 
@@ -249,7 +327,14 @@ if ! self_test; then
 fi
 
 shopt -s nullglob globstar
-files=(application/views/**/*.phtml)
+# View-JS builds table-row markup client-side via string concatenation
+# (application/views/*/js/*.js) and public/js/990-vimbadmin.js emits the
+# shared dropdown-toggle/message markup -- both are as much an "own template"
+# as the .phtml files for this scan's purposes, and both have already shipped
+# reintroduced Bootstrap 2 component classes that a .phtml-only scan cannot
+# see (VIM-A15.19 round 2: btn-mini/pull-right/label survived undetected in
+# application/views/*/js/*.js and public/js/990-vimbadmin.js).
+files=(application/views/**/*.phtml application/views/**/js/*.js public/js/990-vimbadmin.js)
 
 if [ "${#files[@]}" -eq 0 ]; then
   echo "  -> Own template inventory is empty." >&2

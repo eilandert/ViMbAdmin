@@ -173,13 +173,13 @@ function formatActive( id, active )
     var active_msg = active ? 'Yes': 'No';
     return '<div id="throb-toggle-active-' + id + '" style="float: right;"></div>'
         + '<span id="toggle-active-' + id + '" '
-        + 'data-toggle-active="' + id + '" class="btn btn-mini btn-' + active_class + '">' 
+        + 'data-toggle-active="' + id + '" class="btn btn-sm btn-' + active_class + '">' 
         + active_msg + '</span>';
 }
 
 function formatMailboxes( id, mailboxes, maxmailboxes )
 {
-    var str = '<a class="btn btn-mini have-tooltip" id="add_mailbox_' + id + '" title="Add Mailbox" href="{genUrl controller="mailbox" action="add"}/did/' + id + '">\
+    var str = '<a class="btn btn-sm have-tooltip" id="add_mailbox_' + id + '" title="Add Mailbox" href="{genUrl controller="mailbox" action="add"}/did/' + id + '">\
         <i class="icon-plus"></i>\
     </a>&nbsp;&nbsp;\
     <a class="ul" href="{genUrl controller="mailbox" action="list"}/did/' + id + '">' + mailboxes;
@@ -191,7 +191,7 @@ function formatMailboxes( id, mailboxes, maxmailboxes )
 
 function formatAliases( id, aliases, maxaliases )
 {
-    var str = '<a class="btn btn-mini have-tooltip" id="add_alias_' + id + '" title="Add Alias" href="{genUrl controller="alias" action="add"}/did/' + id + '">\
+    var str = '<a class="btn btn-sm have-tooltip" id="add_alias_' + id + '" title="Add Alias" href="{genUrl controller="alias" action="add"}/did/' + id + '">\
         <i class="icon-plus"></i>\
     </a>&nbsp;&nbsp;\
     <a class="ul" href="{genUrl controller="aliases" action="list"}/did/' + id + '">' + aliases;
@@ -208,7 +208,7 @@ function formatControlls( id, name )
     var href = "";       
                     
     var str = '<div class="btn-group">\
-            <a class="btn btn-mini have-tooltip" id="edit_domain_' + id + '" title="Edit" href="{genUrl controller="domain" action="edit"}/did/' + id + '">\
+            <a class="btn btn-sm have-tooltip" id="edit_domain_' + id + '" title="Edit" href="{genUrl controller="domain" action="edit"}/did/' + id + '">\
                 <i class="icon-pencil"></i>\
             </a>';
     {if isset( $domain_actions ) }
@@ -235,17 +235,17 @@ function formatControlls( id, name )
     {/if}
      
     {if $user->isSuper()}
-        str += '<a class="btn btn-mini have-tooltip" id="domain_admins_' + id + '" title="Administrators" href="{genUrl controller="domain" action="admins"}/did/' + id + '">\
+        str += '<a class="btn btn-sm have-tooltip" id="domain_admins_' + id + '" title="Administrators" href="{genUrl controller="domain" action="admins"}/did/' + id + '">\
             <i class="icon-user"></i>\
         </a>';
     {/if}
             
-    str += '<a class="btn btn-mini have-tooltip" id="domain_logs_' + id + '" title="Logs" href="{genUrl controller="log" action="list"}/did/' + id + '">\
+    str += '<a class="btn btn-sm have-tooltip" id="domain_logs_' + id + '" title="Logs" href="{genUrl controller="log" action="list"}/did/' + id + '">\
                 <i class="icon-align-justify"></i>\
             </a>';
             
      {if $user->isSuper()}
-        str += '<span  class="btn btn-mini have-tooltip"  id="purge-domain-' + id + '" title="Purge" data-purge-domain="' + id + '" data-domain-name="' + htmlAttr( name ) + '">\
+        str += '<span  class="btn btn-sm have-tooltip"  id="purge-domain-' + id + '" title="Purge" data-purge-domain="' + id + '" data-domain-name="' + htmlAttr( name ) + '">\
             <i class="icon-trash"></i>\
         </span>';
     {/if}
@@ -267,7 +267,7 @@ function formatControlls( id, name )
         {/if}
         str += '<span class="caret"></span>\
         </{$action.tagName}>\
-        <ul class="dropdown-menu pull-right">';
+        <ul class="dropdown-menu dropdown-menu-end">';
         {foreach $action.menu as $item}
             str += '<li><a ';
             {if isset( $item.id)}

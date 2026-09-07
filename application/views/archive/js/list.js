@@ -37,8 +37,8 @@ $(document).ready( function()
             { 'mData': 'domain', 'mRender': $.fn.dataTable.render.text() },
             { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return row.maildir_size ? vmArchiveBytes( row.maildir_size ) : '&mdash;'; } },
             { 'mData': 'archived_at', 'mRender': function( d ){ return d ? vmArchiveEsc( d ) : '&mdash;'; } },
-            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return ( row.user_exists == 1 ) ? '<span class="label label-success">Yes</span>' : '<span class="label">No</span>'; } },
-            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return row.autoprune ? '<span class="label label-warning">On</span>' : '<span class="label">Off</span>'; } },
+            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return ( row.user_exists == 1 ) ? '<span class="badge text-bg-success">Yes</span>' : '<span class="badge text-bg-secondary">No</span>'; } },
+            { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return row.autoprune ? '<span class="badge text-bg-warning">On</span>' : '<span class="badge text-bg-secondary">Off</span>'; } },
             { 'mData': null, 'bSortable': false, 'mRender': function( d, t, row ){ return formatArchiveControls( row ); } }
         ]
     });
@@ -109,7 +109,7 @@ function formatArchiveControls( row )
              + ' data-confirm="Restore ' + jsName + '? Recreates the mailbox if it was deleted, syncs the backed-up mail back, then removes the backup.">'
              + '<input type="hidden" name="arid" value="' + id + '" />'
              + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
-             + '<button class="btn btn-mini have-tooltip" id="restore-archive-' + id + '" title="Restore mail back into the mailbox" type="submit">'
+             + '<button class="btn btn-sm have-tooltip" id="restore-archive-' + id + '" title="Restore mail back into the mailbox" type="submit">'
              + '<i class="icon-retweet"></i></button></form>';
 
     if( $.inArray( row.status, archiveAllowDelete ) != -1 )
@@ -117,7 +117,7 @@ function formatArchiveControls( row )
              + ' data-confirm="Permanently delete the backup for ' + jsName + '? This removes the /backups maildir and cannot be undone.">'
              + '<input type="hidden" name="arid" value="' + id + '" />'
              + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
-             + '<button class="btn btn-mini btn-danger have-tooltip" id="delete-archive-' + id + '" title="Delete backup permanently" type="submit">'
+             + '<button class="btn btn-sm btn-danger have-tooltip" id="delete-archive-' + id + '" title="Delete backup permanently" type="submit">'
              + '<i class="icon-trash"></i></button></form>';
 
     if( row.autoprune )
@@ -125,14 +125,14 @@ function formatArchiveControls( row )
              + ' data-confirm="Disable autoprune for ' + jsName + '? Its backup will no longer expire automatically.">'
              + '<input type="hidden" name="arid" value="' + id + '" />'
              + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
-             + '<button class="btn btn-mini have-tooltip" id="autoprune-archive-' + id + '" title="Disable autoprune" type="submit">'
+             + '<button class="btn btn-sm have-tooltip" id="autoprune-archive-' + id + '" title="Disable autoprune" type="submit">'
              + '<i class="icon-off"></i></button></form>';
     else
         str += '<form method="post" action="{genUrl controller="archive" action="toggle-autoprune"}" class="archive-action-form" style="display: inline;"'
              + ' data-confirm="Enable autoprune for ' + jsName + '? This resets its archived date to now, so the prune window restarts.">'
              + '<input type="hidden" name="arid" value="' + id + '" />'
              + '<input type="hidden" name="csrf" value="{$csrfToken}" />'
-             + '<button class="btn btn-mini btn-warning have-tooltip" id="autoprune-archive-' + id + '" title="Enable autoprune (resets archived date to now)" type="submit">'
+             + '<button class="btn btn-sm btn-warning have-tooltip" id="autoprune-archive-' + id + '" title="Enable autoprune (resets archived date to now)" type="submit">'
              + '<i class="icon-time"></i></button></form>';
 
     str += '</div>';

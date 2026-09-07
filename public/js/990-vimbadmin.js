@@ -455,7 +455,7 @@ function ossDropdown( index ){
     var label = $( this ).find(":selected").text();
 
     var elcode = "<span class=\"btn-group\">";
-    elcode += "<a href=\"#\" class=\"btn btn-mini dropdown-toggle";
+    elcode += "<a href=\"#\" class=\"btn btn-sm dropdown-toggle";
     if( $( this ).prop( "disabled" ) )
         elcode += " disabled";
     elcode += "\" style=\"width: " + width + "px; min-height:26px; \" id=\"drop-dwn-" + id + "\" data-toggle=\"dropdown\" >";
