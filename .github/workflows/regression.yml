@@ -98,6 +98,12 @@ jobs:
           CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
           bash tests/test-jquery-migrate-compat.sh
 
+      - name: Migrated Bootstrap 5 controls operate in a browser (VIM-A15.25)
+        run: >-
+          PHP_RENDERER="$GITHUB_WORKSPACE/.github/scripts/run-static-php-container.sh"
+          CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
+          bash tests/test-control-behaviour-rendering.sh
+
   # ------------------------------------------------------------------ #
   # Framework-free service unit tests (Phase 1 of docs/ZF1-REMOVAL.md).#
   # No DB: the services depend on the minimal ObjectManager port and   #
