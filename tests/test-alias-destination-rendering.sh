@@ -16,8 +16,8 @@ fi
 tmp="$(mktemp -d /tmp/vimbadmin-alias-destination.XXXXXX)"
 trap 'rm -rf "$tmp"' EXIT
 
-cp public/js/min.bundle-v20.js "$tmp/min.bundle-v20.js"
-bundle_uri="file://$tmp/min.bundle-v20.js"
+cp public/js/min.bundle-v21.js "$tmp/min.bundle-v21.js"
+bundle_uri="file://$tmp/min.bundle-v21.js"
 if [[ -n ${PHP_RENDERER:-} ]]; then
   PHP_CONTAINER_WRITE_DIR=$tmp \
     "$PHP_RENDERER" tests/render-alias-list-fixture.php \

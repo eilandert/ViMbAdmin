@@ -366,7 +366,7 @@ function ossAddMessage( msg, type, handled )
     }
     else if( $('.page-content').length )
     {
-        $('.page-header').after( msgbox );
+        $('.page-content').prepend( msgbox );
 
     }
     else if( $( ".container" ).length )

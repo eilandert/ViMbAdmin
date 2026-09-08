@@ -19,6 +19,10 @@
 #                  alert with data-bs-dismiss="alert"; Bootstrap 5's own Alert
 #                  component (enableDismissTrigger, public/js/800-bootstrap.js)
 #                  must actually remove it on click.
+#   3. alert-page-header-fallback -- ossAddMessage()'s .page-content branch
+#                  (VIM-A15.53) must still insert the alert when .page-header
+#                  is absent, instead of silently discarding it via .after()
+#                  on an empty jQuery set.
 #
 # DELIBERATELY EXEMPT -- dropdown and tab.
 #
@@ -204,10 +208,45 @@ $(function () {
         }, 400);
     }
 
+    function assertAlertLandsWithoutPageHeader(done) {
+        // VIM-A15.53: ossAddMessage()'s .page-content branch tested
+        // $('.page-content').length but inserted relative to
+        // $('.page-header'), which the PRECEDING branch already proved is
+        // absent on this path -- .after() ran on an empty jQuery set and the
+        // alert was silently discarded. Every real page ships .page-header
+        // alongside .page-content (see application/views/*/list.phtml etc.),
+        // so this branch is only reachable by removing .page-header here,
+        // same as the production condition the buggy branch claimed to
+        // handle.
+        var pageHeader = document.querySelector('.page-header');
+        var pageContent = document.querySelector('.page-content');
+        if (!pageHeader || !pageContent) {
+            failures.push('page-header-fallback: fixture page is missing .page-header or .page-content to begin with');
+            return done();
+        }
+        pageHeader.parentNode.removeChild(pageHeader);
+
+        if (document.querySelector('.page-header')) {
+            failures.push('page-header-fallback: .page-header still present after removal -- fixture setup is broken');
+            return done();
+        }
+
+        var before = pageContent.querySelectorAll('.alert').length;
+        ossAddMessage('control-behaviour regression alert (no page-header)', 'warning', false);
+        var after = pageContent.querySelectorAll('.alert').length;
+        if (after !== before + 1) {
+            failures.push('page-header-fallback: ossAddMessage() did not insert its alert inside .page-content when .page-header was absent (before=' +
+                before + ' after=' + after + ')');
+        }
+        done();
+    }
+
     assertModalOperates(function () {
         assertAlertDismissOperates(function () {
-            document.body.dataset.testResult = failures.length === 0 ? 'pass' : 'fail';
-            document.body.dataset.testFailures = failures.join('; ');
+            assertAlertLandsWithoutPageHeader(function () {
+                document.body.dataset.testResult = failures.length === 0 ? 'pass' : 'fail';
+                document.body.dataset.testFailures = failures.join('; ');
+            });
         });
     });
 });
@@ -229,4 +268,4 @@ if ! grep -q 'data-test-result="pass"' "$tmp/rendered.html"; then
   exit 1
 fi
 
-echo "OK: rendered alias/list.phtml carries no Bootstrap 2 class, and the modal and alert-dismiss controls both operate"
+echo "OK: rendered alias/list.phtml carries no Bootstrap 2 class, and the modal, alert-dismiss and alert-page-header-fallback controls all operate"
