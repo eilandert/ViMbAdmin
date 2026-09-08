@@ -29,13 +29,22 @@
 #
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+# Resolve this script's own directory to an ABSOLUTE path BEFORE any `cd`.
+# `$0` is relative when the gate is invoked as `bash lint-bs2-grid-classes.sh`
+# from inside tests/, so `$(dirname "$0")` re-resolves against whatever the cwd
+# is at the moment it is evaluated -- after the `cd` below it would mean the
+# repo root, not tests/. Resolving once, up front, is what makes the gate work
+# from any cwd. (VIM-A15.31 follow-up: this is the same silent-wrong-path class
+# the shared lexer exists to remove, so the gates must not reintroduce it.)
+script_dir=$(unset CDPATH; cd -- "$(dirname -- "$0")" && pwd)
+
+cd "$script_dir/.."
 
 # Shared Smarty-aware value scanner (VIM-A15.31/.42). Sourced, not registered
 # as its own gate: it is a library, and its behaviour is asserted through the
 # self-test below.
 # shellcheck source=tests/support/smarty-lexer.sh
-source "$(dirname "$0")/support/smarty-lexer.sh"
+source "$script_dir/support/smarty-lexer.sh"
 
 # The JS object keys whose value must never be a bare {$var} emit.
 GUARDED_KEYS='source|data|aaData|aoColumns|columns'
