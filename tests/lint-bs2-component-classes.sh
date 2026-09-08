@@ -72,6 +72,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Shared Smarty-aware value scanner (VIM-A15.31/.42). Sourced, not registered
+# as its own gate: it is a library, and its behaviour is asserted through this
+# gate's self-test below.
+# shellcheck source=tests/support/smarty-lexer.sh
+source "$(dirname "$0")/support/smarty-lexer.sh"
+
 # `**` needs globstar, a bash 4+ feature; see lint-bs2-grid-classes.sh for the
 # same refusal-over-silent-partial-scan rationale.
 if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ]; then
@@ -99,34 +105,16 @@ bs2_tokens_re='^(well|label|label-important|label-success|label-info|label-warni
 # Prints one line per class attribute value found, as `<value>`. A value that
 # wrapped across lines is printed with its newlines collapsed to spaces, which
 # is exactly the tokenisation stage 2 wants anyway.
+#
+# The scanning is delegated to the shared Smarty-aware lexer in
+# tests/support/smarty-lexer.sh. It used to be a single regex here, and that
+# regex was defeated by five different Smarty spellings across four PR review
+# rounds (VIM-A15.31); read the lexer's header for the list and for why a lexer
+# rather than a sixth alternation branch. The view-JS escaped-delimiter form
+# (`"<span class=\"btn\">"`) is handled there too, so this gate's VIM-A15.19
+# view-JS coverage is unchanged.
 extract_class_values() {
-  perl -0777 -ne '
-    # View-JS builds `class="..."` markup inside a JS double-quoted string
-    # literal, which escapes the delimiter as `\"` (e.g.
-    # `"<span class=\"btn btn-sm\">"`), so the delimiter itself may be
-    # preceded by a literal backslash (`\\?["\x27]`), and the value may
-    # contain escaped characters (`\\.`).
-    #
-    # The "ordinary char" branch excludes ONLY the delimiter that actually
-    # opened this attribute (captured as $1 and back-referenced via the
-    # (?!\1) guard), not both quote characters. Excluding both would drop a
-    # Smarty condition that legitimately embeds the OTHER quote, e.g.
-    # `class="{if $x == 'bad'}alert-error{/if}"` -- the value there contains
-    # single quotes inside a double-quoted attribute, and the old
-    # `[^\\"\x27]` branch truncated it before `alert-error`, so the gate
-    # reported green on a real regression (VIM-A15.19 round 3, caught by
-    # review). The guard is a single-character negative lookahead, NOT a
-    # re-test of the whole delimiter run, so the two branches stay
-    # non-overlapping and this does not reintroduce the catastrophic
-    # backtracking a naive lookahead hit on
-    # application/views/mailbox/js/list.js in round 2.
-    while (/(?:^|[\s])class\s*=\s*(\\?)(["\x27])((?:(?!\1\2)(?:\\.|[^\\]))*)\1\2(?=[\s>\/]|$)/gs) {
-      my $v = $3;
-      $v =~ s/\\(.)/$1/g;
-      $v =~ s/\s+/ /g;
-      print "$v\n";
-    }
-  ' "$1"
+  smarty_extract_attr_values "$1" class
 }
 
 # scan_files: extract every class attribute value from the given files and
@@ -213,6 +201,20 @@ self_test() {
     string literal uses the OTHER quote character. The extractor must exclude
     only the delimiter that opened this attribute, or it truncates the value at
     the apostrophe and never sees alert-error (VIM-A15.19 round 3).</div>
+<div class="{if $mode == "wide" }label-success{/if}">a DOUBLE-quoted Smarty
+    string inside a DOUBLE-quoted attribute: the inner quote must not end the
+    value before label-success (VIM-A15.31 case 1)</div>
+<div class="{if $mode == '{'}label-success{/if}">a Smarty string literal whose
+    CONTENT is a brace (VIM-A15.31 case 3)</div>
+<div class="{if $name == 'O\'Brien'}label-info{/if}">a Smarty string literal
+    containing an ESCAPED quote (VIM-A15.31 case 4)</div>
+<div class="{* user's note *}label-warning">a Smarty COMMENT containing an
+    apostrophe: its body is not Smarty syntax (VIM-A15.31 case 5)</div>
+<div class="{if $mode == '}"'}btn-mini{/if}">a Smarty string carrying BOTH a
+    closing brace and the attribute's own delimiter (VIM-A15.31 case 3)</div>
+<div class="{if $m == "a" && $n == "b"}well{/if}">TWO same-quote Smarty string
+    pairs -- the one input that defeated BOTH gates end-to-end on master
+    (VIM-A15.31 case 1b)</div>
 EOF
 
   cat >"$clean" <<'EOF'
@@ -246,8 +248,12 @@ EOF
   # label, btn-mini, btn-small, pull-right, pull-left, alert-error,
   # nav-collapse, navbar-inner) + 4 label-variant rows x 2 hits (8) + 2 hits
   # inside the trailing Smarty {if}/{else} expression (well, navbar-inner)
-  # = 10 + 8 + 2 = 20.
-  expected_hits=21
+  # = 10 + 8 + 2 = 20, plus one previously-counted row = 21, plus the four
+  # VIM-A15.31 Smarty spellings seeded below (cases 1, 3, 4 and 5, one guarded
+  # class each) = 25. The per-case value assertions below are the control that
+  # actually pins those four; this total is the coarser "nothing else moved"
+  # check.
+  expected_hits=27
   actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap 2 component class' || true)
   if [ "$actual_hits" -eq "$expected_hits" ]; then
     echo "  OK: all $expected_hits seeded regressions detected, in both quoting styles"
@@ -255,6 +261,45 @@ EOF
     echo "  FAIL: expected $expected_hits hits in $dirty, got $actual_hits" >&2
     status=1
   fi
+
+
+  # Per-case assertion for the four VIM-A15.31 Smarty spellings, on the
+  # EXTRACTED VALUE rather than on the hit count. The count alone is not a
+  # sufficient control here: when one of these cases regresses, the value's
+  # closing delimiter is missed and the row MERGES with the next one, which can
+  # leave the total unchanged (measured -- disabling the string-escape branch
+  # did exactly that in this gate). Requiring each case to come back as its own
+  # value, ending where it should, is what makes all four independently
+  # load-bearing.
+  echo "== self-test: each VIM-A15.31 Smarty spelling must be extracted as its own value =="
+  local case_entry case_desc case_value
+  # SC2016: the `$mode`/`$name` here are LITERAL Smarty source text in the
+  # expected value, not shell expansions -- single quotes are correct.
+  # shellcheck disable=SC2016
+  local -a a1531_cases=(
+    'case 1, same-quote Smarty literal|{if $mode == "wide" }label-success{/if}'
+    'case 1b, two same-quote Smarty pairs|{if $m == "a" && $n == "b"}well{/if}'
+    "case 3, brace inside a Smarty string|{if \$mode == '{'}label-success{/if}"
+    "case 3b, string carrying a brace AND the delimiter|{if \$mode == '}\"'}btn-mini{/if}"
+    "case 4, escaped quote in a Smarty string|{if \$name == 'O'Brien'}label-info{/if}"
+    "case 5, Smarty comment containing an apostrophe|{* user's note *}label-warning"
+  )
+  for case_entry in "${a1531_cases[@]}"; do
+    case_desc="${case_entry%%|*}"
+    case_value="${case_entry##*|}"
+    # -F: the expected value contains regex metacharacters ({ } $ * . ') and is
+    # compared as literal text, never interpolated into a pattern.
+    # -x: the whole extracted value must equal this, so a value that swallowed
+    # the following fixture row (the merge failure above) does NOT match.
+    if extract_class_values "$dirty" | grep -qxF "$case_value"; then
+      echo "  OK: $case_desc"
+    else
+      echo "  FAIL: $case_desc -- value not extracted whole" >&2
+      echo "        expected exactly: $case_value" >&2
+      status=1
+    fi
+  done
+
 
   echo "== self-test: Bootstrap 5 markup must not false-positive =="
   if scan_files "$clean" >/dev/null 2>&1; then
