@@ -221,7 +221,7 @@ function ossToggle( e, Url, data, delElement )
             $( '#throb-' + e.attr( 'id' ) ).html( "" );
 
             e.on( 'click', function( event ){
-                ossToggle( e, Url, data );
+                ossToggle( e, Url, data, delElement );
             });
 
             if( delElement && ok ) {

@@ -94,7 +94,7 @@ jQuery.fn.alert = function () { return this; };
 <div id="tab_errplug"><span class="error">bad plugin</span></div>
 
 <script>
-var results = { toggleRan: false, toggleDelRemoved: null, undefinedCallSeen: false, alertMessage: null, alertCallbackRan: false, pluginTabClass: null, failedToggleDelSurvived: null };
+var results = { toggleRan: false, toggleDelRemoved: null, undefinedCallSeen: false, alertMessage: null, alertCallbackRan: false, pluginTabClass: null, failedToggleDelSurvived: null, retriedToggleDelRemoved: null };
 
 $(function () {
     var failures = [];
@@ -175,6 +175,20 @@ $(function () {
         var failTarget = wrappedJQuery('#toggle-target-fail');
         ossToggle(failTarget, '/x', {}, '#del-target-fail');
         results.failedToggleDelSurvived = document.getElementById('del-target-fail') !== null;
+
+        // The failure path rebinds a click handler for the user's retry. If
+        // that rebound handler drops delElement, a later SUCCESSFUL retry
+        // toggles the state but leaves the row on the page forever -- the
+        // mirror-image defect of the one fixed above. Retry through the real
+        // rebound handler (not another direct ossToggle call) with a
+        // succeeding request, and require the row to be gone.
+        wrappedJQuery.ajax = function (opts) {
+            opts.success('ok');
+            opts.complete();
+            return xhr;
+        };
+        failTarget.trigger('click');
+        results.retriedToggleDelRemoved = document.getElementById('del-target-fail') === null;
     } catch (e) {
         failures.push('ossToggle with failed request threw: ' + e);
     } finally {
@@ -210,6 +224,7 @@ $(function () {
     if (results.toggleDelRemoved !== true) failures.push('ossToggle left the toggle button in a bad state with delElement omitted');
     if (results.undefinedCallSeen) failures.push('ossToggle called $(undefined) even though delElement was omitted -- the guard is not gating anything');
     if (results.failedToggleDelSurvived !== true) failures.push('ossToggle removed delElement even though the request failed -- the row vanished from the page while the server still has it');
+    if (results.retriedToggleDelRemoved !== true) failures.push('a successful retry after a failed ossToggle left delElement on the page -- the rebound click handler dropped delElement');
     if (results.alertMessage !== 'Delete failed, contact support') {
         failures.push('bootbox.alert did not surface its message via window.alert when Modal was unavailable: got ' + JSON.stringify(results.alertMessage));
     }
@@ -247,4 +262,5 @@ echo "ok   ossToggle with delElement omitted runs cleanly (VIM-A15.43)"
 echo "ok   addPluginTab emits text-danger, not text-error (VIM-A15.44)"
 echo "ok   bootbox.alert surfaces its message when Modal is unavailable (VIM-A15.47)"
 echo "ok   ossToggle leaves delElement in place when the request fails (VIM-A15.49)"
+echo "ok   a successful retry after a failed ossToggle removes delElement (VIM-A15.49)"
 echo "ALL PASSED"
