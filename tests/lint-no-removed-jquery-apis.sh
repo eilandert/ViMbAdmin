@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 #
-# jQuery 4.0 removed a batch of long-deprecated APIs. This project ships
-# jQuery 3.7.1 today (VIM-A15 phase 3), and own code is kept clear of these
-# APIs ahead of the eventual jQuery 4-safe baseline so the removal never has
-# to be a big-bang rewrite.
+# jQuery 4.0 removed a batch of long-deprecated APIs. This project shipped
+# jQuery 4.0.0 as of VIM-A15.29; own code is kept clear of these APIs so a
+# future jQuery upgrade never has to be a big-bang rewrite.
 #
 # Scope: own (non-vendor) JS only.
 #   - application/views/*/js/*.js   (view-specific behaviour)

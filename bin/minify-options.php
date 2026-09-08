@@ -139,19 +139,14 @@ $http_js = '{genUrl}/js';
 //
 // For Smarty, the follow works so long as you set $config.use_minified_js
 
-// jQuery Migrate (public/js/jquery-migrate-3.5.2.js) is deliberately named
-// without an NNN- prefix so it falls OUTSIDE the $js_files glob above: it must
-// never ship in the production bundle, only ever load in dev so every
-// deprecation warning surfaces there. Since the glob can't express that, the
-// dev-only <script> row for it is hand-appended after the glob-generated rows
-// here, so each bin/minify-bundle.php regeneration reproduces it rather than
-// dropping it. It only needs to load before any code *calls* a shimmed API at runtime
-// (event handlers etc.), not immediately after jquery.js itself, so appending
-// it last (after every other dev-mode <script> row) is safe.
+// jQuery Migrate (public/js/jquery-migrate-3.5.2.js) used to be hand-appended
+// here as a dev-only <script> row after the glob-generated rows, so it loaded
+// in development but never shipped in the production bundle. jQuery was
+// upgraded to 4.0.0 (VIM-A15.29) and the Migrate shim, written for the 1.9-3.x
+// upgrade path, was deleted along with it -- there is nothing left to hand-append.
 $mini_js_conditional_if   = '{if isset( $config.use_minified_js ) and $config.use_minified_js}';
 $mini_js_conditional_else = '{else}';
-$mini_js_conditional_end  = '    <script type="text/javascript" src="' . $http_js . '/jquery-migrate-3.5.2.js"></script>
-{/if}';
+$mini_js_conditional_end  = '{/if}';
 
 //
 // set the following to false to not use this functionality and maintain it yourself

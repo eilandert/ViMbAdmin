@@ -10,11 +10,11 @@
  *
  * That is not a hypothetical: Chosen and Colorbox were removed from the
  * application in PR #180 (no `<script>`/`<link>` row, no `.chosen(` call site,
- * no `chzn-*` markup) but their files are still on disk because
- * `tests/test-jquery-migrate-compat.sh` drives them in its development lane.
- * The glob matched them anyway, so every regeneration re-shipped both libraries
- * to production AND rewrote `application/views/header-js.phtml` /
- * `header-css.phtml` from the glob, silently reverting PR #180.
+ * no `chzn-*` markup) but their files are still on disk, retained-but-unused
+ * pending removal. The glob matched them anyway, so every regeneration
+ * re-shipped both libraries to production AND rewrote
+ * `application/views/header-js.phtml` / `header-css.phtml` from the glob,
+ * silently reverting PR #180.
  *
  * The fix is this file: the bundle inputs are enumerated here, in the
  * repository, where a reviewer can see them in a diff. `bin/minify-bundle.php`
@@ -40,11 +40,6 @@ return [
 
     // Shipped in public/js/min.bundle-v<N>.js and listed in the {else} branch
     // of application/views/header-js.phtml.
-    //
-    // public/js/jquery-migrate-3.5.2.js is deliberately absent: it has no
-    // NNN- prefix, must never reach production, and its development-only
-    // <script> row is appended by $mini_js_conditional_end in
-    // bin/minify-options.php.
     'js' => [
         '100-jquery.js',
         '120-jquery.validate.js',
@@ -73,9 +68,9 @@ return [
 
     // Present in public/js and public/css, matched by the retired glob, and
     // deliberately NOT bundled. They are dead in the application (PR #180) and
-    // are kept on disk only because tests/test-jquery-migrate-compat.sh loads
-    // them directly in its development lane to prove the on-disk libraries stay
-    // jQuery-Migrate clean.
+    // are retained-but-unused vendor files on disk pending removal;
+    // tests/test-jquery-migrate-compat.sh no longer loads or asserts them --
+    // see its header comment for what coverage was dropped and why.
     //
     // These are enumerated rather than merely omitted so bin/minify-bundle.php
     // can tell "deliberately excluded" from "someone forgot to list it" and
