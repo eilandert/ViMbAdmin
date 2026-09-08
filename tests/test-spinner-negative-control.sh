@@ -1,51 +1,52 @@
 #!/bin/bash
-# Negative control: Verify that if we break the spinner replacement, the tests fail
+# Negative control: mutating the spinner wrapper must turn the spinner
+# replacement suite RED. A control that stays green under mutation proves
+# nothing, so the oracle here is the suite's exit status, not its output text.
 
 set -e
 
 PROJECT_ROOT="$(cd "$(dirname "$0")" && cd .. && pwd)"
 cd "$PROJECT_ROOT"
 
-# Create a backup of the wrapper function
-TEST_FILE="public/js/990-vimbadmin.js"
-BACKUP="${TEST_FILE}.backup"
-cp "$TEST_FILE" "$BACKUP"
-trap "mv '$BACKUP' '$TEST_FILE'" EXIT
+SOURCE_FILE="public/js/990-vimbadmin.js"
+SUITE="tests/test-spinner-replacement.php"
 
-echo "Running negative control: mutating wrapper function..."
+# Mutate a copy, never the tracked source: an abnormal exit must not be able
+# to leave a broken working tree behind.
+WORKDIR="$(mktemp -d)"
+trap 'rm -rf "$WORKDIR"' EXIT
 
-# Mutate the source: remove the spinner-border class creation to simulate the old code
-# This breaks the replacement logic
-sed -i "s/\.addClass('spinner-border')/\.addClass('OLD_THROBBER_BROKEN')/" "$TEST_FILE"
+cp -a "$PROJECT_ROOT/." "$WORKDIR/"
+cd "$WORKDIR"
 
-# Try to run the test - it should FAIL because we broke the code
-if php -r "
-require_once 'tests/test-spinner-replacement.php';
-\$test = new Test_SpinnerReplacement();
-try {
-    \$test->test_throbber_library_removed();
-    echo 'FAIL: test should have caught the mutation';
-    exit(1);
-} catch (Exception \$e) {
-    echo 'FAIL: test threw exception unexpectedly';
-    exit(1);
-}
-" 2>&1 | grep -q "FAIL\|FAIL"; then
-    echo "Negative control FAILED (as expected) - mutation was not detected"
+# Baseline: the suite must pass on the unmutated tree, otherwise a red result
+# after mutation would prove nothing about the mutation.
+echo "Baseline: running suite against unmutated source..."
+if ! php "$SUITE" > /dev/null 2>&1; then
+    echo "FAIL: suite is already red before mutation; control is inconclusive" >&2
+    exit 1
+fi
+echo "  OK: suite is green before mutation"
+
+# Mutation: break the Bootstrap spinner class the wrapper depends on.
+echo "Mutating $SOURCE_FILE ..."
+perl -pi -e "s/spinner-border/OLD_THROBBER_BROKEN/g" "$SOURCE_FILE"
+
+if ! grep -q 'OLD_THROBBER_BROKEN' "$SOURCE_FILE"; then
+    echo "FAIL: mutation did not apply; the pattern no longer matches the source" >&2
     exit 1
 fi
 
-# Restore original
-mv "$BACKUP" "$TEST_FILE"
+echo "Running suite against mutated source (it must fail)..."
+set +e
+php "$SUITE" > /dev/null 2>&1
+mutated_status=$?
+set -e
 
-# Now verify the test passes with the correct code
-echo "Verifying test passes with correct implementation..."
+if [[ $mutated_status -eq 0 ]]; then
+    echo "FAIL: negative control - the suite passed on mutated source" >&2
+    exit 1
+fi
 
-php -r "
-require_once 'tests/test-spinner-replacement.php';
-\$test = new Test_SpinnerReplacement();
-\$test->test_throbber_library_removed();
-echo 'Negative control PASSED - correct code passes the test';
-" 2>&1
-
+echo "  OK: suite went red on the mutated source (exit $mutated_status)"
 echo "Negative control successful"

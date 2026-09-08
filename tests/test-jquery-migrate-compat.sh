@@ -155,7 +155,7 @@ $(function() {
     }
 
     check('jQuery 4.0.0 loaded', function() { return $.fn.jquery === '4.0.0'; });
-    check('spinner renders and teardown removes it', function() {
+    check('spinner renders and stop() is callable', function() {
         // Call tt_throbber directly to mount a spinner at the test point
         var spinner = tt_throbber(32, 14, 1.8);
         spinner.appendTo('#throb-test');
@@ -163,7 +163,7 @@ $(function() {
         // Verify spinner element exists in DOM
         var hasSpinner = $('#throb-test .spinner-border').length > 0;
         if (!hasSpinner) return false;
-        // Call stop and verify teardown is initiated
+        // stop() fades out asynchronously; only its callability is checked here
         spinner.stop();
         return true;
     });

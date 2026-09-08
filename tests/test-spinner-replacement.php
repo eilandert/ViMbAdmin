@@ -145,9 +145,9 @@ class Test_SpinnerReplacement
             return;
         }
 
-        if ( strpos($content, 'throbber.js') !== false )
+        if ( stripos($content, 'throbber') !== false )
         {
-            $this->failures[] = 'about.phtml should not reference throbber.js in credits';
+            $this->failures[] = 'about.phtml should not reference Throbber in credits';
         }
         else
         {
@@ -168,22 +168,45 @@ class Test_SpinnerReplacement
             return;
         }
 
-        if ( strpos($content, "spinner-border") === false )
+        // Assert against the tt_throbber wrapper body, not the whole file: a
+        // stray 'spinner-border' anywhere else must not satisfy this test.
+        if ( !preg_match('/function\s+tt_throbber\s*\([^)]*\)\s*\{(.*?)\n\}/s', $content, $m) )
         {
-            $this->failures[] = '990-vimbadmin.js should use spinner-border class';
-        }
-        else
-        {
-            echo "  OK: 990-vimbadmin.js uses spinner-border\n";
+            $this->failures[] = '990-vimbadmin.js: tt_throbber wrapper not found';
+            return;
         }
 
-        if ( strpos($content, "new Throbber") !== false )
+        $wrapper = $m[1];
+
+        // Match the construction call itself, not any mention of the class:
+        // 'spinner-border-sm' in the size ladder must not satisfy this.
+        if ( !preg_match('/\.addClass\(\s*[\'"]spinner-border[\'"]\s*\)/', $wrapper) )
         {
-            $this->failures[] = '990-vimbadmin.js should not use new Throbber()';
+            $this->failures[] = 'tt_throbber should addClass(\'spinner-border\') on the element';
         }
         else
         {
-            echo "  OK: 990-vimbadmin.js does not use Throbber\n";
+            echo "  OK: tt_throbber adds the spinner-border class\n";
+        }
+
+        if ( !preg_match('/role[\'"]?\s*,\s*[\'"]status[\'"]/', $wrapper) )
+        {
+            $this->failures[] = 'tt_throbber should set role="status" for assistive technology';
+        }
+        else
+        {
+            echo "  OK: tt_throbber sets role=status\n";
+        }
+
+        // Catches 'new Throbber(', 'new window.Throbber(' and bare Throbber(...)
+        // calls alike; the library is gone, so any reference is a defect.
+        if ( preg_match('/\bThrobber\s*\(/', $wrapper) || preg_match('/\bThrobber\b/', $wrapper) )
+        {
+            $this->failures[] = 'tt_throbber should not reference the removed Throbber library';
+        }
+        else
+        {
+            echo "  OK: tt_throbber does not reference Throbber\n";
         }
     }
 }

@@ -142,12 +142,8 @@ $( 'document' ).ready( function(){
 
 function tt_throbber( size, lines, strokewidth, fallback )
 {
-    var sizeClass = 'spinner-border-sm';
-    if( size > 50 ) {
-        sizeClass = 'spinner-border';
-    } else if( size >= 25 ) {
-        sizeClass = '';
-    }
+    // Bootstrap 5 ships exactly two spinner sizes: the default and -sm.
+    var sizeClass = size >= 25 ? '' : 'spinner-border-sm';
 
     var $el = $('<div></div>')
         .addClass('spinner-border')
