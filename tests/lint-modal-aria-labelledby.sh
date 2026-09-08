@@ -25,7 +25,15 @@
 #
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+# Resolve this script's directory ONCE, as an absolute path, BEFORE the cd
+# below. `$0` is relative when the gate is invoked as
+# `bash lint-modal-aria-labelledby.sh` from inside tests/, so a second
+# `$(dirname "$0")` evaluated after the cd would re-resolve against the repo
+# root, not tests/. (VIM-A15.54, the same silent-wrong-path class as the
+# VIM-A15.31 gates; pinned by tests/test-lint-gate-cwd-independence.sh.)
+script_dir=$(unset CDPATH; cd -- "$(dirname -- "$0")" && pwd)
+
+cd "$script_dir/.."
 
 if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ]; then
   echo "  -> bash 4+ required for globstar; refusing to run a partial scan." >&2
@@ -37,7 +45,7 @@ fi
 # elements on the same line are two records, not one). See
 # tests/support/html-opening-tags.sh for the PR #171 history this replaces.
 # shellcheck source=tests/support/html-opening-tags.sh
-source "$(dirname "$0")/support/html-opening-tags.sh"
+source "$script_dir/support/html-opening-tags.sh"
 
 # Modal ids whose content is injected at runtime; see the header comment.
 runtime_shell_ids='modal_dialog_shell'
