@@ -47,7 +47,7 @@ for f in application/views/*/js/*.js; do
   _k='(source|data|aaData|aoColumns|columns)'
   _key="(${_k}|'${_k}'|\"${_k}\")"
   _val='[[:space:]]*:[[:space:]]*\{\$[A-Za-z_][^}]*\}'
-  hits=$(grep -nE "(^|[^A-Za-z0-9_'\"])${_key}${_val}" "$f" 2>/dev/null |
+  hits=$(grep -nE "(^|[^A-Za-z0-9_$'\"])${_key}${_val}" "$f" 2>/dev/null |
     grep -vE 'nofilter|escape:'"'"'javascript'"'"'' || true)
   if [ -n "$hits" ]; then
     echo "  $f:"
