@@ -3,6 +3,13 @@
 # Exercise the supported jQuery 3 plugin stack in a real browser. Development
 # runs with Migrate and treats every warning as a failure; production proves the
 # generated bundle loads without the shim and retains the preferences cookie.
+#
+# The development and early lanes load the individual on-disk files, so they
+# also cover Chosen and Colorbox -- dead in the application since PR #180, kept
+# on disk for exactly this, and deliberately excluded from the bundle by
+# bin/minify-bundle-files.php. Those two checks are therefore gated to the
+# non-production lanes; every other assertion, and all three negative controls,
+# run unchanged.
 
 set -euo pipefail
 
@@ -59,6 +66,9 @@ if (mode === 'early') {
     scripts.splice(scripts.indexOf('jquery-migrate-3.5.2.js'), 1);
     scripts.splice(1, 0, 'jquery-migrate-3.5.2.js');
 }
+// Drives the 'missing plugin dependency' negative control. It removes a script
+// the development lane loads, so it is only meaningful there -- production
+// loads a single bundle. The lane is pinned to development by expect_fail below.
 if (location.hash === '#missing-dependency') {
     scripts = scripts.filter(function(file) { return file !== '300-chosen.jquery.js'; });
 }
@@ -116,20 +126,34 @@ $(function() {
         table.destroy();
         return true;
     });
-    check('Chosen updates and tears down', function() {
-        $('#choice').chosen();
-        $('#choice').val(['b']).trigger('chosen:updated');
-        var selected = $('#choice_chosen .search-choice').text().trim();
-        $('#choice').chosen('destroy');
-        return selected === 'Beta' && !$('#choice_chosen').length;
-    });
-    check('Colorbox opens and closes inline content', function() {
-        $('#colorbox').colorbox({ inline: true, transition: 'none', speed: 0 });
-        $('#colorbox').trigger('click');
-        var opened = $('#colorbox').hasClass('cboxElement');
-        $.colorbox.close();
-        return opened;
-    });
+    // Chosen and Colorbox are DEAD in the application (PR #180: no <script>/<link>
+    // row, no `.chosen(` call site, no chzn-* markup) and are deliberately not
+    // bundle inputs -- see bin/minify-bundle-files.php. Their files are kept on
+    // disk only so the development lane below can keep proving the on-disk
+    // libraries stay jQuery-Migrate clean, which is real value: the '#missing-dependency'
+    // negative control removes 300-chosen.jquery.js and requires this file to
+    // notice.
+    //
+    // Production loads min.bundle-v18.js, which will not carry either library
+    // once it is regenerated, so these two are gated to the non-production
+    // modes. Asserting them against the bundle would be asserting that
+    // production still ships code the application removed.
+    if (mode !== 'production') {
+        check('Chosen updates and tears down', function() {
+            $('#choice').chosen();
+            $('#choice').val(['b']).trigger('chosen:updated');
+            var selected = $('#choice_chosen .search-choice').text().trim();
+            $('#choice').chosen('destroy');
+            return selected === 'Beta' && !$('#choice_chosen').length;
+        });
+        check('Colorbox opens and closes inline content', function() {
+            $('#colorbox').colorbox({ inline: true, transition: 'none', speed: 0 });
+            $('#colorbox').trigger('click');
+            var opened = $('#colorbox').hasClass('cboxElement');
+            $.colorbox.close();
+            return opened;
+        });
+    }
     // bootbox 3.3.0 is gone (it built Bootstrap 2 modal markup and drove the
     // Bootstrap 2 lifecycle). The replacement shim deliberately provides only
     // `bootbox.alert`, which is the whole of the API the application uses --

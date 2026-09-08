@@ -11,7 +11,7 @@
 #                                    vendored third-party and is never linted)
 #
 # public/js/min.bundle-v*.js files are generated build artifacts (regenerated from
-# the files above via vendor/bin/minify.php) and is deliberately excluded: it
+# the files above via bin/minify-bundle.php) and is deliberately excluded: it
 # is never hand-edited and never linted directly.
 #
 # Exit 0 = clean, 1 = a removed/deprecated jQuery API was found in own code.
