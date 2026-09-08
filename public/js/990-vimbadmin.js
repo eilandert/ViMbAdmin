@@ -149,24 +149,32 @@ function tt_throbber( size, lines, strokewidth, fallback )
         sizeClass = '';
     }
 
-    var $spinner = $('<div></div>')
+    var $el = $('<div></div>')
         .addClass('spinner-border')
         .addClass(sizeClass)
         .attr('role', 'status')
         .append($('<span></span>').addClass('visually-hidden').text('Loading...'));
 
-    $spinner.start = function() {
-        return this;
+    // Return a controller object that survives jQuery DOM operations like appendTo
+    var controller = {
+        $el: $el,
+        appendTo: function(target) {
+            this.$el.appendTo(target);
+            return this;
+        },
+        start: function() {
+            return this;
+        },
+        stop: function() {
+            var el = this.$el;
+            el.fadeOut(750, function() {
+                el.remove();
+            });
+            return this;
+        }
     };
 
-    $spinner.stop = function() {
-        this.fadeOut(750, function() {
-            $(this).remove();
-        });
-        return this;
-    };
-
-    return $spinner;
+    return controller;
 }
 
 /**

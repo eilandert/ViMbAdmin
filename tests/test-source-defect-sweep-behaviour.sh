@@ -61,27 +61,15 @@ cat >"$tmp/regression.html" <<'HTML'
 <!doctype html>
 <html><head><meta charset="utf-8"></head><body>
 <script src="jquery.js"></script>
-<script>
-// Minimal stand-in for the vendored public/js/310-throbber.js Throbber
-// constructor ossToggle() depends on -- only the two methods ossToggle calls
-// (.appendTo / .start) are needed, so the real animation library is out of
-// scope for this behavioural fixture.
-function Throbber() {
-    return {
-        appendTo: function () { return this; },
-        start: function () { return this; }
-    };
-}
-</script>
+<script src="990-vimbadmin.js"></script>
 <script>
 // ossAddMessage() (invoked on a failed toggle) ends by calling the Bootstrap
 // jQuery plugin .alert() on the message it just inserted. The real Bootstrap
-// JS bundle is out of scope for this fixture (same rationale as the Throbber
-// stand-in above), so this stubs the plugin as a no-op -- ossAddMessage's own
-// insertion logic and ossToggle's delElement handling are what is under test.
+// JS bundle is out of scope for this fixture, so this stubs the plugin as a
+// no-op -- ossAddMessage's own insertion logic and ossToggle's delElement
+// handling are what is under test.
 jQuery.fn.alert = function () { return this; };
 </script>
-<script src="990-vimbadmin.js"></script>
 <script src="850-bootbox.js"></script>
 
 <button id="toggle-target" class="btn btn-success" data-throb-key="t1"></button>
