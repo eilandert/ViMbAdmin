@@ -32,14 +32,15 @@ script_dir=$(unset CDPATH; cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(unset CDPATH; cd -- "$script_dir/.." && pwd)
 
 # The gates covered here. Deliberately an explicit list rather than a glob over
-# tests/lint-*.sh: tests/lint-modal-aria-labelledby.sh carries this same defect
-# from before the lexer work (ledgered separately, VIM-A15.54), and silently
-# folding a known-failing gate into this list would make the test red for a
-# reason it is not guarding. Add a gate here once it is cwd-independent.
+# tests/lint-*.sh, so that adding a gate to this list is a deliberate statement
+# that it is cwd-independent, and a gate known to be broken is never folded in
+# silently (which would make this test red for a reason it is not guarding).
+# Add a gate here once it is cwd-independent.
 gates=(
   lint-bs2-grid-classes.sh
   lint-bs2-component-classes.sh
   lint-template-escaping.sh
+  lint-modal-aria-labelledby.sh
 )
 
 # Each case is "<cwd>|<path to pass to bash>". Both halves matter:
