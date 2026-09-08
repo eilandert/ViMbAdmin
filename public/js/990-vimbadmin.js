@@ -142,19 +142,39 @@ $( 'document' ).ready( function(){
 
 function tt_throbber( size, lines, strokewidth, fallback )
 {
-    if( !fallback )
-        fallback = 'images/throbber_32px.gif';
+    // Bootstrap 5 ships exactly two spinner sizes: the default and -sm.
+    var sizeClass = size >= 25 ? '' : 'spinner-border-sm';
 
-    return new Throbber({
-        "color": 'black',
-        "size": size,
-        "fade": 750,
-        "fallback": fallback,
-        "rotationspeed": 0,
-        "lines": lines,
-        "strokewidth": strokewidth,
-        "alpha": 1
-    });
+    // vb-throbber marks the spinners this wrapper owns. The error handler tears
+    // down throbbers by that class, never by the generic Bootstrap utility
+    // class, so an unrelated spinner elsewhere on the page survives.
+    var $el = $('<div></div>')
+        .addClass('spinner-border')
+        .addClass('vb-throbber')
+        .addClass(sizeClass)
+        .attr('role', 'status')
+        .append($('<span></span>').addClass('visually-hidden').text('Loading...'));
+
+    // Return a controller object that survives jQuery DOM operations like appendTo
+    var controller = {
+        $el: $el,
+        appendTo: function(target) {
+            this.$el.appendTo(target);
+            return this;
+        },
+        start: function() {
+            return this;
+        },
+        stop: function() {
+            var el = this.$el;
+            el.fadeOut(750, function() {
+                el.remove();
+            });
+            return this;
+        }
+    };
+
+    return controller;
 }
 
 /**
@@ -327,6 +347,10 @@ function ossAjaxErrorHandler( XMLHttpRequest, textStatus, errorThrown )
 
     if( $('canvas').length ){
         $('canvas').remove();
+    }
+
+    if( $('.vb-throbber').length ){
+        $('.vb-throbber').remove();
     }
     ossAddMessage( 'An unexpected error occurred.', 'danger', true );
 }
