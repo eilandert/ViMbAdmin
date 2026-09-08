@@ -52,6 +52,7 @@ trap cleanup EXIT
 for asset in \
   100-jquery.js 120-jquery.validate.js \
   150-jquery.datatables.js 151-jquery.datatables.ext.js \
+  152-jquery.datatables.bootstrap5.js \
   310-throbber.js 800-bootstrap.js 850-bootbox.js 900-vimbadmin.validate.js \
   910-vimbadmin.functions.js 990-vimbadmin.js \
   min.bundle-v19.js; do
@@ -77,6 +78,7 @@ var scripts = mode === 'production'
     ? ['min.bundle-v19.js','view-admin-domains.js']
     : ['100-jquery.js','120-jquery.validate.js',
        '150-jquery.datatables.js','151-jquery.datatables.ext.js',
+       '152-jquery.datatables.bootstrap5.js',
        '310-throbber.js','800-bootstrap.js','850-bootbox.js','900-vimbadmin.validate.js',
        '910-vimbadmin.functions.js','990-vimbadmin.js',
        'view-admin-domains.js'];

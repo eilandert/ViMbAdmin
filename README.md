@@ -173,11 +173,14 @@ sessions/CLI native and ZF1-free; `composer audit` reports **no advisories**.
 ### Supported browsers
 
 The admin UI ships jQuery **4.0.0** (VIM-A15.29; previously 3.7.1 + Migrate).
-jQuery 4 [dropped support for Internet Explorer and legacy Edge](https://jquery.com/upgrade-guide/4.0/)
-and now targets evergreen browsers only: current Chrome, Firefox, Safari and
-Edge (and their immediately preceding major versions). There is no IE
-fallback and none is planned — if your fleet still needs IE11, stay on the
-3.7.1 + Migrate release.
+jQuery 4 [dropped support for IE 10 and older, Edge Legacy, Android Browser and
+old iOS/Firefox](https://jquery.com/upgrade-guide/4.0/). It targets current
+Chrome, Firefox, Safari and Edge, and their immediately preceding major
+versions. IE 11 is still supported by jQuery 4 upstream — the shipped
+`public/js/100-jquery.js` retains its `document.documentMode` branches — but
+ViMbAdmin does not test against it, and jQuery has scheduled IE 11 removal for
+jQuery 5. Treat IE 11 as unsupported-but-not-yet-broken; anything older than
+IE 11 needs the 3.7.1 + Migrate release.
 
 ---
 
