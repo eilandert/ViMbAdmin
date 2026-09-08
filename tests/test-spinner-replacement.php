@@ -5,8 +5,9 @@
 
 class Test_SpinnerReplacement
 {
-    private $base_dir;
-    private $failures = array();
+    private string $base_dir;
+    /** @var array<int,string> */
+    private array $failures = [];
 
     public function __construct()
     {
@@ -16,7 +17,7 @@ class Test_SpinnerReplacement
     /**
      * Run all tests
      */
-    public function run()
+    public function run(): int
     {
         echo "Running Spinner Replacement Tests...\n";
         $this->test_throbber_library_removed();
@@ -28,7 +29,7 @@ class Test_SpinnerReplacement
 
         if ( empty($this->failures) )
         {
-            echo "All tests passed!\n";
+            echo "OK: all spinner replacement assertions passed (PHP " . PHP_VERSION . ")\n";
             return 0;
         }
         else
@@ -45,7 +46,7 @@ class Test_SpinnerReplacement
     /**
      * Test that old Throbber library file is removed
      */
-    private function test_throbber_library_removed()
+    private function test_throbber_library_removed(): void
     {
         $throbber_path = $this->base_dir . '/public/js/310-throbber.js';
         if ( file_exists($throbber_path) )
@@ -61,7 +62,7 @@ class Test_SpinnerReplacement
     /**
      * Test that throbber images are removed
      */
-    private function test_throbber_images_removed()
+    private function test_throbber_images_removed(): void
     {
         $gif_16 = $this->base_dir . '/public/images/throbber_16px.gif';
         $gif_32 = $this->base_dir . '/public/images/throbber_32px.gif';
@@ -88,10 +89,15 @@ class Test_SpinnerReplacement
     /**
      * Test that minify bundle input no longer registers throbber
      */
-    private function test_minify_inputs_no_throbber()
+    private function test_minify_inputs_no_throbber(): void
     {
         $inputs_file = $this->base_dir . '/bin/minify-bundle-files.php';
         $content = file_get_contents($inputs_file);
+        if ( $content === false )
+        {
+            $this->failures[] = 'minify-bundle-files.php could not be read';
+            return;
+        }
 
         if ( strpos($content, '310-throbber.js') !== false )
         {
@@ -106,10 +112,15 @@ class Test_SpinnerReplacement
     /**
      * Test that header includes no throbber script tag
      */
-    private function test_header_no_throbber_tag()
+    private function test_header_no_throbber_tag(): void
     {
         $header_file = $this->base_dir . '/application/views/header-js.phtml';
         $content = file_get_contents($header_file);
+        if ( $content === false )
+        {
+            $this->failures[] = 'header-js.phtml could not be read';
+            return;
+        }
 
         if ( strpos($content, '310-throbber.js') !== false )
         {
@@ -124,10 +135,15 @@ class Test_SpinnerReplacement
     /**
      * Test that about page credits no longer mention throbber
      */
-    private function test_about_page_credits_updated()
+    private function test_about_page_credits_updated(): void
     {
         $about_file = $this->base_dir . '/application/views/index/about.phtml';
         $content = file_get_contents($about_file);
+        if ( $content === false )
+        {
+            $this->failures[] = 'about.phtml could not be read';
+            return;
+        }
 
         if ( strpos($content, 'throbber.js') !== false )
         {
@@ -142,10 +158,15 @@ class Test_SpinnerReplacement
     /**
      * Test that wrapper function uses spinner classes
      */
-    private function test_wrapper_function_uses_spinner()
+    private function test_wrapper_function_uses_spinner(): void
     {
         $js_file = $this->base_dir . '/public/js/990-vimbadmin.js';
         $content = file_get_contents($js_file);
+        if ( $content === false )
+        {
+            $this->failures[] = '990-vimbadmin.js could not be read';
+            return;
+        }
 
         if ( strpos($content, "spinner-border") === false )
         {
