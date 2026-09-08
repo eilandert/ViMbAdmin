@@ -96,6 +96,11 @@ jobs:
           CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
           bash tests/test-confirm-guard-behaviour.sh
 
+      - name: Source-defect sweep behaviour (VIM-A15.43, VIM-A15.44, VIM-A15.47)
+        run: >-
+          CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
+          bash tests/test-source-defect-sweep-behaviour.sh
+
       - name: jQuery 3 plugin compatibility has no Migrate warnings
         run: >-
           CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"

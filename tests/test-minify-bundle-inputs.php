@@ -242,5 +242,76 @@ $check(
     str_contains($optionsSource, 'bin/minify-bundle.php')
 );
 
+// VIM-A15.46: public/css/816-datatables-bootstrap5.css opens with a real
+// `@charset "UTF-8";`, which is only valid as the very first byte of a
+// stylesheet. bin/minify-bundle.php concatenates minified CSS inputs in list
+// order, so a non-first input's @charset must be stripped before merging or a
+// browser discards it as an invalid at-rule anyway -- but silently, in the
+// middle of the shipped bundle. vimbadminStripLeadingCharset() is the pure
+// helper the merge loop calls; exercise it directly here since building an
+// actual bundle needs Java and clean-css.
+$check(
+    'the driver exposes the @charset-stripping helper',
+    function_exists('vimbadminStripLeadingCharset')
+);
+$charsetChunk = "@charset \"UTF-8\";\ntable{color:red}";
+$check(
+    'a non-first chunk loses its leading @charset',
+    vimbadminStripLeadingCharset($charsetChunk, false) === "\ntable{color:red}"
+);
+$check(
+    'the first chunk keeps its leading @charset unchanged',
+    vimbadminStripLeadingCharset($charsetChunk, true) === $charsetChunk
+);
+$check(
+    'a chunk with no @charset is unaffected either way',
+    vimbadminStripLeadingCharset('table{color:red}', false) === 'table{color:red}'
+    && vimbadminStripLeadingCharset('table{color:red}', true) === 'table{color:red}'
+);
+$check(
+    'only a LEADING @charset is stripped, not one appearing mid-file',
+    vimbadminStripLeadingCharset('table{color:red}@charset "UTF-8";', false)
+        === 'table{color:red}@charset "UTF-8";'
+);
+
+// End-to-end: source public/css/816-datatables-bootstrap5.css genuinely opens
+// with @charset, and it is not the first entry in the CSS bundle list (sorted
+// SORT_STRING, so any file sorting before "816-" precedes it) -- prove the
+// concatenation the merge loop performs (helper applied to every non-first
+// chunk, in the same order vimbadminResolveBundleInputs() returns) contains at
+// most one @charset, and only at offset 0.
+$charsetSourcePath = $root . '/public/css/816-datatables-bootstrap5.css';
+$charsetSource = (string) file_get_contents($charsetSourcePath);
+$check(
+    'precondition: 816-datatables-bootstrap5.css still opens with @charset',
+    str_starts_with($charsetSource, '@charset "UTF-8";')
+);
+$charsetIndex = array_search('816-datatables-bootstrap5.css', $expectedCss, true);
+$check(
+    'precondition: 816-datatables-bootstrap5.css is not the first CSS bundle input',
+    $charsetIndex !== false && $charsetIndex > 0
+);
+
+$simulatedMerge = '';
+$isFirstChunk = true;
+foreach ($css as $cssPath) {
+    $chunk = (string) file_get_contents($cssPath);
+    $simulatedMerge .= vimbadminStripLeadingCharset($chunk, $isFirstChunk);
+    $isFirstChunk = false;
+}
+$charsetOccurrences = substr_count($simulatedMerge, '@charset');
+$check(
+    'the simulated bundle contains at most one @charset',
+    $charsetOccurrences <= 1
+);
+if ($charsetOccurrences === 1) {
+    $check(
+        'the single remaining @charset sits at offset 0',
+        str_starts_with($simulatedMerge, '@charset')
+    );
+} elseif ($charsetOccurrences === 0) {
+    echo "  ok   no @charset survived concatenation (816- was not first, as expected)\n";
+}
+
 echo $failures === 0 ? "\nALL PASSED\n" : "\n{$failures} FAILED\n";
 exit($failures === 0 ? 0 : 1);

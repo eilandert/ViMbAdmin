@@ -25,7 +25,7 @@ if [[ -z "$profile" || "${profile##*/}" != profile ]]; then
 fi
 
 readonly fixture_dir=${profile%/profile}
-if [[ ! $fixture_dir =~ ^/tmp/vimbadmin-(alias-destination|residual-stored-xss|confirm-guard|jquery-migrate|control-behaviour)\.[[:alnum:]]+$ ]] ||
+if [[ ! $fixture_dir =~ ^/tmp/vimbadmin-(alias-destination|residual-stored-xss|confirm-guard|jquery-migrate|control-behaviour|source-defect-sweep)\.[[:alnum:]]+$ ]] ||
   [[ -L $fixture_dir ]] ||
   [[ ! -d $fixture_dir || ! -w $fixture_dir ]] ||
   [[ $(stat -c '%u:%a' "$fixture_dir") != "$(id -u):700" ]]; then

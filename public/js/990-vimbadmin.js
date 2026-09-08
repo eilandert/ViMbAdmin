@@ -224,8 +224,8 @@ function ossToggle( e, Url, data, delElement )
                 ossToggle( e, Url, data );
             });
 
-            if( typeof( delElement ) != undefined ) {
-            	$( delElement ).hide( 'slow', function(){ $( delElement ).remove() } );;
+            if( delElement ) {
+            	$( delElement ).hide( 'slow', function(){ $( delElement ).remove() } );
             }
 
         }
@@ -431,7 +431,7 @@ function addPluginTab( title, id )
 	    var tab = "<li><a data-bs-toggle=\"tab\"";
 	    
 	    if( $( "#" + id ).has( ".error" ).length )
-	        tab += " class=\"text-error\"";
+	        tab += " class=\"text-danger\"";
 	    
 	    tab += " href=\"#" + id + "\">" + title + "</a></li>\n";
 	    $( "#plugin_tabs" ).show().append( tab );

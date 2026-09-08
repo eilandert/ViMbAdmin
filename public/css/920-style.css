@@ -84,11 +84,6 @@ a.aplain, a:link.aplain, a:visited.aplain, a:hover.aplain, a:active.aplain {
   border-radius: 0 var(--bs-border-radius-sm) var(--bs-border-radius-sm) 0;
 }
 
-opacity_70
-{
-    opacity: 0.7;
-}
-
 div.option_box
 {
     width: 130px;
