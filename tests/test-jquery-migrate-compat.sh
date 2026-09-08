@@ -1,15 +1,33 @@
 #!/usr/bin/env bash
 
-# Exercise the supported jQuery 3 plugin stack in a real browser. Development
-# runs with Migrate and treats every warning as a failure; production proves the
-# generated bundle loads without the shim and retains the preferences cookie.
+# Exercise the supported jQuery 4 plugin stack in a real browser. jQuery was
+# upgraded from 3.7.1 to 4.0.0 (VIM-A15.29) and the jQuery Migrate shim --
+# written for the 1.9-3.x upgrade path -- was deleted with it, so the
+# development/early/production three-lane split that used to isolate Migrate's
+# deprecation warnings from production is kept only for asset-loading parity
+# between the individual-file and bundled paths; there is no Migrate mode left
+# to assert.
 #
-# The development and early lanes load the individual on-disk files, so they
-# also cover Chosen and Colorbox -- dead in the application since PR #180, kept
-# on disk for exactly this, and deliberately excluded from the bundle by
-# bin/minify-bundle-files.php. Those two checks are therefore gated to the
-# non-production lanes; every other assertion, and all three negative controls,
-# run unchanged.
+# DROPPED COVERAGE (approved 2026-09-08): this test used to also load and
+# assert Chosen (public/js/300-chosen.jquery.js) and Colorbox
+# (public/js/130-jquery.colorbox.js) in its development/early lanes. Both are
+# dropped here. jQuery 4.0.0 removed $.trim (https://jquery.com/upgrade-guide/4.0/),
+# which 300-chosen.jquery.js:1240 calls from get_search_text(), reached at
+# runtime from live search filtering at line 351 -- so loading Chosen under
+# jQuery 4 throws and there is no in-scope fix (see bin/minify-bundle-files.php
+# for why Chosen and Colorbox are vendored but unbundled). Both libraries have
+# been dead in the application since PR #180 (no <script>/<link> row, no
+# `.chosen(` call site, no `chzn-*`/colorbox markup) and remain on disk,
+# unbundled, retained-but-unused pending removal. Neither library, nor the
+# $.trim removal, is otherwise exercised by this file any more.
+#
+# The '#missing-dependency' negative control used to remove
+# 300-chosen.jquery.js from the loaded scripts and require this oracle to
+# notice; with Chosen no longer loaded or asserted at all, that would be
+# vacuous (the control's own load-order splice would go unnoticed too -- see
+# that check for the real mechanism). It is re-pointed at
+# 150-jquery.datatables.js instead, which every lane still loads and the
+# 'DataTables sorts, searches and tears down' check still asserts against.
 
 set -euo pipefail
 
@@ -32,11 +50,11 @@ cleanup() {
 trap cleanup EXIT
 
 for asset in \
-  100-jquery.js 120-jquery.validate.js 130-jquery.colorbox.js \
-  150-jquery.datatables.js 151-jquery.datatables.ext.js 300-chosen.jquery.js \
+  100-jquery.js 120-jquery.validate.js \
+  150-jquery.datatables.js 151-jquery.datatables.ext.js \
   310-throbber.js 800-bootstrap.js 850-bootbox.js 900-vimbadmin.validate.js \
-  910-vimbadmin.functions.js 990-vimbadmin.js jquery-migrate-3.5.2.js \
-  min.bundle-v18.js; do
+  910-vimbadmin.functions.js 990-vimbadmin.js \
+  min.bundle-v19.js; do
   cp "public/js/$asset" "$tmp/$asset"
 done
 # The search text contains a literal Smarty variable, not a shell variable.
@@ -56,21 +74,21 @@ console.warn = function() {
 };
 window.onerror = function(message) { failures.push('page error: ' + message); };
 var scripts = mode === 'production'
-    ? ['min.bundle-v18.js','view-admin-domains.js']
-    : ['100-jquery.js','120-jquery.validate.js','130-jquery.colorbox.js',
-       '150-jquery.datatables.js','151-jquery.datatables.ext.js','300-chosen.jquery.js',
+    ? ['min.bundle-v19.js','view-admin-domains.js']
+    : ['100-jquery.js','120-jquery.validate.js',
+       '150-jquery.datatables.js','151-jquery.datatables.ext.js',
        '310-throbber.js','800-bootstrap.js','850-bootbox.js','900-vimbadmin.validate.js',
-       '910-vimbadmin.functions.js','990-vimbadmin.js','jquery-migrate-3.5.2.js',
+       '910-vimbadmin.functions.js','990-vimbadmin.js',
        'view-admin-domains.js'];
-if (mode === 'early') {
-    scripts.splice(scripts.indexOf('jquery-migrate-3.5.2.js'), 1);
-    scripts.splice(1, 0, 'jquery-migrate-3.5.2.js');
-}
 // Drives the 'missing plugin dependency' negative control. It removes a script
 // the development lane loads, so it is only meaningful there -- production
 // loads a single bundle. The lane is pinned to development by expect_fail below.
+// Re-pointed (2026-09-08) at DataTables, which every non-production lane still
+// loads and which the 'DataTables sorts, searches and tears down' check below
+// still asserts against, after Chosen was dropped from this file's coverage
+// (see the file header for why).
 if (location.hash === '#missing-dependency') {
-    scripts = scripts.filter(function(file) { return file !== '300-chosen.jquery.js'; });
+    scripts = scripts.filter(function(file) { return file !== '150-jquery.datatables.js'; });
 }
 scripts.forEach(function(file) { document.write('<script src="' + file + '"><\/script>'); });
 </script></head><body>
@@ -106,14 +124,23 @@ function check(name, test) {
 }
 
 $(function() {
+    // Drives the 'injected Migrate warning' negative control (name kept for
+    // history/CI-label continuity; the mechanism is jQuery-4-native, not
+    // Migrate -- Migrate is deleted). jQuery 4.0.0 added
+    // jQuery.Deferred.exceptionHook, which console.warn's an uncaught
+    // TypeError/RangeError/etc. thrown inside a .then() callback rather than
+    // silently swallowing it (see public/js/100-jquery.js's
+    // jQuery.Deferred.exceptionHook). Throwing one here from a settled
+    // Deferred is a real jQuery-4 warning path the oracle above already
+    // captures via console.warn, so a rotted oracle is caught the same way it
+    // was under Migrate.
     if (location.hash === '#warning-trigger') {
-        $(document).bind('vimbadmin-compat-warning', function() {});
+        $.Deferred().resolve().then(function() {
+            throw new TypeError('injected for the negative control');
+        });
     }
 
-    check('jQuery 3.7.1 loaded', function() { return $.fn.jquery === '3.7.1'; });
-    check('Migrate mode is correct', function() {
-        return mode === 'production' ? typeof $.migrateVersion === 'undefined' : $.migrateVersion === '3.5.2';
-    });
+    check('jQuery 4.0.0 loaded', function() { return $.fn.jquery === '4.0.0'; });
     check('empty required field reports a validation error', function() {
         $('#validation').validate({ rules: { required: { required: true } } });
         return !$('#validation').valid() && $('#required-error').text() === 'This field is required.';
@@ -126,34 +153,9 @@ $(function() {
         table.destroy();
         return true;
     });
-    // Chosen and Colorbox are DEAD in the application (PR #180: no <script>/<link>
-    // row, no `.chosen(` call site, no chzn-* markup) and are deliberately not
-    // bundle inputs -- see bin/minify-bundle-files.php. Their files are kept on
-    // disk only so the development lane below can keep proving the on-disk
-    // libraries stay jQuery-Migrate clean, which is real value: the '#missing-dependency'
-    // negative control removes 300-chosen.jquery.js and requires this file to
-    // notice.
-    //
-    // Production loads min.bundle-v18.js, which will not carry either library
-    // once it is regenerated, so these two are gated to the non-production
-    // modes. Asserting them against the bundle would be asserting that
-    // production still ships code the application removed.
-    if (mode !== 'production') {
-        check('Chosen updates and tears down', function() {
-            $('#choice').chosen();
-            $('#choice').val(['b']).trigger('chosen:updated');
-            var selected = $('#choice_chosen .search-choice').text().trim();
-            $('#choice').chosen('destroy');
-            return selected === 'Beta' && !$('#choice_chosen').length;
-        });
-        check('Colorbox opens and closes inline content', function() {
-            $('#colorbox').colorbox({ inline: true, transition: 'none', speed: 0 });
-            $('#colorbox').trigger('click');
-            var opened = $('#colorbox').hasClass('cboxElement');
-            $.colorbox.close();
-            return opened;
-        });
-    }
+    // Chosen and Colorbox coverage was dropped from this file (2026-09-08) --
+    // see the file header for what and why. They are not loaded or asserted
+    // here any more.
     // bootbox 3.3.0 is gone (it built Bootstrap 2 modal markup and drove the
     // Bootstrap 2 lifecycle). The replacement shim deliberately provides only
     // `bootbox.alert`, which is the whole of the API the application uses --
@@ -326,4 +328,4 @@ case "$mutation" in
     ;;
 esac
 
-echo 'OK: jQuery 3 plugins, Migrate warnings, validation and preferences cookie'
+echo 'OK: jQuery 4 plugins, console warnings, validation and preferences cookie'

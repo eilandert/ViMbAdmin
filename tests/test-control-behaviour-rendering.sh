@@ -77,7 +77,7 @@ fi
 tmp="$(mktemp -d /tmp/vimbadmin-control-behaviour.XXXXXX)"
 trap 'rm -rf "$tmp"' EXIT
 
-# Stage the SOURCE JavaScript, not public/js/min.bundle-v18.js.
+# Stage the SOURCE JavaScript, not public/js/min.bundle-v19.js.
 #
 # Loading the bundle made both behavioural assertions below VACUOUS: neutering
 # ossModal()'s .show() in public/js/850-bootbox.js, or swapping data-bs-dismiss

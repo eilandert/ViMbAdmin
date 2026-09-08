@@ -6,10 +6,9 @@
  * bin/minify-options.php used to hand vendor/opensolutions/minify/minify.php a
  * glob, and the vendor script expanded it only after require_once()ing the
  * config, so nothing could keep a file on disk without shipping it. Chosen and
- * Colorbox were removed from the application in PR #180 but stayed on disk for
- * tests/test-jquery-migrate-compat.sh's development lane, so every regeneration
- * both re-shipped them and rewrote the header .phtml files from the glob,
- * reverting PR #180.
+ * Colorbox were removed from the application in PR #180 but stayed on disk,
+ * retained-but-unused pending removal, so every regeneration both re-shipped
+ * them and rewrote the header .phtml files from the glob, reverting PR #180.
  *
  * This test pins the replacement: bin/minify-bundle-files.php enumerates the
  * inputs, bin/minify-bundle.php resolves them, and the four dead assets are
@@ -133,11 +132,16 @@ foreach ($expectedCss as $live) {
     $check("live CSS asset resolves to a real file: {$live}", is_file($root . '/public/css/' . $live));
 }
 
-// jQuery Migrate must never be bundled: it has no NNN- prefix so the glob never
-// saw it, and $mini_js_conditional_end appends its development-only row.
+// jQuery Migrate was deleted entirely with the jQuery 4.0.0 upgrade
+// (VIM-A15.29): it must not be a bundle input, and it must not exist on disk
+// at all any more.
 $check(
     'jQuery Migrate is not a bundle input',
     !in_array('jquery-migrate-3.5.2.js', $jsNames, true)
+);
+$check(
+    'jQuery Migrate no longer exists on disk',
+    !is_file($root . '/public/js/jquery-migrate-3.5.2.js')
 );
 
 // The header {else} branches are what the driver regenerates from these lists,

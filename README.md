@@ -170,6 +170,15 @@ Current release lines (doctrine/orm 3.6, DBAL 4, symfony/cache 6.4/7/8, Smarty
 5, robthree/twofactorauth 3, bacon/bacon-qr-code 3); kernel/routing/forms/
 sessions/CLI native and ZF1-free; `composer audit` reports **no advisories**.
 
+### Supported browsers
+
+The admin UI ships jQuery **4.0.0** (VIM-A15.29; previously 3.7.1 + Migrate).
+jQuery 4 [dropped support for Internet Explorer and legacy Edge](https://jquery.com/upgrade-guide/4.0/)
+and now targets evergreen browsers only: current Chrome, Firefox, Safari and
+Edge (and their immediately preceding major versions). There is no IE
+fallback and none is planned — if your fleet still needs IE11, stay on the
+3.7.1 + Migrate release.
+
 ---
 
 ## Quick start (Docker)

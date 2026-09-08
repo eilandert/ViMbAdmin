@@ -101,7 +101,7 @@ jobs:
           CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
           bash tests/test-source-defect-sweep-behaviour.sh
 
-      - name: jQuery 3 plugin compatibility has no Migrate warnings
+      - name: jQuery 4 plugin compatibility has no console warnings
         run: >-
           CHROMIUM_BIN="$GITHUB_WORKSPACE/.github/scripts/run-headless-chrome.sh"
           bash tests/test-jquery-migrate-compat.sh

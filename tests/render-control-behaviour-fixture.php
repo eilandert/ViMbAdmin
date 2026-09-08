@@ -47,7 +47,7 @@ foreach ([$stubs, $compile] as $dir) {
 //
 // SOURCE, NOT THE BUNDLE.
 //
-// This fixture originally loaded public/js/min.bundle-v18.js, and that made
+// This fixture originally loaded public/js/min.bundle-v19.js, and that made
 // both of its behavioural assertions VACUOUS: neutering ossModal()'s .show()
 // in public/js/850-bootbox.js, or swapping data-bs-dismiss back to
 // data-dismiss in public/js/990-vimbadmin.js, left the gate green, because
