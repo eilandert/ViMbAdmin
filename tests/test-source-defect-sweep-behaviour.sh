@@ -27,6 +27,15 @@
 # class with no Bootstrap 5 styling, so the tab silently lost its error
 # indicator; the Bootstrap 5 spelling is `text-danger`. This asserts the
 # emitted tab markup carries `text-danger` and never `text-error`.
+#
+# VIM-A15.49: ossToggle()'s $.ajax `complete:` handler ran
+# `if( delElement ) { ... remove() }` unconditionally. jQuery's `complete`
+# fires on success AND on error/timeout/non-"ok" response body -- on failure
+# the handler correctly reverts the toggle (`if( !ok ) on = !on;`) but then
+# deleted the associated row anyway, so the page claimed the row was gone
+# while the server still had it. This asserts a failed request (success
+# callback invoked with a non-"ok" body, mirroring the real failure path)
+# leaves delElement present in the DOM.
 
 set -euo pipefail
 
@@ -64,17 +73,28 @@ function Throbber() {
     };
 }
 </script>
+<script>
+// ossAddMessage() (invoked on a failed toggle) ends by calling the Bootstrap
+// jQuery plugin .alert() on the message it just inserted. The real Bootstrap
+// JS bundle is out of scope for this fixture (same rationale as the Throbber
+// stand-in above), so this stubs the plugin as a no-op -- ossAddMessage's own
+// insertion logic and ossToggle's delElement handling are what is under test.
+jQuery.fn.alert = function () { return this; };
+</script>
 <script src="990-vimbadmin.js"></script>
 <script src="850-bootbox.js"></script>
 
 <button id="toggle-target" class="btn btn-success" data-throb-key="t1"></button>
 <div id="throb-toggle-target"></div>
 <div id="del-target">to be hidden and removed</div>
+<button id="toggle-target-fail" class="btn btn-success"></button>
+<div id="throb-toggle-target-fail"></div>
+<div id="del-target-fail">must survive a failed toggle request</div>
 <ul id="plugin_tabs" style="display:none"></ul>
 <div id="tab_errplug"><span class="error">bad plugin</span></div>
 
 <script>
-var results = { toggleRan: false, toggleDelRemoved: null, undefinedCallSeen: false, alertMessage: null, alertCallbackRan: false, pluginTabClass: null };
+var results = { toggleRan: false, toggleDelRemoved: null, undefinedCallSeen: false, alertMessage: null, alertCallbackRan: false, pluginTabClass: null, failedToggleDelSurvived: null };
 
 $(function () {
     var failures = [];
@@ -125,6 +145,45 @@ $(function () {
         jQuery = realJQuery;
     }
 
+    // -- VIM-A15.49: a failed toggle request must not remove delElement --
+    //
+    // The real cleanup calls $(delElement).hide('slow', function(){ remove() }),
+    // an animated (~600ms) removal. Headless dump-dom under a bounded virtual
+    // time budget can catch that animation mid-flight regardless of whether the
+    // removal branch even ran, which would make this control vacuous in both
+    // directions. Stub .hide() to invoke its completion callback synchronously
+    // so the assertion below reflects whether ossToggle's `if( delElement [&&
+    // ok] )` branch ran at all, not whether an unrelated animation finished.
+    var realHide = jQuery.fn.hide;
+    jQuery.fn.hide = function ( duration, callback ) {
+        if ( typeof callback === 'function' ) callback.call( this );
+        else if ( typeof duration === 'function' ) duration.call( this );
+        return this;
+    };
+    var realAjax2 = wrappedJQuery.ajax;
+    wrappedJQuery.ajax = function (opts) {
+        // Mirror the real failure path: success is invoked with a non-"ok"
+        // body (so ok stays false and complete() reverts the toggle), with
+        // delElement passed in exactly as ossToggle's real callers do.
+        opts.success('failed: in use');
+        opts.complete();
+        return xhr;
+    };
+    window.$ = wrappedJQuery;
+    jQuery = wrappedJQuery;
+    try {
+        var failTarget = wrappedJQuery('#toggle-target-fail');
+        ossToggle(failTarget, '/x', {}, '#del-target-fail');
+        results.failedToggleDelSurvived = document.getElementById('del-target-fail') !== null;
+    } catch (e) {
+        failures.push('ossToggle with failed request threw: ' + e);
+    } finally {
+        wrappedJQuery.ajax = realAjax2;
+        jQuery.fn.hide = realHide;
+        window.$ = realJQuery;
+        jQuery = realJQuery;
+    }
+
     // -- VIM-A15.47: Modal unavailable must still surface the message --
     var realAlert = window.alert;
     var realModal = window.bootstrap;
@@ -150,6 +209,7 @@ $(function () {
     if (!results.toggleRan) failures.push('ossToggle did not run with delElement omitted');
     if (results.toggleDelRemoved !== true) failures.push('ossToggle left the toggle button in a bad state with delElement omitted');
     if (results.undefinedCallSeen) failures.push('ossToggle called $(undefined) even though delElement was omitted -- the guard is not gating anything');
+    if (results.failedToggleDelSurvived !== true) failures.push('ossToggle removed delElement even though the request failed -- the row vanished from the page while the server still has it');
     if (results.alertMessage !== 'Delete failed, contact support') {
         failures.push('bootbox.alert did not surface its message via window.alert when Modal was unavailable: got ' + JSON.stringify(results.alertMessage));
     }
@@ -186,4 +246,5 @@ fi
 echo "ok   ossToggle with delElement omitted runs cleanly (VIM-A15.43)"
 echo "ok   addPluginTab emits text-danger, not text-error (VIM-A15.44)"
 echo "ok   bootbox.alert surfaces its message when Modal is unavailable (VIM-A15.47)"
+echo "ok   ossToggle leaves delElement in place when the request fails (VIM-A15.49)"
 echo "ALL PASSED"

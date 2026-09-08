@@ -224,7 +224,7 @@ function ossToggle( e, Url, data, delElement )
                 ossToggle( e, Url, data );
             });
 
-            if( delElement ) {
+            if( delElement && ok ) {
             	$( delElement ).hide( 'slow', function(){ $( delElement ).remove() } );
             }
 
