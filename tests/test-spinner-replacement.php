@@ -198,7 +198,29 @@ class Test_SpinnerReplacement
             echo "  OK: tt_throbber sets role=status\n";
         }
 
-        // Catches 'new Throbber(', 'new window.Throbber(' and bare Throbber(...)
+        // The AJAX error handler must tear down only the spinners this wrapper
+        // owns. 'spinner-border' is a generic Bootstrap utility class, so a
+        // document-wide removal would delete unrelated loading indicators
+        // belonging to other in-flight requests or page features.
+        if ( !preg_match('/\.addClass\(\s*[\'"]vb-throbber[\'"]\s*\)/', $wrapper) )
+        {
+            $this->failures[] = 'tt_throbber should tag its spinners with the vb-throbber class';
+        }
+        else
+        {
+            echo "  OK: tt_throbber tags its spinners with vb-throbber\n";
+        }
+
+        if ( preg_match('/\$\(\s*[\'"]\.spinner-border[\'"]\s*\)/', $content) )
+        {
+            $this->failures[] = 'error handler should not select .spinner-border document-wide; scope teardown to .vb-throbber';
+        }
+        else
+        {
+            echo "  OK: no document-wide .spinner-border teardown selector\n";
+        }
+
+        // Catches 'new Throbber(', 'new window.Throbber(' and bare Throbber(...
         // calls alike; the library is gone, so any reference is a defect.
         if ( preg_match('/\bThrobber\s*\(/', $wrapper) || preg_match('/\bThrobber\b/', $wrapper) )
         {

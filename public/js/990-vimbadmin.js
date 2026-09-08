@@ -145,8 +145,12 @@ function tt_throbber( size, lines, strokewidth, fallback )
     // Bootstrap 5 ships exactly two spinner sizes: the default and -sm.
     var sizeClass = size >= 25 ? '' : 'spinner-border-sm';
 
+    // vb-throbber marks the spinners this wrapper owns. The error handler tears
+    // down throbbers by that class, never by the generic Bootstrap utility
+    // class, so an unrelated spinner elsewhere on the page survives.
     var $el = $('<div></div>')
         .addClass('spinner-border')
+        .addClass('vb-throbber')
         .addClass(sizeClass)
         .attr('role', 'status')
         .append($('<span></span>').addClass('visually-hidden').text('Loading...'));
@@ -345,8 +349,8 @@ function ossAjaxErrorHandler( XMLHttpRequest, textStatus, errorThrown )
         $('canvas').remove();
     }
 
-    if( $('.spinner-border').length ){
-        $('.spinner-border').remove();
+    if( $('.vb-throbber').length ){
+        $('.vb-throbber').remove();
     }
     ossAddMessage( 'An unexpected error occurred.', 'danger', true );
 }

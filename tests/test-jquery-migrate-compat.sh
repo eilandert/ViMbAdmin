@@ -154,6 +154,14 @@ $(function() {
         });
     }
 
+    // jQuery animations are driven by requestAnimationFrame, which headless
+    // Chrome does not advance under --virtual-time-budget: fadeOut() queues a
+    // timer that never steps, so the element is never removed and a teardown
+    // assertion cannot distinguish "still fading" from "never removed".
+    // $.fx.off makes animations complete synchronously, which is what lets the
+    // teardown check below assert removal rather than merely callability.
+    $.fx.off = true;
+
     check('jQuery 4.0.0 loaded', function() { return $.fn.jquery === '4.0.0'; });
     check('spinner renders and stop() is callable', function() {
         // Call tt_throbber directly to mount a spinner at the test point
@@ -161,9 +169,11 @@ $(function() {
         spinner.appendTo('#throb-test');
         spinner.start();
         // Verify spinner element exists in DOM
-        var hasSpinner = $('#throb-test .spinner-border').length > 0;
+        var hasSpinner = $('#throb-test .vb-throbber').length > 0;
         if (!hasSpinner) return false;
-        // stop() fades out asynchronously; only its callability is checked here
+        // stop() fades out over 750ms and removes the element only in the
+        // completion callback, so teardown is asserted in the deferred block
+        // below rather than here.
         spinner.stop();
         return true;
     });
@@ -289,9 +299,19 @@ $(function() {
             return bootboxResult === true;
         });
 
-        if (warnings.length) failures.push('Migrate warning: ' + warnings.join(' | '));
-        document.getElementById('output').textContent = JSON.stringify({ mode: mode, warnings: warnings, failures: failures });
-        document.body.dataset.verdict = failures.length ? 'FAIL' : 'PASS';
+        // tt_throbber.stop() fades out over 750ms and removes the element in
+        // the fadeOut completion callback, so the teardown assertion and the
+        // verdict must both wait beyond that. Asserting at 300ms would pass
+        // even when stop() never removes anything.
+        setTimeout(function() {
+            check('stopping a spinner removes it from the DOM', function() {
+                return $('#throb-test .vb-throbber').length === 0;
+            });
+
+            if (warnings.length) failures.push('Migrate warning: ' + warnings.join(' | '));
+            document.getElementById('output').textContent = JSON.stringify({ mode: mode, warnings: warnings, failures: failures });
+            document.body.dataset.verdict = failures.length ? 'FAIL' : 'PASS';
+        }, 900);
     }, 300);
 });
 </script></body></html>
@@ -302,7 +322,7 @@ run_mode() {
   local fragment=${2:-}
   local output=$tmp/$mode${fragment//[^a-z-]/}.html
   chrome_args=(
-    --headless --disable-gpu --virtual-time-budget=2000
+    --headless --disable-gpu --virtual-time-budget=3000
     --user-data-dir="$tmp/profile" --dump-dom
     "http://127.0.0.1:8765/regression.html?$mode$fragment"
   )
