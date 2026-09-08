@@ -126,7 +126,12 @@ var bootbox = window.bootbox || {};
             // or hide the dialog, so degrade the same way callers expect a
             // dismissed alert to behave: drop the detached markup immediately
             // and still run the callback, instead of leaving hidden markup in
-            // the DOM with the callback never firing.
+            // the DOM with the callback never firing. Capture the message text
+            // BEFORE removing the dialog and surface it via the native alert --
+            // without this the message was silently discarded and the caller
+            // believed the user had acknowledged it.
+            window.alert( $dialog.find( '.modal-body' ).text() || String( message ) );
+
             $dialog.remove();
 
             if( typeof callback === 'function' )

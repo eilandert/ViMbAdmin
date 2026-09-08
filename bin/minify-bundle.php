@@ -135,6 +135,44 @@ function vimbadminResolveBundleInputs(
 }
 
 /**
+ * Strip a leading `@charset` at-rule from CSS that is about to be concatenated
+ * as a NON-FIRST chunk of a bundle.
+ *
+ * CSS permits `@charset` only as the very first thing in a stylesheet (no
+ * preceding bytes, not even a comment or BOM); a browser silently discards any
+ * later occurrence as an invalid at-rule. `bin/minify-bundle.php` concatenates
+ * minified CSS inputs in list order, and Google's closure-css/clean-css do not
+ * strip a source file's own `@charset` -- so an input file that legitimately
+ * opens with `@charset "UTF-8";` (public/css/816-datatables-bootstrap5.css)
+ * drags a dead, invalid at-rule into the MIDDLE of the merged bundle whenever
+ * it is not the first input (VIM-A15.46).
+ *
+ * This only ever strips a chunk that is NOT the first in the bundle -- call it
+ * with $isFirst = true for the first input and it returns $css unchanged, so a
+ * legitimate leading @charset on the bundle's actual first byte survives.
+ *
+ * Deliberately pure and side-effect free, like vimbadminResolveBundleInputs(),
+ * so tests/test-minify-bundle-inputs.php can exercise it without Java or
+ * clean-css.
+ *
+ * @param bool $isFirst whether $css is the first chunk written into the bundle
+ */
+function vimbadminStripLeadingCharset(string $css, bool $isFirst): string
+{
+    if ($isFirst) {
+        return $css;
+    }
+
+    // Matches only a leading @charset rule (optionally preceded by whitespace
+    // a minifier left behind), never one that merely appears later in the
+    // file -- `preg_replace`'s `^` anchor with no /m flag matches only the
+    // start of the whole string.
+    $stripped = preg_replace('/^\s*@charset\s+(?:"[^"]*"|\'[^\']*\')\s*;/', '', $css, 1);
+
+    return $stripped ?? $css;
+}
+
+/**
  * Load bin/minify-bundle-files.php and prove its shape.
  *
  * The file is plain data, but it is still a `require`, so nothing about its
@@ -314,6 +352,7 @@ function vimbadminBuildBundle(
 
     $say("\n    Combining...");
     $merged = '';
+    $first = true;
     foreach ($inputs as $input) {
         $minified = $config['dest'] . '/min.' . basename($input);
         $contents = file_get_contents($minified);
@@ -321,7 +360,17 @@ function vimbadminBuildBundle(
             fwrite(STDERR, "FATAL: could not read {$minified}\n");
             exit(1);
         }
+
+        // Only a NON-first CSS chunk's own @charset is dead weight in the
+        // middle of the bundle; the bundle's first byte may legitimately open
+        // with one (VIM-A15.46). JS has no @charset concept, so this is a
+        // no-op there.
+        if ($kind === 'css') {
+            $contents = vimbadminStripLeadingCharset($contents, $first);
+        }
+
         $merged .= $contents;
+        $first = false;
 
         if ($config['delMinis']) {
             unlink($minified);
