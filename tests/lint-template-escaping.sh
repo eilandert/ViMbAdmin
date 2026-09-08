@@ -52,7 +52,7 @@ scan_file() {
 # before VIM-A15.42, which is how three consecutive review rounds each shipped
 # green while each left a real blind spot behind.
 self_test() {
-  local tmpdir dirty clean status=0 expected actual
+  local tmpdir dirty clean status=0 expected actual probe_hits
   tmpdir=$(mktemp -d)
   trap 'rm -rf "$tmpdir"' RETURN
   dirty="$tmpdir/dirty.js"
@@ -75,12 +75,27 @@ var a = { mydata: {$rows} };
 var b = { 'data: {$rows} };
 var c = { data: {$rows nofilter} };
 var d = { source: {$emails|escape:'javascript'} };
-var e = { data: {$rows} };
 EOF
-  # Line 5 of the clean fixture is deliberately a REAL finding, removed below;
-  # keeping the clean fixture otherwise identical in shape is what proves the
-  # rejections are about the spelling and not about the file.
-  sed -i '5d' "$clean"
+
+  # Non-vacuity probe for the clean fixture. A file the scan simply cannot see
+  # -- wrong glob, unreadable, an early `return` -- would also report zero hits,
+  # so "0 hits on $clean" alone does not prove the four spellings above are
+  # being REJECTED rather than never examined. Append one real finding, require
+  # it to be caught, then remove it and require the file to go quiet again.
+  # Both halves are observed, which is what the earlier write-then-delete round
+  # trip failed to do (it deleted the line before anything read it).
+  # SC2016: `{$rows}` is literal Smarty source text in the fixture, not a shell
+  # expansion -- single quotes are correct.
+  # shellcheck disable=SC2016
+  echo 'var e = { data: {$rows} };' >>"$clean"
+  probe_hits=$(scan_file "$clean" | grep -c . || true)
+  if [ "$probe_hits" -lt 1 ]; then
+    echo "  FAIL: clean fixture is not being scanned at all -- the seeded finding went unreported" >&2
+    status=1
+  fi
+  # Rewrite without the seeded line (no `sed -i`, which is GNU-only and fails
+  # on BSD/macOS sed without a backup suffix).
+  grep -v '^var e = ' "$clean" >"$clean.tmp" && mv "$clean.tmp" "$clean"
 
   echo "== self-test: negative control, unescaped JS emits must be caught =="
   expected=5

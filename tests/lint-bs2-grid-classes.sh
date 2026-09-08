@@ -233,14 +233,27 @@ EOF
   # without proving it is COMPLETE. Pinning the number turns a partial
   # degradation into a visible mismatch.
   #
-  # 13 = one hit per Bootstrap 2 token seeded in the dirty fixture, counting
-  # each token separately where a value carries two (`span4 offset2`). The
-  # last four are the VIM-A15.31 Smarty spellings (cases 1, 3, 4 and 5): each
-  # of them USED to drop the whole attribute value, taking its span6 with it,
-  # which is a MISSED regression -- the worst failure mode this gate has.
-  # Removing any one of them from the shared lexer's handling drops this count
-  # by exactly one, which is what makes the pin a real control rather than a
-  # "nonzero hits" smoke test.
+  # 15 = one hit per Bootstrap 2 token seeded in the dirty fixture, counting
+  # each token separately where a value carries two. Derived:
+  #
+  #   row-fluid, span6 (double-quoted), span6 (single-quoted),
+  #   span4 + offset2 (two in one value), span6 (spaced equals),
+  #   span3 (wrapped value), span6 + span12 (the {if}/{else} row)   = 9
+  #   plus one each for the six VIM-A15.31 Smarty spellings below
+  #   (cases 1, 1b, 3, 3b, 4, 5)                                    = 6
+  #                                                                 ---
+  #                                                                  15
+  #
+  # This total is the COARSE check -- "nothing else moved". It is deliberately
+  # NOT the control for the individual Smarty cases, and it cannot be: as the
+  # stage-2 note at the top of this file explains, the delimiter-to-space
+  # tokenisation recovers the class token from a mangled value whenever the
+  # truncation lands after the class, so breaking cases 3, 4 or 5 does not
+  # reliably move this number at all. It was also measured to stay UNCHANGED
+  # when two adjacent fixture rows merged into one value.
+  #
+  # What pins the individual cases is the per-case `grep -qxF` assertion on the
+  # EXTRACTED VALUE, in the block immediately below this one.
   echo "== self-test: negative control, reintroduced Bootstrap 2 grid classes must be caught =="
   expected_hits=15
   actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap 2 grid class' || true)

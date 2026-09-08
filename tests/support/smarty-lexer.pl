@@ -248,45 +248,6 @@ sub smarty_attr_values {
     return @out;
 }
 
-# smarty_js_string_spans(\$s)
-#
-# Return the [start, end) offsets of every JS string literal in $$sref, using
-# the same lexer. Callers use this to answer "is this offset INSIDE a string
-# literal?", which is the question tests/lint-template-escaping.sh needs and
-# could not ask with a preceding-character regex guard (VIM-A15.42): a quoted
-# key that IMMEDIATELY follows a string delimiter, `var s = "'data': {$rows}";`,
-# has a quote as its preceding character, and the guard that correctly rejects
-# an unmatched `'data:` also rejected this.
-#
-# Deciding it by CONTEXT rather than by the preceding character keeps both
-# behaviours: `mydata:` still fails the identifier boundary, an unmatched
-# `'data:` still fails the paired-quote requirement, and a properly paired
-# `'data':` inside a string literal is now reachable.
-sub smarty_js_string_spans {
-    my ($sref) = @_;
-    my @spans;
-    my $n = length($$sref);
-    my $i = 0;
-    while ($i < $n) {
-        my $c = substr($$sref, $i, 1);
-        if ($c eq '"' || $c eq "'") {
-            my ($next, $kind) = smarty_skip_construct($sref, $i);
-            # A string that runs to end of input is unterminated; record it as
-            # a span anyway so the caller's "inside a string" answer is stable,
-            # and stop.
-            push @spans, [$i, $next];
-            $i = $next;
-            next;
-        }
-        if ($c eq '{') {
-            ($i) = smarty_skip_construct($sref, $i);
-            next;
-        }
-        $i++;
-    }
-    return @spans;
-}
-
 # smarty_unescaped_js_keys(\$s, $keys_re)
 #
 # Find every JS object key matching $keys_re whose value is a bare Smarty

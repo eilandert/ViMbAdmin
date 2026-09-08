@@ -243,16 +243,24 @@ EOF
   echo "== self-test: negative control, reintroduced Bootstrap 2 component classes must be caught =="
   # Real Bootstrap 2 markup pairs the base `.label` with its variant
   # (`class="label label-important"`), and both `label` and `label-important`
-  # independently match the guarded-class set -- so each of the four
-  # label-variant rows seeds 2 hits, not 1: 10 single-hit rows (well x2, bare
-  # label, btn-mini, btn-small, pull-right, pull-left, alert-error,
-  # nav-collapse, navbar-inner) + 4 label-variant rows x 2 hits (8) + 2 hits
-  # inside the trailing Smarty {if}/{else} expression (well, navbar-inner)
-  # = 10 + 8 + 2 = 20, plus one previously-counted row = 21, plus the four
-  # VIM-A15.31 Smarty spellings seeded below (cases 1, 3, 4 and 5, one guarded
-  # class each) = 25. The per-case value assertions below are the control that
-  # actually pins those four; this total is the coarser "nothing else moved"
-  # check.
+  # independently match the guarded-class set -- so each label-variant row
+  # seeds 2 hits, not 1. Derived:
+  #
+  #   10 single-hit rows: well x2, bare label, btn-mini, btn-small,
+  #      pull-right, pull-left, alert-error, nav-collapse, navbar-inner  = 10
+  #   4 label-variant rows x 2 hits (label + the variant)                =  8
+  #   the trailing Smarty {if}/{else} row (well, navbar-inner)           =  2
+  #   the mixed-delimiter Smarty row (alert-error)                       =  1
+  #   the six VIM-A15.31 Smarty spellings below, one guarded class each
+  #      (cases 1, 1b, 3, 3b, 4, 5)                                      =  6
+  #                                                                      ----
+  #                                                                        27
+  #
+  # This total is the COARSE check -- "nothing else moved". The per-case
+  # `grep -qxF` assertions on the EXTRACTED VALUE, in the block below, are what
+  # pin the individual Smarty cases; the total cannot, because a regression
+  # that merges two adjacent fixture rows into one value leaves it unchanged
+  # (measured -- see that block).
   expected_hits=27
   actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap 2 component class' || true)
   if [ "$actual_hits" -eq "$expected_hits" ]; then
