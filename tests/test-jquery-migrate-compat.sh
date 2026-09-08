@@ -55,7 +55,7 @@ for asset in \
   152-jquery.datatables.bootstrap5.js \
   310-throbber.js 800-bootstrap.js 850-bootbox.js 900-vimbadmin.validate.js \
   910-vimbadmin.functions.js 990-vimbadmin.js \
-  min.bundle-v19.js; do
+  min.bundle-v20.js; do
   cp "public/js/$asset" "$tmp/$asset"
 done
 # The search text contains a literal Smarty variable, not a shell variable.
@@ -75,7 +75,7 @@ console.warn = function() {
 };
 window.onerror = function(message) { failures.push('page error: ' + message); };
 var scripts = mode === 'production'
-    ? ['min.bundle-v19.js','view-admin-domains.js']
+    ? ['min.bundle-v20.js','view-admin-domains.js']
     : ['100-jquery.js','120-jquery.validate.js',
        '150-jquery.datatables.js','151-jquery.datatables.ext.js',
        '152-jquery.datatables.bootstrap5.js',
