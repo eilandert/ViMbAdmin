@@ -40,7 +40,14 @@ for f in application/views/*/js/*.js; do
   # Lines that look like a JS array/object source being fed a Smarty var:
   #   source: {$emails}      |  data: {$rows}   |  = {$foo}.split(   etc.
   # i.e. a {$var} that sits where a JSON literal is expected.
-  hits=$(grep -nE '(^|[^A-Za-z0-9_])['\''"]?(source|data|aaData|aoColumns|columns)['\''"]?[[:space:]]*:[[:space:]]*\{\$[A-Za-z_][^}]*\}' "$f" 2>/dev/null |
+  # The key must be a whole word, and if quoted the quotes must PAIR: an
+  # unmatched `'data:` is not a key. ERE has no backreferences, so the three
+  # cases are spelled out. The preceding char must be neither an identifier
+  # char (rejects `mydata:`) nor a quote (rejects the unmatched-quote case).
+  _k='(source|data|aaData|aoColumns|columns)'
+  _key="(${_k}|'${_k}'|\"${_k}\")"
+  _val='[[:space:]]*:[[:space:]]*\{\$[A-Za-z_][^}]*\}'
+  hits=$(grep -nE "(^|[^A-Za-z0-9_$'\"])${_key}${_val}" "$f" 2>/dev/null |
     grep -vE 'nofilter|escape:'"'"'javascript'"'"'' || true)
   if [ -n "$hits" ]; then
     echo "  $f:"
