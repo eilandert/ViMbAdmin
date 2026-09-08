@@ -31,7 +31,22 @@
 #
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+# Resolve this script's own directory to an ABSOLUTE path BEFORE any `cd`.
+# `$0` is relative when the gate is invoked as `bash lint-bs2-grid-classes.sh`
+# from inside tests/, so `$(dirname "$0")` re-resolves against whatever the cwd
+# is at the moment it is evaluated -- after the `cd` below it would mean the
+# repo root, not tests/. Resolving once, up front, is what makes the gate work
+# from any cwd. (VIM-A15.31 follow-up: this is the same silent-wrong-path class
+# the shared lexer exists to remove, so the gates must not reintroduce it.)
+script_dir=$(unset CDPATH; cd -- "$(dirname -- "$0")" && pwd)
+
+cd "$script_dir/.."
+
+# Shared Smarty-aware value scanner (VIM-A15.31/.42). Sourced, not registered
+# as its own gate: it is a library, and its behaviour is asserted through this
+# gate's self-test below.
+# shellcheck source=tests/support/smarty-lexer.sh
+source "$script_dir/support/smarty-lexer.sh"
 
 # `**` needs globstar, which is a bash 4+ feature. On bash 3.2 (still the
 # default /bin/bash on macOS) `application/views/**/*.phtml` silently degrades
@@ -53,6 +68,26 @@ fi
 #   2. The value is then split on whitespace and each token compared against
 #      the Bootstrap 2 spellings exactly.
 #
+# ⚠ STAGE 2 MASKS STAGE 1 DEFECTS, and that is why this gate needed a real
+# lexer rather than a seventh regex round. Replacing the Smarty delimiters with
+# spaces and tokenising on whitespace RECOVERS the class token even from a value
+# stage 1 mangled, as long as the truncation happens to land AFTER the class.
+# So a broken extractor still reports the right answer, the gate stays green,
+# and the parsing bug is invisible from the gate's verdict. Four prior regex
+# rounds each shipped green over a real mis-parse for exactly this reason.
+#
+# Measured consequence: of the five Smarty spellings in VIM-A15.31, only the
+# same-quote forms are live gate-level false negatives; the brace-in-string,
+# escaped-quote and Smarty-comment forms are extractor-level only, because this
+# tokenisation recovers their class anyway. The one input that defeats it
+# end-to-end is TWO same-quote pairs (`{if $m == "a" && $n == "b"}span6{/if}`),
+# where the old `.*?` extractor truncated at the FIRST inner quote -- before
+# the class -- leaving nothing to recover.
+#
+# The practical rule this leaves behind: extractor correctness must be asserted
+# DIRECTLY, on the extracted value, never inferred from this gate staying green.
+# That is what the per-case `grep -qxF` assertions in self_test() below are for.
+
 # Stage 2 being an exact token comparison is what makes `custom-span6`,
 # `span6-label`, `myoffset2`, `span60` and `col-md-60` non-matches without any
 # boundary regex to get wrong -- they are simply different tokens. And stage 1
@@ -72,14 +107,14 @@ bs2_tokens_re="^(row-fluid|span${bs2_num}|offset${bs2_num})$"
 # Prints one line per class attribute value found, as `<value>`. A value that
 # wrapped across lines is printed with its newlines collapsed to spaces, which
 # is exactly the tokenisation stage 2 wants anyway.
+#
+# The scanning is delegated to the shared Smarty-aware lexer in
+# tests/support/smarty-lexer.sh. It used to be a single regex here, and that
+# regex was defeated by five different Smarty spellings across four PR review
+# rounds (VIM-A15.31); read the lexer's header for the list and for why a lexer
+# rather than a sixth alternation branch.
 extract_class_values() {
-  perl -0777 -ne '
-    while (/(?:^|[\s])class\s*=\s*(["\x27])(.*?)\1(?=[\s>\/])/gs) {
-      my $v = $2;
-      $v =~ s/\s+/ /g;
-      print "$v\n";
-    }
-  ' "$1"
+  smarty_extract_attr_values "$1" class
 }
 
 # scan_files: extract every class attribute value from the given files and
@@ -153,7 +188,34 @@ self_test() {
                 span3">wrapped attribute value, spanning two lines</div>
     <div class="{if $wide}span6{else}span12{/if}">Smarty expression inside the
         attribute value: its inner quotes must not end the scan early</div>
+    <div class="{if $mode == "wide" }span6{/if}">a DOUBLE-quoted Smarty string
+        inside a DOUBLE-quoted attribute: the inner quote must not end the
+        value before span6 (VIM-A15.31 case 1)</div>
+    <div class="{if $mode == '{'}span6{/if}">a Smarty string literal whose
+        CONTENT is a brace. The span must be delimited by structural braces
+        only, or the value is dropped entirely and span6 goes unseen
+        (VIM-A15.31 case 3)</div>
+    <div class="{if $name == 'O\'Brien'}span6{/if}">a Smarty string literal
+        containing an ESCAPED quote. The string branch must consume the escape
+        as a unit, or the value is dropped and span6 goes unseen
+        (VIM-A15.31 case 4)</div>
+    <div class="{* user's note *}span6">a Smarty COMMENT containing an
+        apostrophe. Its body is not Smarty syntax, so the apostrophe must not
+        open a string; every regex formulation of this branch either dropped
+        the value or backtracked catastrophically (VIM-A15.31 case 5)</div>
 </div>
+    <div class="{if $mode == '}"'}span6{/if}">a Smarty string carrying BOTH a
+        closing brace and the attribute's own delimiter. Only skipping strings
+        while walking the span body keeps the span from closing at that `}`
+        and the value from ending at that `"`, taking span6 with it
+        (VIM-A15.31 case 3)</div>
+    <div class="{if $m == "a" && $n == "b"}span6{/if}">TWO same-quote Smarty
+        string pairs. This is the only measured input that defeats the OLD grid
+        gate end-to-end: its `.*?` extractor truncates at the FIRST inner quote,
+        to `{if $m == "a`, which lands BEFORE the class -- so the
+        delimiter-to-space tokenisation has nothing left to recover and span6 is
+        never seen. Both gates reported a genuine Bootstrap 2 class as clean
+        (VIM-A15.31 case 1b)</div>
 EOF
 
   cat >"$clean" <<'EOF'
@@ -180,10 +242,29 @@ EOF
   # without proving it is COMPLETE. Pinning the number turns a partial
   # degradation into a visible mismatch.
   #
-  # 9 = one hit per Bootstrap 2 token seeded in the dirty fixture, counting
-  # each token separately where a value carries two (`span4 offset2`).
+  # 15 = one hit per Bootstrap 2 token seeded in the dirty fixture, counting
+  # each token separately where a value carries two. Derived:
+  #
+  #   row-fluid, span6 (double-quoted), span6 (single-quoted),
+  #   span4 + offset2 (two in one value), span6 (spaced equals),
+  #   span3 (wrapped value), span6 + span12 (the {if}/{else} row)   = 9
+  #   plus one each for the six VIM-A15.31 Smarty spellings below
+  #   (cases 1, 1b, 3, 3b, 4, 5)                                    = 6
+  #                                                                 ---
+  #                                                                  15
+  #
+  # This total is the COARSE check -- "nothing else moved". It is deliberately
+  # NOT the control for the individual Smarty cases, and it cannot be: as the
+  # stage-2 note at the top of this file explains, the delimiter-to-space
+  # tokenisation recovers the class token from a mangled value whenever the
+  # truncation lands after the class, so breaking cases 3, 4 or 5 does not
+  # reliably move this number at all. It was also measured to stay UNCHANGED
+  # when two adjacent fixture rows merged into one value.
+  #
+  # What pins the individual cases is the per-case `grep -qxF` assertion on the
+  # EXTRACTED VALUE, in the block immediately below this one.
   echo "== self-test: negative control, reintroduced Bootstrap 2 grid classes must be caught =="
-  expected_hits=9
+  expected_hits=15
   actual_hits=$(scan_files "$dirty" | grep -c 'Bootstrap 2 grid class' || true)
   if [ "$actual_hits" -eq "$expected_hits" ]; then
     echo "  OK: all $expected_hits seeded regressions detected, in both quoting styles"
@@ -191,6 +272,44 @@ EOF
     echo "  FAIL: expected $expected_hits hits in $dirty, got $actual_hits" >&2
     status=1
   fi
+
+
+  # Per-case assertion for the four VIM-A15.31 Smarty spellings, on the
+  # EXTRACTED VALUE rather than on the hit count. The count alone is not a
+  # sufficient control here: when one of these cases regresses, the value's
+  # closing delimiter is missed and the row MERGES with the next one, which can
+  # leave the total unchanged (measured -- disabling the string-escape branch
+  # did exactly that in this gate). Requiring each case to come back as its own
+  # value, ending where it should, is what makes all four independently
+  # load-bearing.
+  echo "== self-test: each VIM-A15.31 Smarty spelling must be extracted as its own value =="
+  local case_entry case_desc case_value
+  # SC2016: the `$mode`/`$name` here are LITERAL Smarty source text in the
+  # expected value, not shell expansions -- single quotes are correct.
+  # shellcheck disable=SC2016
+  local -a a1531_cases=(
+    'case 1, same-quote Smarty literal|{if $mode == "wide" }span6{/if}'
+    'case 1b, two same-quote Smarty pairs|{if $m == "a" && $n == "b"}span6{/if}'
+    "case 3, brace inside a Smarty string|{if \$mode == '{'}span6{/if}"
+    "case 3b, string carrying a brace AND the delimiter|{if \$mode == '}\"'}span6{/if}"
+    "case 4, escaped quote in a Smarty string|{if \$name == 'O'Brien'}span6{/if}"
+    "case 5, Smarty comment containing an apostrophe|{* user's note *}span6"
+  )
+  for case_entry in "${a1531_cases[@]}"; do
+    case_desc="${case_entry%%|*}"
+    case_value="${case_entry##*|}"
+    # -F: the expected value contains regex metacharacters ({ } $ * . ') and is
+    # compared as literal text, never interpolated into a pattern.
+    # -x: the whole extracted value must equal this, so a value that swallowed
+    # the following fixture row (the merge failure above) does NOT match.
+    if extract_class_values "$dirty" | grep -qxF "$case_value"; then
+      echo "  OK: $case_desc"
+    else
+      echo "  FAIL: $case_desc -- value not extracted whole" >&2
+      echo "        expected exactly: $case_value" >&2
+      status=1
+    fi
+  done
 
   echo "== self-test: Bootstrap 5 markup must not false-positive =="
   if scan_files "$clean" >/dev/null 2>&1; then
