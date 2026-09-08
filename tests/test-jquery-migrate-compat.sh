@@ -3,14 +3,22 @@
 # Exercise the supported jQuery 4 plugin stack in a real browser. jQuery was
 # upgraded from 3.7.1 to 4.0.0 (VIM-A15.29) and the jQuery Migrate shim --
 # written for the 1.9-3.x upgrade path -- was deleted with it, so the
-# development/early/production three-lane split that used to isolate Migrate's
-# deprecation warnings from production is kept only for asset-loading parity
-# between the individual-file and bundled paths; there is no Migrate mode left
-# to assert.
+# three-lane split that used to isolate Migrate's deprecation warnings from
+# production is kept only for asset-loading parity between the individual-file
+# and bundled paths; there is no Migrate mode left to assert.
+#
+# The lanes are development/second-load/production. The middle lane was called
+# `early` when it differed from `development` by splicing jquery-migrate to the
+# FRONT of the script list -- a load-order assertion. That splice went with the
+# shim in PR #190, so the lane now loads exactly the same assets as
+# `development` and its real job is to be the SECOND page load in the
+# preferences-cookie chain: `development` writes a marker, `second-load`
+# asserts it read `development`'s, `production` asserts it read
+# `second-load`'s. Renamed to say so (VIM-A15.51).
 #
 # DROPPED COVERAGE (approved 2026-09-08): this test used to also load and
 # assert Chosen (public/js/300-chosen.jquery.js) and Colorbox
-# (public/js/130-jquery.colorbox.js) in its development/early lanes. Both are
+# (public/js/130-jquery.colorbox.js) in its non-production lanes. Both are
 # dropped here. jQuery 4.0.0 removed $.trim (https://jquery.com/upgrade-guide/4.0/),
 # which 300-chosen.jquery.js:1240 calls from get_search_text(), reached at
 # runtime from live search filtering at line 351 -- so loading Chosen under
@@ -193,7 +201,7 @@ $(function() {
     check('preferences cookie persists between development and production page loads', function() {
         if (mode === 'development') return true;
         var persisted = vmPrefsCookie('vm_prefs');
-        return persisted && persisted.marker === (mode === 'early' ? 'development' : 'early');
+        return persisted && persisted.marker === (mode === 'second-load' ? 'development' : 'second-load');
     });
     check('a cookie written by the old plugin is still readable', function() {
         // The removed $.jsonCookie wrote raw JSON with no URI-encoding. If the
@@ -307,7 +315,7 @@ mutation=${VIMBADMIN_MUTATION:-}
 case "$mutation" in
   '')
     run_mode development
-    run_mode early
+    run_mode second-load
     run_mode production
     # Negative controls run in the default lane, so a rotted oracle fails CI
     # instead of waiting for someone to remember an env var.
