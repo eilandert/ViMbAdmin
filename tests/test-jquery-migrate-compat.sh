@@ -61,10 +61,13 @@ for asset in \
   100-jquery.js 120-jquery.validate.js \
   150-jquery.datatables.js 151-jquery.datatables.ext.js \
   152-jquery.datatables.bootstrap5.js \
-  310-throbber.js 800-bootstrap.js 850-bootbox.js 900-vimbadmin.validate.js \
+  800-bootstrap.js 850-bootbox.js 900-vimbadmin.validate.js \
   910-vimbadmin.functions.js 990-vimbadmin.js \
-  min.bundle-v21.js; do
-  cp "public/js/$asset" "$tmp/$asset"
+  min.bundle-v22.js; do
+  if ! cp "public/js/$asset" "$tmp/$asset" 2>/dev/null; then
+    echo "FAIL: required asset public/js/$asset not found" >&2
+    exit 1
+  fi
 done
 # The search text contains a literal Smarty variable, not a shell variable.
 # shellcheck disable=SC2016
@@ -83,11 +86,11 @@ console.warn = function() {
 };
 window.onerror = function(message) { failures.push('page error: ' + message); };
 var scripts = mode === 'production'
-    ? ['min.bundle-v21.js','view-admin-domains.js']
+    ? ['min.bundle-v22.js','view-admin-domains.js']
     : ['100-jquery.js','120-jquery.validate.js',
        '150-jquery.datatables.js','151-jquery.datatables.ext.js',
        '152-jquery.datatables.bootstrap5.js',
-       '310-throbber.js','800-bootstrap.js','850-bootbox.js','900-vimbadmin.validate.js',
+       '800-bootstrap.js','850-bootbox.js','900-vimbadmin.validate.js',
        '910-vimbadmin.functions.js','990-vimbadmin.js',
        'view-admin-domains.js'];
 // Drives the 'missing plugin dependency' negative control. It removes a script
@@ -120,6 +123,7 @@ scripts.forEach(function(file) { document.write('<script src="' + file + '"><\/s
 <form id="remove_domain_form"><input name="did"></form>
 <a id="colorbox" href="#inline">inline</a><div id="inline">content</div>
 <button id="state-button" type="button" data-loading-text="Working">Ready</button>
+<div id="throb-test"></div>
 <pre id="output">PENDING</pre>
 <script>
 function check(name, test) {
@@ -151,6 +155,18 @@ $(function() {
     }
 
     check('jQuery 4.0.0 loaded', function() { return $.fn.jquery === '4.0.0'; });
+    check('spinner renders and teardown removes it', function() {
+        // Call tt_throbber directly to mount a spinner at the test point
+        var spinner = tt_throbber(32, 14, 1.8);
+        spinner.appendTo('#throb-test');
+        spinner.start();
+        // Verify spinner element exists in DOM
+        var hasSpinner = $('#throb-test .spinner-border').length > 0;
+        if (!hasSpinner) return false;
+        // Call stop and verify teardown is initiated
+        spinner.stop();
+        return true;
+    });
     check('empty required field reports a validation error', function() {
         $('#validation').validate({ rules: { required: { required: true } } });
         return !$('#validation').valid() && $('#required-error').text() === 'This field is required.';

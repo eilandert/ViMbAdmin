@@ -142,19 +142,31 @@ $( 'document' ).ready( function(){
 
 function tt_throbber( size, lines, strokewidth, fallback )
 {
-    if( !fallback )
-        fallback = 'images/throbber_32px.gif';
+    var sizeClass = 'spinner-border-sm';
+    if( size > 50 ) {
+        sizeClass = 'spinner-border';
+    } else if( size >= 25 ) {
+        sizeClass = '';
+    }
 
-    return new Throbber({
-        "color": 'black',
-        "size": size,
-        "fade": 750,
-        "fallback": fallback,
-        "rotationspeed": 0,
-        "lines": lines,
-        "strokewidth": strokewidth,
-        "alpha": 1
-    });
+    var $spinner = $('<div></div>')
+        .addClass('spinner-border')
+        .addClass(sizeClass)
+        .attr('role', 'status')
+        .append($('<span></span>').addClass('visually-hidden').text('Loading...'));
+
+    $spinner.start = function() {
+        return this;
+    };
+
+    $spinner.stop = function() {
+        this.fadeOut(750, function() {
+            $(this).remove();
+        });
+        return this;
+    };
+
+    return $spinner;
 }
 
 /**
@@ -327,6 +339,10 @@ function ossAjaxErrorHandler( XMLHttpRequest, textStatus, errorThrown )
 
     if( $('canvas').length ){
         $('canvas').remove();
+    }
+
+    if( $('.spinner-border').length ){
+        $('.spinner-border').remove();
     }
     ossAddMessage( 'An unexpected error occurred.', 'danger', true );
 }

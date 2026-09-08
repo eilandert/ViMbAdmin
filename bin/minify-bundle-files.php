@@ -46,7 +46,6 @@ return [
         '150-jquery.datatables.js',
         '151-jquery.datatables.ext.js',
         '152-jquery.datatables.bootstrap5.js',
-        '310-throbber.js',
         '800-bootstrap.js',
         '850-bootbox.js',
         '900-vimbadmin.validate.js',
